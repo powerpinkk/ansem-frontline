@@ -32,19 +32,25 @@ python -m http.server 8080
 # Open http://localhost:8080
 ```
 
-## GitHub Pages (one-time setup)
+## Live URLs
 
-1. Open **Settings → Pages**:  
-   https://github.com/powerpinkk/ansem-frontline/settings/pages
+| Platform | URL | Status |
+|----------|-----|--------|
+| **Vercel** | https://ansem-frontline.vercel.app | ✅ Working now |
+| **GitHub Pages** | https://powerpinkk.github.io/ansem-frontline/ | Requires setup below |
 
-2. Under **Build and deployment → Source**, choose **Deploy from a branch**.
+## GitHub Pages setup (if you want the .github.io URL)
 
-3. Set **Branch** to `main` and folder to **`/ (root)`**, then click **Save**.
+GitHub Pages is **not active yet** — waiting won't fix a 404. You must enable it once:
 
-4. Wait 1–2 minutes. Your site will be live at:  
-   **https://powerpinkk.github.io/ansem-frontline/**
+1. Log in as **powerpinkk** on GitHub
+2. Open: https://github.com/powerpinkk/ansem-frontline/settings/pages
+3. **Build and deployment → Source:** Deploy from a branch
+4. **Branch:** try `gh-pages` first (already created), folder **`/ (root)`**
+5. Click **Save** — you must see a green banner: *"Your site is live at..."*
+6. If `gh-pages` doesn't work, switch branch to `main` and Save again
 
-> Do **not** use "GitHub Actions" as the source — this project is static HTML and deploys directly from the branch.
+If nothing happens when you click Save, set Source to **None**, Save, then repeat steps 3–5.
 
 ## Configuration
 
