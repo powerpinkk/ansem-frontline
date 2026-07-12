@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>$ANSEM FRONTLINE • On-Chain Live Data</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Orbitron:wght@500;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/styles.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+</head>
+<body>
+
+<div id="container">
+    <div id="topbar">
+        <div>
+            <div class="brand-title">$ANSEM <span>FRONTLINE</span></div>
+            <div id="status-text">LIVE PRICE · ON-CHAIN SWAPS · GECKOTERMINAL</div>
+            <div id="connection-status" class="connection-status connecting">
+                <span class="connection-dot"></span>
+                <span id="connection-label">CONNECTING…</span>
+            </div>
+        </div>
+        <div class="top-stats-container">
+            <div style="display: flex; gap: 8px; margin-right: 15px;">
+                <button id="cam-auto" class="control-btn active-blue" type="button">🎥 AUTO</button>
+                <button id="cam-free" class="control-btn" type="button">🕹️ FREE</button>
+            </div>
+
+            <button id="sound-btn" class="control-btn" type="button">🔇 SOUND</button>
+
+            <div class="info-box">
+                <div class="info-label">MCAP</div>
+                <div class="info-value" id="mcap-value">$0.00M</div>
+            </div>
+
+            <div class="info-box" id="holders-box">
+                <div class="info-label">HOLDERS</div>
+                <div class="info-value" id="holders-counter">—</div>
+            </div>
+
+            <canvas id="mini-chart" width="120" height="35" aria-label="1 hour price chart"></canvas>
+
+            <div id="price-container">
+                <div id="price">$0.000000</div>
+                <div id="change" class="neutral">0.00%</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="main">
+        <div id="canvas-container">
+            <canvas id="three-canvas"></canvas>
+            <div id="floating-text-container"></div>
+        </div>
+        <div id="sidebar">
+            <div id="momentum">
+                <div class="bar-container">
+                    <div class="bar-label">
+                        <span style="color:var(--meadow-green)">BULL DOMINANCE</span>
+                        <span id="bull-percent" style="font-family:'Orbitron'">50%</span>
+                    </div>
+                    <div class="bar"><div id="bull-bar" class="dom-bar"></div></div>
+                </div>
+                <div class="bar-container">
+                    <div class="bar-label">
+                        <span style="color:var(--bear-red)">BEAR DOMINANCE</span>
+                        <span id="bear-percent" style="font-family:'Orbitron'">50%</span>
+                    </div>
+                    <div class="bar"><div id="bear-bar" class="dom-bar"></div></div>
+                </div>
+            </div>
+            <div class="section-title">BATTLE LOG</div>
+            <div id="killfeed"></div>
+            <div class="section-title">ON-CHAIN SWAPS</div>
+            <div class="section-subtitle">Real DEX trades via GeckoTerminal</div>
+            <div id="tradesfeed"></div>
+        </div>
+    </div>
+</div>
+
+<div id="floating-socials">
+    <button id="copy-wallet-btn" class="social-btn" type="button" title="Copy SOL wallet">💰</button>
+    <a href="https://x.com/PowerPixelKK" target="_blank" rel="noopener noreferrer" class="social-btn" title="Follow on X">𝕏</a>
+</div>
+
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
