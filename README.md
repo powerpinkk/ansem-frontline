@@ -32,11 +32,19 @@ python -m http.server 8080
 # Open http://localhost:8080
 ```
 
-## GitHub Pages
+## GitHub Pages (one-time setup)
 
-Enable Pages in repo Settings → Source: `main` branch, root folder.
+1. Open **Settings → Pages**:  
+   https://github.com/powerpinkk/ansem-frontline/settings/pages
 
-Live at: **https://powerpinkk.github.io/ansem-frontline/**
+2. Under **Build and deployment → Source**, choose **Deploy from a branch**.
+
+3. Set **Branch** to `main` and folder to **`/ (root)`**, then click **Save**.
+
+4. Wait 1–2 minutes. Your site will be live at:  
+   **https://powerpinkk.github.io/ansem-frontline/**
+
+> Do **not** use "GitHub Actions" as the source — this project is static HTML and deploys directly from the branch.
 
 ## Configuration
 
