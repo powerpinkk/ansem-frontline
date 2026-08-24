@@ -322,6 +322,8 @@ canvas { width: 100%; height: 100%; display: block; outline: none; }
 }
 
 #momentum { padding: 20px; border-bottom: 1px solid var(--glass-border); }
+.pressure-heading { display:flex; justify-content:space-between; gap:10px; margin-bottom:12px; color:#89918c; font-size:8px; font-weight:800; letter-spacing:1px; }
+#pressure-volume { color:#c7cec9; font-family:'Orbitron', sans-serif; letter-spacing:0; }
 .bar-container { margin: 12px 0; }
 .bar-label {
     display: flex;
@@ -437,6 +439,21 @@ canvas { width: 100%; height: 100%; display: block; outline: none; }
     text-shadow: 0 0 12px rgba(0,255,136,.35);
 }
 
+#market-pulse {
+    margin-top: 18px;
+    padding: 12px;
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 8px;
+    background: rgba(0,0,0,0.28);
+}
+
+.pulse-heading, .pulse-values { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.pulse-heading { color: #8f9792; font-size: 9px; font-weight: 800; letter-spacing: 1.2px; }
+.pulse-values { margin-top: 9px; font-family: 'Orbitron', sans-serif; font-size: 11px; }
+.pulse-buy { color: var(--meadow-green); }
+.pulse-sell { color: #b21f46; }
+.pulse-note { margin-top: 8px; color: #616963; font-size: 8px; line-height: 1.4; }
+
 .trades-empty {
     padding: 16px 0;
     color: #666;
@@ -460,6 +477,7 @@ canvas { width: 100%; height: 100%; display: block; outline: none; }
         flex: none;
     }
     #canvas-container { height: 55%; flex: none; }
+    #market-pulse { margin-top: 12px; }
     .brand-title { font-size: 16px; }
     #price { font-size: 20px; }
     #topbar { padding: 9px 12px; gap: 8px; }

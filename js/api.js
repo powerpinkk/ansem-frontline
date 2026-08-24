@@ -1,5 +1,5 @@
 import { CONFIG } from './config.js';
-import { calculatePressure, deriveSolPrice, parseGeckoTrade, selectTrackedPools } from './market.js';
+import { calculatePressure, deriveSolPrice, parseGeckoTrade, selectTrackedPools, summarizePoolActivity } from './market.js';
 import { connectTradeStream } from './stream.js';
 import { bootstrappedPools, seenTradeHashes, seenTradeIds, state } from './state.js';
 
@@ -10,6 +10,8 @@ let lastPoolDiscovery = 0;
 let pollingFallback = true;
 let fallbackTimer = null;
 let streamStarted = false;
+let bootstrapPromise = null;
+const bootstrapAttemptedAt = new Map();
 
 export function initAPI(nextCallbacks) {
     callbacks = nextCallbacks;
@@ -49,6 +51,10 @@ async function runMarketLoop() {
 
 async function runTradeLoop() {
     if (!pollingFallback) return;
+    if (bootstrapPromise) {
+        schedule(runTradeLoop, CONFIG.TRADES_POLL_MIN_DELAY_MS);
+        return;
+    }
     const pool = state.trackedPools[state.poolCursor % state.trackedPools.length];
     if (!pool) {
         schedule(runTradeLoop, CONFIG.TRADES_POLL_MIN_DELAY_MS);
@@ -112,6 +118,7 @@ async function fetchMarketData() {
     }
     state.price = market.price;
     startStreamIfReady();
+    void bootstrapTrackedPools();
     updateTrend(market.price);
     try {
         await fetchChartIfNeeded(market.price);
@@ -123,7 +130,7 @@ async function fetchMarketData() {
 
 async function fetchDexMarketData() {
     const data = await fetchJson(`${CONFIG.DEXSCREENER_TOKEN_URL}/${CONFIG.TOKEN_MINT}`, 4_500);
-    const pairs = data?.pairs || [];
+    const pairs = Array.isArray(data) ? data : data?.pairs || [];
     if (!pairs.length) throw new Error('No $ANSEM markets returned by DexScreener');
     const now = Date.now();
     if (!state.trackedPools.length || now - lastPoolDiscovery > CONFIG.POOL_REFRESH_MS) {
@@ -137,13 +144,16 @@ async function fetchDexMarketData() {
     const trackedVolume = state.trackedPools.reduce((sum, pool) => sum + pool.volumeH24Usd, 0);
     state.marketCoverage = totalVolume > 0 ? (trackedVolume / totalVolume) * 100 : 0;
     const selectedPairs = pairs.filter((pair) => state.trackedPools.some((pool) => pool.address === pair.pairAddress));
+    const activity = summarizePoolActivity(selectedPairs);
+    state.activity5m = activity;
+    callbacks.onActivityUpdate?.(activity);
     const liquidity = selectedPairs.reduce((sum, pair) => sum + Number(pair.liquidity?.usd || 0), 0);
     const price = liquidity > 0
         ? selectedPairs.reduce((sum, pair) => sum + Number(pair.priceUsd || 0) * Number(pair.liquidity?.usd || 0), 0) / liquidity
         : Number(pairs[0].priceUsd || 0);
     const mcap = Number(pairs[0].marketCap || pairs[0].fdv || 0);
     const chg = Number(pairs[0].priceChange?.h1 || 0);
-    return { price, mcap, chg, pools: state.trackedPools.length, coverage: state.marketCoverage, referencePool: state.referencePool, source: 'dexscreener' };
+    return { price, mcap, chg, pools: state.trackedPools.length, coverage: state.marketCoverage, referencePool: state.referencePool, activity, source: 'dexscreener' };
 }
 
 async function fetchRelayMarketData() {
@@ -205,16 +215,10 @@ async function fetchChartIfNeeded(livePrice) {
 }
 
 async function fetchPoolTrades(pool) {
-    const json = await fetchJson(`${CONFIG.GECKO_BASE}/${pool.address}/trades`);
-    const trades = (json.data || []).map((entry) => parseGeckoTrade(entry, pool, state.solPriceUsd)).filter(Boolean).sort((a, b) => a.timestamp - b.timestamp);
+    const trades = await fetchRecentPoolTrades(pool);
     if (!trades.length) return;
     if (!bootstrappedPools.has(pool.address)) {
-        trades.forEach((trade) => {
-            seenTradeIds.add(trade.id);
-            seenTradeHashes.add(trade.txHash);
-        });
-        trades.slice(-CONFIG.TRADES_BOOTSTRAP_COUNT).forEach((trade) => receiveTrade(trade, true));
-        bootstrappedPools.add(pool.address);
+        void bootstrapTrackedPools();
         return;
     }
     trades.filter((trade) => !seenTradeIds.has(trade.id) && !seenTradeHashes.has(trade.txHash)).forEach((trade) => {
@@ -233,7 +237,60 @@ async function fetchPoolTrades(pool) {
     }
 }
 
+async function fetchRecentPoolTrades(pool) {
+    const json = await fetchJson(`${CONFIG.GECKO_BASE}/${pool.address}/trades`);
+    return (json.data || [])
+        .map((entry) => parseGeckoTrade(entry, pool, state.solPriceUsd))
+        .filter(Boolean)
+        .sort((a, b) => a.timestamp - b.timestamp);
+}
+
+function bootstrapTrackedPools() {
+    if (bootstrapPromise) return bootstrapPromise;
+    const now = Date.now();
+    const pools = state.trackedPools.filter((pool) =>
+        !bootstrappedPools.has(pool.address)
+        && now - (bootstrapAttemptedAt.get(pool.address) || 0) >= 60_000
+    );
+    if (!pools.length) return Promise.resolve();
+    pools.forEach((pool) => bootstrapAttemptedAt.set(pool.address, now));
+    bootstrapPromise = Promise.allSettled(pools.map(async (pool) => ({ pool, trades: await fetchRecentPoolTrades(pool) })))
+        .then((results) => {
+            const allTrades = [];
+            results.forEach((result) => {
+                if (result.status !== 'fulfilled') return;
+                bootstrappedPools.add(result.value.pool.address);
+                allTrades.push(...result.value.trades);
+            });
+            const uniqueTrades = [...new Map(allTrades.map((trade) => [trade.txHash || trade.id, trade])).values()]
+                .sort((a, b) => a.timestamp - b.timestamp);
+            uniqueTrades.forEach((trade) => {
+                seenTradeIds.add(trade.id);
+                seenTradeHashes.add(trade.txHash);
+            });
+            const now = Date.now();
+            const fiveMinuteTrades = uniqueTrades.filter((trade) => now - trade.timestamp <= 300_000);
+            if (state.activity5m.buyCount + state.activity5m.sellCount === 0 && fiveMinuteTrades.length) {
+                const activity = {
+                    buyCount: fiveMinuteTrades.filter((trade) => trade.isBuy).length,
+                    sellCount: fiveMinuteTrades.filter((trade) => !trade.isBuy).length,
+                    windowMs: 300_000,
+                    source: 'verified-swaps',
+                };
+                state.activity5m = activity;
+                callbacks.onActivityUpdate?.(activity);
+            }
+            fiveMinuteTrades
+                .filter((trade) => now - trade.timestamp <= 75_000)
+                .slice(-CONFIG.TRADES_BOOTSTRAP_COUNT)
+                .forEach((trade) => receiveTrade(trade, true));
+        })
+        .finally(() => { bootstrapPromise = null; });
+    return bootstrapPromise;
+}
+
 function receiveTrade(trade, bootstrap) {
+    const previousFrontlineX = state.targetFrontlineX;
     state.liveTrades.push(trade);
     const cutoff = Date.now() - CONFIG.PRESSURE_WINDOW_MS;
     state.liveTrades = state.liveTrades.filter((item) => item.timestamp >= cutoff).slice(-500);
@@ -243,6 +300,6 @@ function receiveTrade(trade, bootstrap) {
     state.sellSol60s = pressure.sellSol;
     state.marketTrend = Math.sign(pressure.buySol - pressure.sellSol);
     state.targetFrontlineX = Math.max(-45, Math.min(45, (pressure.bullPercent - 50) * 0.9));
-    callbacks.onTrade?.(trade, { bootstrap });
+    callbacks.onTrade?.(trade, { bootstrap, previousFrontlineX, nextFrontlineX: state.targetFrontlineX });
     callbacks.onPressureUpdate?.(pressure);
 }

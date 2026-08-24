@@ -8,7 +8,7 @@ describe('Helius market fallback normalization', () => {
             { token_info: { price_info: { price_per_token: 95 } } },
         );
         expect(market).toMatchObject({ price: 0.25, solPriceUsd: 95, mcap: 2_500_000, source: 'helius-fallback' });
-        expect(market.pools).toHaveLength(2);
+        expect(market.pools).toHaveLength(5);
     });
 
     it('rejects incomplete price data', () => {

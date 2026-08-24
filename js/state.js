@@ -22,6 +22,7 @@ export const state = {
     connection: 'connecting',
     priceFailures: 0,
     tradesFailures: 0,
+    activity5m: { buyCount: 0, sellCount: 0, windowMs: 300_000, source: 'waiting' },
 };
 
 export const seenTradeIds = new Set();

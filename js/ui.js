@@ -33,6 +33,9 @@ export function initUI(sceneHooks = {}) {
     DOM.soundBtn = document.getElementById('sound-btn');
     DOM.camAuto = document.getElementById('cam-auto');
     DOM.camFree = document.getElementById('cam-free');
+    DOM.buyFlowCount = document.getElementById('buy-flow-count');
+    DOM.sellFlowCount = document.getElementById('sell-flow-count');
+    DOM.pressureVolume = document.getElementById('pressure-volume');
 
     setupMiniChart();
     bindControls();
@@ -116,7 +119,8 @@ export function renderMiniChart() {
     const range = maxP - minP || 0.000001;
 
     miniChartCtx.beginPath();
-    miniChartCtx.strokeStyle = state.marketTrend >= 0 ? '#00ff88' : '#ff3366';
+    const chartRising = state.priceHistory[state.priceHistory.length - 1] >= state.priceHistory[0];
+    miniChartCtx.strokeStyle = chartRising ? '#00ff88' : '#9b1739';
     miniChartCtx.lineWidth = 2;
     miniChartCtx.lineJoin = 'round';
 
@@ -143,7 +147,17 @@ export function updateDashboardUI() {
 
         const colorHex = state.marketTrend === 1 ? 0x00ff88 : (state.marketTrend === -1 ? 0xff3366 : 0xffffff);
         sceneCallbacks.setFrontlineColor(colorHex);
+        if (DOM.pressureVolume) {
+            DOM.pressureVolume.textContent = `${formatSol(state.buySol60s)} / ${formatSol(state.sellSol60s)} SOL`;
+            DOM.pressureVolume.title = 'Verified buy SOL / sell SOL in the rolling 60-second window';
+        }
     });
+}
+
+function formatSol(value) {
+    if (value >= 100) return Math.round(value).toLocaleString();
+    if (value >= 10) return value.toFixed(1);
+    return value.toFixed(2);
 }
 
 export function addOnChainTrade(trade) {
@@ -171,6 +185,11 @@ export function addOnChainTrade(trade) {
     row.append(time, side, amount, value);
     DOM.tradesfeed.prepend(row);
     trimFeed(DOM.tradesfeed, CONFIG.MAX_TRADES_FEED);
+}
+
+export function updateActivityUI(activity) {
+    if (DOM.buyFlowCount) DOM.buyFlowCount.textContent = String(activity?.buyCount || 0);
+    if (DOM.sellFlowCount) DOM.sellFlowCount.textContent = String(activity?.sellCount || 0);
 }
 
 export function addWhaleSpawnEvent(type, solValue, usdValue) {
@@ -215,6 +234,14 @@ export function addBullSwarmEvent({ buyCount, buySol, dominance }) {
     const row = document.createElement('div');
     row.className = 'kill-item bull-swarm-event';
     row.textContent = `${new Date().toLocaleTimeString()} · BULL SWARM · ${buyCount} buys · ${buySol.toFixed(1)} SOL · King's support ${Math.round(dominance * 100)}%`;
+    DOM.killfeed.prepend(row);
+    trimFeed(DOM.killfeed, CONFIG.MAX_KILLFEED);
+}
+
+export function addKingReclaimEvent({ count, solValue }) {
+    const row = document.createElement('div');
+    row.className = 'kill-item bull-swarm-event';
+    row.textContent = `${new Date().toLocaleTimeString()} · KING'S RECLAMATION · ${count} stranded ${count === 1 ? 'grizzly' : 'grizzlies'} cleared after ${solValue.toFixed(1)} SOL buy`;
     DOM.killfeed.prepend(row);
     trimFeed(DOM.killfeed, CONFIG.MAX_KILLFEED);
 }

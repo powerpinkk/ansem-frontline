@@ -2,14 +2,18 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { state } from './state.js';
 import { ARENA, clamp, clampArenaPosition, formationTarget, isFinitePosition, tradeLane, unitHasExpired } from './navigation.js';
+import { scaleActivityToReserves } from './market.js';
 
 let onKillEvent = () => {};
+let onReclaimEvent = () => {};
 
 let entities = [];
 let particles = [];
 let projectiles = [];
 let supportWaves = [];
-const MAX_ENTITIES_PER_SIDE = 32;
+let kingStrikes = [];
+const MAX_ENTITIES_PER_SIDE = 10;
+const MAX_RESERVE_UNITS = 24;
 const obstacles = [];
 
 let scene, camera, renderer, frontlineLaser, orbitControls, trenchGlowLight, terrainMaterial;
@@ -19,6 +23,11 @@ let bullSupportUntil = 0;
 let lastFrontlineFitX = Number.POSITIVE_INFINITY;
 let viewportObserver;
 let loopStarted = false;
+let reserveForces;
+let lastReserveFrontlineX = Number.POSITIVE_INFINITY;
+let lastKingReclaimAt = 0;
+let kingFocusUntil = 0;
+let kingFocusX = 0;
 const frameTimer = new THREE.Timer();
 let canvasContainer, floatContainer;
 
@@ -32,6 +41,8 @@ const geoBearHead = new THREE.SphereGeometry(1, 12, 9);
 const geoBearMuzzle = new THREE.SphereGeometry(1, 10, 7);
 const geoBearLeg = new THREE.CylinderGeometry(0.27, 0.38, 1, 7);
 geoBearLeg.translate(0, -0.5, 0);
+const geoEyeLaser = new THREE.CylinderGeometry(0.025, 0.085, 1.6, 8);
+geoEyeLaser.rotateZ(Math.PI / 2);
 const geoStaff = new THREE.CylinderGeometry(0.11, 0.16, 5.2, 8);
 const supportWaveGeometry = new THREE.RingGeometry(1, 1.35, 40);
 const unitAuraGeometry = new THREE.RingGeometry(1.2, 1.8, 24);
@@ -39,13 +50,14 @@ const projectileGeometry = new THREE.CylinderGeometry(0.15, 0.15, 2.0, 8);
 projectileGeometry.rotateZ(Math.PI / 2);
 const projectileGlowGeometry = new THREE.CylinderGeometry(0.35, 0.35, 2.0, 8);
 projectileGlowGeometry.rotateZ(Math.PI / 2);
+const kingRayGeometry = new THREE.CylinderGeometry(0.16, 0.42, 1, 12);
 
 const matBullBody = new THREE.MeshPhysicalMaterial({ color: 0x111613, metalness: 0.6, roughness: 0.2 });
 const matBullHead = new THREE.MeshPhysicalMaterial({ color: 0x0a100c, metalness: 0.7, roughness: 0.2 });
 const matBullHorn = new THREE.MeshStandardMaterial({ color: 0x00ff88, emissive: 0x00ff88, emissiveIntensity: 2.0, roughness: 0.2 });
-const matBearBody = new THREE.MeshPhysicalMaterial({ color: 0x8f1324, metalness: 0.12, roughness: 0.62, clearcoat: 0.2 });
-const matBearHead = new THREE.MeshPhysicalMaterial({ color: 0xb51c30, metalness: 0.1, roughness: 0.58, clearcoat: 0.18 });
-const matBearDarkFur = new THREE.MeshStandardMaterial({ color: 0x4d0711, roughness: 0.82 });
+const matBearBody = new THREE.MeshPhysicalMaterial({ color: 0x9a6845, metalness: 0.06, roughness: 0.76, clearcoat: 0.12 });
+const matBearHead = new THREE.MeshPhysicalMaterial({ color: 0xb27b52, metalness: 0.04, roughness: 0.72, clearcoat: 0.1 });
+const matBearDarkFur = new THREE.MeshStandardMaterial({ color: 0x55351f, roughness: 0.9 });
 const matSnout = new THREE.MeshPhysicalMaterial({ color: 0x050505, metalness: 0.9, roughness: 0.1 });
 const matParticleBull = new THREE.MeshBasicMaterial({ color: 0x00ff88 });
 const matParticleBear = new THREE.MeshBasicMaterial({ color: 0xff3366 });
@@ -59,9 +71,10 @@ const matKingSaddle = new THREE.MeshPhysicalMaterial({ color: 0x075d3b, emissive
 const matBullEye = new THREE.MeshStandardMaterial({ color: 0x021008, emissive: 0x00ff88, emissiveIntensity: 3, metalness: 0.85, roughness: 0.08 });
 const matBullWhaleEye = matBullEye.clone();
 matBullWhaleEye.emissiveIntensity = 8;
-const matBearEye = new THREE.MeshStandardMaterial({ color: 0x160207, emissive: 0xff224f, emissiveIntensity: 3, metalness: 0.8, roughness: 0.1 });
+const matBearEye = new THREE.MeshPhysicalMaterial({ color: 0x2c000d, emissive: 0x8f002c, emissiveIntensity: 7, metalness: 0.92, roughness: 0.04, clearcoat: 1 });
 const matBearWhaleEye = matBearEye.clone();
-matBearWhaleEye.emissiveIntensity = 8;
+matBearWhaleEye.emissiveIntensity = 13;
+const matBearLaser = new THREE.MeshBasicMaterial({ color: 0x5b001d, transparent: true, opacity: 0.82, blending: THREE.AdditiveBlending, depthWrite: false });
 const projectileMaterials = {
     bull: new THREE.MeshBasicMaterial({ color: 0x00ff88 }),
     bear: new THREE.MeshBasicMaterial({ color: 0xff3366 }),
@@ -79,9 +92,15 @@ let audioEnabled = false;
 const _camTarget = new THREE.Vector3();
 const _lookTarget = new THREE.Vector3();
 const _kingTarget = new THREE.Vector3();
+const _reserveDummy = new THREE.Object3D();
+const _rayDirection = new THREE.Vector3();
+const _rayUp = new THREE.Vector3(0, 1, 0);
+const _rayStart = new THREE.Vector3();
+const _rayTarget = new THREE.Vector3();
 
 export function initScene(callbacks = {}) {
     onKillEvent = callbacks.onKillEvent || onKillEvent;
+    onReclaimEvent = callbacks.onReclaimEvent || onReclaimEvent;
     canvasContainer = document.getElementById('canvas-container');
     floatContainer = document.getElementById('floating-text-container');
     frameTimer.connect(document);
@@ -96,7 +115,9 @@ export function initScene(callbacks = {}) {
             })),
             projectiles: projectiles.length,
             supportWaves: supportWaves.length,
+            kingStrikes: kingStrikes.length,
             supportedBulls: entities.filter((entity) => entity.type === 'bull' && entity.supportUntil > Date.now()).length,
+            reserves: reserveForces ? { bull: reserveForces.bull.count, bear: reserveForces.bear.count } : { bull: 0, bear: 0 },
             bullKing: bullKingRig ? { x: bullKingRig.position.x, y: bullKingRig.position.y, z: bullKingRig.position.z } : null,
             render: renderer ? {
                 calls: renderer.info.render.calls,
@@ -114,6 +135,14 @@ export function initScene(callbacks = {}) {
             bounds: ARENA,
         });
         window.__ansemTriggerBullKingSupport = () => triggerBullKingSupport({ buySol: 12, dominance: 0.84 });
+        window.__ansemTriggerReclamation = () => {
+            const bear = entities.find((entity) => entity.type === 'bear');
+            if (bear) bear.mesh.position.x = 0;
+            handleTerritoryShift(
+                { isBuy: true, isWhale: true, solValue: 25 },
+                { bootstrap: false, previousFrontlineX: -20, nextFrontlineX: 20 },
+            );
+        };
         window.__ansemPreviewRedBear = () => {
             const bear = entities.find((entity) => entity.type === 'bear');
             if (!bear) return;
@@ -221,7 +250,15 @@ export function spawnUnit(type, initial = false, isWhale = false, trade = null) 
         eyeL.position.set(0.35, 0.15, 0.35);
         const eyeR = createMesh(geoSphere, eyeMat, isWhale ? 0.15 : 0.1, isWhale ? 0.15 : 0.1, isWhale ? 0.15 : 0.1);
         eyeR.position.set(0.35, 0.15, -0.35);
-        head.add(eyeL, eyeR);
+        const laserL = createMesh(geoEyeLaser, matBearLaser, isWhale ? 1.55 : 0.75, isWhale ? 1.3 : 0.75, isWhale ? 1.3 : 0.75);
+        laserL.position.set(isWhale ? 1.55 : 0.95, 0.15, 0.35);
+        const laserR = laserL.clone();
+        laserR.position.z = -0.35;
+        [eyeL, eyeR, laserL, laserR].forEach((detail) => {
+            detail.castShadow = false;
+            detail.receiveShadow = false;
+        });
+        head.add(eyeL, eyeR, laserL, laserR);
         [[0.72, 0.56], [0.72, -0.56], [-0.72, 0.56], [-0.72, -0.56]].forEach((pos) => {
             const leg = createMesh(geoBearLeg, matBearDarkFur, 1, 1.1, 1);
             leg.position.set(pos[0], 0.72, pos[1]);
@@ -302,9 +339,74 @@ export function setFrontlineColor(colorHex) {
 }
 
 export function applyTradeImpulse(isBuy, solValue, isWhale) {
-    if (isWhale && state.cameraMode === 'auto') state.screenShake = 0.45;
-    const impulse = Math.min(8, Math.max(0.25, Math.log2(solValue + 1)));
-    state.targetFrontlineX = Math.max(-45, Math.min(45, state.targetFrontlineX + (isBuy ? impulse : -impulse)));
+    if (state.cameraMode !== 'auto') return;
+    if (isWhale) state.screenShake = 0.45;
+    else if (solValue >= 5) state.screenShake = Math.max(state.screenShake, 0.12);
+}
+
+export function handleTerritoryShift(trade, meta = {}) {
+    if (meta.bootstrap || !trade?.isBuy || !bullKingRig || !kingStaffGlow) return;
+    const previous = Number(meta.previousFrontlineX);
+    const next = Number(meta.nextFrontlineX);
+    if (!Number.isFinite(previous) || !Number.isFinite(next) || next <= previous) return;
+    const regimeFlip = previous < -4 && next > 4 && trade.solValue >= 1;
+    const whaleAdvance = trade.isWhale && next - previous >= 6;
+    const now = Date.now();
+    if ((!regimeFlip && !whaleAdvance) || now - lastKingReclaimAt < 12_000) return;
+    const stranded = entities.filter((entity) =>
+        entity.type === 'bear'
+        && !entity.retired
+        && entity.hp > 0
+        && entity.mesh.position.x < next - 2
+    );
+    if (!stranded.length) return;
+    lastKingReclaimAt = now;
+    castKingReclamation(stranded, trade.solValue, previous, next);
+}
+
+function castKingReclamation(stranded, solValue, previous, next) {
+    scene.updateMatrixWorld(true);
+    kingStaffGlow.getWorldPosition(_rayStart);
+    _rayTarget.set(0, 0, 0);
+    stranded.forEach((entity) => _rayTarget.add(entity.mesh.position));
+    _rayTarget.multiplyScalar(1 / stranded.length);
+    _rayTarget.y = getTrenchHeight(_rayTarget.x, _rayTarget.z) + 0.55;
+    _rayDirection.subVectors(_rayTarget, _rayStart);
+    const length = _rayDirection.length();
+    const material = new THREE.MeshBasicMaterial({
+        color: 0x00ff88,
+        transparent: true,
+        opacity: 0.92,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+    });
+    const beam = new THREE.Mesh(kingRayGeometry, material);
+    beam.position.copy(_rayStart).add(_rayTarget).multiplyScalar(0.5);
+    beam.quaternion.setFromUnitVectors(_rayUp, _rayDirection.normalize());
+    beam.scale.set(1, length, 1);
+    const impact = new THREE.Mesh(supportWaveGeometry, material);
+    impact.position.copy(_rayTarget);
+    impact.rotation.x = -Math.PI / 2;
+    impact.scale.setScalar(1.6);
+    scene.add(beam, impact);
+    kingStrikes.push({ beam, impact, material, age: 0 });
+    kingFocusUntil = Date.now() + 1_650;
+    kingFocusX = (bullKingRig.position.x + _rayTarget.x) * 0.5;
+    stranded.forEach((entity) => {
+        spawnParticles(entity.mesh.position, matParticleBull, true, entity.isWhale);
+        retireEntity(entity);
+    });
+    onReclaimEvent({ count: stranded.length, solValue, previousFrontlineX: previous, nextFrontlineX: next });
+    state.screenShake = Math.max(state.screenShake, 0.32);
+    playTone(170, 'sawtooth', 0.75, 0.045);
+}
+
+export function updateReserveForces(activity) {
+    state.activity5m = activity || state.activity5m;
+    if (!reserveForces) return;
+    layoutReserveSide('bull', scaleActivityToReserves(state.activity5m.buyCount, MAX_RESERVE_UNITS));
+    layoutReserveSide('bear', scaleActivityToReserves(state.activity5m.sellCount, MAX_RESERVE_UNITS));
+    lastReserveFrontlineX = state.frontlineX;
 }
 
 export function triggerBullKingSupport({ buySol, dominance }) {
@@ -438,6 +540,7 @@ function init3D() {
 
     createLandscapeProps();
     createGrassTufts();
+    createReserveForces();
     createFlyingBullKing();
 
     frontlineLaser = new THREE.Group();
@@ -595,6 +698,91 @@ function createGrassTufts() {
     }
     grassMesh.instanceMatrix.needsUpdate = true;
     scene.add(grassMesh);
+}
+
+function createReserveForces() {
+    reserveForces = {
+        bull: createReserveSide('bull'),
+        bear: createReserveSide('bear'),
+    };
+    updateReserveForces(state.activity5m);
+}
+
+function createReserveSide(type) {
+    const isBull = type === 'bull';
+    const body = new THREE.InstancedMesh(isBull ? geoBox : geoBearBody, isBull ? matBullBody : matBearBody, MAX_RESERVE_UNITS);
+    const head = new THREE.InstancedMesh(isBull ? geoBox : geoBearHead, isBull ? matBullHead : matBearHead, MAX_RESERVE_UNITS);
+    const legs = new THREE.InstancedMesh(isBull ? geoLegBull : geoBearLeg, isBull ? matBullBody : matBearDarkFur, MAX_RESERVE_UNITS * 4);
+    const eyes = new THREE.InstancedMesh(geoSphere, isBull ? matBullEye : matBearEye, MAX_RESERVE_UNITS * 2);
+    const accents = new THREE.InstancedMesh(isBull ? geoCone : geoSphere, isBull ? matBullHorn : matBearDarkFur, MAX_RESERVE_UNITS * 2);
+    const muzzles = new THREE.InstancedMesh(isBull ? geoBox : geoBearMuzzle, isBull ? matSnout : matBearDarkFur, MAX_RESERVE_UNITS);
+    const noses = new THREE.InstancedMesh(geoSphere, matSnout, MAX_RESERVE_UNITS);
+    const beams = isBull ? null : new THREE.InstancedMesh(geoEyeLaser, matBearLaser, MAX_RESERVE_UNITS * 2);
+    [body, head, legs].forEach((mesh) => {
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+        scene.add(mesh);
+    });
+    [eyes, accents, muzzles, noses, beams].filter(Boolean).forEach((mesh) => {
+        mesh.castShadow = false;
+        mesh.receiveShadow = false;
+        scene.add(mesh);
+    });
+    const reserve = { body, head, legs, eyes, accents, muzzles, noses, beams, count: 0 };
+    body.count = head.count = muzzles.count = noses.count = 0;
+    legs.count = eyes.count = accents.count = 0;
+    if (beams) beams.count = 0;
+    return reserve;
+}
+
+function layoutReserveSide(type, count) {
+    const reserve = reserveForces?.[type];
+    if (!reserve) return;
+    const isBull = type === 'bull';
+    const facing = isBull ? 1 : -1;
+    const yaw = isBull ? 0 : Math.PI;
+    for (let i = 0; i < count; i++) {
+        const row = Math.floor(i / 6);
+        const lane = i % 6;
+        const z = -11.5 + lane * 4.6 + (row % 2 ? 1.1 : 0);
+        const depth = 15 + row * 8;
+        const x = clamp(state.frontlineX - facing * depth, ARENA.minX + 3, ARENA.maxX - 3);
+        const ground = getTrenchHeight(x, z);
+        setReserveMatrix(reserve.body, i, x, ground + 1.05, z, isBull ? 1.28 : 1.18, isBull ? 0.82 : 0.78, isBull ? 0.72 : 0.82, yaw);
+        setReserveMatrix(reserve.head, i, x + facing * 0.95, ground + 1.48, z, isBull ? 0.58 : 0.54, 0.58, isBull ? 0.58 : 0.55, yaw);
+        setReserveMatrix(reserve.muzzles, i, x + facing * 1.35, ground + 1.42, z, isBull ? 0.34 : 0.38, isBull ? 0.24 : 0.27, isBull ? 0.36 : 0.4, yaw);
+        setReserveMatrix(reserve.noses, i, x + facing * 1.62, ground + 1.43, z, 0.14, 0.12, 0.15, yaw);
+        const legOffsets = [[0.5, 0.36], [0.5, -0.36], [-0.5, 0.36], [-0.5, -0.36]];
+        legOffsets.forEach(([xOffset, zOffset], legIndex) => {
+            setReserveMatrix(reserve.legs, i * 4 + legIndex, x + facing * xOffset, ground + 0.7, z + zOffset, 0.78, 0.78, 0.78, yaw);
+        });
+        [-1, 1].forEach((side, detailIndex) => {
+            setReserveMatrix(reserve.eyes, i * 2 + detailIndex, x + facing * 1.27, ground + 1.6, z + side * 0.23, 0.09, 0.075, 0.09, yaw);
+            if (isBull) {
+                setReserveMatrix(reserve.accents, i * 2 + detailIndex, x + facing * 0.82, ground + 2.0, z + side * 0.38, 0.14, 0.52, 0.14, yaw, side * 0.28);
+            } else {
+                setReserveMatrix(reserve.accents, i * 2 + detailIndex, x + facing * 0.72, ground + 1.98, z + side * 0.4, 0.18, 0.2, 0.14, yaw);
+                setReserveMatrix(reserve.beams, i * 2 + detailIndex, x + facing * 1.75, ground + 1.6, z + side * 0.23, 0.55, 0.62, 0.62, yaw);
+            }
+        });
+    }
+    reserve.count = count;
+    reserve.body.count = reserve.head.count = reserve.muzzles.count = reserve.noses.count = count;
+    reserve.legs.count = count * 4;
+    reserve.eyes.count = reserve.accents.count = count * 2;
+    if (reserve.beams) reserve.beams.count = count * 2;
+    [reserve.body, reserve.head, reserve.legs, reserve.eyes, reserve.accents, reserve.muzzles, reserve.noses, reserve.beams].filter(Boolean).forEach((mesh) => {
+        mesh.instanceMatrix.needsUpdate = true;
+        mesh.computeBoundingSphere();
+    });
+}
+
+function setReserveMatrix(mesh, index, x, y, z, sx, sy, sz, rotationY = 0, rotationZ = 0) {
+    _reserveDummy.position.set(x, y, z);
+    _reserveDummy.rotation.set(0, rotationY, rotationZ);
+    _reserveDummy.scale.set(sx, sy, sz);
+    _reserveDummy.updateMatrix();
+    mesh.setMatrixAt(index, _reserveDummy.matrix);
 }
 
 function createFlyingBullKing() {
@@ -893,6 +1081,7 @@ function updateEntities(delta) {
     const finished = [];
     const now = Date.now();
     state.frontlineX += (state.targetFrontlineX - state.frontlineX) * 2 * delta;
+    if (Math.abs(state.frontlineX - lastReserveFrontlineX) >= 1) updateReserveForces(state.activity5m);
 
     frontlineLaser.position.x = state.frontlineX;
     fitFrontlineToTerrain();
@@ -1164,6 +1353,23 @@ function updateSupportWaves(delta) {
     }
 }
 
+function updateKingStrikes(delta) {
+    for (let i = kingStrikes.length - 1; i >= 0; i--) {
+        const strike = kingStrikes[i];
+        strike.age += delta;
+        const progress = Math.min(1, strike.age / 1.15);
+        strike.material.opacity = (1 - progress) * 0.92;
+        strike.beam.scale.x = strike.beam.scale.z = 1 + Math.sin(progress * Math.PI) * 1.8;
+        strike.impact.scale.setScalar(1.6 + progress * 8);
+        strike.impact.rotation.z += delta * 1.8;
+        if (progress >= 1) {
+            scene.remove(strike.beam, strike.impact);
+            strike.material.dispose();
+            kingStrikes.splice(i, 1);
+        }
+    }
+}
+
 function updateCamera(delta) {
     if (state.cameraMode === 'auto') {
         if (entities.length > 0) {
@@ -1172,8 +1378,12 @@ function updateCamera(delta) {
             state.averageX += ((totalX / entities.length) - state.averageX) * 2 * delta;
         }
 
-        const followX = clamp(entities.length > 0 ? state.averageX : state.frontlineX, -48, 48);
-        _camTarget.set(followX + 25, 25, 40);
+        const reclaimFocus = Date.now() < kingFocusUntil;
+        const flowCenter = entities.length > 0
+            ? state.frontlineX * 0.72 + state.averageX * 0.28
+            : state.frontlineX;
+        const followX = clamp(reclaimFocus ? kingFocusX : flowCenter, -48, 48);
+        _camTarget.set(followX + (reclaimFocus ? 20 : 25), reclaimFocus ? 30 : 25, reclaimFocus ? 52 : 40);
         camera.position.lerp(_camTarget, 3 * delta);
 
         if (state.screenShake > 0) {
@@ -1257,6 +1467,7 @@ function gameLoop(timestamp) {
     updateEntities(delta);
     updateBullKing(delta);
     updateSupportWaves(delta);
+    updateKingStrikes(delta);
     updateParticles(delta);
     updateCamera(delta);
     renderer.render(scene, camera);

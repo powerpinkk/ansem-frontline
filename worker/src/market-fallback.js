@@ -2,7 +2,10 @@ export const SOL_MINT = 'So11111111111111111111111111111111111111112';
 
 export const FALLBACK_POOLS = Object.freeze([
     { address: '6e7V9eegCHw997T72MxgwwJipZ6GJyZF8NvjkzT1rvpN', dexId: 'meteora', quoteSymbol: 'SOL' },
+    { address: '4pANrqEvjad4xEghrCbAAJfBm8KyNvYMKk1cuGW8erE4', dexId: 'meteora', quoteSymbol: 'SOL' },
     { address: 'FnzKY6x7entQ1eR3D225dQyT7ybfka4PskBMQhb8L3CC', dexId: 'pumpswap', quoteSymbol: 'SOL' },
+    { address: 'BetLT47eFXDZnjM1cmZhQ4oNJkYaPZYH5yv6atfPfAri', dexId: 'meteora', quoteSymbol: 'USDC' },
+    { address: 'CNTPTpytHK9txrsPCvaEnc3PoN9ZVWDDcSnFSZZonMue', dexId: 'orca', quoteSymbol: 'SOL' },
 ]);
 
 export function normalizeHeliusMarket(token, sol) {

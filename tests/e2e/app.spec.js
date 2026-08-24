@@ -34,6 +34,8 @@ test('renders verified swaps and the WebGL battlefield', async ({ page }, testIn
     await expect(page.locator('.trade-item')).toHaveCount(2, { timeout: 12_000 });
     await expect(page.locator('#killfeed')).toContainText('GIANT BUY');
     await expect(page.locator('#coverage-value')).toContainText('2 / 100%');
+    await expect(page.locator('#buy-flow-count')).toHaveText('40');
+    await expect(page.locator('#sell-flow-count')).toHaveText('30');
     const canvas = page.locator('#three-canvas');
     await expect(canvas).toBeVisible();
     const dimensions = await canvas.evaluate((element) => ({ width: element.width, height: element.height }));
@@ -50,16 +52,22 @@ test('renders verified swaps and the WebGL battlefield', async ({ page }, testIn
         expect(entity.z).toBeLessThanOrEqual(diagnostics.bounds.maxZ);
     }
     expect(diagnostics.bullKing).not.toBeNull();
+    expect(diagnostics.reserves.bull).toBeGreaterThanOrEqual(10);
+    expect(diagnostics.reserves.bear).toBeGreaterThanOrEqual(10);
     expect(diagnostics.render.calls).toBeLessThan(220);
     expect(diagnostics.render.geometries).toBeLessThan(80);
     await page.evaluate(() => {
         window.__ansemPreviewRedBear();
         window.__ansemTriggerBullKingSupport();
+        window.__ansemTriggerReclamation();
     });
     await page.waitForTimeout(350);
     const support = await page.evaluate(() => window.__ansemSceneDiagnostics());
     expect(support.supportWaves).toBeGreaterThan(0);
     expect(support.supportedBulls).toBeGreaterThan(0);
+    expect(support.kingStrikes).toBeGreaterThan(0);
+    expect(support.entities.filter((entity) => entity.type === 'bear')).toHaveLength(0);
+    await expect(page.locator('#killfeed')).toContainText("KING'S RECLAMATION");
     expect(pageErrors).toEqual([]);
     await page.screenshot({ path: `.artifacts/${testInfo.project.name}.png`, fullPage: true });
 });
@@ -106,6 +114,7 @@ function pair(address, dexId, volume) {
         quoteToken: { address: sol, symbol: 'SOL' },
         priceUsd: '0.25', priceNative: '0.0025', marketCap: 250_000_000,
         priceChange: { h1: 2.5 }, liquidity: { usd: volume }, volume: { h1: volume / 24, h24: volume },
+        txns: { m5: address === 'pool-buy' ? { buys: 36, sells: 8 } : { buys: 4, sells: 22 } },
     };
 }
 

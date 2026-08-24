@@ -74,6 +74,7 @@ export class StreamHub extends DurableObject {
         this.seenSignatures = new Set();
         this.market = { tokenPriceUsd: 0, solPriceUsd: 0, updatedAt: 0 };
         this.pools = [];
+        this.activePoolKey = '';
     }
 
     async fetch(request) {
@@ -91,7 +92,10 @@ export class StreamHub extends DurableObject {
             this.broadcast({ type: 'status', status: 'invalid-configuration' });
             return;
         }
+        const nextPoolKey = configuration.pools.map((pool) => pool.address).sort().join(':');
+        if (this.activePoolKey && nextPoolKey !== this.activePoolKey) this.closeUpstream('Pool configuration changed');
         this.pools = configuration.pools;
+        this.activePoolKey = nextPoolKey;
         this.market = configuration.market;
         await this.ensureUpstream().catch((error) => this.handleFailure(error));
     }
@@ -145,7 +149,9 @@ export class StreamHub extends DurableObject {
             }, { once: true });
         });
         socket.addEventListener('message', (event) => this.handleUpstreamMessage(event.data));
-        socket.addEventListener('close', () => this.scheduleReconnect());
+        socket.addEventListener('close', () => {
+            if (this.upstream === socket) this.scheduleReconnect();
+        });
         socket.addEventListener('error', () => socket.close(1011, 'Upstream error'));
     }
 
@@ -190,9 +196,12 @@ export class StreamHub extends DurableObject {
         });
     }
 
-    closeUpstream() {
-        this.upstream?.close(1000, 'No clients');
+    closeUpstream(reason = 'No clients') {
+        const socket = this.upstream;
         this.upstream = null;
+        this.requestToPool.clear();
+        this.subscriptionToPool.clear();
+        socket?.close(1000, reason);
     }
 
     scheduleReconnect() {

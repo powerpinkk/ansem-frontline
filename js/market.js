@@ -86,6 +86,20 @@ export function calculatePressure(trades, now = Date.now()) {
     return { buySol, sellSol, totalSol: total, bullPercent, bearPercent: 100 - bullPercent };
 }
 
+export function summarizePoolActivity(pairs, timeframe = 'm5') {
+    return pairs.reduce((activity, pair) => {
+        activity.buyCount += Math.max(0, Math.round(number(pair?.txns?.[timeframe]?.buys)));
+        activity.sellCount += Math.max(0, Math.round(number(pair?.txns?.[timeframe]?.sells)));
+        return activity;
+    }, { buyCount: 0, sellCount: 0, windowMs: timeframe === 'h1' ? 3_600_000 : 300_000, source: 'dexscreener' });
+}
+
+export function scaleActivityToReserves(tradeCount, limit = 24) {
+    const count = Math.max(0, number(tradeCount));
+    if (!count) return 0;
+    return Math.min(limit, Math.max(3, Math.round(Math.sqrt(count) * 2.5)));
+}
+
 export function evaluateBuySwarm(trades, now = Date.now(), lastTriggeredAt = 0) {
     const recent = trades.filter((trade) => now - trade.timestamp <= CONFIG.BUY_SWARM_WINDOW_MS);
     const unique = [...new Map(recent.map((trade) => [trade.txHash || trade.id, trade])).values()];

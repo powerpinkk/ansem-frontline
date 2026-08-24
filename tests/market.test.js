@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { calculatePressure, deriveSolPrice, evaluateBuySwarm, parseGeckoTrade, selectTrackedPools } from '../js/market.js';
+import { calculatePressure, deriveSolPrice, evaluateBuySwarm, parseGeckoTrade, scaleActivityToReserves, selectTrackedPools, summarizePoolActivity } from '../js/market.js';
 import { CONFIG } from '../js/config.js';
 
 const pool = { address: 'pool-1', dexId: 'pumpswap', quoteSymbol: 'SOL' };
@@ -70,6 +70,20 @@ describe('pool selection and pressure', () => {
         ], now);
         expect(pressure.bullPercent).toBe(25);
         expect(pressure.bearPercent).toBe(75);
+    });
+
+    it('summarizes five-minute transaction counts across tracked pools', () => {
+        expect(summarizePoolActivity([
+            { txns: { m5: { buys: 7, sells: 3 } } },
+            { txns: { m5: { buys: 4, sells: 8 } } },
+        ])).toMatchObject({ buyCount: 11, sellCount: 11, windowMs: 300_000, source: 'dexscreener' });
+    });
+
+    it('scales reserve formations logarithmically without inventing exact one-to-one units', () => {
+        expect(scaleActivityToReserves(0)).toBe(0);
+        expect(scaleActivityToReserves(1)).toBe(3);
+        expect(scaleActivityToReserves(36)).toBe(15);
+        expect(scaleActivityToReserves(10_000)).toBe(24);
     });
 });
 

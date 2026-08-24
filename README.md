@@ -14,19 +14,25 @@ An open-source 3D market visualization that turns verified `$ANSEM` swaps on Sol
 | Verified sell | One bear |
 | Buy worth at least 20 SOL | Giant black bull with luminous green eyes and aura |
 | Sell worth at least 20 SOL | Giant bear with luminous red eyes and aura |
+| Verified buy/sell counts across tracked pools over five minutes | Scaled, GPU-instanced reserve formations behind each side |
 | Five or more unique buys totaling at least 5 SOL in 12 seconds, with ≥75% buy dominance | The flying Bull King casts three green support waves |
+| A giant buy or buy-regime reversal reclaims territory containing stranded bears | The Bull King clears those isolated units with a green staff ray |
 | 60-second net buy/sell volume | Bull/bear dominance and frontline position |
 | Reference-pool OHLCV | One-hour mini price chart |
 
-Every spawned unit originates from a verified swap returned by the Helius relay or GeckoTerminal fallback. There are no randomly generated market events. Combat animation and damage are visual metaphors and are intentionally simulated.
+Every frontline unit originates from a verified swap returned by the Helius relay or GeckoTerminal fallback. Background reserve formations are a square-root-scaled encoding of DexScreener's real five-minute buy/sell transaction counts; the exact counts remain visible in the interface. They are not presented as individual swaps. There are no randomly generated market events. Combat animation, damage and the Bull King's territorial clear are visual metaphors and are intentionally simulated; they never alter price, order-flow dominance or the underlying trade feed.
+
+The display deliberately separates three time horizons so that activity and trend are not conflated: the mini chart shows one-hour price direction, the frontline and pressure bars encode verified SOL flow over the latest 60 seconds, and the reserve ranks show exact five-minute buy/sell transaction counts. Position on the battlefield represents the short-term pressure balance; color alone is never the only signal.
 
 Units advance toward real opposing flow when it exists and otherwise hold formation around the rolling pressure frontline. Deterministic lanes, local avoidance, separation, stuck recovery and hard arena bounds keep the visualization readable. Regular units remain for 75 seconds and giant trades for 105 seconds, then retire without being counted as combat defeats; this keeps the battlefield representative of recent activity instead of accumulating historical trades forever.
 
 The Bull King is a persistent visual commander inspired by the project's character artwork. A buy swarm can temporarily illuminate and strengthen existing bulls in the illustrative combat layer, but it never creates synthetic trades or directly changes dominance, price, or frontline position. Swarms have a 25-second cooldown and ignore duplicate transaction signatures.
 
+Territorial reclamation is similarly deterministic: after a buy-regime reversal, or a giant buy that advances the frontline materially, the King targets only verified bears left behind the new bull line. His staff ray retires those isolated units and records the event in the battle log; bears still positioned on their valid side remain untouched, and the effect has no influence on market calculations.
+
 ## Data methodology
 
-DexScreener is used in the browser to discover active Solana pools and calculate a liquidity-weighted token price. If that discovery request is unavailable, the Cloudflare Worker derives a conservative fallback price from Helius DAS metadata and returns two explicitly identified SOL pools; the interface labels this reduced coverage as `FALLBACK` instead of implying full market coverage. The browser sends the selected public pool addresses and current market prices to a Cloudflare Durable Object, which validates them before opening the preferred Helius WebSocket path. The Worker parses confirmed balance changes and broadcasts normalized trades without exposing the Helius key. If Helius does not explicitly confirm `live`, the browser keeps or restores GeckoTerminal polling of the same pools. GeckoTerminal also supplies OHLCV candles, whose failure is isolated from the trade feed.
+DexScreener's official token-pairs endpoint is used in the browser to discover active Solana pools, calculate a liquidity-weighted token price and obtain five-minute directional transaction counts. If that discovery request is unavailable, the Cloudflare Worker derives a conservative fallback price from Helius DAS metadata and returns five explicitly identified high-activity SOL/USDC pools; the interface labels this reduced coverage as `FALLBACK` instead of implying full market coverage. The browser sends the selected public pool addresses and current market prices to a Cloudflare Durable Object, which validates them before opening the preferred Helius WebSocket path. The Worker parses confirmed balance changes and broadcasts normalized trades without exposing the Helius key. A rate-limited GeckoTerminal warm-up loads recent verified swaps even when Helius connects immediately; if Helius does not explicitly confirm `live`, the browser restores conservative GeckoTerminal polling. GeckoTerminal also supplies OHLCV candles, whose failure is isolated from the trade feed.
 
 Trade value is normalized to SOL:
 
@@ -56,7 +62,8 @@ Cloudflare Durable Object ── secure parsing and WebSocket broadcast
       ├── rolling 60-second pressure model
       │
       └── Three.js battlefield
-            ├── one entity per verified swap
+            ├── one frontline entity per recent verified swap
+            ├── scaled five-minute reserve formations
             ├── trade-sized combat attributes
             ├── terrain, grass, rocks and trees
             └── bounded formations, obstacle steering and stuck recovery
@@ -122,9 +129,9 @@ Never add the Helius key to `.env`, Vercel client variables or source control.
 
 ## Limitations and roadmap
 
-- Without the relay, or while its streaming path is unavailable, public polling is near-real-time and the four-pool cap protects GeckoTerminal's rate limit.
-- DexScreener outages reduce discovery to two known SOL pools and Helius metadata; the application marks that state as fallback coverage and does not invent an hourly change value.
-- With the relay, the four highest-scoring pools discovered by DexScreener are subscribed over Helius standard WebSockets; unsupported or unusual transactions can still fall back to the polling source.
+- Without the relay, or while its streaming path is unavailable, public polling is near-real-time and the five-pool cap plus 6.5-second global cadence protects GeckoTerminal's public rate limit.
+- DexScreener outages reduce discovery to five known SOL/USDC pools and Helius metadata; the application marks that state as fallback coverage and does not invent an hourly change value.
+- With the relay, the five highest-scoring pools discovered by DexScreener are subscribed over Helius standard WebSockets; unsupported or unusual transactions can still fall back to the polling source.
 - Free-service quotas are suitable for a portfolio demo, not an SLA-backed trading product.
 - Combat outcomes are illustrative and do not predict price movement.
 
