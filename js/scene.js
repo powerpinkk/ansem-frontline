@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { state } from './state.js';
+import { ARENA, clamp, clampArenaPosition, formationTarget, isFinitePosition, tradeLane, unitHasExpired } from './navigation.js';
 
 let onKillEvent = () => {};
 
@@ -22,6 +23,10 @@ geoLegBull.translate(0, -0.5, 0);
 const geoLegBear = new THREE.BoxGeometry(0.45, 0.9, 0.45);
 geoLegBear.translate(0, -0.45, 0);
 const unitAuraGeometry = new THREE.RingGeometry(1.2, 1.8, 24);
+const projectileGeometry = new THREE.CylinderGeometry(0.15, 0.15, 2.0, 8);
+projectileGeometry.rotateZ(Math.PI / 2);
+const projectileGlowGeometry = new THREE.CylinderGeometry(0.35, 0.35, 2.0, 8);
+projectileGlowGeometry.rotateZ(Math.PI / 2);
 
 const matBullBody = new THREE.MeshPhysicalMaterial({ color: 0x111613, metalness: 0.6, roughness: 0.2 });
 const matBullHead = new THREE.MeshPhysicalMaterial({ color: 0x0a100c, metalness: 0.7, roughness: 0.2 });
@@ -31,6 +36,22 @@ const matBearHead = new THREE.MeshPhysicalMaterial({ color: 0x140508, metalness:
 const matSnout = new THREE.MeshPhysicalMaterial({ color: 0x050505, metalness: 0.9, roughness: 0.1 });
 const matParticleBull = new THREE.MeshBasicMaterial({ color: 0x00ff88 });
 const matParticleBear = new THREE.MeshBasicMaterial({ color: 0xff3366 });
+const matBullEye = new THREE.MeshStandardMaterial({ color: 0x021008, emissive: 0x00ff88, emissiveIntensity: 3, metalness: 0.85, roughness: 0.08 });
+const matBullWhaleEye = matBullEye.clone();
+matBullWhaleEye.emissiveIntensity = 8;
+const matBearEye = new THREE.MeshStandardMaterial({ color: 0x160207, emissive: 0xff224f, emissiveIntensity: 3, metalness: 0.8, roughness: 0.1 });
+const matBearWhaleEye = matBearEye.clone();
+matBearWhaleEye.emissiveIntensity = 8;
+const projectileMaterials = {
+    bull: new THREE.MeshBasicMaterial({ color: 0x00ff88 }),
+    bear: new THREE.MeshBasicMaterial({ color: 0xff3366 }),
+};
+const projectileGlowMaterials = {
+    bull: new THREE.MeshBasicMaterial({ color: 0x00ff88, transparent: true, opacity: 0.4, blending: THREE.AdditiveBlending, depthWrite: false }),
+    bear: new THREE.MeshBasicMaterial({ color: 0xff3366, transparent: true, opacity: 0.4, blending: THREE.AdditiveBlending, depthWrite: false }),
+};
+
+const landscapeRandom = mulberry32(0xA45E9);
 
 let audioCtx = null;
 let audioEnabled = false;
@@ -43,6 +64,18 @@ export function initScene(callbacks = {}) {
     canvasContainer = document.getElementById('canvas-container');
     floatContainer = document.getElementById('floating-text-container');
     init3D();
+    if (import.meta.env.DEV) {
+        window.__ansemSceneDiagnostics = () => ({
+            entities: entities.map((entity) => ({
+                type: entity.type,
+                x: entity.mesh.position.x,
+                z: entity.mesh.position.z,
+                retired: entity.retired,
+            })),
+            projectiles: projectiles.length,
+            bounds: ARENA,
+        });
+    }
 }
 
 export function startGameLoop() {
@@ -65,7 +98,10 @@ export function toggleAudio() {
 
 export function spawnUnit(type, initial = false, isWhale = false, trade = null) {
     const sameSide = entities.filter((entity) => entity.type === type);
-    if (sameSide.length >= MAX_ENTITIES_PER_SIDE) retireEntity(sameSide[0]);
+    if (sameSide.length >= MAX_ENTITIES_PER_SIDE) {
+        const oldestRegular = sameSide.find((entity) => !entity.isWhale);
+        retireEntity(oldestRegular || sameSide[0]);
+    }
     const isBull = type === 'bull';
     const group = new THREE.Group();
     const bodyGroup = new THREE.Group();
@@ -97,7 +133,7 @@ export function spawnUnit(type, initial = false, isWhale = false, trade = null) 
         hornR.position.set(-0.1, 0.5, -0.35);
         hornR.rotation.set(-Math.PI / 6, 0, -Math.PI / 3);
         head.add(hornL, hornR);
-        const eyeMat = new THREE.MeshStandardMaterial({ color: 0x021008, emissive: 0x00ff88, emissiveIntensity: isWhale ? 8 : 3, metalness: 0.85, roughness: 0.08 });
+        const eyeMat = isWhale ? matBullWhaleEye : matBullEye;
         const eyeL = createMesh(geoSphere, eyeMat, isWhale ? 0.15 : 0.1, isWhale ? 0.15 : 0.1, isWhale ? 0.15 : 0.1);
         eyeL.position.set(0.35, 0.15, 0.35);
         const eyeR = createMesh(geoSphere, eyeMat, isWhale ? 0.15 : 0.1, isWhale ? 0.15 : 0.1, isWhale ? 0.15 : 0.1);
@@ -123,7 +159,7 @@ export function spawnUnit(type, initial = false, isWhale = false, trade = null) 
         const earR = createMesh(geoSphere, matBearHead, 0.3, 0.3, 0.3);
         earR.position.set(-0.1, 0.45, -0.35);
         head.add(earL, earR);
-        const eyeMat = new THREE.MeshStandardMaterial({ color: 0x160207, emissive: 0xff224f, emissiveIntensity: isWhale ? 8 : 3, metalness: 0.8, roughness: 0.1 });
+        const eyeMat = isWhale ? matBearWhaleEye : matBearEye;
         const eyeL = createMesh(geoSphere, eyeMat, isWhale ? 0.15 : 0.1, isWhale ? 0.15 : 0.1, isWhale ? 0.15 : 0.1);
         eyeL.position.set(0.35, 0.15, 0.35);
         const eyeR = createMesh(geoSphere, eyeMat, isWhale ? 0.15 : 0.1, isWhale ? 0.15 : 0.1, isWhale ? 0.15 : 0.1);
@@ -138,9 +174,10 @@ export function spawnUnit(type, initial = false, isWhale = false, trade = null) 
     }
 
     group.add(bodyGroup);
-    const spawnOffset = initial ? Math.random() * 16 + 18 : 52;
-    const spawnX = isBull ? state.frontlineX - spawnOffset : state.frontlineX + spawnOffset;
-    const spawnZ = (Math.random() - 0.5) * 20;
+    const sequence = entities.length;
+    const spawnZ = tradeLane(trade, sequence);
+    const entranceOffset = initial ? (isBull ? -6 : 6) : 0;
+    const spawnX = (isBull ? ARENA.spawnBullX : ARENA.spawnBearX) + entranceOffset;
 
     group.position.set(spawnX, getTrenchHeight(spawnX, spawnZ), spawnZ);
     scene.add(group);
@@ -163,6 +200,8 @@ export function spawnUnit(type, initial = false, isWhale = false, trade = null) 
         trade,
         power: Math.max(0.75, Math.min(3, Math.log10((trade?.solValue || 0.1) + 1) + 0.8)),
         laneTarget: spawnZ,
+        bornAt: Math.min(Date.now(), Number(trade?.timestamp) || Date.now()),
+        retired: false,
         stuckTime: 0,
         lastPosition: new THREE.Vector2(spawnX, spawnZ),
     });
@@ -171,7 +210,14 @@ export function spawnUnit(type, initial = false, isWhale = false, trade = null) 
 function retireEntity(entity) {
     const index = entities.indexOf(entity);
     if (index === -1) return;
+    entity.retired = true;
+    entity.target = null;
+    entities.forEach((other) => { if (other.target === entity) other.target = null; });
+    for (let i = projectiles.length - 1; i >= 0; i--) {
+        if (projectiles[i].target === entity || projectiles[i].attacker === entity) removeProjectile(i);
+    }
     scene.remove(entity.mesh);
+    entity.aura?.material.dispose();
     entities.splice(index, 1);
 }
 
@@ -201,10 +247,11 @@ export function applyTradeImpulse(isBuy, solValue, isWhale) {
 }
 
 function getTrenchHeight(x, z) {
-    const broadRelief = Math.sin(x * 0.045) * 1.4 + Math.cos(z * 0.09) * 0.65;
-    const detail = Math.sin((x + z) * 0.22) * 0.18;
-    const wornLane = Math.max(0, 1 - Math.abs(z) / 22) * -0.45;
-    return broadRelief + detail + wornLane;
+    const broadRelief = Math.sin(x * 0.036) * 1.15 + Math.cos(z * 0.075) * 0.58;
+    const crossedRelief = Math.sin(x * 0.083 + z * 0.057) * 0.42 + Math.cos(x * 0.024 - z * 0.13) * 0.28;
+    const detail = Math.sin((x + z) * 0.21) * 0.12;
+    const laneMask = Math.max(0, 1 - Math.abs(z) / 24);
+    return broadRelief + crossedRelief + detail - laneMask * 0.55;
 }
 
 function init3D() {
@@ -225,23 +272,26 @@ function init3D() {
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.12;
 
-    scene.add(new THREE.AmbientLight(0xffffff, 1.2));
-    const hemiLight = new THREE.HemisphereLight(0xffffff, 0x445544, 2.0);
+    scene.add(new THREE.AmbientLight(0xc8d8c4, 0.55));
+    const hemiLight = new THREE.HemisphereLight(0xb8d7d8, 0x2a2018, 2.2);
     hemiLight.position.set(0, 50, 0);
     scene.add(hemiLight);
 
-    const sun = new THREE.DirectionalLight(0xfffae6, 4.0);
-    sun.position.set(20, 50, 30);
+    const sun = new THREE.DirectionalLight(0xffe0ad, 4.6);
+    sun.position.set(-22, 52, 28);
     sun.castShadow = true;
     sun.shadow.mapSize.width = 1024;
     sun.shadow.mapSize.height = 1024;
     sun.shadow.camera.near = 0.5;
     sun.shadow.camera.far = 150;
-    sun.shadow.camera.left = -50;
-    sun.shadow.camera.right = 50;
-    sun.shadow.camera.top = 50;
-    sun.shadow.camera.bottom = -50;
+    sun.shadow.camera.left = -75;
+    sun.shadow.camera.right = 75;
+    sun.shadow.camera.top = 48;
+    sun.shadow.camera.bottom = -48;
     sun.shadow.bias = -0.001;
     scene.add(sun);
 
@@ -254,21 +304,29 @@ function init3D() {
     orbitControls.dampingFactor = 0.05;
     orbitControls.enabled = false;
 
-    const planeGeo = new THREE.PlaneGeometry(300, 150, 120, 60);
+    const planeGeo = new THREE.PlaneGeometry(300, 150, 150, 75);
     planeGeo.rotateX(-Math.PI / 2);
     const posAttribute = planeGeo.attributes.position;
     const colors = [];
-    const dirt = new THREE.Color(0x493522);
-    const grass = new THREE.Color(0x244528);
-    const highGrass = new THREE.Color(0x3e6638);
+    const dryDirt = new THREE.Color(0x6f5234);
+    const darkSoil = new THREE.Color(0x35271c);
+    const grass = new THREE.Color(0x284b2d);
+    const highGrass = new THREE.Color(0x537242);
+    const moss = new THREE.Color(0x365d35);
 
     for (let i = 0; i < posAttribute.count; i++) {
         const localX = posAttribute.getX(i);
         const localZ = posAttribute.getZ(i);
-        const height = getTrenchHeight(localX, localZ) + (Math.random() - 0.5) * 0.12;
+        const grain = (landscapeRandom() - 0.5) * 0.13;
+        const height = getTrenchHeight(localX, localZ) + grain;
         posAttribute.setY(i, height);
-        const laneBlend = Math.min(1, Math.max(0, (Math.abs(localZ) - 11) / 18));
-        const color = dirt.clone().lerp(height > 0.8 ? highGrass : grass, laneBlend);
+        const laneBlend = smoothstep(7, 28, Math.abs(localZ));
+        const trackRuts = Math.max(0, Math.cos(localZ * 0.72) * 0.5 + 0.5) * (1 - laneBlend) * 0.16;
+        const terrainVariation = Math.sin(localX * 0.19 + localZ * 0.31) * 0.5 + 0.5;
+        const soil = darkSoil.clone().lerp(dryDirt, 0.48 + terrainVariation * 0.28 - trackRuts);
+        const vegetation = moss.clone().lerp(height > 0.65 ? highGrass : grass, terrainVariation * 0.55);
+        const color = soil.lerp(vegetation, laneBlend * (0.78 + terrainVariation * 0.22));
+        color.offsetHSL(0, 0, grain * 0.18);
         colors.push(color.r, color.g, color.b);
     }
     planeGeo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
@@ -276,9 +334,9 @@ function init3D() {
 
     terrainMaterial = new THREE.MeshStandardMaterial({
         color: 0xffffff,
-        roughness: 0.9,
-        metalness: 0.05,
-        flatShading: true,
+        roughness: 0.96,
+        metalness: 0,
+        flatShading: false,
         vertexColors: true,
     });
     const plane = new THREE.Mesh(planeGeo, terrainMaterial);
@@ -286,20 +344,22 @@ function init3D() {
     scene.add(plane);
 
     createLandscapeProps();
+    createGrassTufts();
 
     frontlineLaser = new THREE.Group();
     const coreLaser = new THREE.Mesh(
-        new THREE.PlaneGeometry(0.8, 150),
+        new THREE.PlaneGeometry(0.8, 150, 1, 75),
         new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending })
     );
     const glowLaser = new THREE.Mesh(
-        new THREE.PlaneGeometry(3.5, 150),
+        new THREE.PlaneGeometry(3.5, 150, 1, 75),
         new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.2, blending: THREE.AdditiveBlending })
     );
     coreLaser.rotation.x = -Math.PI / 2;
     glowLaser.rotation.x = -Math.PI / 2;
     frontlineLaser.add(coreLaser, glowLaser);
     scene.add(frontlineLaser);
+    fitFrontlineToTerrain();
 
     trenchGlowLight = new THREE.PointLight(0xffffff, 2.5, 50);
     scene.add(trenchGlowLight);
@@ -317,24 +377,26 @@ function createLandscapeProps() {
     const rockGeo = new THREE.DodecahedronGeometry(1, 0);
     const rockMat = new THREE.MeshStandardMaterial({ color: 0x4b443b, roughness: 1 });
     for (let i = 0; i < 52; i++) {
-        const x = (Math.random() - 0.5) * 230;
-        const z = signedOuterPosition(17, 62);
-        const scale = 0.7 + Math.random() * 2.2;
+        const x = (landscapeRandom() - 0.5) * 230;
+        const z = signedOuterPosition(18, 62);
+        const rawScale = 0.7 + landscapeRandom() * 2.2;
+        const scale = z > 16 && z < 54 ? Math.min(rawScale, 1.15) : rawScale;
         const rock = new THREE.Mesh(rockGeo, rockMat);
         rock.scale.set(scale, scale * 0.7, scale);
         rock.position.set(x, getTrenchHeight(x, z) + scale * 0.25, z);
-        rock.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, 0);
+        rock.rotation.set(landscapeRandom() * Math.PI, landscapeRandom() * Math.PI, 0);
         rock.castShadow = true;
         rock.receiveShadow = true;
         scene.add(rock);
         if (Math.abs(z) < 30) obstacles.push({ x, z, radius: scale * 1.35 });
     }
+    createBattleEdgeRocks(rockGeo, rockMat);
     const trunkGeo = new THREE.CylinderGeometry(0.35, 0.55, 5, 7);
     const crownGeo = new THREE.ConeGeometry(2.4, 6.5, 9);
     const trunkMat = new THREE.MeshStandardMaterial({ color: 0x3a2416, roughness: 1 });
     const crownMat = new THREE.MeshStandardMaterial({ color: 0x173d22, roughness: 0.95 });
     for (let i = 0; i < 38; i++) {
-        const x = (Math.random() - 0.5) * 235;
+        const x = (landscapeRandom() - 0.5) * 235;
         const z = signedOuterPosition(25, 67);
         const tree = new THREE.Group();
         const trunk = new THREE.Mesh(trunkGeo, trunkMat);
@@ -344,15 +406,67 @@ function createLandscapeProps() {
         trunk.castShadow = crown.castShadow = true;
         tree.add(trunk, crown);
         tree.position.set(x, getTrenchHeight(x, z), z);
-        const scale = 0.75 + Math.random() * 0.7;
+        const scale = z > 20 && z < 55 ? 0.72 + landscapeRandom() * 0.2 : 0.75 + landscapeRandom() * 0.7;
         tree.scale.setScalar(scale);
         scene.add(tree);
     }
 }
 
+function createBattleEdgeRocks(geometry, material) {
+    for (let i = 0; i < 12; i++) {
+        const x = -52 + landscapeRandom() * 104;
+        const z = (i % 2 ? 1 : -1) * (12.3 + landscapeRandom() * 1.3);
+        const scale = 0.45 + landscapeRandom() * 0.5;
+        const rock = new THREE.Mesh(geometry, material);
+        rock.scale.set(scale, scale * 0.62, scale);
+        rock.position.set(x, getTrenchHeight(x, z) + scale * 0.2, z);
+        rock.rotation.set(landscapeRandom() * Math.PI, landscapeRandom() * Math.PI, 0);
+        rock.castShadow = true;
+        rock.receiveShadow = true;
+        scene.add(rock);
+        obstacles.push({ x, z, radius: scale * 1.2 });
+    }
+}
+
 function signedOuterPosition(min, max) {
-    const value = min + Math.random() * (max - min);
-    return Math.random() < 0.5 ? -value : value;
+    const value = min + landscapeRandom() * (max - min);
+    return landscapeRandom() < 0.5 ? -value : value;
+}
+
+function createGrassTufts() {
+    const bladeGeo = new THREE.ConeGeometry(0.16, 1.5, 4);
+    bladeGeo.translate(0, 0.75, 0);
+    const bladeMat = new THREE.MeshStandardMaterial({ color: 0x426b38, roughness: 1, vertexColors: false });
+    const count = 720;
+    const grassMesh = new THREE.InstancedMesh(bladeGeo, bladeMat, count);
+    grassMesh.receiveShadow = true;
+    const dummy = new THREE.Object3D();
+    for (let i = 0; i < count; i++) {
+        const x = (landscapeRandom() - 0.5) * 250;
+        const z = signedOuterPosition(13, 67);
+        dummy.position.set(x, getTrenchHeight(x, z), z);
+        dummy.rotation.y = landscapeRandom() * Math.PI;
+        const scale = 0.55 + landscapeRandom() * 0.9;
+        dummy.scale.set(scale * (0.7 + landscapeRandom() * 0.5), scale, scale);
+        dummy.updateMatrix();
+        grassMesh.setMatrixAt(i, dummy.matrix);
+    }
+    grassMesh.instanceMatrix.needsUpdate = true;
+    scene.add(grassMesh);
+}
+
+function smoothstep(edge0, edge1, value) {
+    const t = clamp((value - edge0) / (edge1 - edge0), 0, 1);
+    return t * t * (3 - 2 * t);
+}
+
+function mulberry32(seed) {
+    return function random() {
+        let value = seed += 0x6D2B79F5;
+        value = Math.imul(value ^ value >>> 15, value | 1);
+        value ^= value + Math.imul(value ^ value >>> 7, value | 61);
+        return ((value ^ value >>> 14) >>> 0) / 4294967296;
+    };
 }
 
 function createMesh(geo, mat, sx, sy, sz) {
@@ -420,22 +534,8 @@ function applyDamage(attacker, target, dmg, isCrit, direction) {
 }
 
 function spawnProjectile(attacker, target, dmg, isCrit) {
-    const isBull = attacker.type === 'bull';
-    const geo = new THREE.CylinderGeometry(0.15, 0.15, 2.0, 8);
-    geo.rotateZ(Math.PI / 2);
-    const mat = new THREE.MeshBasicMaterial({ color: isBull ? 0x00ff88 : 0xff3366 });
-    const mesh = new THREE.Mesh(geo, mat);
-
-    const glowGeo = new THREE.CylinderGeometry(0.35, 0.35, 2.0, 8);
-    glowGeo.rotateZ(Math.PI / 2);
-    const glowMat = new THREE.MeshBasicMaterial({
-        color: isBull ? 0x00ff88 : 0xff3366,
-        transparent: true,
-        opacity: 0.4,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false,
-    });
-    mesh.add(new THREE.Mesh(glowGeo, glowMat));
+    const mesh = new THREE.Mesh(projectileGeometry, projectileMaterials[attacker.type]);
+    mesh.add(new THREE.Mesh(projectileGlowGeometry, projectileGlowMaterials[attacker.type]));
 
     mesh.position.copy(attacker.mesh.position);
     mesh.position.y += 1.5;
@@ -448,9 +548,8 @@ function spawnProjectile(attacker, target, dmg, isCrit) {
 function updateProjectiles(delta) {
     for (let i = projectiles.length - 1; i >= 0; i--) {
         const p = projectiles[i];
-        if (!p.target || p.target.hp <= 0) {
-            scene.remove(p.mesh);
-            projectiles.splice(i, 1);
+        if (!p.target || p.target.hp <= 0 || p.target.retired || p.attacker.retired) {
+            removeProjectile(i);
             continue;
         }
 
@@ -462,8 +561,7 @@ function updateProjectiles(delta) {
 
         if (dist < 1.5) {
             applyDamage(p.attacker, p.target, p.dmg, p.isCrit, dir.normalize());
-            scene.remove(p.mesh);
-            projectiles.splice(i, 1);
+            removeProjectile(i);
         } else {
             dir.normalize();
             p.mesh.position.add(dir.multiplyScalar(p.speed * delta));
@@ -472,19 +570,31 @@ function updateProjectiles(delta) {
     }
 }
 
+function removeProjectile(index) {
+    const projectile = projectiles[index];
+    if (!projectile) return;
+    scene.remove(projectile.mesh);
+    projectiles.splice(index, 1);
+}
+
 function updateEntities(delta) {
-    const deadIds = [];
+    const finished = [];
+    const now = Date.now();
     state.frontlineX += (state.targetFrontlineX - state.frontlineX) * 2 * delta;
 
     frontlineLaser.position.x = state.frontlineX;
-    frontlineLaser.position.y = getTrenchHeight(state.frontlineX, 0) + 0.1;
+    fitFrontlineToTerrain();
     trenchGlowLight.position.x = state.frontlineX;
     trenchGlowLight.position.y = getTrenchHeight(state.frontlineX, 0) - 1.0;
 
+    for (const entity of entities) {
+        if (entity.hp <= 0 || unitHasExpired(entity, now)) entity.retired = true;
+    }
+
     for (let i = 0; i < entities.length; i++) {
         const e = entities[i];
-        if (e.hp <= 0) {
-            deadIds.push(i);
+        if (e.retired) {
+            finished.push({ entity: e, defeated: e.hp <= 0 });
             continue;
         }
 
@@ -502,17 +612,16 @@ function updateEntities(delta) {
         e.vx *= 0.85;
         e.vz *= 0.85;
 
-        if (e.mesh.position.z > 14) e.mesh.position.z = 14;
-        if (e.mesh.position.z < -14) e.mesh.position.z = -14;
+        enforceArenaBounds(e);
 
         e.mesh.position.y = getTrenchHeight(e.mesh.position.x, e.mesh.position.z);
 
-        if (!e.target || e.target.hp <= 0) {
+        if (!e.target || e.target.hp <= 0 || e.target.retired) {
             let closest = null;
             let minDist = Infinity;
             for (let j = 0; j < entities.length; j++) {
                 const other = entities[j];
-                if (other.type !== e.type && other.hp > 0) {
+                if (other !== e && other.type !== e.type && other.hp > 0 && !other.retired) {
                     const d = e.mesh.position.distanceToSquared(other.mesh.position);
                     if (d < minDist) {
                         minDist = d;
@@ -569,10 +678,29 @@ function updateEntities(delta) {
                 }
             }
         } else {
-            e.mesh.position.x += (e.type === 'bull' ? 1 : -1) * speed * delta;
-            e.mesh.rotation.y = e.type === 'bull' ? 0 : Math.PI;
-            isMoving = true;
+            const formationIndex = entities.filter((other) => other.type === e.type && other.bornAt < e.bornAt).length;
+            const hold = formationTarget(e.type, state.frontlineX, e.laneTarget, formationIndex, e.isWhale);
+            const dx = hold.x - e.mesh.position.x;
+            const dz = hold.z - e.mesh.position.z;
+            const distSq = dx * dx + dz * dz;
+            if (distSq > 1.4) {
+                const dist = Math.sqrt(distSq);
+                const steering = getSteering(e, dx / dist, dz / dist);
+                e.mesh.position.x += steering.x * speed * 0.75 * delta;
+                e.mesh.position.z += steering.z * speed * 0.75 * delta;
+                e.mesh.rotation.y = Math.atan2(-steering.z, steering.x);
+                e.body.position.y = 1.3 + Math.abs(Math.sin(e.animTime * 12)) * 0.12;
+                isMoving = true;
+            } else {
+                e.body.position.y = 1.3;
+                e.body.rotation.z = THREE.MathUtils.lerp(e.body.rotation.z, 0, 0.2);
+                e.mesh.rotation.y = e.type === 'bull' ? 0 : Math.PI;
+            }
         }
+
+        applySeparation(e, delta);
+        enforceArenaBounds(e);
+        e.mesh.position.y = getTrenchHeight(e.mesh.position.x, e.mesh.position.z);
 
         if (isMoving) {
             recoverIfStuck(e, delta);
@@ -588,11 +716,22 @@ function updateEntities(delta) {
         }
     }
 
-    for (let i = deadIds.length - 1; i >= 0; i--) {
-        const dead = entities[deadIds[i]];
-        spawnParticles(dead.mesh.position, dead.type === 'bull' ? matParticleBull : matParticleBear, true, dead.isWhale);
-        scene.remove(dead.mesh);
-        entities.splice(deadIds[i], 1);
+    for (const { entity, defeated } of finished) {
+        if (defeated) spawnParticles(entity.mesh.position, entity.type === 'bull' ? matParticleBull : matParticleBear, true, entity.isWhale);
+        retireEntity(entity);
+    }
+}
+
+function fitFrontlineToTerrain() {
+    if (!frontlineLaser) return;
+    for (const strip of frontlineLaser.children) {
+        const positions = strip.geometry.attributes.position;
+        for (let i = 0; i < positions.count; i++) {
+            const localX = positions.getX(i);
+            const localZ = -positions.getY(i);
+            positions.setZ(i, getTrenchHeight(state.frontlineX + localX, localZ) + 0.16);
+        }
+        positions.needsUpdate = true;
     }
 }
 
@@ -615,6 +754,40 @@ function getSteering(entity, desiredX, desiredZ) {
     return { x: steerX / length, z: steerZ / length };
 }
 
+function applySeparation(entity, delta) {
+    let pushX = 0;
+    let pushZ = 0;
+    const clearance = entity.isWhale ? 5.5 : 2.2;
+    for (const other of entities) {
+        if (other === entity || other.retired || other.hp <= 0) continue;
+        const dx = entity.mesh.position.x - other.mesh.position.x;
+        const dz = entity.mesh.position.z - other.mesh.position.z;
+        const distanceSq = dx * dx + dz * dz;
+        if (distanceSq < 0.001 || distanceSq >= clearance * clearance) continue;
+        const distance = Math.sqrt(distanceSq);
+        const strength = (clearance - distance) / clearance;
+        pushX += (dx / distance) * strength;
+        pushZ += (dz / distance) * strength;
+    }
+    entity.mesh.position.x += pushX * delta * 2.8;
+    entity.mesh.position.z += pushZ * delta * 2.8;
+}
+
+function enforceArenaBounds(entity) {
+    if (!isFinitePosition(entity.mesh.position)) {
+        entity.mesh.position.x = entity.type === 'bull' ? ARENA.spawnBullX : ARENA.spawnBearX;
+        entity.mesh.position.z = entity.laneTarget;
+        entity.vx = 0;
+        entity.vz = 0;
+    }
+    const padding = entity.isWhale ? 4 : 1;
+    const safe = clampArenaPosition(entity.mesh.position, padding);
+    if (safe.x !== entity.mesh.position.x) entity.vx = 0;
+    if (safe.z !== entity.mesh.position.z) entity.vz = 0;
+    entity.mesh.position.x = safe.x;
+    entity.mesh.position.z = safe.z;
+}
+
 function recoverIfStuck(entity, delta) {
     const moved = Math.hypot(
         entity.mesh.position.x - entity.lastPosition.x,
@@ -623,9 +796,11 @@ function recoverIfStuck(entity, delta) {
     entity.stuckTime = moved < 0.008 ? entity.stuckTime + delta : 0;
     entity.lastPosition.set(entity.mesh.position.x, entity.mesh.position.z);
     if (entity.stuckTime < 1.2) return;
-    entity.laneTarget = Math.max(-13, Math.min(13, entity.laneTarget + (Math.random() < 0.5 ? -5 : 5)));
-    entity.mesh.position.z += entity.laneTarget > entity.mesh.position.z ? 1.5 : -1.5;
-    entity.vx = entity.type === 'bull' ? 2 : -2;
+    const laneShift = entity.mesh.position.z >= 0 ? -4.5 : 4.5;
+    entity.laneTarget = clamp(entity.laneTarget + laneShift, ARENA.minZ + 2, ARENA.maxZ - 2);
+    entity.mesh.position.z += Math.sign(entity.laneTarget - entity.mesh.position.z) * 1.25;
+    entity.vx = 0;
+    entity.vz = 0;
     entity.stuckTime = 0;
 }
 
@@ -637,7 +812,7 @@ function updateCamera(delta) {
             state.averageX += ((totalX / entities.length) - state.averageX) * 2 * delta;
         }
 
-        const followX = entities.length > 0 ? state.averageX : state.frontlineX;
+        const followX = clamp(entities.length > 0 ? state.averageX : state.frontlineX, -48, 48);
         _camTarget.set(followX + 25, 25, 40);
         camera.position.lerp(_camTarget, 3 * delta);
 

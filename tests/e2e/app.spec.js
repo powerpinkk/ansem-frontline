@@ -33,6 +33,16 @@ test('renders verified swaps and the WebGL battlefield', async ({ page }, testIn
     const dimensions = await canvas.evaluate((element) => ({ width: element.width, height: element.height }));
     expect(dimensions.width).toBeGreaterThan(300);
     expect(dimensions.height).toBeGreaterThan(200);
+    const diagnostics = await page.evaluate(() => window.__ansemSceneDiagnostics());
+    expect(diagnostics.entities.length).toBe(2);
+    for (const entity of diagnostics.entities) {
+        expect(Number.isFinite(entity.x)).toBe(true);
+        expect(Number.isFinite(entity.z)).toBe(true);
+        expect(entity.x).toBeGreaterThanOrEqual(diagnostics.bounds.minX);
+        expect(entity.x).toBeLessThanOrEqual(diagnostics.bounds.maxX);
+        expect(entity.z).toBeGreaterThanOrEqual(diagnostics.bounds.minZ);
+        expect(entity.z).toBeLessThanOrEqual(diagnostics.bounds.maxZ);
+    }
     expect(pageErrors).toEqual([]);
     await page.screenshot({ path: `.artifacts/${testInfo.project.name}.png`, fullPage: true });
 });
