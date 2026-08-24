@@ -172,7 +172,7 @@ function updateBattleState() {
     if (tactics.state === 'bull') DOM.battleStateDetail.textContent = 'Bulls surge forward · grizzlies backpedal toward their lines';
     else if (tactics.state === 'bear') DOM.battleStateDetail.textContent = 'Grizzlies push forward · bulls fall back toward the King';
     else if (tactics.state === 'contested') DOM.battleStateDetail.textContent = 'Both sides brace around the live 60s pressure line';
-    else DOM.battleStateDetail.textContent = 'No verified SOL flow in 60s · 5m ranks remain alert';
+    else DOM.battleStateDetail.textContent = 'No verified SOL flow in 60s · recent swaps keep patrolling';
 }
 
 function formatSol(value) {

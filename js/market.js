@@ -94,12 +94,6 @@ export function summarizePoolActivity(pairs, timeframe = 'm5') {
     }, { buyCount: 0, sellCount: 0, windowMs: timeframe === 'h1' ? 3_600_000 : 300_000, source: 'dexscreener' });
 }
 
-export function scaleActivityToReserves(tradeCount, limit = 24) {
-    const count = Math.max(0, number(tradeCount));
-    if (!count) return 0;
-    return Math.min(limit, Math.max(3, Math.round(Math.sqrt(count) * 2.5)));
-}
-
 export function deriveBattleTactics({ buySol = 0, sellSol = 0, buyCount = 0, sellCount = 0 } = {}) {
     const safeBuySol = Math.max(0, number(buySol));
     const safeSellSol = Math.max(0, number(sellSol));
@@ -110,7 +104,7 @@ export function deriveBattleTactics({ buySol = 0, sellSol = 0, buyCount = 0, sel
     const activityLevel = Math.min(1, Math.log1p(totalTrades) / Math.log(221));
 
     if (totalSol < 0.01) {
-        return { state: 'holding', label: 'RESERVES HOLDING', balance: 0, flowIntensity: 0, activityLevel };
+        return { state: 'holding', label: 'FRONTLINE QUIET', balance: 0, flowIntensity: 0, activityLevel };
     }
     if (Math.abs(balance) < 0.12) {
         return { state: 'contested', label: 'FRONTLINE CONTESTED', balance, flowIntensity, activityLevel };

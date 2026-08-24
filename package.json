@@ -11,6 +11,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
+    "test:soak": "node scripts/soak-test.mjs",
     "lint": "eslint .",
     "check": "npm run lint && npm test && npm run build && npm run test:e2e",
     "worker:dev": "wrangler dev --config worker/wrangler.jsonc",

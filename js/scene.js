@@ -2,8 +2,8 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { state } from './state.js';
-import { ARENA, clamp, clampArenaPosition, formationTarget, isFinitePosition, isUnitStranded, tradeLane, unitHasExpired } from './navigation.js';
-import { deriveBattleTactics, scaleActivityToReserves } from './market.js';
+import { ARENA, clamp, clampArenaPosition, isFinitePosition, isUnitStranded, tacticalPatrolTarget, tradeLane, unitHasExpired } from './navigation.js';
+import { deriveBattleTactics } from './market.js';
 
 let onKillEvent = () => {};
 let onReclaimEvent = () => {};
@@ -13,31 +13,22 @@ let particles = [];
 let projectiles = [];
 let supportWaves = [];
 let kingStrikes = [];
-const MAX_ENTITIES_PER_SIDE = 6;
-const MAX_RESERVE_UNITS = 24;
-const RESERVE_UPDATE_INTERVAL = 1 / 24;
+const MAX_ENTITIES_PER_SIDE = 8;
 const obstacles = [];
 
 let scene, camera, renderer, frontlineLaser, orbitControls, trenchGlowLight, terrainMaterial;
 let bullKingRig, kingMount, kingRider, kingWingNear, kingWingFar, kingStaff, kingStaffGlow;
 const kingLegs = [];
 let kingTime = 0;
-let reserveTime = 0;
-let reserveUpdateAccumulator = RESERVE_UPDATE_INTERVAL;
 let bullSupportUntil = 0;
 let lastFrontlineFitX = Number.POSITIVE_INFINITY;
 let viewportObserver;
 let loopStarted = false;
-let reserveForces;
 let lastKingReclaimAt = 0;
 let lastTerritoryAuditAt = 0;
 let bullControlSince = 0;
 let kingFocusUntil = 0;
 let kingFocusX = 0;
-const reserveSignals = {
-    bull: { at: 0, strength: 0 },
-    bear: { at: 0, strength: 0 },
-};
 let kingReactionAt = 0;
 let kingReactionStrength = 0;
 const frameTimer = new THREE.Timer();
@@ -142,7 +133,6 @@ let audioEnabled = false;
 const _camTarget = new THREE.Vector3();
 const _lookTarget = new THREE.Vector3();
 const _kingTarget = new THREE.Vector3();
-const _reserveDummy = new THREE.Object3D();
 const _rayDirection = new THREE.Vector3();
 const _rayUp = new THREE.Vector3(0, 1, 0);
 const _rayStart = new THREE.Vector3();
@@ -158,17 +148,17 @@ export function initScene(callbacks = {}) {
     if (import.meta.env.DEV) {
         window.__ansemSceneDiagnostics = () => ({
             entities: entities.map((entity) => ({
+                id: entity.trade?.txHash || entity.trade?.id || `${entity.type}-${entity.bornAt}`,
                 type: entity.type,
                 x: entity.mesh.position.x,
                 z: entity.mesh.position.z,
                 retired: entity.retired,
+                hasTarget: Boolean(entity.target),
             })),
             projectiles: projectiles.length,
             supportWaves: supportWaves.length,
             kingStrikes: kingStrikes.length,
             supportedBulls: entities.filter((entity) => entity.type === 'bull' && entity.supportUntil > Date.now()).length,
-            reserves: reserveForces ? { bull: reserveForces.bull.count, bear: reserveForces.bear.count } : { bull: 0, bear: 0 },
-            reserveSamples: reserveForces ? { bull: reserveForces.bull.sample, bear: reserveForces.bear.sample } : null,
             tactics: deriveBattleTactics({
                 buySol: state.buySol60s,
                 sellSol: state.sellSol60s,
@@ -337,6 +327,7 @@ export function spawnUnit(type, initial = false, isWhale = false, trade = null) 
         trade,
         power: Math.max(0.75, Math.min(3, Math.log10((trade?.solValue || 0.1) + 1) + 0.8)),
         laneTarget: spawnZ,
+        patrolPhase: ((spawnZ + 11.5) / 23) * Math.PI * 2 + sequence * 0.73,
         supportUntil: type === 'bull' ? bullSupportUntil : 0,
         bornAt: Math.min(Date.now(), Number(trade?.timestamp) || Date.now()),
         retired: false,
@@ -379,10 +370,7 @@ export function setFrontlineColor(colorHex) {
 }
 
 export function applyTradeImpulse(isBuy, solValue, isWhale) {
-    const type = isBuy ? 'bull' : 'bear';
     const strength = clamp(0.35 + Math.log1p(Math.max(0, solValue)) / Math.log(21) + (isWhale ? 0.65 : 0), 0.35, 1.8);
-    reserveSignals[type].at = Date.now();
-    reserveSignals[type].strength = strength;
     if (isBuy) {
         kingReactionAt = Date.now();
         kingReactionStrength = strength;
@@ -405,7 +393,7 @@ export function handleTerritoryShift(trade, meta = {}) {
         entity.type === 'bear'
         && !entity.retired
         && entity.hp > 0
-        && entity.mesh.position.x < next - 2
+        && isUnitStranded('bear', entity.mesh.position.x, next, entity.isWhale ? 18 : 14)
     );
     if (!stranded.length) return;
     lastKingReclaimAt = now;
@@ -433,7 +421,7 @@ function updateTerritorialControl() {
         entity.type === 'bear'
         && !entity.retired
         && entity.hp > 0
-        && isUnitStranded('bear', entity.mesh.position.x, state.frontlineX, entity.isWhale ? 10 : 7)
+        && isUnitStranded('bear', entity.mesh.position.x, state.frontlineX, entity.isWhale ? 18 : 14)
     );
     if (!stranded.length) return;
     lastKingReclaimAt = now;
@@ -486,13 +474,6 @@ function castKingReclamation(stranded, solValue, previous, next, reason = 'trade
     playTone(170, 'sawtooth', 0.75, 0.045);
 }
 
-export function updateReserveForces(activity) {
-    state.activity5m = activity || state.activity5m;
-    if (!reserveForces) return;
-    setReserveTarget('bull', scaleActivityToReserves(state.activity5m.buyCount, MAX_RESERVE_UNITS));
-    setReserveTarget('bear', scaleActivityToReserves(state.activity5m.sellCount, MAX_RESERVE_UNITS));
-}
-
 export function triggerBullKingSupport({ buySol, dominance }) {
     if (!bullKingRig) return;
     const now = Date.now();
@@ -500,8 +481,6 @@ export function triggerBullKingSupport({ buySol, dominance }) {
     bullSupportUntil = now + duration;
     kingReactionAt = now;
     kingReactionStrength = clamp(1 + buySol / 20, 1, 2.2);
-    reserveSignals.bull.at = now;
-    reserveSignals.bull.strength = kingReactionStrength;
     entities.forEach((entity) => {
         if (entity.type === 'bull' && entity.hp > 0 && !entity.retired) entity.supportUntil = bullSupportUntil;
     });
@@ -628,7 +607,6 @@ function init3D() {
 
     createLandscapeProps();
     createGrassTufts();
-    createReserveForces();
     createFlyingBullKing();
 
     frontlineLaser = new THREE.Group();
@@ -786,141 +764,6 @@ function createGrassTufts() {
     }
     grassMesh.instanceMatrix.needsUpdate = true;
     scene.add(grassMesh);
-}
-
-function createReserveForces() {
-    reserveForces = {
-        bull: createReserveSide('bull'),
-        bear: createReserveSide('bear'),
-    };
-    updateReserveForces(state.activity5m);
-}
-
-function createReserveSide(type) {
-    const isBull = type === 'bull';
-    const body = new THREE.InstancedMesh(isBull ? geoBox : geoBearBody, isBull ? matBullBody : matBearBody, MAX_RESERVE_UNITS);
-    const head = new THREE.InstancedMesh(isBull ? geoBox : geoBearHead, isBull ? matBullHead : matBearHead, MAX_RESERVE_UNITS);
-    const legs = new THREE.InstancedMesh(isBull ? geoLegBull : geoBearLeg, isBull ? matBullBody : matBearDarkFur, MAX_RESERVE_UNITS * 4);
-    const eyes = new THREE.InstancedMesh(geoSphere, isBull ? matBullEye : matBearEye, MAX_RESERVE_UNITS * 2);
-    const accents = new THREE.InstancedMesh(isBull ? geoCone : geoSphere, isBull ? matBullHorn : matBearDarkFur, MAX_RESERVE_UNITS * 2);
-    const muzzles = new THREE.InstancedMesh(isBull ? geoBox : geoBearMuzzle, isBull ? matSnout : matBearDarkFur, MAX_RESERVE_UNITS);
-    const noses = new THREE.InstancedMesh(geoSphere, matSnout, MAX_RESERVE_UNITS);
-    const beams = isBull ? null : new THREE.InstancedMesh(geoEyeLaser, matBearLaser, MAX_RESERVE_UNITS * 2);
-    [body, head, legs].forEach((mesh) => {
-        mesh.castShadow = true;
-        mesh.receiveShadow = true;
-        mesh.frustumCulled = false;
-        mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-        scene.add(mesh);
-    });
-    [eyes, accents, muzzles, noses, beams].filter(Boolean).forEach((mesh) => {
-        mesh.castShadow = false;
-        mesh.receiveShadow = false;
-        mesh.frustumCulled = false;
-        mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-        scene.add(mesh);
-    });
-    const reserve = {
-        body, head, legs, eyes, accents, muzzles, noses, beams,
-        count: 0,
-        countFloat: 0,
-        targetCount: 0,
-        sample: { x: 0, y: 0, z: 0 },
-    };
-    body.count = head.count = muzzles.count = noses.count = 0;
-    legs.count = eyes.count = accents.count = 0;
-    if (beams) beams.count = 0;
-    return reserve;
-}
-
-function setReserveTarget(type, count) {
-    const reserve = reserveForces?.[type];
-    if (!reserve) return;
-    reserve.targetCount = clamp(Math.round(count), 0, MAX_RESERVE_UNITS);
-}
-
-function updateReserveAnimation(delta) {
-    if (!reserveForces) return;
-    reserveTime += delta;
-    const tactics = deriveBattleTactics({
-        buySol: state.buySol60s,
-        sellSol: state.sellSol60s,
-        buyCount: state.activity5m.buyCount,
-        sellCount: state.activity5m.sellCount,
-    });
-    updateReserveSide('bull', delta, tactics);
-    updateReserveSide('bear', delta, tactics);
-}
-
-function updateReserveSide(type, delta, tactics) {
-    const reserve = reserveForces?.[type];
-    if (!reserve) return;
-    const countStep = 12 * delta;
-    reserve.countFloat += clamp(reserve.targetCount - reserve.countFloat, -countStep, countStep);
-    const count = clamp(Math.round(reserve.countFloat), 0, MAX_RESERVE_UNITS);
-    const isBull = type === 'bull';
-    const facing = isBull ? 1 : -1;
-    const yaw = isBull ? 0 : Math.PI;
-    const sideBalance = (isBull ? 1 : -1) * tactics.balance;
-    const stance = sideBalance * (2.6 + tactics.flowIntensity * 2.4);
-    const motion = 0.28 + tactics.activityLevel * 0.52 + tactics.flowIntensity * 0.55;
-    const cadence = 2.2 + tactics.activityLevel * 2.2 + tactics.flowIntensity * 2.4;
-    const signal = reserveSignals[type];
-    const signalAge = (Date.now() - signal.at) / 1000;
-    for (let i = 0; i < count; i++) {
-        const row = Math.floor(i / 6);
-        const lane = i % 6;
-        const phase = reserveTime * cadence + i * 0.83 + row * 0.41;
-        const gait = Math.sin(phase);
-        const pulseAge = signalAge - row * 0.09 - lane * 0.018;
-        const pulse = pulseAge > 0 && pulseAge < 1.35
-            ? Math.sin((pulseAge / 1.35) * Math.PI) * signal.strength
-            : 0;
-        const z = clamp(-11.5 + lane * 4.6 + (row % 2 ? 1.1 : 0) + Math.sin(phase * 0.43) * 0.3 * motion, ARENA.minZ + 3, ARENA.maxZ - 3);
-        const wedgeDepth = Math.abs(lane - 2.5) * 0.72 + (lane % 2) * 0.45;
-        const depth = 10.5 + row * 8.5 + wedgeDepth;
-        const marchingStep = Math.sin(phase * 0.5) * 0.42 * motion;
-        const x = clamp(state.frontlineX - facing * depth + facing * (stance + marchingStep + pulse * 2.25), ARENA.minX + 3, ARENA.maxX - 3);
-        const ground = getTrenchHeight(x, z);
-        const bob = Math.abs(gait) * 0.14 * motion + pulse * 0.22;
-        const bodyRoll = gait * 0.035 * motion - facing * pulse * 0.055;
-        setReserveMatrix(reserve.body, i, x, ground + 1.05 + bob, z, isBull ? 1.28 : 1.18, isBull ? 0.82 : 0.78, isBull ? 0.72 : 0.82, yaw, bodyRoll);
-        setReserveMatrix(reserve.head, i, x + facing * 0.95, ground + 1.48 + bob * 0.72, z, isBull ? 0.58 : 0.54, 0.58, isBull ? 0.58 : 0.55, yaw, -bodyRoll * 0.45);
-        setReserveMatrix(reserve.muzzles, i, x + facing * 1.35, ground + 1.42 + bob * 0.72, z, isBull ? 0.34 : 0.38, isBull ? 0.24 : 0.27, isBull ? 0.36 : 0.4, yaw);
-        setReserveMatrix(reserve.noses, i, x + facing * 1.62, ground + 1.43 + bob * 0.72, z, 0.14, 0.12, 0.15, yaw);
-        const legOffsets = [[0.5, 0.36], [0.5, -0.36], [-0.5, 0.36], [-0.5, -0.36]];
-        legOffsets.forEach(([xOffset, zOffset], legIndex) => {
-            const stride = Math.sin(phase + (legIndex === 0 || legIndex === 3 ? 0 : Math.PI));
-            const legLift = Math.max(0, stride) * 0.16 * motion + pulse * 0.08;
-            setReserveMatrix(reserve.legs, i * 4 + legIndex, x + facing * xOffset, ground + 0.7 + legLift, z + zOffset, 0.78, 0.78, 0.78, yaw, stride * 0.28 * motion);
-        });
-        [-1, 1].forEach((side, detailIndex) => {
-            setReserveMatrix(reserve.eyes, i * 2 + detailIndex, x + facing * 1.27, ground + 1.6 + bob * 0.72, z + side * 0.23, 0.09 + pulse * 0.025, 0.075 + pulse * 0.018, 0.09 + pulse * 0.025, yaw);
-            if (isBull) {
-                setReserveMatrix(reserve.accents, i * 2 + detailIndex, x + facing * 0.82, ground + 2.0 + bob * 0.65, z + side * 0.38, 0.14, 0.52, 0.14, yaw, side * 0.28 + bodyRoll);
-            } else {
-                setReserveMatrix(reserve.accents, i * 2 + detailIndex, x + facing * 0.72, ground + 1.98 + bob * 0.65, z + side * 0.4, 0.18, 0.2, 0.14, yaw);
-                setReserveMatrix(reserve.beams, i * 2 + detailIndex, x + facing * (1.72 + pulse * 0.35), ground + 1.6 + bob * 0.72, z + side * 0.23, 0.52 + pulse * 0.28, 0.62, 0.62, yaw);
-            }
-        });
-        if (i === 0) reserve.sample = { x, y: ground + 1.05 + bob, z };
-    }
-    reserve.count = count;
-    reserve.body.count = reserve.head.count = reserve.muzzles.count = reserve.noses.count = count;
-    reserve.legs.count = count * 4;
-    reserve.eyes.count = reserve.accents.count = count * 2;
-    if (reserve.beams) reserve.beams.count = count * 2;
-    [reserve.body, reserve.head, reserve.legs, reserve.eyes, reserve.accents, reserve.muzzles, reserve.noses, reserve.beams].filter(Boolean).forEach((mesh) => {
-        mesh.instanceMatrix.needsUpdate = true;
-    });
-}
-
-function setReserveMatrix(mesh, index, x, y, z, sx, sy, sz, rotationY = 0, rotationZ = 0) {
-    _reserveDummy.position.set(x, y, z);
-    _reserveDummy.rotation.set(0, rotationY, rotationZ);
-    _reserveDummy.scale.set(sx, sy, sz);
-    _reserveDummy.updateMatrix();
-    mesh.setMatrixAt(index, _reserveDummy.matrix);
 }
 
 function createFlyingBullKing() {
@@ -1237,6 +1080,12 @@ function removeProjectile(index) {
 function updateEntities(delta) {
     const finished = [];
     const now = Date.now();
+    const tactics = deriveBattleTactics({
+        buySol: state.buySol60s,
+        sellSol: state.sellSol60s,
+        buyCount: state.activity5m.buyCount,
+        sellCount: state.activity5m.sellCount,
+    });
     state.frontlineX += (state.targetFrontlineX - state.frontlineX) * 2 * delta;
 
     frontlineLaser.position.x = state.frontlineX;
@@ -1274,10 +1123,10 @@ function updateEntities(delta) {
         enforceArenaBounds(e);
 
         e.mesh.position.y = getTrenchHeight(e.mesh.position.x, e.mesh.position.z);
-        const stranded = isUnitStranded(e.type, e.mesh.position.x, state.frontlineX, e.isWhale ? 9 : 6);
-        const inCombatZone = Math.abs(e.mesh.position.x - state.frontlineX) <= (e.isWhale ? 16 : 11);
+        const stranded = isUnitStranded(e.type, e.mesh.position.x, state.frontlineX, e.isWhale ? 24 : 18);
+        const inCombatZone = Math.abs(e.mesh.position.x - state.frontlineX) <= (e.isWhale ? 30 : 24);
         const targetOutsideCombat = e.target
-            && Math.abs(e.target.mesh.position.x - state.frontlineX) > (e.target.isWhale ? 18 : 13);
+            && Math.abs(e.target.mesh.position.x - state.frontlineX) > (e.target.isWhale ? 32 : 27);
         if (stranded || !inCombatZone || targetOutsideCombat) e.target = null;
 
         if ((!e.target || e.target.hp <= 0 || e.target.retired) && !stranded && inCombatZone) {
@@ -1285,7 +1134,7 @@ function updateEntities(delta) {
             let minDist = Infinity;
             for (let j = 0; j < entities.length; j++) {
                 const other = entities[j];
-                const opponentInCombatZone = Math.abs(other.mesh.position.x - state.frontlineX) <= (other.isWhale ? 18 : 13);
+                const opponentInCombatZone = Math.abs(other.mesh.position.x - state.frontlineX) <= (other.isWhale ? 32 : 27);
                 if (other !== e && other.type !== e.type && other.hp > 0 && !other.retired && opponentInCombatZone) {
                     const d = e.mesh.position.distanceToSquared(other.mesh.position);
                     if (d < minDist) {
@@ -1344,8 +1193,15 @@ function updateEntities(delta) {
                 }
             }
         } else {
-            const formationIndex = entities.filter((other) => other.type === e.type && other.bornAt < e.bornAt).length;
-            const hold = formationTarget(e.type, state.frontlineX, e.laneTarget, formationIndex, e.isWhale);
+            const hold = tacticalPatrolTarget(
+                e.type,
+                state.frontlineX,
+                e.laneTarget,
+                e.patrolPhase,
+                e.isWhale,
+                tactics.balance,
+                e.animTime,
+            );
             const dx = hold.x - e.mesh.position.x;
             const dz = hold.z - e.mesh.position.z;
             const distSq = dx * dx + dz * dz;
@@ -1665,11 +1521,6 @@ function gameLoop(timestamp) {
     updateProjectiles(delta);
     updateEntities(delta);
     updateTerritorialControl();
-    reserveUpdateAccumulator += delta;
-    if (reserveUpdateAccumulator >= RESERVE_UPDATE_INTERVAL) {
-        updateReserveAnimation(reserveUpdateAccumulator);
-        reserveUpdateAccumulator = 0;
-    }
     updateBullKing(delta);
     updateSupportWaves(delta);
     updateKingStrikes(delta);

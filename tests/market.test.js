@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { calculatePressure, deriveBattleTactics, deriveSolPrice, evaluateBuySwarm, parseGeckoTrade, scaleActivityToReserves, selectTrackedPools, summarizePoolActivity } from '../js/market.js';
+import { calculatePressure, deriveBattleTactics, deriveSolPrice, evaluateBuySwarm, parseGeckoTrade, selectTrackedPools, summarizePoolActivity } from '../js/market.js';
 import { CONFIG } from '../js/config.js';
 
 const pool = { address: 'pool-1', dexId: 'pumpswap', quoteSymbol: 'SOL' };
@@ -79,19 +79,12 @@ describe('pool selection and pressure', () => {
         ])).toMatchObject({ buyCount: 11, sellCount: 11, windowMs: 300_000, source: 'dexscreener' });
     });
 
-    it('scales reserve formations logarithmically without inventing exact one-to-one units', () => {
-        expect(scaleActivityToReserves(0)).toBe(0);
-        expect(scaleActivityToReserves(1)).toBe(3);
-        expect(scaleActivityToReserves(36)).toBe(15);
-        expect(scaleActivityToReserves(10_000)).toBe(24);
-    });
-
     it('derives an explicit tactical state from 60-second SOL flow and 5-minute activity', () => {
         expect(deriveBattleTactics({ buySol: 18, sellSol: 2, buyCount: 40, sellCount: 20 })).toMatchObject({
             state: 'bull', label: 'BLACK BULLS ADVANCING', balance: 0.8,
         });
         expect(deriveBattleTactics({ buySol: 5.4, sellSol: 5, buyCount: 20, sellCount: 20 }).state).toBe('contested');
-        expect(deriveBattleTactics({ buyCount: 40, sellCount: 50 })).toMatchObject({ state: 'holding', balance: 0 });
+        expect(deriveBattleTactics({ buyCount: 40, sellCount: 50 })).toMatchObject({ state: 'holding', label: 'FRONTLINE QUIET', balance: 0 });
     });
 });
 

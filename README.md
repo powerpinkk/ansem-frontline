@@ -14,23 +14,23 @@ An open-source 3D market visualization that turns verified `$ANSEM` swaps on Sol
 | Verified sell | One bear |
 | Buy worth at least 20 SOL | Giant black bull with luminous green eyes and aura |
 | Sell worth at least 20 SOL | Giant bear with luminous red eyes and aura |
-| Verified buy/sell counts across tracked pools over five minutes | Scaled, GPU-instanced reserve formations behind each side |
+| Verified buy/sell counts across tracked pools over five minutes | Exact numeric market-force context in the sidebar; no units are generated from aggregates |
 | Five or more unique buys totaling at least 5 SOL in 12 seconds, with ≥75% buy dominance | The flying Bull King casts three green support waves |
 | A giant buy, buy-regime reversal or sustained ≥65% buy pressure reclaims territory containing stranded bears | The Bull King clears those isolated units with a green staff ray |
 | 60-second net buy/sell volume | Bull/bear dominance and frontline position |
 | Reference-pool OHLCV | One-hour mini price chart |
 
-Every frontline unit originates from a verified swap returned by the Helius relay or GeckoTerminal fallback. Background reserve formations are a square-root-scaled encoding of DexScreener's real five-minute buy/sell transaction counts; the exact counts remain visible in the interface. They are not presented as individual swaps. There are no randomly generated market events. Combat animation, damage and the Bull King's territorial clear are visual metaphors and are intentionally simulated; they never alter price, order-flow dominance or the underlying trade feed.
+Every bull and bear originates from a verified swap returned by the Helius relay or GeckoTerminal fallback. Five-minute DexScreener transaction counts remain visible only as numeric context and never generate battlefield characters. There are no randomly generated or aggregate-derived units. Combat animation, damage and the Bull King's territorial clear are visual metaphors and are intentionally simulated; they never alter price, order-flow dominance or the underlying trade feed.
 
-The display deliberately separates three time horizons so that activity and trend are not conflated: the mini chart shows one-hour price direction, the frontline and pressure bars encode verified SOL flow over the latest 60 seconds, and the reserve ranks show exact five-minute buy/sell transaction counts. Position on the battlefield represents the short-term pressure balance; color alone is never the only signal.
+The display deliberately separates three time horizons so that activity and trend are not conflated: the mini chart shows one-hour price direction, the frontline and pressure bars encode verified SOL flow over the latest 60 seconds, and the sidebar shows exact five-minute buy/sell transaction counts. The luminous pressure line represents a rolling market balance, not a wall or collision boundary.
 
-Units advance toward real opposing flow when it exists and otherwise hold formation around the rolling pressure frontline. A tactical leash limits pursuit to the active combat zone: units isolated by a moving frontline abandon their target and backpedal toward their own side while continuing to face the enemy. Deterministic lanes, local avoidance, separation, stuck recovery and hard arena bounds keep the visualization readable. Regular units remain for 75 seconds and giant trades for 105 seconds, then retire without being counted as combat defeats; this keeps the battlefield representative of recent activity instead of accumulating historical trades forever.
+Units can cross the pressure line to patrol contested ground or pursue a verified opposing swap. Their operating area shifts continuously with 60-second SOL control rather than snapping to either side of the line. A wide tactical leash ends only genuinely excessive pursuits: units isolated far behind a moved pressure line abandon their target and backpedal toward their own side while continuing to face the enemy. Deterministic lanes, local avoidance, separation, moving patrol targets, stuck recovery and hard arena bounds keep the visualization readable. Regular units remain for 75 seconds and giant trades for 105 seconds, then retire without being counted as combat defeats; this keeps the battlefield representative of recent activity instead of accumulating historical trades forever.
 
 The Bull King is a persistent visual commander inspired by the project's character artwork. A buy swarm can temporarily illuminate and strengthen existing bulls in the illustrative combat layer, but it never creates synthetic trades or directly changes dominance, price, or frontline position. Swarms have a 25-second cooldown and ignore duplicate transaction signatures.
 
 Territorial reclamation is similarly deterministic: after a buy-regime reversal, a giant buy that advances the frontline materially, or sustained buy control of at least 65%, the King targets only verified bears left behind the new bull line. His staff ray retires those isolated units and records the trigger in the battle log; bears still positioned on their valid side remain untouched, and the effect has no influence on market calculations.
 
-Reserve formations are animated rather than decorative. Their population comes from five-minute transaction counts, their marching energy comes from total five-minute activity, their forward or backward stance comes from the rolling 60-second SOL balance, and each newly verified swap sends a size-weighted movement ripple through the corresponding ranks. The losing formation retreats while facing the opponent. The King continuously patrols bull territory and changes distance, wing cadence and staff pose with the same real flow signals.
+The King continuously patrols bull territory and changes distance, wing cadence and staff pose with real flow signals. His presence is the only persistent character; all ordinary combatants are recent verified swaps.
 
 ## Data methodology
 
@@ -64,11 +64,11 @@ Cloudflare Durable Object ── secure parsing and WebSocket broadcast
       ├── rolling 60-second pressure model
       │
       └── Three.js battlefield
-            ├── one frontline entity per recent verified swap
-            ├── scaled five-minute reserve formations
+            ├── verified-swap battlefield entities only
+            ├── traversable rolling pressure line
             ├── trade-sized combat attributes
             ├── terrain, grass, rocks and trees
-            └── bounded formations, obstacle steering and stuck recovery
+            └── bounded patrols, obstacle steering and stuck recovery
 ```
 
 The code deliberately separates external data (`api.js`), pure market calculations (`market.js`), navigation rules (`navigation.js`), UI (`ui.js`) and rendering/simulation (`scene.js`).
@@ -88,7 +88,10 @@ Production checks:
 npm run lint
 npm test
 npm run build
+npm run test:e2e
 ```
+
+For a five-minute real-data movement and stability soak, run `npm run dev -- --port 4174` in one terminal and `npm run test:soak` in another. The monitor checks line crossings, stalled patrols, arena bounds, viewport coverage, render load and browser/network errors.
 
 ## Project structure
 
@@ -97,7 +100,7 @@ index.html                 Application shell
 css/styles.css             Responsive interface
 js/config.js               Public token and polling configuration
 js/market.js               Pure pool/trade/pressure calculations
-js/navigation.js           Arena bounds, lanes, formations and lifetime rules
+js/navigation.js           Arena bounds, lanes, patrols and lifetime rules
 js/api.js                  Resilient multi-pool data ingestion
 js/state.js                Runtime state
 js/ui.js                   Safe DOM rendering and controls
@@ -131,7 +134,7 @@ Never add the Helius key to `.env`, Vercel client variables or source control.
 
 ## Limitations and roadmap
 
-- Without the relay, or while its streaming path is unavailable, public polling is near-real-time and the five-pool cap plus 6.5-second global cadence protects GeckoTerminal's public rate limit.
+- Without the relay, or while its streaming path is unavailable, public polling is near-real-time and the five-pool cap plus 8-second global cadence protects GeckoTerminal's public rate limit. A `429` pauses all fallback trade polling for 60 seconds instead of creating a retry storm.
 - DexScreener outages reduce discovery to five known SOL/USDC pools and Helius metadata; the application marks that state as fallback coverage and does not invent an hourly change value.
 - With the relay, the five highest-scoring pools discovered by DexScreener are subscribed over Helius standard WebSockets; unsupported or unusual transactions can still fall back to the polling source.
 - Free-service quotas are suitable for a portfolio demo, not an SLA-backed trading product.

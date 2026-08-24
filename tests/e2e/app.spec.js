@@ -52,24 +52,21 @@ test('renders verified swaps and the WebGL battlefield', async ({ page }, testIn
         expect(entity.z).toBeLessThanOrEqual(diagnostics.bounds.maxZ);
     }
     expect(diagnostics.bullKing).not.toBeNull();
-    expect(diagnostics.reserves.bull).toBeGreaterThanOrEqual(10);
-    expect(diagnostics.reserves.bear).toBeGreaterThanOrEqual(10);
-    await expect(page.locator('#battle-state-label')).toContainText(/ADVANCING|CONTESTED|HOLDING/);
+    await expect(page.locator('#battle-state-label')).toContainText(/ADVANCING|CONTESTED|QUIET/);
     expect(diagnostics.render.calls).toBeLessThan(220);
     expect(diagnostics.render.geometries).toBeLessThan(80);
     await page.waitForTimeout(350);
     const animated = await page.evaluate(() => window.__ansemSceneDiagnostics());
-    const reserveTravel = Math.hypot(
-        animated.reserveSamples.bull.x - diagnostics.reserveSamples.bull.x,
-        animated.reserveSamples.bull.y - diagnostics.reserveSamples.bull.y,
-        animated.reserveSamples.bull.z - diagnostics.reserveSamples.bull.z,
-    );
+    const entityTravel = Math.max(...animated.entities.map((entity, index) => Math.hypot(
+        entity.x - diagnostics.entities[index].x,
+        entity.z - diagnostics.entities[index].z,
+    )));
     const kingTravel = Math.hypot(
         animated.bullKing.x - diagnostics.bullKing.x,
         animated.bullKing.y - diagnostics.bullKing.y,
         animated.bullKing.z - diagnostics.bullKing.z,
     );
-    expect(reserveTravel).toBeGreaterThan(0.01);
+    expect(entityTravel).toBeGreaterThan(0.05);
     expect(kingTravel).toBeGreaterThan(0.01);
     await page.evaluate(() => {
         window.__ansemPreviewRedBear();

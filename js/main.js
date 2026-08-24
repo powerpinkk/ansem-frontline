@@ -24,7 +24,6 @@ import {
     setFrontlineColor,
     applyTradeImpulse,
     triggerBullKingSupport,
-    updateReserveForces,
     handleTerritoryShift,
 } from './scene.js';
 
@@ -49,7 +48,6 @@ function handleTrade(trade, meta) {
 
 function handleActivity(activity) {
     updateActivityUI(activity);
-    updateReserveForces(activity);
 }
 
 function boot() {

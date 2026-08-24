@@ -12,6 +12,7 @@ let fallbackTimer = null;
 let streamStarted = false;
 let bootstrapPromise = null;
 let lastChartAttempt = 0;
+let geckoRateLimitedUntil = 0;
 const bootstrapAttemptedAt = new Map();
 
 export function initAPI(nextCallbacks) {
@@ -38,9 +39,9 @@ function refreshConnection() {
 
 async function runMarketLoop() {
     try {
-        await fetchMarketData();
+        const market = await fetchMarketData();
         state.priceFailures = 0;
-        priceDelay = CONFIG.FETCH_MIN_DELAY_MS;
+        priceDelay = market.source === 'dexscreener' ? CONFIG.FETCH_MIN_DELAY_MS : Math.max(15_000, CONFIG.FETCH_MIN_DELAY_MS);
     } catch (error) {
         state.priceFailures += 1;
         priceDelay = Math.min(CONFIG.FETCH_MAX_DELAY_MS, priceDelay * 2);
@@ -52,6 +53,10 @@ async function runMarketLoop() {
 
 async function runTradeLoop() {
     if (!pollingFallback) return;
+    if (Date.now() < geckoRateLimitedUntil) {
+        schedule(runTradeLoop, geckoRateLimitedUntil - Date.now());
+        return;
+    }
     if (bootstrapPromise) {
         schedule(runTradeLoop, CONFIG.TRADES_POLL_MIN_DELAY_MS);
         return;
@@ -68,8 +73,14 @@ async function runTradeLoop() {
         tradesDelay = CONFIG.TRADES_POLL_MIN_DELAY_MS;
     } catch (error) {
         state.tradesFailures += 1;
-        tradesDelay = Math.min(CONFIG.TRADES_POLL_MAX_DELAY_MS, tradesDelay * 1.5);
-        console.error(`[trades:${pool.dexId}]`, error);
+        if (error.status === 429) {
+            geckoRateLimitedUntil = Date.now() + CONFIG.GECKO_RATE_LIMIT_COOLDOWN_MS;
+            tradesDelay = CONFIG.GECKO_RATE_LIMIT_COOLDOWN_MS;
+            console.warn(`[trades:${pool.dexId}] GeckoTerminal rate limited; fallback paused for 60s`);
+        } else {
+            tradesDelay = Math.min(CONFIG.TRADES_POLL_MAX_DELAY_MS, tradesDelay * 1.5);
+            console.error(`[trades:${pool.dexId}]`, error);
+        }
     }
     refreshConnection();
     schedule(runTradeLoop, tradesDelay);
@@ -102,7 +113,14 @@ async function fetchJson(url, timeoutMs = 8_000) {
     const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
     try {
         const response = await fetch(url, { signal: controller.signal, headers: { accept: 'application/json' } });
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        if (!response.ok) {
+            const error = new Error(`HTTP ${response.status}`);
+            error.status = response.status;
+            if (response.status === 429 && url.startsWith(CONFIG.GECKO_BASE)) {
+                geckoRateLimitedUntil = Math.max(geckoRateLimitedUntil, Date.now() + CONFIG.GECKO_RATE_LIMIT_COOLDOWN_MS);
+            }
+            throw error;
+        }
         return await response.json();
     } finally {
         window.clearTimeout(timeout);
@@ -119,14 +137,15 @@ async function fetchMarketData() {
     }
     state.price = market.price;
     startStreamIfReady();
-    void bootstrapTrackedPools();
     updateTrend(market.price);
     try {
         await fetchChartIfNeeded(market.price);
     } catch (error) {
         console.warn('[chart] OHLCV unavailable', error);
     }
+    void bootstrapTrackedPools();
     callbacks.onMarketUpdate?.(market);
+    return market;
 }
 
 async function fetchDexMarketData() {
@@ -207,6 +226,7 @@ function updateTrend(price) {
 
 async function fetchChartIfNeeded(livePrice) {
     const now = Date.now();
+    if (now < geckoRateLimitedUntil) return;
     if (!state.referencePool || now - Math.max(state.lastChartFetch, lastChartAttempt) < CONFIG.CHART_CACHE_MS) return;
     lastChartAttempt = now;
     const json = await fetchJson(`${CONFIG.GECKO_BASE}/${state.referencePool.address}/ohlcv/minute?limit=60`);
@@ -257,13 +277,12 @@ function bootstrapTrackedPools() {
     );
     if (!pools.length) return Promise.resolve();
     pools.forEach((pool) => bootstrapAttemptedAt.set(pool.address, now));
-    bootstrapPromise = Promise.allSettled(pools.map(async (pool) => ({ pool, trades: await fetchRecentPoolTrades(pool) })))
+    bootstrapPromise = fetchBootstrapTrades(pools)
         .then((results) => {
             const allTrades = [];
-            results.forEach((result) => {
-                if (result.status !== 'fulfilled') return;
-                bootstrappedPools.add(result.value.pool.address);
-                allTrades.push(...result.value.trades);
+            results.forEach(({ pool, trades }) => {
+                bootstrappedPools.add(pool.address);
+                allTrades.push(...trades);
             });
             const uniqueTrades = [...new Map(allTrades.map((trade) => [trade.txHash || trade.id, trade])).values()]
                 .sort((a, b) => a.timestamp - b.timestamp);
@@ -290,6 +309,21 @@ function bootstrapTrackedPools() {
         })
         .finally(() => { bootstrapPromise = null; });
     return bootstrapPromise;
+}
+
+async function fetchBootstrapTrades(pools) {
+    const results = [];
+    for (const pool of pools) {
+        if (Date.now() < geckoRateLimitedUntil) break;
+        try {
+            results.push({ pool, trades: await fetchRecentPoolTrades(pool) });
+        } catch (error) {
+            if (error.status === 429) break;
+            console.warn(`[bootstrap:${pool.dexId}]`, error);
+        }
+        if (pool !== pools.at(-1)) await new Promise((resolve) => window.setTimeout(resolve, 750));
+    }
+    return results;
 }
 
 function receiveTrade(trade, bootstrap) {
