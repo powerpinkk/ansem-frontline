@@ -17,6 +17,8 @@ let bullKingRig, kingWingNear, kingWingFar, kingStaffGlow;
 let kingTime = 0;
 let bullSupportUntil = 0;
 let lastFrontlineFitX = Number.POSITIVE_INFINITY;
+let viewportObserver;
+let loopStarted = false;
 const frameTimer = new THREE.Timer();
 let canvasContainer, floatContainer;
 
@@ -102,6 +104,13 @@ export function initScene(callbacks = {}) {
                 geometries: renderer.info.memory.geometries,
                 textures: renderer.info.memory.textures,
             } : null,
+            camera: camera ? { x: camera.position.x, y: camera.position.y, z: camera.position.z } : null,
+            viewport: renderer && canvasContainer ? {
+                canvasWidth: renderer.domElement.clientWidth,
+                canvasHeight: renderer.domElement.clientHeight,
+                containerWidth: canvasContainer.clientWidth,
+                containerHeight: canvasContainer.clientHeight,
+            } : null,
             bounds: ARENA,
         });
         window.__ansemTriggerBullKingSupport = () => triggerBullKingSupport({ buySol: 12, dominance: 0.84 });
@@ -116,7 +125,10 @@ export function initScene(callbacks = {}) {
 }
 
 export function startGameLoop() {
-    gameLoop();
+    if (loopStarted) return;
+    loopStarted = true;
+    renderNow();
+    requestAnimationFrame(gameLoop);
 }
 
 export function setCameraMode(mode) {
@@ -341,13 +353,15 @@ function init3D() {
 
     camera = new THREE.PerspectiveCamera(
         45,
-        canvasContainer.clientWidth / canvasContainer.clientHeight,
+        Math.max(1, canvasContainer.clientWidth) / Math.max(1, canvasContainer.clientHeight),
         0.1,
         1000
     );
+    camera.position.set(25, 25, 40);
+    camera.lookAt(0, -2, 0);
 
     renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
-    renderer.setSize(canvasContainer.clientWidth, canvasContainer.clientHeight);
+    renderer.setSize(Math.max(1, canvasContainer.clientWidth), Math.max(1, canvasContainer.clientHeight), false);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFShadowMap;
@@ -383,7 +397,7 @@ function init3D() {
     orbitControls.dampingFactor = 0.05;
     orbitControls.enabled = false;
 
-    const planeGeo = new THREE.PlaneGeometry(360, 240, 144, 96);
+    const planeGeo = new THREE.PlaneGeometry(480, 360, 192, 144);
     planeGeo.rotateX(-Math.PI / 2);
     const posAttribute = planeGeo.attributes.position;
     const colors = [];
@@ -444,13 +458,37 @@ function init3D() {
     trenchGlowLight = new THREE.PointLight(0xffffff, 2.5, 50);
     scene.add(trenchGlowLight);
 
-    window.addEventListener('resize', () => {
-        if (!canvasContainer) return;
-        camera.aspect = canvasContainer.clientWidth / canvasContainer.clientHeight;
-        camera.updateProjectionMatrix();
-        renderer.setSize(canvasContainer.clientWidth, canvasContainer.clientHeight);
+    viewportObserver = new ResizeObserver(() => syncViewport());
+    viewportObserver.observe(canvasContainer);
+    window.addEventListener('resize', syncViewport);
+    window.visualViewport?.addEventListener('resize', syncViewport);
+    window.addEventListener('pageshow', () => syncViewport(true));
+    document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) syncViewport(true);
     });
+    syncViewport(true);
+    window.setTimeout(() => syncViewport(true), 0);
 
+}
+
+function syncViewport(force = false) {
+    if (!canvasContainer || !camera || !renderer) return;
+    const width = Math.max(1, Math.round(canvasContainer.clientWidth));
+    const height = Math.max(1, Math.round(canvasContainer.clientHeight));
+    const canvas = renderer.domElement;
+    const pixelRatio = renderer.getPixelRatio();
+    const backingWidth = Math.round(width * pixelRatio);
+    const backingHeight = Math.round(height * pixelRatio);
+    if (force || canvas.width !== backingWidth || canvas.height !== backingHeight) {
+        camera.aspect = width / height;
+        camera.updateProjectionMatrix();
+        renderer.setSize(width, height, false);
+    }
+    renderNow();
+}
+
+function renderNow() {
+    if (renderer && scene && camera) renderer.render(scene, camera);
 }
 
 function createLandscapeProps() {

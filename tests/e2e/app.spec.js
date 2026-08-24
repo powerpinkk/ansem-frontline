@@ -24,6 +24,12 @@ test('renders verified swaps and the WebGL battlefield', async ({ page }, testIn
     const pageErrors = [];
     page.on('pageerror', (error) => pageErrors.push(error.message));
     await page.goto('/');
+    await page.waitForFunction(() => typeof window.__ansemSceneDiagnostics === 'function');
+    const initialFrame = await page.evaluate(() => window.__ansemSceneDiagnostics());
+    expect(initialFrame.camera.y).toBeGreaterThanOrEqual(24);
+    expect(initialFrame.render.calls).toBeGreaterThan(0);
+    expect(Math.abs(initialFrame.viewport.canvasWidth - initialFrame.viewport.containerWidth)).toBeLessThanOrEqual(1);
+    expect(Math.abs(initialFrame.viewport.canvasHeight - initialFrame.viewport.containerHeight)).toBeLessThanOrEqual(1);
     await expect(page.locator('#connection-label')).toContainText('LIVE', { timeout: 12_000 });
     await expect(page.locator('.trade-item')).toHaveCount(2, { timeout: 12_000 });
     await expect(page.locator('#killfeed')).toContainText('GIANT BUY');
