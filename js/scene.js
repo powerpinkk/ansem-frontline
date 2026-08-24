@@ -25,12 +25,17 @@ let lastFrontlineFitX = Number.POSITIVE_INFINITY;
 let viewportObserver;
 let loopStarted = false;
 let lastKingReclaimAt = 0;
+let lastKingDefenseAt = 0;
 let lastTerritoryAuditAt = 0;
 let bullControlSince = 0;
 let kingFocusUntil = 0;
 let kingFocusX = 0;
+let kingDefenseUntil = 0;
+let kingThreat = null;
 let kingReactionAt = 0;
 let kingReactionStrength = 0;
+const KING_SANCTUM_RADIUS = 15;
+const KING_DEFENSE_COOLDOWN_MS = 4_500;
 const frameTimer = new THREE.Timer();
 let canvasContainer, floatContainer;
 
@@ -154,6 +159,8 @@ export function initScene(callbacks = {}) {
                 z: entity.mesh.position.z,
                 retired: entity.retired,
                 hasTarget: Boolean(entity.target),
+                behavior: entity.behavior,
+                forcedRetreat: entity.forcedRetreatUntil > Date.now(),
             })),
             projectiles: projectiles.length,
             supportWaves: supportWaves.length,
@@ -165,7 +172,13 @@ export function initScene(callbacks = {}) {
                 buyCount: state.activity5m.buyCount,
                 sellCount: state.activity5m.sellCount,
             }),
-            bullKing: bullKingRig ? { x: bullKingRig.position.x, y: bullKingRig.position.y, z: bullKingRig.position.z } : null,
+            bullKing: bullKingRig ? {
+                x: bullKingRig.position.x,
+                y: bullKingRig.position.y,
+                z: bullKingRig.position.z,
+                rotationY: bullKingRig.rotation.y,
+                defending: Date.now() < kingDefenseUntil,
+            } : null,
             render: renderer ? {
                 calls: renderer.info.render.calls,
                 triangles: renderer.info.render.triangles,
@@ -191,6 +204,7 @@ export function initScene(callbacks = {}) {
             state.frontlineX = 20;
             state.targetFrontlineX = 20;
             lastKingReclaimAt = 0;
+            lastKingDefenseAt = Date.now();
             lastTerritoryAuditAt = 0;
             bullControlSince = Date.now() - 2_000;
             updateTerritorialControl();
@@ -201,6 +215,23 @@ export function initScene(callbacks = {}) {
             bear.mesh.position.set(state.frontlineX + 4, getTrenchHeight(state.frontlineX + 4, 10), 10);
             bear.vx = 0;
             bear.vz = 0;
+        };
+        window.__ansemTriggerKingDefense = () => {
+            const bear = entities.find((entity) => entity.type === 'bear' && !entity.retired);
+            if (!bear || !bullKingRig) return;
+            bear.mesh.position.set(
+                bullKingRig.position.x + 5,
+                getTrenchHeight(bullKingRig.position.x + 5, bullKingRig.position.z + 8),
+                bullKingRig.position.z + 8,
+            );
+            bear.vx = 0;
+            bear.vz = 0;
+            bear.target = null;
+            state.buySol60s = 2;
+            state.sellSol60s = 20;
+            lastKingDefenseAt = 0;
+            lastTerritoryAuditAt = 0;
+            updateTerritorialControl();
         };
     }
 }
@@ -328,6 +359,10 @@ export function spawnUnit(type, initial = false, isWhale = false, trade = null) 
         power: Math.max(0.75, Math.min(3, Math.log10((trade?.solValue || 0.1) + 1) + 0.8)),
         laneTarget: spawnZ,
         patrolPhase: ((spawnZ + 11.5) / 23) * Math.PI * 2 + sequence * 0.73,
+        patrolSide: sequence % 2 === 0 ? 1 : -1,
+        forcedRetreatUntil: 0,
+        forcedRetreatX: null,
+        behavior: 'patrol',
         supportUntil: type === 'bull' ? bullSupportUntil : 0,
         bornAt: Math.min(Date.now(), Number(trade?.timestamp) || Date.now()),
         retired: false,
@@ -410,6 +445,7 @@ function updateTerritorialControl() {
         buyCount: state.activity5m.buyCount,
         sellCount: state.activity5m.sellCount,
     });
+    if (defendKingSanctum(now, tactics)) return;
     const bullsControlField = tactics.balance >= 0.3 && state.frontlineX >= 3;
     if (!bullsControlField) {
         bullControlSince = 0;
@@ -421,6 +457,7 @@ function updateTerritorialControl() {
         entity.type === 'bear'
         && !entity.retired
         && entity.hp > 0
+        && entity.forcedRetreatUntil <= now
         && isUnitStranded('bear', entity.mesh.position.x, state.frontlineX, entity.isWhale ? 18 : 14)
     );
     if (!stranded.length) return;
@@ -428,32 +465,69 @@ function updateTerritorialControl() {
     castKingReclamation(stranded, state.buySol60s, state.frontlineX, state.targetFrontlineX, 'sustained-control', tactics);
 }
 
+function defendKingSanctum(now, tactics) {
+    if (!bullKingRig || now - lastKingDefenseAt < KING_DEFENSE_COOLDOWN_MS) return false;
+    const intruders = entities.filter((entity) => {
+        if (entity.type !== 'bear' || entity.retired || entity.hp <= 0 || entity.forcedRetreatUntil > now) return false;
+        const dx = entity.mesh.position.x - bullKingRig.position.x;
+        const dz = entity.mesh.position.z - bullKingRig.position.z;
+        const radius = KING_SANCTUM_RADIUS + (entity.isWhale ? 4 : 0);
+        return dx * dx + dz * dz <= radius * radius;
+    });
+    if (!intruders.length) return false;
+    lastKingDefenseAt = now;
+    castKingWard(intruders, tactics);
+    return true;
+}
+
+function castKingWard(intruders, tactics) {
+    const now = Date.now();
+    _rayTarget.set(0, 0, 0);
+    intruders.forEach((entity) => _rayTarget.add(entity.mesh.position));
+    _rayTarget.multiplyScalar(1 / intruders.length);
+    _rayTarget.y = getTrenchHeight(_rayTarget.x, _rayTarget.z) + 0.55;
+    spawnKingStrike(_rayTarget);
+    kingThreat = intruders.reduce((closest, entity) => {
+        if (!closest) return entity;
+        return entity.mesh.position.distanceToSquared(bullKingRig.position)
+            < closest.mesh.position.distanceToSquared(bullKingRig.position) ? entity : closest;
+    }, null);
+    kingDefenseUntil = now + 3_200;
+    kingFocusUntil = now + 2_400;
+    kingFocusX = (bullKingRig.position.x + _rayTarget.x) * 0.5;
+    kingReactionAt = now;
+    kingReactionStrength = 2.4;
+    intruders.forEach((entity) => {
+        entity.target = null;
+        entity.forcedRetreatUntil = now + 3_800;
+        entity.forcedRetreatX = clamp(
+            Math.max(entity.mesh.position.x + (entity.isWhale ? 20 : 16), bullKingRig.position.x + 18),
+            ARENA.minX + 4,
+            ARENA.maxX - (entity.isWhale ? 4 : 1.5),
+        );
+        entity.vx = Math.max(entity.vx, entity.isWhale ? 10 : 14);
+        spawnParticles(entity.mesh.position, matParticleBull, false, entity.isWhale);
+    });
+    onReclaimEvent({
+        count: intruders.length,
+        solValue: 0,
+        previousFrontlineX: state.frontlineX,
+        nextFrontlineX: state.targetFrontlineX,
+        reason: 'king-defense',
+        bullPercent: (tactics.balance + 1) * 50,
+    });
+    state.screenShake = Math.max(state.screenShake, 0.24);
+    playTone(145, 'sawtooth', 0.52, 0.035);
+}
+
 function castKingReclamation(stranded, solValue, previous, next, reason = 'trade-reversal', tactics = null) {
-    scene.updateMatrixWorld(true);
-    kingStaffGlow.getWorldPosition(_rayStart);
     _rayTarget.set(0, 0, 0);
     stranded.forEach((entity) => _rayTarget.add(entity.mesh.position));
     _rayTarget.multiplyScalar(1 / stranded.length);
     _rayTarget.y = getTrenchHeight(_rayTarget.x, _rayTarget.z) + 0.55;
-    _rayDirection.subVectors(_rayTarget, _rayStart);
-    const length = _rayDirection.length();
-    const material = new THREE.MeshBasicMaterial({
-        color: 0x00ff88,
-        transparent: true,
-        opacity: 0.92,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false,
-    });
-    const beam = new THREE.Mesh(kingRayGeometry, material);
-    beam.position.copy(_rayStart).add(_rayTarget).multiplyScalar(0.5);
-    beam.quaternion.setFromUnitVectors(_rayUp, _rayDirection.normalize());
-    beam.scale.set(1, length, 1);
-    const impact = new THREE.Mesh(supportWaveGeometry, material);
-    impact.position.copy(_rayTarget);
-    impact.rotation.x = -Math.PI / 2;
-    impact.scale.setScalar(1.6);
-    scene.add(beam, impact);
-    kingStrikes.push({ beam, impact, material, age: 0 });
+    spawnKingStrike(_rayTarget);
+    kingThreat = stranded[0] || null;
+    kingDefenseUntil = Date.now() + 2_400;
     kingFocusUntil = Date.now() + 1_650;
     kingFocusX = (bullKingRig.position.x + _rayTarget.x) * 0.5;
     kingReactionAt = Date.now();
@@ -472,6 +546,30 @@ function castKingReclamation(stranded, solValue, previous, next, reason = 'trade
     });
     state.screenShake = Math.max(state.screenShake, 0.32);
     playTone(170, 'sawtooth', 0.75, 0.045);
+}
+
+function spawnKingStrike(target) {
+    scene.updateMatrixWorld(true);
+    kingStaffGlow.getWorldPosition(_rayStart);
+    _rayDirection.subVectors(target, _rayStart);
+    const length = _rayDirection.length();
+    const material = new THREE.MeshBasicMaterial({
+        color: 0x00ff88,
+        transparent: true,
+        opacity: 0.92,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+    });
+    const beam = new THREE.Mesh(kingRayGeometry, material);
+    beam.position.copy(_rayStart).add(target).multiplyScalar(0.5);
+    beam.quaternion.setFromUnitVectors(_rayUp, _rayDirection.normalize());
+    beam.scale.set(1, length, 1);
+    const impact = new THREE.Mesh(supportWaveGeometry, material);
+    impact.position.copy(target);
+    impact.rotation.x = -Math.PI / 2;
+    impact.scale.setScalar(1.6);
+    scene.add(beam, impact);
+    kingStrikes.push({ beam, impact, material, age: 0 });
 }
 
 export function triggerBullKingSupport({ buySol, dominance }) {
@@ -1080,12 +1178,6 @@ function removeProjectile(index) {
 function updateEntities(delta) {
     const finished = [];
     const now = Date.now();
-    const tactics = deriveBattleTactics({
-        buySol: state.buySol60s,
-        sellSol: state.sellSol60s,
-        buyCount: state.activity5m.buyCount,
-        sellCount: state.activity5m.sellCount,
-    });
     state.frontlineX += (state.targetFrontlineX - state.frontlineX) * 2 * delta;
 
     frontlineLaser.position.x = state.frontlineX;
@@ -1123,19 +1215,16 @@ function updateEntities(delta) {
         enforceArenaBounds(e);
 
         e.mesh.position.y = getTrenchHeight(e.mesh.position.x, e.mesh.position.z);
-        const stranded = isUnitStranded(e.type, e.mesh.position.x, state.frontlineX, e.isWhale ? 24 : 18);
-        const inCombatZone = Math.abs(e.mesh.position.x - state.frontlineX) <= (e.isWhale ? 30 : 24);
-        const targetOutsideCombat = e.target
-            && Math.abs(e.target.mesh.position.x - state.frontlineX) > (e.target.isWhale ? 32 : 27);
-        if (stranded || !inCombatZone || targetOutsideCombat) e.target = null;
+        const forcedRetreat = e.forcedRetreatUntil > now;
+        if (forcedRetreat || e.target?.hp <= 0 || e.target?.retired) e.target = null;
 
-        if ((!e.target || e.target.hp <= 0 || e.target.retired) && !stranded && inCombatZone) {
+        if (!e.target && !forcedRetreat) {
             let closest = null;
-            let minDist = Infinity;
+            const sight = e.isWhale ? 52 : 40;
+            let minDist = sight * sight;
             for (let j = 0; j < entities.length; j++) {
                 const other = entities[j];
-                const opponentInCombatZone = Math.abs(other.mesh.position.x - state.frontlineX) <= (other.isWhale ? 32 : 27);
-                if (other !== e && other.type !== e.type && other.hp > 0 && !other.retired && opponentInCombatZone) {
+                if (other !== e && other.type !== e.type && other.hp > 0 && !other.retired) {
                     const d = e.mesh.position.distanceToSquared(other.mesh.position);
                     if (d < minDist) {
                         minDist = d;
@@ -1151,7 +1240,19 @@ function updateEntities(delta) {
         const dmgBase = (e.isWhale ? 150 : 35) * e.power * supportMultiplier;
         let isMoving = false;
 
-        if (e.target && !stranded) {
+        if (forcedRetreat) {
+            e.behavior = 'retreat';
+            const dx = e.forcedRetreatX - e.mesh.position.x;
+            const dz = e.laneTarget - e.mesh.position.z;
+            const dist = Math.max(0.001, Math.hypot(dx, dz));
+            const steering = getSteering(e, dx / dist, dz / dist);
+            e.mesh.position.x += steering.x * speed * 1.22 * delta;
+            e.mesh.position.z += steering.z * speed * 1.22 * delta;
+            e.mesh.rotation.y = e.type === 'bull' ? 0 : Math.PI;
+            e.body.position.y = 1.3 + Math.abs(Math.sin(e.animTime * 14)) * 0.14;
+            isMoving = true;
+        } else if (e.target) {
+            e.behavior = 'engage';
             const dx = e.target.mesh.position.x - e.mesh.position.x;
             const dz = e.target.mesh.position.z - e.mesh.position.z;
             const distSq = dx * dx + dz * dz;
@@ -1193,34 +1294,48 @@ function updateEntities(delta) {
                 }
             }
         } else {
-            const hold = tacticalPatrolTarget(
+            e.behavior = 'patrol';
+            let hold = tacticalPatrolTarget(
                 e.type,
                 state.frontlineX,
                 e.laneTarget,
                 e.patrolPhase,
                 e.isWhale,
-                tactics.balance,
+                e.patrolSide,
                 e.animTime,
             );
-            const dx = hold.x - e.mesh.position.x;
-            const dz = hold.z - e.mesh.position.z;
-            const distSq = dx * dx + dz * dz;
-            if (distSq > 1.4) {
-                const dist = Math.sqrt(distSq);
-                const steering = getSteering(e, dx / dist, dz / dist);
-                const retreatMultiplier = stranded ? 1.08 : 0.75;
-                e.mesh.position.x += steering.x * speed * retreatMultiplier * delta;
-                e.mesh.position.z += steering.z * speed * retreatMultiplier * delta;
-                e.mesh.rotation.y = stranded
-                    ? (e.type === 'bull' ? 0 : Math.PI)
-                    : Math.atan2(-steering.z, steering.x);
-                e.body.position.y = 1.3 + Math.abs(Math.sin(e.animTime * 12)) * 0.12;
-                isMoving = true;
-            } else {
-                e.body.position.y = 1.3;
-                e.body.rotation.z = THREE.MathUtils.lerp(e.body.rotation.z, 0, 0.2);
-                e.mesh.rotation.y = e.type === 'bull' ? 0 : Math.PI;
+            let dx = hold.x - e.mesh.position.x;
+            let dz = hold.z - e.mesh.position.z;
+            let distSq = dx * dx + dz * dz;
+            if (distSq < 3.2) {
+                e.patrolSide *= -1;
+                hold = tacticalPatrolTarget(
+                    e.type,
+                    state.frontlineX,
+                    e.laneTarget,
+                    e.patrolPhase,
+                    e.isWhale,
+                    e.patrolSide,
+                    e.animTime,
+                );
+                dx = hold.x - e.mesh.position.x;
+                dz = hold.z - e.mesh.position.z;
+                distSq = dx * dx + dz * dz;
             }
+            const dist = Math.max(0.001, Math.sqrt(distSq));
+            const steering = getSteering(e, dx / dist, dz / dist);
+            if (Math.abs(e.mesh.position.x - state.frontlineX) < 2.2) {
+                const crossingDirection = Math.sign(hold.x - state.frontlineX) || e.patrolSide;
+                steering.x += crossingDirection * 0.45;
+                const steeringLength = Math.hypot(steering.x, steering.z) || 1;
+                steering.x /= steeringLength;
+                steering.z /= steeringLength;
+            }
+            e.mesh.position.x += steering.x * speed * 0.82 * delta;
+            e.mesh.position.z += steering.z * speed * 0.82 * delta;
+            e.mesh.rotation.y = Math.atan2(-steering.z, steering.x);
+            e.body.position.y = 1.3 + Math.abs(Math.sin(e.animTime * 12)) * 0.12;
+            isMoving = true;
         }
 
         applySeparation(e, delta);
@@ -1341,33 +1456,35 @@ function updateBullKing(delta) {
         buyCount: state.activity5m.buyCount,
         sellCount: state.activity5m.sellCount,
     });
-    const reactionAge = (Date.now() - kingReactionAt) / 1000;
+    const now = Date.now();
+    const reactionAge = (now - kingReactionAt) / 1000;
     const reaction = reactionAge >= 0 && reactionAge < 2.2
         ? Math.sin((reactionAge / 2.2) * Math.PI) * kingReactionStrength
         : 0;
     const patrolSpeed = 0.32 + tactics.activityLevel * 0.16 + tactics.flowIntensity * 0.2;
     const trailingDistance = 20 - Math.max(0, tactics.balance) * 4 + Math.max(0, -tactics.balance) * 5;
-    const x = clamp(
-        state.frontlineX - trailingDistance + Math.sin(kingTime * patrolSpeed * 0.72) * (2.2 + tactics.activityLevel * 1.8) + reaction * 1.8,
-        ARENA.minX + 14,
-        ARENA.maxX - 22,
-    );
-    const z = clamp(
-        -3 + Math.sin(kingTime * patrolSpeed) * 12 + Math.sin(kingTime * patrolSpeed * 0.37) * 4,
-        ARENA.minZ + 12,
-        ARENA.maxZ - 12,
-    );
-    const hover = Math.sin(kingTime * (1.35 + tactics.flowIntensity * 0.45)) * 0.85 + reaction * 0.45;
+    const defending = now < kingDefenseUntil && kingThreat && !kingThreat.retired && kingThreat.hp > 0;
+    const patrolX = state.frontlineX - trailingDistance
+        + Math.sin(kingTime * patrolSpeed * 0.72) * (2.2 + tactics.activityLevel * 1.8)
+        + reaction * 1.8;
+    const patrolZ = -3 + Math.sin(kingTime * patrolSpeed) * 12 + Math.sin(kingTime * patrolSpeed * 0.37) * 4;
+    const x = clamp(defending ? kingThreat.mesh.position.x - 7 : patrolX, ARENA.minX + 14, ARENA.maxX - 22);
+    const z = clamp(defending ? kingThreat.mesh.position.z : patrolZ, ARENA.minZ + 12, ARENA.maxZ - 12);
+    const hover = Math.sin(kingTime * (1.35 + tactics.flowIntensity * 0.45)) * 0.85
+        + reaction * 0.45
+        + (defending ? 1.2 : 0);
     _kingTarget.set(x, getTrenchHeight(x, z) + 8.4 + hover, z);
     const travelX = _kingTarget.x - bullKingRig.position.x;
     const travelZ = _kingTarget.z - bullKingRig.position.z;
-    bullKingRig.position.lerp(_kingTarget, Math.min(1, delta * (1.35 + tactics.flowIntensity * 0.9)));
-    const frontlineYaw = Math.atan2(z, Math.max(5, state.frontlineX - x));
-    bullKingRig.rotation.y = THREE.MathUtils.lerp(bullKingRig.rotation.y, frontlineYaw * 0.34, delta * 2.2);
+    bullKingRig.position.lerp(_kingTarget, Math.min(1, delta * (defending ? 4.2 : 1.35 + tactics.flowIntensity * 0.9)));
+    const desiredYaw = defending
+        ? Math.atan2(-(kingThreat.mesh.position.z - bullKingRig.position.z), kingThreat.mesh.position.x - bullKingRig.position.x)
+        : Math.atan2(z, Math.max(5, state.frontlineX - x)) * 0.34;
+    bullKingRig.rotation.y = lerpAngle(bullKingRig.rotation.y, desiredYaw, Math.min(1, delta * (defending ? 7 : 2.2)));
     bullKingRig.rotation.x = THREE.MathUtils.lerp(bullKingRig.rotation.x, clamp(-travelZ * 0.018, -0.12, 0.12), delta * 2.5);
     bullKingRig.rotation.z = THREE.MathUtils.lerp(bullKingRig.rotation.z, clamp(travelX * 0.015, -0.1, 0.1) - reaction * 0.035, delta * 3);
-    const flapRate = 4.6 + tactics.activityLevel * 1.8 + reaction * 1.5;
-    const flap = Math.sin(kingTime * flapRate) * (0.27 + tactics.flowIntensity * 0.08 + reaction * 0.05);
+    const flapRate = 4.6 + tactics.activityLevel * 1.8 + reaction * 1.5 + (defending ? 2.5 : 0);
+    const flap = Math.sin(kingTime * flapRate) * (0.27 + tactics.flowIntensity * 0.08 + reaction * 0.05 + (defending ? 0.1 : 0));
     kingWingNear.rotation.x = 0.12 + flap;
     kingWingFar.rotation.x = -0.12 - flap;
     kingLegs.forEach((leg, index) => {
@@ -1376,11 +1493,16 @@ function updateBullKing(delta) {
     });
     if (kingMount) kingMount.position.y = Math.sin(kingTime * 1.7) * 0.12;
     if (kingRider) kingRider.rotation.z = Math.sin(kingTime * 1.15) * 0.025 - reaction * 0.035;
-    if (kingStaff) kingStaff.rotation.z = -0.58 - reaction * 0.16 + Math.sin(kingTime * 1.8) * 0.025;
+    if (kingStaff) kingStaff.rotation.z = -0.58 - reaction * 0.16 - (defending ? 0.18 : 0) + Math.sin(kingTime * 1.8) * 0.025;
     const supporting = bullSupportUntil > Date.now();
     if (kingStaffGlow) kingStaffGlow.intensity = supporting
         ? 11 + Math.sin(kingTime * 11) * 3
         : 4.5 + Math.sin(kingTime * 2) * 1.2 + reaction * 4;
+}
+
+function lerpAngle(from, to, amount) {
+    const difference = Math.atan2(Math.sin(to - from), Math.cos(to - from));
+    return from + difference * amount;
 }
 
 function updateSupportWaves(delta) {

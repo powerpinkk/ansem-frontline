@@ -28,12 +28,12 @@ describe('battlefield navigation', () => {
     });
 
     it('lets units patrol across the imaginary line while market control shifts their operating area', () => {
-        const neutralA = tacticalPatrolTarget('bull', 0, 0, 0, false, 0, 0);
-        const neutralB = tacticalPatrolTarget('bull', 0, 0, 0, false, 0, 4);
+        const neutralA = tacticalPatrolTarget('bull', 0, 0, 0, false, -1, 0);
+        const neutralB = tacticalPatrolTarget('bull', 0, 0, 0, false, 1, 4);
         expect(neutralA.x).toBeLessThan(0);
         expect(neutralB.x).toBeGreaterThan(0);
-        expect(tacticalPatrolTarget('bull', 0, 0, 0, false, 0.8, 0).x).toBeGreaterThan(0);
-        expect(tacticalPatrolTarget('bear', 0, 0, 0, false, 0.8, 0).x).toBeGreaterThan(0);
+        expect(tacticalPatrolTarget('bear', 20, 0, 1, false, -1, 0).x).toBeLessThan(20);
+        expect(tacticalPatrolTarget('bear', 20, 0, 1, false, 1, 0).x).toBeGreaterThan(20);
     });
 
     it('expires normal activity before giant trades', () => {

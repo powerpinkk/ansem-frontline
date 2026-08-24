@@ -10,6 +10,7 @@ const pageErrors = [];
 const requestFailures = [];
 const httpErrors = [];
 const positions = new Map();
+const nearLineSince = new Map();
 const summary = {
     samples: 0,
     minEntities: Number.POSITIVE_INFINITY,
@@ -21,6 +22,7 @@ const summary = {
     outOfBounds: 0,
     viewportMismatches: 0,
     stalledPatrols: new Set(),
+    lineDwells: new Set(),
     connectionStates: new Set(),
     battleStates: new Set(),
 };
@@ -65,14 +67,21 @@ try {
                 || entity.z < diagnostics.bounds.minZ || entity.z > diagnostics.bounds.maxZ) {
                 summary.outOfBounds += 1;
             }
-            if (entity.type === 'bull' && entity.x > diagnostics.frontlineX) summary.bullCrossings += 1;
-            if (entity.type === 'bear' && entity.x < diagnostics.frontlineX) summary.bearCrossings += 1;
-
             const prior = positions.get(entity.id);
             const moved = !prior || Math.hypot(entity.x - prior.x, entity.z - prior.z) > 0.08;
             const lastMovedAt = moved ? now : prior.lastMovedAt;
             if (!entity.hasTarget && now - lastMovedAt > 20_000) summary.stalledPatrols.add(entity.id);
-            positions.set(entity.id, { x: entity.x, z: entity.z, lastMovedAt });
+            const lineSide = Math.sign(entity.x - diagnostics.frontlineX);
+            if (prior?.lineSide && lineSide && prior.lineSide !== lineSide) {
+                if (entity.type === 'bull') summary.bullCrossings += 1;
+                else summary.bearCrossings += 1;
+            }
+            positions.set(entity.id, { x: entity.x, z: entity.z, lastMovedAt, lineSide });
+
+            const patrolOnLine = entity.behavior === 'patrol' && Math.abs(entity.x - diagnostics.frontlineX) < 1.2;
+            if (!patrolOnLine) nearLineSince.delete(entity.id);
+            else if (!nearLineSince.has(entity.id)) nearLineSince.set(entity.id, now);
+            else if (now - nearLineSince.get(entity.id) > 5_000) summary.lineDwells.add(entity.id);
         }
 
         if (now >= nextProgressAt) {
@@ -86,6 +95,7 @@ try {
     const report = {
         ...summary,
         stalledPatrols: [...summary.stalledPatrols],
+        lineDwells: [...summary.lineDwells],
         connectionStates: [...summary.connectionStates],
         battleStates: [...summary.battleStates],
         pageErrors,
@@ -94,7 +104,8 @@ try {
     };
     console.log(JSON.stringify(report, null, 2));
 
-    if (pageErrors.length || summary.invalidPositions || summary.outOfBounds || summary.viewportMismatches || summary.stalledPatrols.size) {
+    if (pageErrors.length || summary.invalidPositions || summary.outOfBounds || summary.viewportMismatches
+        || summary.stalledPatrols.size || summary.lineDwells.size) {
         process.exitCode = 1;
     }
 } finally {

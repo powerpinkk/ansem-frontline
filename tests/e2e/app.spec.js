@@ -107,6 +107,29 @@ test('boots from the Helius market fallback when DexScreener is unavailable', as
     await expect(page.locator('.trade-item')).toHaveCount(2, { timeout: 12_000 });
 });
 
+test('the Bull King visibly repels a verified bear that reaches his airspace', async ({ page }, testInfo) => {
+    await page.goto('/');
+    await page.waitForFunction(() => typeof window.__ansemTriggerKingDefense === 'function');
+    await expect(page.locator('.trade-item')).toHaveCount(2, { timeout: 12_000 });
+    await page.evaluate(() => window.__ansemTriggerKingDefense());
+    const defending = await page.evaluate(() => window.__ansemSceneDiagnostics());
+    const invadingBear = defending.entities.find((entity) => entity.type === 'bear');
+    expect(invadingBear).toBeTruthy();
+    expect(invadingBear.forcedRetreat).toBe(true);
+    expect(defending.bullKing.defending).toBe(true);
+    expect(defending.kingStrikes).toBeGreaterThan(0);
+    await expect(page.locator('#killfeed')).toContainText("KING'S WARD");
+
+    await page.waitForTimeout(900);
+    const repelled = await page.evaluate(() => window.__ansemSceneDiagnostics());
+    const survivingBear = repelled.entities.find((entity) => entity.type === 'bear');
+    expect(survivingBear).toBeTruthy();
+    expect(survivingBear.x).toBeGreaterThan(invadingBear.x + 2);
+    expect(repelled.bullKing.x).not.toBeCloseTo(defending.bullKing.x, 1);
+    expect(Math.abs(repelled.bullKing.rotationY - defending.bullKing.rotationY)).toBeGreaterThan(0.03);
+    await page.screenshot({ path: `.artifacts/king-defense-${testInfo.project.name}.png`, fullPage: true });
+});
+
 test('covers an ultrawide battlefield without layout gaps', async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== 'desktop-chromium', 'One ultrawide visual check is sufficient');
     await page.setViewportSize({ width: 1886, height: 991 });

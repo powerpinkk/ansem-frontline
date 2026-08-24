@@ -42,14 +42,13 @@ export function formationTarget(type, frontlineX, lane, formationIndex = 0, isWh
     }, isWhale ? 4 : 1.5);
 }
 
-export function tacticalPatrolTarget(type, frontlineX, lane, phase = 0, isWhale = false, balance = 0, elapsed = 0) {
-    const facing = type === 'bull' ? 1 : -1;
-    const sideControl = facing * clamp(balance, -1, 1);
-    const patrolWidth = isWhale ? 3.5 : 5.5;
-    const incursion = -1.5 + sideControl * (isWhale ? 8 : 11) + Math.sin(elapsed * 0.42 + phase) * patrolWidth;
+export function tacticalPatrolTarget(type, frontlineX, lane, phase = 0, isWhale = false, crossingSide = 1, elapsed = 0) {
+    const side = crossingSide >= 0 ? 1 : -1;
+    const depth = (isWhale ? 7.5 : 9.5) + (Math.sin(phase * 1.31) + 1) * 1.4;
+    const sideBias = type === 'bull' ? 0.7 : -0.7;
     return clampArenaPosition({
-        x: frontlineX + facing * incursion,
-        z: lane + Math.sin(elapsed * 0.31 + phase * 1.7) * (isWhale ? 1.4 : 2.3),
+        x: frontlineX + side * depth + sideBias,
+        z: lane + Math.sin(elapsed * 0.34 + phase * 1.7) * (isWhale ? 1.6 : 2.5),
     }, isWhale ? 4 : 1.5);
 }
 

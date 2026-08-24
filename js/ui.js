@@ -171,7 +171,7 @@ function updateBattleState() {
     DOM.battleStateLabel.textContent = tactics.label;
     if (tactics.state === 'bull') DOM.battleStateDetail.textContent = 'Bulls surge forward · grizzlies backpedal toward their lines';
     else if (tactics.state === 'bear') DOM.battleStateDetail.textContent = 'Grizzlies push forward · bulls fall back toward the King';
-    else if (tactics.state === 'contested') DOM.battleStateDetail.textContent = 'Both sides brace around the live 60s pressure line';
+    else if (tactics.state === 'contested') DOM.battleStateDetail.textContent = 'Both sides cross contested ground while 60s SOL flow moves the marker';
     else DOM.battleStateDetail.textContent = 'No verified SOL flow in 60s · recent swaps keep patrolling';
 }
 
@@ -263,6 +263,12 @@ export function addBullSwarmEvent({ buyCount, buySol, dominance }) {
 export function addKingReclaimEvent({ count, solValue, reason, bullPercent }) {
     const row = document.createElement('div');
     row.className = 'kill-item bull-swarm-event';
+    if (reason === 'king-defense') {
+        row.textContent = `${new Date().toLocaleTimeString()} · KING'S WARD · ${count} invading ${count === 1 ? 'grizzly' : 'grizzlies'} repelled · ${Math.round(bullPercent)}% buy pressure`;
+        DOM.killfeed.prepend(row);
+        trimFeed(DOM.killfeed, CONFIG.MAX_KILLFEED);
+        return;
+    }
     const trigger = reason === 'sustained-control'
         ? `${Math.round(bullPercent)}% sustained buy pressure`
         : `${solValue.toFixed(1)} SOL buy reversal`;
