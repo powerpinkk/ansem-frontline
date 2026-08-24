@@ -32,5 +32,5 @@ export const CONFIG = {
 
     DEXSCREENER_TOKEN_URL: 'https://api.dexscreener.com/token-pairs/v1/solana',
     DEXSCREENER_PAIR_URL: 'https://api.dexscreener.com/latest/dex/pairs/solana',
-    GECKO_BASE: 'https://api.geckoterminal.com/api/v2/networks/solana/pools',
+    GECKO_BASE: 'https://ansem-frontline-stream.ansem-frontline.workers.dev/gecko/networks/solana/pools',
 };

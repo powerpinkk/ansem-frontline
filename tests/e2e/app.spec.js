@@ -7,7 +7,7 @@ test.beforeEach(async ({ page }) => {
     await page.route('https://api.dexscreener.com/**', async (route) => {
         await route.fulfill({ json: { pairs: [pair('pool-buy', 'pumpswap', 1_000_000), pair('pool-sell', 'meteora', 800_000)] } });
     });
-    await page.route('https://api.geckoterminal.com/**', async (route) => {
+    await page.route('https://ansem-frontline-stream.ansem-frontline.workers.dev/gecko/**', async (route) => {
         const url = route.request().url();
         if (url.includes('/ohlcv/')) {
             const now = Math.floor(Date.now() / 1000);

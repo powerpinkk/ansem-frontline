@@ -2,6 +2,7 @@ import { DurableObject } from 'cloudflare:workers';
 import { parseTransaction } from './parser.js';
 import { parseClientConfiguration } from './configuration.js';
 import { normalizeHeliusMarket, SOL_MINT } from './market-fallback.js';
+import { fetchGeckoProxy } from './gecko-proxy.js';
 
 export default {
     async fetch(request, env) {
@@ -13,6 +14,7 @@ export default {
             return Response.json({ ok: true, service: 'ansem-frontline-stream' });
         }
         if (url.pathname === '/market') return fetchFallbackMarket(env, origin);
+        if (url.pathname.startsWith('/gecko/')) return fetchGeckoProxy(request, origin, env.ALLOWED_ORIGIN);
         if (url.pathname !== '/stream') return new Response('Not found', { status: 404 });
         const id = env.STREAM_HUB.idFromName('ansem-mainnet');
         return env.STREAM_HUB.get(id).fetch(request);
