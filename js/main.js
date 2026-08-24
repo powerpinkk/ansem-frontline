@@ -1,5 +1,4 @@
-import { CONFIG } from './config.js';
-import { initAPI, startHoldersPolling } from './api.js';
+import { initAPI } from './api.js';
 import {
     initUI,
     bindCameraControls,
@@ -11,8 +10,6 @@ import {
     addRealKillEvent,
     setAudioButton,
     showTradesWaiting,
-    hideHoldersIfNoApiKey,
-    updateHolders,
 } from './ui.js';
 import {
     initScene,
@@ -20,24 +17,19 @@ import {
     setCameraMode,
     spawnUnit,
     setFrontlineColor,
-    triggerWhaleBattleEffect,
+    applyTradeImpulse,
 } from './scene.js';
 
 function handleTrade(trade, meta) {
     addOnChainTrade(trade);
-
-    if (trade.usdValue >= CONFIG.WHALE_TRADE_THRESHOLD && !meta.bootstrap) {
-        const type = trade.isBuy ? 'bull' : 'bear';
-        spawnUnit(type, false, true);
-        addWhaleSpawnEvent(type, trade.usdValue);
-        triggerWhaleBattleEffect(trade.isBuy);
-        updateDashboardUI();
-    }
+    const type = trade.isBuy ? 'bull' : 'bear';
+    spawnUnit(type, meta.bootstrap, trade.isWhale, trade);
+    if (trade.isWhale) addWhaleSpawnEvent(type, trade.solValue, trade.usdValue);
+    applyTradeImpulse(trade.isBuy, trade.solValue, trade.isWhale);
+    updateDashboardUI();
 }
 
 function boot() {
-    hideHoldersIfNoApiKey();
-
     initUI({ setFrontlineColor });
     bindCameraControls(setCameraMode);
     showTradesWaiting();
@@ -50,10 +42,9 @@ function boot() {
     initAPI({
         onMarketUpdate: updateMarketUI,
         onTrade: handleTrade,
+        onPressureUpdate: updateDashboardUI,
         onConnectionChange: setConnectionStatus,
     });
-
-    startHoldersPolling(updateHolders);
 }
 
 boot();

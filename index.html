@@ -3,13 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Verified $ANSEM swaps on Solana become a live Three.js battle between black bulls and bears.">
+    <meta name="theme-color" content="#07100b">
+    <meta property="og:title" content="$ANSEM FRONTLINE">
+    <meta property="og:description" content="A near-real-time 3D battlefield driven by verified Solana swaps.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://ansem-frontline.vercel.app/">
     <title>$ANSEM FRONTLINE • On-Chain Live Data</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Orbitron:wght@500;700;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/styles.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 </head>
 <body>
 
@@ -17,7 +21,7 @@
     <div id="topbar">
         <div>
             <div class="brand-title">$ANSEM <span>FRONTLINE</span></div>
-            <div id="status-text">LIVE PRICE · ON-CHAIN SWAPS · GECKOTERMINAL</div>
+                <div id="status-text">VERIFIED SOLANA SWAPS · MULTI-POOL MARKET</div>
             <div id="connection-status" class="connection-status connecting">
                 <span class="connection-dot"></span>
                 <span id="connection-label">CONNECTING…</span>
@@ -25,20 +29,20 @@
         </div>
         <div class="top-stats-container">
             <div style="display: flex; gap: 8px; margin-right: 15px;">
-                <button id="cam-auto" class="control-btn active-blue" type="button">🎥 AUTO</button>
-                <button id="cam-free" class="control-btn" type="button">🕹️ FREE</button>
+                <button id="cam-auto" class="control-btn active-blue" type="button" aria-label="Automatic camera">🎥 AUTO</button>
+                <button id="cam-free" class="control-btn" type="button" aria-label="Free camera controls">🕹️ FREE</button>
             </div>
 
-            <button id="sound-btn" class="control-btn" type="button">🔇 SOUND</button>
+            <button id="sound-btn" class="control-btn" type="button" aria-label="Toggle sound">🔇 SOUND</button>
 
-            <div class="info-box">
+            <div class="info-box" id="mcap-box">
                 <div class="info-label">MCAP</div>
                 <div class="info-value" id="mcap-value">$0.00M</div>
             </div>
 
             <div class="info-box" id="holders-box">
-                <div class="info-label">HOLDERS</div>
-                <div class="info-value" id="holders-counter">—</div>
+                <div class="info-label">POOLS / COVERAGE</div>
+                <div class="info-value" id="coverage-value">—</div>
             </div>
 
             <canvas id="mini-chart" width="120" height="35" aria-label="1 hour price chart"></canvas>
@@ -54,6 +58,11 @@
         <div id="canvas-container">
             <canvas id="three-canvas"></canvas>
             <div id="floating-text-container"></div>
+            <div id="data-legend">
+                <span><i class="legend-dot buy"></i>1 black bull = 1 verified buy</span>
+                <span><i class="legend-dot sell"></i>1 bear = 1 verified sell</span>
+                <span>GIANT = ≥20 SOL</span>
+            </div>
         </div>
         <div id="sidebar">
             <div id="momentum">
@@ -75,18 +84,16 @@
             <div class="section-title">BATTLE LOG</div>
             <div id="killfeed"></div>
             <div class="section-title">ON-CHAIN SWAPS</div>
-            <div class="section-subtitle">Real DEX trades via GeckoTerminal</div>
+            <div class="section-subtitle">Verified swaps · giants at ≥20 SOL · click a trade to verify</div>
             <div id="tradesfeed"></div>
         </div>
     </div>
 </div>
 
 <div id="floating-socials">
-    <button id="copy-wallet-btn" class="social-btn" type="button" title="Copy SOL wallet">💰</button>
     <a href="https://x.com/PowerPixelKK" target="_blank" rel="noopener noreferrer" class="social-btn" title="Follow on X">𝕏</a>
+    <a href="https://github.com/powerpinkk/ansem-frontline" target="_blank" rel="noopener noreferrer" class="social-btn" title="View source on GitHub" aria-label="View source on GitHub">⌘</a>
 </div>
-
-<div id="toast" role="status" aria-live="polite"></div>
 
 <script type="module" src="js/main.js"></script>
 </body>

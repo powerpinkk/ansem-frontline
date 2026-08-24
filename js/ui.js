@@ -4,7 +4,6 @@ import { state } from './state.js';
 const DOM = {};
 let miniChartCtx = null;
 let lastRenderedBullPct = -1;
-let toastTimer = null;
 let sceneCallbacks = {
     setFrontlineColor: () => {},
 };
@@ -30,8 +29,7 @@ export function initUI(sceneHooks = {}) {
     DOM.tradesfeed = document.getElementById('tradesfeed');
     DOM.connectionStatus = document.getElementById('connection-status');
     DOM.connectionLabel = document.getElementById('connection-label');
-    DOM.holdersCounter = document.getElementById('holders-counter');
-    DOM.toast = document.getElementById('toast');
+    DOM.coverageValue = document.getElementById('coverage-value');
     DOM.soundBtn = document.getElementById('sound-btn');
     DOM.camAuto = document.getElementById('cam-auto');
     DOM.camFree = document.getElementById('cam-free');
@@ -55,7 +53,6 @@ function setupMiniChart() {
 }
 
 function bindControls() {
-    document.getElementById('copy-wallet-btn')?.addEventListener('click', copyWallet);
     DOM.soundBtn?.addEventListener('click', () => window.__ansemToggleAudio?.());
 }
 
@@ -75,7 +72,7 @@ export function setConnectionStatus(status) {
     DOM.connectionLabel.textContent = CONNECTION_LABELS[status] || status.toUpperCase();
 }
 
-export function updateMarketUI({ price, mcap, chg }) {
+export function updateMarketUI({ price, mcap, chg, pools, coverage, referencePool }) {
     if (DOM.mcapValue) {
         DOM.mcapValue.textContent = mcap > 1_000_000
             ? `$${(mcap / 1_000_000).toFixed(2)}M`
@@ -91,14 +88,13 @@ export function updateMarketUI({ price, mcap, chg }) {
         DOM.change.className = chg > 0 ? 'positive' : (chg < 0 ? 'negative' : 'neutral');
     }
 
+    if (DOM.coverageValue) {
+        DOM.coverageValue.textContent = `${pools} / ${coverage.toFixed(0)}%`;
+        DOM.coverageValue.title = `Top ${pools} pools by activity; ${coverage.toFixed(1)}% of reported 24h volume. Reference chart: ${referencePool?.dexId || '—'}.`;
+    }
+
     renderMiniChart();
     updateDashboardUI();
-}
-
-export function updateHolders(count) {
-    if (DOM.holdersCounter) {
-        DOM.holdersCounter.textContent = count.toLocaleString();
-    }
 }
 
 export function renderMiniChart() {
@@ -149,20 +145,34 @@ export function addOnChainTrade(trade) {
     const empty = DOM.tradesfeed.querySelector('.trades-empty');
     if (empty) empty.remove();
 
-    const time = new Date(trade.timestamp).toLocaleTimeString();
-    const side = trade.isBuy
-        ? '<span class="trade-buy">BUY</span>'
-        : '<span class="trade-sell">SELL</span>';
-
-    const html = `<div class="trade-item" data-tx="${trade.txHash}"><span class="trade-time">${time}</span> ${side} <span class="trade-amount">${Math.round(trade.tokenAmount).toLocaleString()}</span> <span class="trade-usd">($${trade.usdValue.toLocaleString(undefined, { maximumFractionDigits: 0 })})</span></div>`;
-
-    DOM.tradesfeed.insertAdjacentHTML('afterbegin', html);
+    const row = document.createElement('a');
+    row.className = `trade-item trade-link ${trade.isWhale ? 'is-whale' : ''}`;
+    row.href = `https://solscan.io/tx/${encodeURIComponent(trade.txHash)}`;
+    row.target = '_blank';
+    row.rel = 'noopener noreferrer';
+    row.title = `Verify on Solscan · ${trade.dexId}`;
+    const time = document.createElement('span');
+    time.className = 'trade-time';
+    time.textContent = new Date(trade.timestamp).toLocaleTimeString();
+    const side = document.createElement('span');
+    side.className = trade.isBuy ? 'trade-buy' : 'trade-sell';
+    side.textContent = trade.isBuy ? 'BUY' : 'SELL';
+    const amount = document.createElement('span');
+    amount.className = 'trade-amount';
+    amount.textContent = `${trade.solValue.toFixed(trade.solValue >= 10 ? 1 : 2)} SOL`;
+    const value = document.createElement('span');
+    value.className = 'trade-usd';
+    value.textContent = ` · $${trade.usdValue.toLocaleString(undefined, { maximumFractionDigits: 0 })} · ${trade.dexId}`;
+    row.append(time, side, amount, value);
+    DOM.tradesfeed.prepend(row);
     trimFeed(DOM.tradesfeed, CONFIG.MAX_TRADES_FEED);
 }
 
-export function addWhaleSpawnEvent(type, usdValue) {
-    const html = `<div class="kill-item whale-event ${type === 'bear' ? 'bear' : ''}"><span class="kill-time">${new Date().toLocaleTimeString()}</span> ${type === 'bull' ? '🐂' : '🐻'} <span>WHALE ${type === 'bull' ? 'BUY' : 'SELL'} ($${Number(usdValue).toLocaleString(undefined, { maximumFractionDigits: 0 })})</span></div>`;
-    DOM.killfeed.insertAdjacentHTML('afterbegin', html);
+export function addWhaleSpawnEvent(type, solValue, usdValue) {
+    const row = document.createElement('div');
+    row.className = `kill-item whale-event ${type === 'bear' ? 'bear' : ''}`;
+    row.textContent = `${new Date().toLocaleTimeString()} ${type === 'bull' ? '🐂' : '🐻'} GIANT ${type === 'bull' ? 'BUY' : 'SELL'} · ${solValue.toFixed(1)} SOL · $${Math.round(usdValue).toLocaleString()}`;
+    DOM.killfeed.prepend(row);
     trimFeed(DOM.killfeed, CONFIG.MAX_KILLFEED);
 }
 
@@ -170,10 +180,10 @@ export function addRealKillEvent(killer, victim, isCrit, kW = false, vW = false)
     const kStr = killer === 'bull' ? (kW ? 'Bull Whale' : 'Bull') : (kW ? 'Bear Whale' : 'Bear');
     const vStr = victim === 'bear' ? (vW ? 'Bear Whale' : 'Bear') : (vW ? 'Bull Whale' : 'Bull');
     const action = killer === 'bull' ? (isCrit ? 'destroyed' : 'liquidated') : (isCrit ? 'devoured' : 'dumped on');
-    const color = killer === 'bull' ? 'var(--meadow-green)' : 'var(--bear-red)';
-
-    const html = `<div class="kill-item"><span class="kill-time">${new Date().toLocaleTimeString()}</span> <span style="color:${color}; font-weight:600;">${kStr} ${action} ${vStr}</span></div>`;
-    DOM.killfeed.insertAdjacentHTML('afterbegin', html);
+    const row = document.createElement('div');
+    row.className = `kill-item ${killer === 'bull' ? 'bull-kill' : 'bear-kill'}`;
+    row.textContent = `${new Date().toLocaleTimeString()} · ${kStr} ${action} ${vStr}`;
+    DOM.killfeed.prepend(row);
     trimFeed(DOM.killfeed, CONFIG.MAX_KILLFEED);
 }
 
@@ -181,22 +191,6 @@ function trimFeed(el, max) {
     while (el.children.length > max) {
         el.removeChild(el.lastChild);
     }
-}
-
-function copyWallet() {
-    navigator.clipboard.writeText(CONFIG.DONATION_WALLET).then(() => {
-        showToast(`Copied: ${CONFIG.DONATION_WALLET.slice(0, 8)}…`);
-    }).catch(() => {
-        showToast('Could not copy wallet');
-    });
-}
-
-function showToast(message) {
-    if (!DOM.toast) return;
-    DOM.toast.textContent = message;
-    DOM.toast.classList.add('visible');
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => DOM.toast.classList.remove('visible'), 2500);
 }
 
 export function setAudioButton(enabled) {
@@ -209,12 +203,5 @@ export function showTradesWaiting() {
     if (!DOM.tradesfeed) return;
     if (!DOM.tradesfeed.querySelector('.trades-empty')) {
         DOM.tradesfeed.innerHTML = '<div class="trades-empty">Waiting for on-chain swaps…</div>';
-    }
-}
-
-export function hideHoldersIfNoApiKey() {
-    const box = document.getElementById('holders-box');
-    if (box && !CONFIG.BIRDEYE_API_KEY) {
-        box.style.display = 'none';
     }
 }

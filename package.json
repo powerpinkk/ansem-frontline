@@ -1,0 +1,31 @@
+{
+  "name": "ansem-frontline",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Near-real-time 3D visualization of verified $ANSEM swaps on Solana.",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "lint": "eslint .",
+    "check": "npm run lint && npm test && npm run build && npm run test:e2e"
+  },
+  "dependencies": {
+    "three": "0.185.1"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.62.1",
+    "eslint": "^10.9.0",
+    "globals": "^17.11.0",
+    "vite": "^8.2.2",
+    "vitest": "^4.1.11"
+  },
+  "engines": {
+    "node": ">=20.19.0"
+  }
+}

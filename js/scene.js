@@ -1,3 +1,5 @@
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { state } from './state.js';
 
 let onKillEvent = () => {};
@@ -5,9 +7,10 @@ let onKillEvent = () => {};
 let entities = [];
 let particles = [];
 let projectiles = [];
-const MAX_ENTITIES_PER_SIDE = 15;
+const MAX_ENTITIES_PER_SIDE = 32;
+const obstacles = [];
 
-let scene, camera, renderer, frontlineLaser, orbitControls, trenchGlowLight;
+let scene, camera, renderer, frontlineLaser, orbitControls, trenchGlowLight, terrainMaterial;
 let clock = new THREE.Clock();
 let canvasContainer, floatContainer;
 
@@ -60,7 +63,9 @@ export function toggleAudio() {
     return audioEnabled;
 }
 
-export function spawnUnit(type, initial = false, isWhale = false) {
+export function spawnUnit(type, initial = false, isWhale = false, trade = null) {
+    const sameSide = entities.filter((entity) => entity.type === type);
+    if (sameSide.length >= MAX_ENTITIES_PER_SIDE) retireEntity(sameSide[0]);
     const isBull = type === 'bull';
     const group = new THREE.Group();
     const bodyGroup = new THREE.Group();
@@ -68,7 +73,7 @@ export function spawnUnit(type, initial = false, isWhale = false) {
 
     if (isWhale) {
         group.scale.set(2.8, 2.8, 2.8);
-        const whaleLight = new THREE.PointLight(isBull ? 0x00ff88 : 0xff3366, 1.5, 15);
+        const whaleLight = new THREE.PointLight(isBull ? 0x00ff88 : 0xff224f, 7, 22, 2);
         whaleLight.position.set(0, 2, 0);
         group.add(whaleLight);
     }
@@ -92,10 +97,10 @@ export function spawnUnit(type, initial = false, isWhale = false) {
         hornR.position.set(-0.1, 0.5, -0.35);
         hornR.rotation.set(-Math.PI / 6, 0, -Math.PI / 3);
         head.add(hornL, hornR);
-        const eyeMat = new THREE.MeshBasicMaterial({ color: 0x00ff88 });
-        const eyeL = createMesh(geoSphere, eyeMat, 0.1, 0.1, 0.1);
+        const eyeMat = new THREE.MeshStandardMaterial({ color: 0x021008, emissive: 0x00ff88, emissiveIntensity: isWhale ? 8 : 3, metalness: 0.85, roughness: 0.08 });
+        const eyeL = createMesh(geoSphere, eyeMat, isWhale ? 0.15 : 0.1, isWhale ? 0.15 : 0.1, isWhale ? 0.15 : 0.1);
         eyeL.position.set(0.35, 0.15, 0.35);
-        const eyeR = createMesh(geoSphere, eyeMat, 0.1, 0.1, 0.1);
+        const eyeR = createMesh(geoSphere, eyeMat, isWhale ? 0.15 : 0.1, isWhale ? 0.15 : 0.1, isWhale ? 0.15 : 0.1);
         eyeR.position.set(0.35, 0.15, -0.35);
         head.add(eyeL, eyeR);
         [[0.6, 0.4], [0.6, -0.4], [-0.6, 0.4], [-0.6, -0.4]].forEach((pos) => {
@@ -118,10 +123,10 @@ export function spawnUnit(type, initial = false, isWhale = false) {
         const earR = createMesh(geoSphere, matBearHead, 0.3, 0.3, 0.3);
         earR.position.set(-0.1, 0.45, -0.35);
         head.add(earL, earR);
-        const eyeMat = new THREE.MeshBasicMaterial({ color: 0xff3366 });
-        const eyeL = createMesh(geoSphere, eyeMat, 0.1, 0.1, 0.1);
+        const eyeMat = new THREE.MeshStandardMaterial({ color: 0x160207, emissive: 0xff224f, emissiveIntensity: isWhale ? 8 : 3, metalness: 0.8, roughness: 0.1 });
+        const eyeL = createMesh(geoSphere, eyeMat, isWhale ? 0.15 : 0.1, isWhale ? 0.15 : 0.1, isWhale ? 0.15 : 0.1);
         eyeL.position.set(0.35, 0.15, 0.35);
-        const eyeR = createMesh(geoSphere, eyeMat, 0.1, 0.1, 0.1);
+        const eyeR = createMesh(geoSphere, eyeMat, isWhale ? 0.15 : 0.1, isWhale ? 0.15 : 0.1, isWhale ? 0.15 : 0.1);
         eyeR.position.set(0.35, 0.15, -0.35);
         head.add(eyeL, eyeR);
         [[0.4, 0.4], [0.4, -0.4], [-0.4, 0.4], [-0.4, -0.4]].forEach((pos) => {
@@ -133,7 +138,7 @@ export function spawnUnit(type, initial = false, isWhale = false) {
     }
 
     group.add(bodyGroup);
-    const spawnOffset = initial ? Math.random() * 15 + 5 : 45;
+    const spawnOffset = initial ? Math.random() * 16 + 18 : 52;
     const spawnX = isBull ? state.frontlineX - spawnOffset : state.frontlineX + spawnOffset;
     const spawnZ = (Math.random() - 0.5) * 20;
 
@@ -155,7 +160,19 @@ export function spawnUnit(type, initial = false, isWhale = false) {
         vx: 0,
         vz: 0,
         baseScale: new THREE.Vector3(1, 1, 1),
+        trade,
+        power: Math.max(0.75, Math.min(3, Math.log10((trade?.solValue || 0.1) + 1) + 0.8)),
+        laneTarget: spawnZ,
+        stuckTime: 0,
+        lastPosition: new THREE.Vector2(spawnX, spawnZ),
     });
+}
+
+function retireEntity(entity) {
+    const index = entities.indexOf(entity);
+    if (index === -1) return;
+    scene.remove(entity.mesh);
+    entities.splice(index, 1);
 }
 
 export function setFrontlineColor(colorHex) {
@@ -164,22 +181,30 @@ export function setFrontlineColor(colorHex) {
         frontlineLaser.children[1].material.color.setHex(colorHex);
     }
     if (trenchGlowLight) trenchGlowLight.color.setHex(colorHex);
+    if (scene && colorHex !== 0xffffff) {
+        const tint = colorHex === 0x00ff88 ? 0x091a10 : 0x1a090d;
+        scene.background.setHex(tint);
+        scene.fog.color.setHex(tint);
+        terrainMaterial?.emissive.setHex(colorHex);
+        if (terrainMaterial) terrainMaterial.emissiveIntensity = 0.018;
+    } else if (scene) {
+        scene.background.setHex(0x0a120e);
+        scene.fog.color.setHex(0x0a120e);
+        terrainMaterial?.emissive.setHex(0x000000);
+    }
 }
 
-export function triggerWhaleBattleEffect(isBuy) {
-    if (state.cameraMode === 'auto') state.screenShake = 0.4;
-    state.marketTrend = isBuy ? 1 : -1;
-    state.targetFrontlineX = Math.max(-45, Math.min(45, state.frontlineX + (isBuy ? 8 : -8)));
-    state.momentum = Math.max(0, Math.min(100, state.momentum + (isBuy ? 15 : -15)));
+export function applyTradeImpulse(isBuy, solValue, isWhale) {
+    if (isWhale && state.cameraMode === 'auto') state.screenShake = 0.45;
+    const impulse = Math.min(8, Math.max(0.25, Math.log2(solValue + 1)));
+    state.targetFrontlineX = Math.max(-45, Math.min(45, state.targetFrontlineX + (isBuy ? impulse : -impulse)));
 }
 
 function getTrenchHeight(x, z) {
-    const distToCenter = Math.abs(x);
-    let trenchDepth = 0;
-    if (distToCenter < 18) {
-        trenchDepth = -6 * Math.pow(Math.cos((distToCenter / 18) * (Math.PI / 2)), 1.5);
-    }
-    return trenchDepth;
+    const broadRelief = Math.sin(x * 0.045) * 1.4 + Math.cos(z * 0.09) * 0.65;
+    const detail = Math.sin((x + z) * 0.22) * 0.18;
+    const wornLane = Math.max(0, 1 - Math.abs(z) / 22) * -0.45;
+    return broadRelief + detail + wornLane;
 }
 
 function init3D() {
@@ -224,51 +249,43 @@ function init3D() {
     rimLight.position.set(-30, 20, -30);
     scene.add(rimLight);
 
-    orbitControls = new THREE.OrbitControls(camera, renderer.domElement);
+    orbitControls = new OrbitControls(camera, renderer.domElement);
     orbitControls.enableDamping = true;
     orbitControls.dampingFactor = 0.05;
     orbitControls.enabled = false;
 
-    const planeGeo = new THREE.PlaneGeometry(300, 150, 80, 40);
+    const planeGeo = new THREE.PlaneGeometry(300, 150, 120, 60);
     planeGeo.rotateX(-Math.PI / 2);
     const posAttribute = planeGeo.attributes.position;
+    const colors = [];
+    const dirt = new THREE.Color(0x493522);
+    const grass = new THREE.Color(0x244528);
+    const highGrass = new THREE.Color(0x3e6638);
 
     for (let i = 0; i < posAttribute.count; i++) {
-        const localY = posAttribute.getY(i);
         const localX = posAttribute.getX(i);
-        let z = getTrenchHeight(localX, localY);
-        if (Math.abs(localX) >= 18) z += Math.random() * 1.5;
-        posAttribute.setZ(i, z);
+        const localZ = posAttribute.getZ(i);
+        const height = getTrenchHeight(localX, localZ) + (Math.random() - 0.5) * 0.12;
+        posAttribute.setY(i, height);
+        const laneBlend = Math.min(1, Math.max(0, (Math.abs(localZ) - 11) / 18));
+        const color = dirt.clone().lerp(height > 0.8 ? highGrass : grass, laneBlend);
+        colors.push(color.r, color.g, color.b);
     }
+    planeGeo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
     planeGeo.computeVertexNormals();
 
-    const planeMat = new THREE.MeshStandardMaterial({
-        color: 0x18281c,
+    terrainMaterial = new THREE.MeshStandardMaterial({
+        color: 0xffffff,
         roughness: 0.9,
         metalness: 0.05,
         flatShading: true,
+        vertexColors: true,
     });
-    const plane = new THREE.Mesh(planeGeo, planeMat);
+    const plane = new THREE.Mesh(planeGeo, terrainMaterial);
     plane.receiveShadow = true;
     scene.add(plane);
 
-    const rockGeo = new THREE.DodecahedronGeometry(1, 0);
-    const rockMat = new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 1.0 });
-
-    for (let i = 0; i < 70; i++) {
-        let rx = (Math.random() - 0.5) * 200;
-        let rz = (Math.random() - 0.5) * 120;
-        if (Math.abs(rz) < 22) rz = rz > 0 ? 22 + Math.random() * 25 : -22 - Math.random() * 25;
-
-        const rock = new THREE.Mesh(rockGeo, rockMat);
-        const scale = 0.8 + Math.random() * 2.5;
-        rock.scale.set(scale, scale * 0.8, scale);
-        rock.position.set(rx, getTrenchHeight(rx, rz) + 0.2, rz);
-        rock.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, 0);
-        rock.castShadow = true;
-        rock.receiveShadow = true;
-        scene.add(rock);
-    }
+    createLandscapeProps();
 
     frontlineLaser = new THREE.Group();
     const coreLaser = new THREE.Mesh(
@@ -294,10 +311,48 @@ function init3D() {
         renderer.setSize(canvasContainer.clientWidth, canvasContainer.clientHeight);
     });
 
-    for (let i = 0; i < 5; i++) {
-        spawnUnit('bull', true);
-        spawnUnit('bear', true);
+}
+
+function createLandscapeProps() {
+    const rockGeo = new THREE.DodecahedronGeometry(1, 0);
+    const rockMat = new THREE.MeshStandardMaterial({ color: 0x4b443b, roughness: 1 });
+    for (let i = 0; i < 52; i++) {
+        const x = (Math.random() - 0.5) * 230;
+        const z = signedOuterPosition(17, 62);
+        const scale = 0.7 + Math.random() * 2.2;
+        const rock = new THREE.Mesh(rockGeo, rockMat);
+        rock.scale.set(scale, scale * 0.7, scale);
+        rock.position.set(x, getTrenchHeight(x, z) + scale * 0.25, z);
+        rock.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, 0);
+        rock.castShadow = true;
+        rock.receiveShadow = true;
+        scene.add(rock);
+        if (Math.abs(z) < 30) obstacles.push({ x, z, radius: scale * 1.35 });
     }
+    const trunkGeo = new THREE.CylinderGeometry(0.35, 0.55, 5, 7);
+    const crownGeo = new THREE.ConeGeometry(2.4, 6.5, 9);
+    const trunkMat = new THREE.MeshStandardMaterial({ color: 0x3a2416, roughness: 1 });
+    const crownMat = new THREE.MeshStandardMaterial({ color: 0x173d22, roughness: 0.95 });
+    for (let i = 0; i < 38; i++) {
+        const x = (Math.random() - 0.5) * 235;
+        const z = signedOuterPosition(25, 67);
+        const tree = new THREE.Group();
+        const trunk = new THREE.Mesh(trunkGeo, trunkMat);
+        const crown = new THREE.Mesh(crownGeo, crownMat);
+        trunk.position.y = 2.5;
+        crown.position.y = 7;
+        trunk.castShadow = crown.castShadow = true;
+        tree.add(trunk, crown);
+        tree.position.set(x, getTrenchHeight(x, z), z);
+        const scale = 0.75 + Math.random() * 0.7;
+        tree.scale.setScalar(scale);
+        scene.add(tree);
+    }
+}
+
+function signedOuterPosition(min, max) {
+    const value = min + Math.random() * (max - min);
+    return Math.random() < 0.5 ? -value : value;
 }
 
 function createMesh(geo, mat, sx, sy, sz) {
@@ -426,17 +481,6 @@ function updateEntities(delta) {
     trenchGlowLight.position.x = state.frontlineX;
     trenchGlowLight.position.y = getTrenchHeight(state.frontlineX, 0) - 1.0;
 
-    const bulls = entities.filter((e) => e.type === 'bull' && !e.isWhale).length;
-    const bears = entities.filter((e) => e.type === 'bear' && !e.isWhale).length;
-    const naturalSpawnRate = 0.03 * state.txVolumeMultiplier;
-
-    if (bulls < MAX_ENTITIES_PER_SIDE && Math.random() < (state.marketTrend >= 0 ? naturalSpawnRate * 1.5 : naturalSpawnRate)) {
-        spawnUnit('bull');
-    }
-    if (bears < MAX_ENTITIES_PER_SIDE && Math.random() < (state.marketTrend <= 0 ? naturalSpawnRate * 1.5 : naturalSpawnRate)) {
-        spawnUnit('bear');
-    }
-
     for (let i = 0; i < entities.length; i++) {
         const e = entities[i];
         if (e.hp <= 0) {
@@ -445,8 +489,11 @@ function updateEntities(delta) {
         }
 
         e.body.scale.lerp(e.baseScale, 10 * delta);
-        e.aura.visible = (e.type === 'bull' && state.marketTrend === 1) || (e.type === 'bear' && state.marketTrend === -1);
-        if (e.aura.visible) e.aura.rotation.z -= delta;
+        e.aura.visible = e.isWhale;
+        if (e.aura.visible) {
+            e.aura.rotation.z -= delta * 1.4;
+            e.aura.material.opacity = 0.24 + Math.sin(e.animTime * 3) * 0.08;
+        }
 
         e.animTime += delta;
         e.cooldown -= delta;
@@ -477,7 +524,7 @@ function updateEntities(delta) {
         }
 
         const speed = e.isWhale ? 8 : 9;
-        const dmgBase = e.isWhale ? 150 : 35;
+        const dmgBase = (e.isWhale ? 150 : 35) * e.power;
         let isMoving = false;
 
         if (e.target) {
@@ -488,9 +535,10 @@ function updateEntities(delta) {
 
             if (distSq > attackDistSq) {
                 if (Math.abs(e.vx) < 1) {
-                    const dist = Math.sqrt(distSq);
-                    e.mesh.position.x += (dx / dist) * speed * delta;
-                    e.mesh.position.z += (dz / dist) * speed * delta;
+                    const dist = Math.max(0.001, Math.sqrt(distSq));
+                    const steering = getSteering(e, dx / dist, dz / dist);
+                    e.mesh.position.x += steering.x * speed * delta;
+                    e.mesh.position.z += steering.z * speed * delta;
                     isMoving = true;
                 }
                 e.mesh.rotation.y = Math.atan2(-dz, dx);
@@ -527,6 +575,7 @@ function updateEntities(delta) {
         }
 
         if (isMoving) {
+            recoverIfStuck(e, delta);
             const walkSpeed = e.isWhale ? 10 : 15;
             e.legs[0].rotation.z = Math.sin(e.animTime * walkSpeed) * 0.6;
             e.legs[3].rotation.z = Math.sin(e.animTime * walkSpeed) * 0.6;
@@ -545,6 +594,39 @@ function updateEntities(delta) {
         scene.remove(dead.mesh);
         entities.splice(deadIds[i], 1);
     }
+}
+
+function getSteering(entity, desiredX, desiredZ) {
+    let steerX = desiredX;
+    let steerZ = desiredZ + (entity.laneTarget - entity.mesh.position.z) * 0.015;
+    const clearance = entity.isWhale ? 5 : 2.6;
+    obstacles.forEach((obstacle) => {
+        const dx = entity.mesh.position.x - obstacle.x;
+        const dz = entity.mesh.position.z - obstacle.z;
+        const distanceSq = dx * dx + dz * dz;
+        const safeRadius = obstacle.radius + clearance;
+        if (distanceSq > 0.001 && distanceSq < safeRadius * safeRadius) {
+            const force = (safeRadius - Math.sqrt(distanceSq)) / safeRadius;
+            steerX += (dx / Math.sqrt(distanceSq)) * force * 2.2;
+            steerZ += (dz / Math.sqrt(distanceSq)) * force * 2.2;
+        }
+    });
+    const length = Math.hypot(steerX, steerZ) || 1;
+    return { x: steerX / length, z: steerZ / length };
+}
+
+function recoverIfStuck(entity, delta) {
+    const moved = Math.hypot(
+        entity.mesh.position.x - entity.lastPosition.x,
+        entity.mesh.position.z - entity.lastPosition.y
+    );
+    entity.stuckTime = moved < 0.008 ? entity.stuckTime + delta : 0;
+    entity.lastPosition.set(entity.mesh.position.x, entity.mesh.position.z);
+    if (entity.stuckTime < 1.2) return;
+    entity.laneTarget = Math.max(-13, Math.min(13, entity.laneTarget + (Math.random() < 0.5 ? -5 : 5)));
+    entity.mesh.position.z += entity.laneTarget > entity.mesh.position.z ? 1.5 : -1.5;
+    entity.vx = entity.type === 'bull' ? 2 : -2;
+    entity.stuckTime = 0;
 }
 
 function updateCamera(delta) {

@@ -7,18 +7,22 @@ export const state = {
     screenShake: 0,
     marketTrend: 0,
     averageX: 0,
-    buyRatio: 0.5,
-    txVolumeMultiplier: 1.0,
-    holders: 0,
+    buySol60s: 0,
+    sellSol60s: 0,
+    liveTrades: [],
     priceHistory: [],
     cameraMode: 'auto',
     lastChartFetch: 0,
 
-    primaryPairAddress: null,
+    trackedPools: [],
+    referencePool: null,
+    poolCursor: 0,
+    solPriceUsd: 0,
+    marketCoverage: 0,
     connection: 'connecting',
     priceFailures: 0,
     tradesFailures: 0,
-    tradesBootstrapped: false,
 };
 
-export const seenTradeHashes = new Set();
+export const seenTradeIds = new Set();
+export const bootstrappedPools = new Set();
