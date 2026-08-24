@@ -10,13 +10,16 @@ export function connectTradeStream(url, handlers) {
         handlers.onStatus?.('connecting');
         socket.addEventListener('open', () => {
             retryDelay = 1_000;
-            handlers.onStatus?.('online');
+            socket.send(JSON.stringify({ type: 'configure', ...handlers.getConfiguration?.() }));
         });
         socket.addEventListener('message', (event) => {
             try {
                 const message = JSON.parse(event.data);
                 if (message.type === 'trade') handlers.onTrade?.(message.data);
-                if (message.type === 'status') handlers.onProviderStatus?.(message.status);
+                if (message.type === 'status') {
+                    handlers.onProviderStatus?.(message.status);
+                    handlers.onStatus?.(message.status === 'live' ? 'online' : 'offline');
+                }
             } catch (error) {
                 console.warn('[stream] Invalid message', error);
             }

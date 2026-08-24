@@ -23,7 +23,7 @@ Units advance toward real opposing flow when it exists and otherwise hold format
 
 ## Data methodology
 
-DexScreener is used to discover active Solana pools and calculate a liquidity-weighted token price. The preferred production path uses a Helius standard WebSocket behind a Cloudflare Durable Object: the Worker subscribes to every discovered pool, parses confirmed balance changes and broadcasts normalized trades without exposing the Helius key. If the stream is unavailable, the browser automatically returns to GeckoTerminal polling of the four most active pools. GeckoTerminal also supplies OHLCV candles.
+DexScreener is used in the browser to discover active Solana pools and calculate a liquidity-weighted token price. The browser sends the four selected public pool addresses and current market prices to a Cloudflare Durable Object, which validates them before opening the preferred Helius WebSocket path. The Worker parses confirmed balance changes and broadcasts normalized trades without exposing the Helius key. If Helius does not explicitly confirm `live`, the browser keeps or restores GeckoTerminal polling of the same pools. GeckoTerminal also supplies OHLCV candles.
 
 Trade value is normalized to SOL:
 
@@ -90,6 +90,7 @@ js/ui.js                   Safe DOM rendering and controls
 js/scene.js                Three.js world and combat simulation
 js/stream.js               WebSocket client and reconnection
 worker/src/index.js        Cloudflare/Helius real-time relay
+worker/src/configuration.js Validated public pool configuration
 worker/src/parser.js       Generic Solana balance-change parser
 tests/market.test.js       Market semantics and parsing tests
 tests/navigation.test.js   Deterministic movement and lifecycle tests
@@ -109,14 +110,14 @@ The optional Helius credential is stored only as a Cloudflare Worker secret. `VI
 2. Authenticate Wrangler with `npx wrangler login`.
 3. Store the key securely: `npx wrangler secret put HELIUS_API_KEY --config worker/wrangler.jsonc`.
 4. Deploy: `npm run worker:deploy`.
-5. Add the resulting `/stream` WebSocket URL to Vercel as `VITE_STREAM_URL` and redeploy.
+5. Configure the resulting `/stream` WebSocket URL as `VITE_STREAM_URL` or update the public fallback in `js/config.js`, then redeploy the frontend.
 
 Never add the Helius key to `.env`, Vercel client variables or source control.
 
 ## Limitations and roadmap
 
 - Without the optional relay, public polling is near-real-time and the four-pool cap protects GeckoTerminal's rate limit.
-- With the relay, all pools discovered by DexScreener are subscribed over Helius standard WebSockets; unsupported or unusual transactions can still fall back to the polling source.
+- With the relay, the four highest-scoring pools discovered by DexScreener are subscribed over Helius standard WebSockets; unsupported or unusual transactions can still fall back to the polling source.
 - Free-service quotas are suitable for a portfolio demo, not an SLA-backed trading product.
 - Combat outcomes are illustrative and do not predict price movement.
 

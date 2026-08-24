@@ -1,5 +1,6 @@
 import { DurableObject } from 'cloudflare:workers';
 import { parseTransaction } from './parser.js';
+import { parseClientConfiguration } from './configuration.js';
 
 
 export default {
@@ -28,6 +29,7 @@ export class StreamHub extends DurableObject {
         this.subscriptionToPool = new Map();
         this.seenSignatures = new Set();
         this.market = { tokenPriceUsd: 0, solPriceUsd: 0, updatedAt: 0 };
+        this.pools = [];
     }
 
     async fetch(request) {
@@ -36,8 +38,18 @@ export class StreamHub extends DurableObject {
         const [client, server] = Object.values(pair);
         this.ctx.acceptWebSocket(server);
         server.send(JSON.stringify({ type: 'status', status: this.upstream?.readyState === WebSocket.OPEN ? 'live' : 'connecting' }));
-        this.ctx.waitUntil(this.ensureUpstream().catch((error) => this.handleFailure(error)));
         return new Response(null, { status: 101, webSocket: client });
+    }
+
+    async webSocketMessage(_socket, raw) {
+        const configuration = parseClientConfiguration(typeof raw === 'string' ? raw : new TextDecoder().decode(raw));
+        if (!configuration) {
+            this.broadcast({ type: 'status', status: 'invalid-configuration' });
+            return;
+        }
+        this.pools = configuration.pools;
+        this.market = configuration.market;
+        await this.ensureUpstream().catch((error) => this.handleFailure(error));
     }
 
     async webSocketClose() {
@@ -58,44 +70,39 @@ export class StreamHub extends DurableObject {
             this.broadcast({ type: 'status', status: 'missing-helius-key' });
             return;
         }
-        const pools = await this.discoverPools();
+        if (!this.pools.length) throw new Error('No pools configured by client');
+        await this.connectUpstream(this.pools);
+    }
+
+    async connectUpstream(pools) {
         const socket = new WebSocket(`wss://mainnet.helius-rpc.com/?api-key=${encodeURIComponent(this.env.HELIUS_API_KEY)}`);
         this.upstream = socket;
-        socket.addEventListener('open', () => {
-            this.broadcast({ type: 'status', status: 'live', pools: pools.length });
-            pools.forEach((pool, index) => {
-                const id = index + 1;
-                this.requestToPool.set(id, pool);
-                socket.send(JSON.stringify({
-                    jsonrpc: '2.0', id, method: 'logsSubscribe',
-                    params: [{ mentions: [pool.address] }, { commitment: 'confirmed' }],
-                }));
-            });
+        await new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => {
+                socket.close(1013, 'Upstream handshake timeout');
+                reject(new Error('Helius WebSocket handshake timed out'));
+            }, 10_000);
+            socket.addEventListener('open', () => {
+                clearTimeout(timeout);
+                this.broadcast({ type: 'status', status: 'live', pools: pools.length });
+                pools.forEach((pool, index) => {
+                    const id = index + 1;
+                    this.requestToPool.set(id, pool);
+                    socket.send(JSON.stringify({
+                        jsonrpc: '2.0', id, method: 'logsSubscribe',
+                        params: [{ mentions: [pool.address] }, { commitment: 'confirmed' }],
+                    }));
+                });
+                resolve();
+            }, { once: true });
+            socket.addEventListener('error', () => {
+                clearTimeout(timeout);
+                reject(new Error('Helius WebSocket connection failed'));
+            }, { once: true });
         });
         socket.addEventListener('message', (event) => this.handleUpstreamMessage(event.data));
         socket.addEventListener('close', () => this.scheduleReconnect());
-        socket.addEventListener('error', () => socket.close());
-    }
-
-    async discoverPools() {
-        const response = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${this.env.TOKEN_MINT}`);
-        if (!response.ok) throw new Error(`DexScreener ${response.status}`);
-        const data = await response.json();
-        const pairs = (data.pairs || [])
-            .filter((pair) => pair.chainId === 'solana' && pair.pairAddress)
-            .map((pair) => ({ address: pair.pairAddress, dexId: pair.dexId, quoteSymbol: pair.quoteToken?.symbol || '' }));
-        this.updateMarket(data.pairs || []);
-        return pairs;
-    }
-
-    updateMarket(pairs) {
-        const tokenPair = pairs.find((pair) => Number(pair.priceUsd) > 0);
-        const solPair = pairs.find((pair) => ['SOL', 'WSOL'].includes(pair.quoteToken?.symbol?.toUpperCase()) && Number(pair.priceNative) > 0);
-        this.market = {
-            tokenPriceUsd: Number(tokenPair?.priceUsd || 0),
-            solPriceUsd: solPair ? Number(solPair.priceUsd) / Number(solPair.priceNative) : 0,
-            updatedAt: Date.now(),
-        };
+        socket.addEventListener('error', () => socket.close(1011, 'Upstream error'));
     }
 
     handleUpstreamMessage(raw) {
@@ -118,7 +125,6 @@ export class StreamHub extends DurableObject {
     async parseAndBroadcast(signature, pool) {
         const transaction = await this.rpc('getTransaction', [signature, { encoding: 'jsonParsed', commitment: 'confirmed', maxSupportedTransactionVersion: 0 }]);
         if (!transaction?.meta || transaction.meta.err) return;
-        if (Date.now() - this.market.updatedAt > 15_000) await this.discoverPools();
         const trade = parseTransaction(transaction, signature, pool, this.env.TOKEN_MINT, this.market);
         if (trade) this.broadcast({ type: 'trade', data: trade });
     }
@@ -127,6 +133,7 @@ export class StreamHub extends DurableObject {
         const response = await fetch(`https://mainnet.helius-rpc.com/?api-key=${encodeURIComponent(this.env.HELIUS_API_KEY)}`, {
             method: 'POST', headers: { 'content-type': 'application/json' },
             body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
+            signal: AbortSignal.timeout(8_000),
         });
         if (!response.ok) throw new Error(`Helius RPC ${response.status}`);
         return (await response.json()).result;

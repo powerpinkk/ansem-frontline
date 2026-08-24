@@ -7,21 +7,15 @@ let callbacks = {};
 let priceDelay = CONFIG.FETCH_MIN_DELAY_MS;
 let tradesDelay = CONFIG.TRADES_POLL_MIN_DELAY_MS;
 let lastPoolDiscovery = 0;
-let pollingFallback = !CONFIG.STREAM_URL;
+let pollingFallback = true;
 let fallbackTimer = null;
+let streamStarted = false;
 
 export function initAPI(nextCallbacks) {
     callbacks = nextCallbacks;
     setConnection('connecting');
     schedule(runMarketLoop, 0);
-    if (CONFIG.STREAM_URL) {
-        connectTradeStream(CONFIG.STREAM_URL, {
-            onTrade: receiveStreamTrade,
-            onStatus: handleStreamStatus,
-        });
-    } else {
-        schedule(runTradeLoop, 1200);
-    }
+    schedule(runTradeLoop, 1200);
 }
 
 function schedule(task, delay) { window.setTimeout(task, delay); }
@@ -131,9 +125,23 @@ async function fetchMarketData() {
     const mcap = Number(pairs[0].marketCap || pairs[0].fdv || 0);
     const chg = Number(pairs[0].priceChange?.h1 || 0);
     state.price = price;
+    startStreamIfReady();
     updateTrend(price);
     await fetchChartIfNeeded(price);
     callbacks.onMarketUpdate?.({ price, mcap, chg, pools: state.trackedPools.length, coverage: state.marketCoverage, referencePool: state.referencePool });
+}
+
+function startStreamIfReady() {
+    if (streamStarted || !CONFIG.STREAM_URL || !state.trackedPools.length || !(state.price > 0) || !(state.solPriceUsd > 0)) return;
+    streamStarted = true;
+    connectTradeStream(CONFIG.STREAM_URL, {
+        onTrade: receiveStreamTrade,
+        onStatus: handleStreamStatus,
+        getConfiguration: () => ({
+            pools: state.trackedPools.map(({ address, dexId, quoteSymbol }) => ({ address, dexId, quoteSymbol })),
+            market: { tokenPriceUsd: state.price, solPriceUsd: state.solPriceUsd },
+        }),
+    });
 }
 
 function updateTrend(price) {
