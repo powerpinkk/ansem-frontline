@@ -1,8 +1,9 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { state } from './state.js';
-import { ARENA, clamp, clampArenaPosition, formationTarget, isFinitePosition, tradeLane, unitHasExpired } from './navigation.js';
-import { scaleActivityToReserves } from './market.js';
+import { ARENA, clamp, clampArenaPosition, formationTarget, isFinitePosition, isUnitStranded, tradeLane, unitHasExpired } from './navigation.js';
+import { deriveBattleTactics, scaleActivityToReserves } from './market.js';
 
 let onKillEvent = () => {};
 let onReclaimEvent = () => {};
@@ -12,22 +13,33 @@ let particles = [];
 let projectiles = [];
 let supportWaves = [];
 let kingStrikes = [];
-const MAX_ENTITIES_PER_SIDE = 10;
+const MAX_ENTITIES_PER_SIDE = 6;
 const MAX_RESERVE_UNITS = 24;
+const RESERVE_UPDATE_INTERVAL = 1 / 24;
 const obstacles = [];
 
 let scene, camera, renderer, frontlineLaser, orbitControls, trenchGlowLight, terrainMaterial;
-let bullKingRig, kingWingNear, kingWingFar, kingStaffGlow;
+let bullKingRig, kingMount, kingRider, kingWingNear, kingWingFar, kingStaff, kingStaffGlow;
+const kingLegs = [];
 let kingTime = 0;
+let reserveTime = 0;
+let reserveUpdateAccumulator = RESERVE_UPDATE_INTERVAL;
 let bullSupportUntil = 0;
 let lastFrontlineFitX = Number.POSITIVE_INFINITY;
 let viewportObserver;
 let loopStarted = false;
 let reserveForces;
-let lastReserveFrontlineX = Number.POSITIVE_INFINITY;
 let lastKingReclaimAt = 0;
+let lastTerritoryAuditAt = 0;
+let bullControlSince = 0;
 let kingFocusUntil = 0;
 let kingFocusX = 0;
+const reserveSignals = {
+    bull: { at: 0, strength: 0 },
+    bear: { at: 0, strength: 0 },
+};
+let kingReactionAt = 0;
+let kingReactionStrength = 0;
 const frameTimer = new THREE.Timer();
 let canvasContainer, floatContainer;
 
@@ -51,6 +63,44 @@ projectileGeometry.rotateZ(Math.PI / 2);
 const projectileGlowGeometry = new THREE.CylinderGeometry(0.35, 0.35, 2.0, 8);
 projectileGlowGeometry.rotateZ(Math.PI / 2);
 const kingRayGeometry = new THREE.CylinderGeometry(0.16, 0.42, 1, 12);
+const geoBullHornPair = mergeParts([
+    { geometry: geoCone, position: [-0.1, 0.5, 0.35], rotation: [Math.PI / 6, 0, -Math.PI / 3], scale: [0.25, 0.9, 0.25] },
+    { geometry: geoCone, position: [-0.1, 0.5, -0.35], rotation: [-Math.PI / 6, 0, -Math.PI / 3], scale: [0.25, 0.9, 0.25] },
+]);
+const geoBullEyePair = mergeParts([
+    { geometry: geoSphere, position: [0.35, 0.15, 0.35], scale: [0.1, 0.1, 0.1] },
+    { geometry: geoSphere, position: [0.35, 0.15, -0.35], scale: [0.1, 0.1, 0.1] },
+]);
+const geoBullWhaleEyePair = mergeParts([
+    { geometry: geoSphere, position: [0.35, 0.15, 0.35], scale: [0.15, 0.15, 0.15] },
+    { geometry: geoSphere, position: [0.35, 0.15, -0.35], scale: [0.15, 0.15, 0.15] },
+]);
+const geoBearDarkDetails = mergeParts([
+    { geometry: geoBearBody, position: [0.72, 0.2, 0], scale: [0.92, 1.12, 1.1] },
+    { geometry: geoBearMuzzle, position: [2.0184, 0.356, 0], scale: [0.36, 0.272, 0.3744] },
+    { geometry: geoSphere, position: [1.3848, 1.02, 0.3384], scale: [0.2088, 0.256, 0.144] },
+    { geometry: geoSphere, position: [1.3848, 1.02, -0.3384], scale: [0.2088, 0.256, 0.144] },
+]);
+const geoBearEyePair = mergeParts([
+    { geometry: geoSphere, position: [1.752, 0.62, 0.252], scale: [0.072, 0.08, 0.072] },
+    { geometry: geoSphere, position: [1.752, 0.62, -0.252], scale: [0.072, 0.08, 0.072] },
+]);
+const geoBearWhaleEyePair = mergeParts([
+    { geometry: geoSphere, position: [1.752, 0.62, 0.252], scale: [0.108, 0.12, 0.108] },
+    { geometry: geoSphere, position: [1.752, 0.62, -0.252], scale: [0.108, 0.12, 0.108] },
+]);
+const geoBearLaserPair = mergeParts([
+    { geometry: geoEyeLaser, position: [2.184, 0.62, 0.252], scale: [0.54, 0.6, 0.54] },
+    { geometry: geoEyeLaser, position: [2.184, 0.62, -0.252], scale: [0.54, 0.6, 0.54] },
+]);
+const geoBearWhaleLaserPair = mergeParts([
+    { geometry: geoEyeLaser, position: [2.616, 0.62, 0.252], scale: [1.116, 1.04, 0.936] },
+    { geometry: geoEyeLaser, position: [2.616, 0.62, -0.252], scale: [1.116, 1.04, 0.936] },
+]);
+const geoBearLegWithPaw = mergeParts([
+    { geometry: geoBearLeg, scale: [1, 1.1, 1] },
+    { geometry: geoBearMuzzle, position: [0.2, -1.1, 0], scale: [0.42, 0.22, 0.34] },
+]);
 
 const matBullBody = new THREE.MeshPhysicalMaterial({ color: 0x111613, metalness: 0.6, roughness: 0.2 });
 const matBullHead = new THREE.MeshPhysicalMaterial({ color: 0x0a100c, metalness: 0.7, roughness: 0.2 });
@@ -118,6 +168,13 @@ export function initScene(callbacks = {}) {
             kingStrikes: kingStrikes.length,
             supportedBulls: entities.filter((entity) => entity.type === 'bull' && entity.supportUntil > Date.now()).length,
             reserves: reserveForces ? { bull: reserveForces.bull.count, bear: reserveForces.bear.count } : { bull: 0, bear: 0 },
+            reserveSamples: reserveForces ? { bull: reserveForces.bull.sample, bear: reserveForces.bear.sample } : null,
+            tactics: deriveBattleTactics({
+                buySol: state.buySol60s,
+                sellSol: state.sellSol60s,
+                buyCount: state.activity5m.buyCount,
+                sellCount: state.activity5m.sellCount,
+            }),
             bullKing: bullKingRig ? { x: bullKingRig.position.x, y: bullKingRig.position.y, z: bullKingRig.position.z } : null,
             render: renderer ? {
                 calls: renderer.info.render.calls,
@@ -126,6 +183,7 @@ export function initScene(callbacks = {}) {
                 textures: renderer.info.memory.textures,
             } : null,
             camera: camera ? { x: camera.position.x, y: camera.position.y, z: camera.position.z } : null,
+            frontlineX: state.frontlineX,
             viewport: renderer && canvasContainer ? {
                 canvasWidth: renderer.domElement.clientWidth,
                 canvasHeight: renderer.domElement.clientHeight,
@@ -138,10 +196,14 @@ export function initScene(callbacks = {}) {
         window.__ansemTriggerReclamation = () => {
             const bear = entities.find((entity) => entity.type === 'bear');
             if (bear) bear.mesh.position.x = 0;
-            handleTerritoryShift(
-                { isBuy: true, isWhale: true, solValue: 25 },
-                { bootstrap: false, previousFrontlineX: -20, nextFrontlineX: 20 },
-            );
+            state.buySol60s = 20;
+            state.sellSol60s = 2;
+            state.frontlineX = 20;
+            state.targetFrontlineX = 20;
+            lastKingReclaimAt = 0;
+            lastTerritoryAuditAt = 0;
+            bullControlSince = Date.now() - 2_000;
+            updateTerritorialControl();
         };
         window.__ansemPreviewRedBear = () => {
             const bear = entities.find((entity) => entity.type === 'bear');
@@ -204,19 +266,14 @@ export function spawnUnit(type, initial = false, isWhale = false, trade = null) 
         const snout = createMesh(geoBox, matSnout, 0.5, 0.4, 0.6);
         snout.position.set(0.4, -0.2, 0);
         head.add(snout);
-        const hornL = createMesh(geoCone, matBullHorn, 0.25, 0.9, 0.25);
-        hornL.position.set(-0.1, 0.5, 0.35);
-        hornL.rotation.set(Math.PI / 6, 0, -Math.PI / 3);
-        const hornR = createMesh(geoCone, matBullHorn, 0.25, 0.9, 0.25);
-        hornR.position.set(-0.1, 0.5, -0.35);
-        hornR.rotation.set(-Math.PI / 6, 0, -Math.PI / 3);
-        head.add(hornL, hornR);
+        const horns = createMesh(geoBullHornPair, matBullHorn, 1, 1, 1);
         const eyeMat = isWhale ? matBullWhaleEye : matBullEye;
-        const eyeL = createMesh(geoSphere, eyeMat, isWhale ? 0.15 : 0.1, isWhale ? 0.15 : 0.1, isWhale ? 0.15 : 0.1);
-        eyeL.position.set(0.35, 0.15, 0.35);
-        const eyeR = createMesh(geoSphere, eyeMat, isWhale ? 0.15 : 0.1, isWhale ? 0.15 : 0.1, isWhale ? 0.15 : 0.1);
-        eyeR.position.set(0.35, 0.15, -0.35);
-        head.add(eyeL, eyeR);
+        const eyes = createMesh(isWhale ? geoBullWhaleEyePair : geoBullEyePair, eyeMat, 1, 1, 1);
+        head.add(horns, eyes);
+        [snout, horns, eyes].forEach((detail) => {
+            detail.castShadow = false;
+            detail.receiveShadow = false;
+        });
         [[0.6, 0.4], [0.6, -0.4], [-0.6, 0.4], [-0.6, -0.4]].forEach((pos) => {
             const leg = createMesh(geoLegBull, matBullBody, 1, 1, 1);
             leg.position.set(pos[0], 0.7, pos[1]);
@@ -228,43 +285,26 @@ export function spawnUnit(type, initial = false, isWhale = false, trade = null) 
         const bearTorso = createMesh(geoBearBody, matBearBody, 1.72, 0.98, 1.02);
         bearTorso.position.x = -0.18;
         bodyGroup.add(bearTorso);
-        const shoulder = createMesh(geoBearBody, matBearDarkFur, 0.92, 1.12, 1.1);
-        shoulder.position.set(0.72, 0.2, 0);
-        bodyGroup.add(shoulder);
+        const darkDetails = createMesh(geoBearDarkDetails, matBearDarkFur, 1, 1, 1);
+        darkDetails.castShadow = false;
+        darkDetails.receiveShadow = false;
+        bodyGroup.add(darkDetails);
         const head = createMesh(geoBearHead, matBearHead, 0.72, 0.8, 0.72);
         head.position.set(1.5, 0.5, 0);
         bodyGroup.add(head);
-        const snout = createMesh(geoBearMuzzle, matBearDarkFur, 0.5, 0.34, 0.52);
-        snout.position.set(0.72, -0.18, 0);
-        head.add(snout);
-        const nose = createMesh(geoSphere, matSnout, 0.22, 0.16, 0.24);
-        nose.position.set(1.12, -0.1, 0);
-        head.add(nose);
-        const earL = createMesh(geoSphere, matBearDarkFur, 0.29, 0.32, 0.2);
-        earL.position.set(-0.16, 0.65, 0.47);
-        const earR = createMesh(geoSphere, matBearDarkFur, 0.29, 0.32, 0.2);
-        earR.position.set(-0.16, 0.65, -0.47);
-        head.add(earL, earR);
+        const nose = createMesh(geoSphere, matSnout, 0.1584, 0.128, 0.1728);
+        nose.position.set(2.3064, 0.42, 0);
         const eyeMat = isWhale ? matBearWhaleEye : matBearEye;
-        const eyeL = createMesh(geoSphere, eyeMat, isWhale ? 0.15 : 0.1, isWhale ? 0.15 : 0.1, isWhale ? 0.15 : 0.1);
-        eyeL.position.set(0.35, 0.15, 0.35);
-        const eyeR = createMesh(geoSphere, eyeMat, isWhale ? 0.15 : 0.1, isWhale ? 0.15 : 0.1, isWhale ? 0.15 : 0.1);
-        eyeR.position.set(0.35, 0.15, -0.35);
-        const laserL = createMesh(geoEyeLaser, matBearLaser, isWhale ? 1.55 : 0.75, isWhale ? 1.3 : 0.75, isWhale ? 1.3 : 0.75);
-        laserL.position.set(isWhale ? 1.55 : 0.95, 0.15, 0.35);
-        const laserR = laserL.clone();
-        laserR.position.z = -0.35;
-        [eyeL, eyeR, laserL, laserR].forEach((detail) => {
+        const eyes = createMesh(isWhale ? geoBearWhaleEyePair : geoBearEyePair, eyeMat, 1, 1, 1);
+        const lasers = createMesh(isWhale ? geoBearWhaleLaserPair : geoBearLaserPair, matBearLaser, 1, 1, 1);
+        [nose, eyes, lasers].forEach((detail) => {
             detail.castShadow = false;
             detail.receiveShadow = false;
         });
-        head.add(eyeL, eyeR, laserL, laserR);
+        bodyGroup.add(nose, eyes, lasers);
         [[0.72, 0.56], [0.72, -0.56], [-0.72, 0.56], [-0.72, -0.56]].forEach((pos) => {
-            const leg = createMesh(geoBearLeg, matBearDarkFur, 1, 1.1, 1);
+            const leg = createMesh(geoBearLegWithPaw, matBearDarkFur, 1, 1, 1);
             leg.position.set(pos[0], 0.72, pos[1]);
-            const paw = createMesh(geoBearMuzzle, matBearHead, 0.42, 0.2, 0.34);
-            paw.position.set(0.2, -1.0, 0);
-            leg.add(paw);
             group.add(leg);
             legs.push(leg);
         });
@@ -339,6 +379,14 @@ export function setFrontlineColor(colorHex) {
 }
 
 export function applyTradeImpulse(isBuy, solValue, isWhale) {
+    const type = isBuy ? 'bull' : 'bear';
+    const strength = clamp(0.35 + Math.log1p(Math.max(0, solValue)) / Math.log(21) + (isWhale ? 0.65 : 0), 0.35, 1.8);
+    reserveSignals[type].at = Date.now();
+    reserveSignals[type].strength = strength;
+    if (isBuy) {
+        kingReactionAt = Date.now();
+        kingReactionStrength = strength;
+    }
     if (state.cameraMode !== 'auto') return;
     if (isWhale) state.screenShake = 0.45;
     else if (solValue >= 5) state.screenShake = Math.max(state.screenShake, 0.12);
@@ -361,10 +409,38 @@ export function handleTerritoryShift(trade, meta = {}) {
     );
     if (!stranded.length) return;
     lastKingReclaimAt = now;
-    castKingReclamation(stranded, trade.solValue, previous, next);
+    castKingReclamation(stranded, trade.solValue, previous, next, 'trade-reversal');
 }
 
-function castKingReclamation(stranded, solValue, previous, next) {
+function updateTerritorialControl() {
+    const now = Date.now();
+    if (now - lastTerritoryAuditAt < 400) return;
+    lastTerritoryAuditAt = now;
+    const tactics = deriveBattleTactics({
+        buySol: state.buySol60s,
+        sellSol: state.sellSol60s,
+        buyCount: state.activity5m.buyCount,
+        sellCount: state.activity5m.sellCount,
+    });
+    const bullsControlField = tactics.balance >= 0.3 && state.frontlineX >= 3;
+    if (!bullsControlField) {
+        bullControlSince = 0;
+        return;
+    }
+    if (!bullControlSince) bullControlSince = now;
+    if (now - bullControlSince < 1_600 || now - lastKingReclaimAt < 12_000) return;
+    const stranded = entities.filter((entity) =>
+        entity.type === 'bear'
+        && !entity.retired
+        && entity.hp > 0
+        && isUnitStranded('bear', entity.mesh.position.x, state.frontlineX, entity.isWhale ? 10 : 7)
+    );
+    if (!stranded.length) return;
+    lastKingReclaimAt = now;
+    castKingReclamation(stranded, state.buySol60s, state.frontlineX, state.targetFrontlineX, 'sustained-control', tactics);
+}
+
+function castKingReclamation(stranded, solValue, previous, next, reason = 'trade-reversal', tactics = null) {
     scene.updateMatrixWorld(true);
     kingStaffGlow.getWorldPosition(_rayStart);
     _rayTarget.set(0, 0, 0);
@@ -392,11 +468,20 @@ function castKingReclamation(stranded, solValue, previous, next) {
     kingStrikes.push({ beam, impact, material, age: 0 });
     kingFocusUntil = Date.now() + 1_650;
     kingFocusX = (bullKingRig.position.x + _rayTarget.x) * 0.5;
+    kingReactionAt = Date.now();
+    kingReactionStrength = 2;
     stranded.forEach((entity) => {
         spawnParticles(entity.mesh.position, matParticleBull, true, entity.isWhale);
         retireEntity(entity);
     });
-    onReclaimEvent({ count: stranded.length, solValue, previousFrontlineX: previous, nextFrontlineX: next });
+    onReclaimEvent({
+        count: stranded.length,
+        solValue,
+        previousFrontlineX: previous,
+        nextFrontlineX: next,
+        reason,
+        bullPercent: tactics ? (tactics.balance + 1) * 50 : null,
+    });
     state.screenShake = Math.max(state.screenShake, 0.32);
     playTone(170, 'sawtooth', 0.75, 0.045);
 }
@@ -404,9 +489,8 @@ function castKingReclamation(stranded, solValue, previous, next) {
 export function updateReserveForces(activity) {
     state.activity5m = activity || state.activity5m;
     if (!reserveForces) return;
-    layoutReserveSide('bull', scaleActivityToReserves(state.activity5m.buyCount, MAX_RESERVE_UNITS));
-    layoutReserveSide('bear', scaleActivityToReserves(state.activity5m.sellCount, MAX_RESERVE_UNITS));
-    lastReserveFrontlineX = state.frontlineX;
+    setReserveTarget('bull', scaleActivityToReserves(state.activity5m.buyCount, MAX_RESERVE_UNITS));
+    setReserveTarget('bear', scaleActivityToReserves(state.activity5m.sellCount, MAX_RESERVE_UNITS));
 }
 
 export function triggerBullKingSupport({ buySol, dominance }) {
@@ -414,6 +498,10 @@ export function triggerBullKingSupport({ buySol, dominance }) {
     const now = Date.now();
     const duration = 6_500 + Math.min(3_500, buySol * 120);
     bullSupportUntil = now + duration;
+    kingReactionAt = now;
+    kingReactionStrength = clamp(1 + buySol / 20, 1, 2.2);
+    reserveSignals.bull.at = now;
+    reserveSignals.bull.strength = kingReactionStrength;
     entities.forEach((entity) => {
         if (entity.type === 'bull' && entity.hp > 0 && !entity.retired) entity.supportUntil = bullSupportUntil;
     });
@@ -499,7 +587,7 @@ function init3D() {
     orbitControls.dampingFactor = 0.05;
     orbitControls.enabled = false;
 
-    const planeGeo = new THREE.PlaneGeometry(480, 360, 192, 144);
+    const planeGeo = new THREE.PlaneGeometry(480, 360, 160, 120);
     planeGeo.rotateX(-Math.PI / 2);
     const posAttribute = planeGeo.attributes.position;
     const colors = [];
@@ -721,50 +809,101 @@ function createReserveSide(type) {
     [body, head, legs].forEach((mesh) => {
         mesh.castShadow = true;
         mesh.receiveShadow = true;
+        mesh.frustumCulled = false;
+        mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
         scene.add(mesh);
     });
     [eyes, accents, muzzles, noses, beams].filter(Boolean).forEach((mesh) => {
         mesh.castShadow = false;
         mesh.receiveShadow = false;
+        mesh.frustumCulled = false;
+        mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
         scene.add(mesh);
     });
-    const reserve = { body, head, legs, eyes, accents, muzzles, noses, beams, count: 0 };
+    const reserve = {
+        body, head, legs, eyes, accents, muzzles, noses, beams,
+        count: 0,
+        countFloat: 0,
+        targetCount: 0,
+        sample: { x: 0, y: 0, z: 0 },
+    };
     body.count = head.count = muzzles.count = noses.count = 0;
     legs.count = eyes.count = accents.count = 0;
     if (beams) beams.count = 0;
     return reserve;
 }
 
-function layoutReserveSide(type, count) {
+function setReserveTarget(type, count) {
     const reserve = reserveForces?.[type];
     if (!reserve) return;
+    reserve.targetCount = clamp(Math.round(count), 0, MAX_RESERVE_UNITS);
+}
+
+function updateReserveAnimation(delta) {
+    if (!reserveForces) return;
+    reserveTime += delta;
+    const tactics = deriveBattleTactics({
+        buySol: state.buySol60s,
+        sellSol: state.sellSol60s,
+        buyCount: state.activity5m.buyCount,
+        sellCount: state.activity5m.sellCount,
+    });
+    updateReserveSide('bull', delta, tactics);
+    updateReserveSide('bear', delta, tactics);
+}
+
+function updateReserveSide(type, delta, tactics) {
+    const reserve = reserveForces?.[type];
+    if (!reserve) return;
+    const countStep = 12 * delta;
+    reserve.countFloat += clamp(reserve.targetCount - reserve.countFloat, -countStep, countStep);
+    const count = clamp(Math.round(reserve.countFloat), 0, MAX_RESERVE_UNITS);
     const isBull = type === 'bull';
     const facing = isBull ? 1 : -1;
     const yaw = isBull ? 0 : Math.PI;
+    const sideBalance = (isBull ? 1 : -1) * tactics.balance;
+    const stance = sideBalance * (2.6 + tactics.flowIntensity * 2.4);
+    const motion = 0.28 + tactics.activityLevel * 0.52 + tactics.flowIntensity * 0.55;
+    const cadence = 2.2 + tactics.activityLevel * 2.2 + tactics.flowIntensity * 2.4;
+    const signal = reserveSignals[type];
+    const signalAge = (Date.now() - signal.at) / 1000;
     for (let i = 0; i < count; i++) {
         const row = Math.floor(i / 6);
         const lane = i % 6;
-        const z = -11.5 + lane * 4.6 + (row % 2 ? 1.1 : 0);
-        const depth = 15 + row * 8;
-        const x = clamp(state.frontlineX - facing * depth, ARENA.minX + 3, ARENA.maxX - 3);
+        const phase = reserveTime * cadence + i * 0.83 + row * 0.41;
+        const gait = Math.sin(phase);
+        const pulseAge = signalAge - row * 0.09 - lane * 0.018;
+        const pulse = pulseAge > 0 && pulseAge < 1.35
+            ? Math.sin((pulseAge / 1.35) * Math.PI) * signal.strength
+            : 0;
+        const z = clamp(-11.5 + lane * 4.6 + (row % 2 ? 1.1 : 0) + Math.sin(phase * 0.43) * 0.3 * motion, ARENA.minZ + 3, ARENA.maxZ - 3);
+        const wedgeDepth = Math.abs(lane - 2.5) * 0.72 + (lane % 2) * 0.45;
+        const depth = 10.5 + row * 8.5 + wedgeDepth;
+        const marchingStep = Math.sin(phase * 0.5) * 0.42 * motion;
+        const x = clamp(state.frontlineX - facing * depth + facing * (stance + marchingStep + pulse * 2.25), ARENA.minX + 3, ARENA.maxX - 3);
         const ground = getTrenchHeight(x, z);
-        setReserveMatrix(reserve.body, i, x, ground + 1.05, z, isBull ? 1.28 : 1.18, isBull ? 0.82 : 0.78, isBull ? 0.72 : 0.82, yaw);
-        setReserveMatrix(reserve.head, i, x + facing * 0.95, ground + 1.48, z, isBull ? 0.58 : 0.54, 0.58, isBull ? 0.58 : 0.55, yaw);
-        setReserveMatrix(reserve.muzzles, i, x + facing * 1.35, ground + 1.42, z, isBull ? 0.34 : 0.38, isBull ? 0.24 : 0.27, isBull ? 0.36 : 0.4, yaw);
-        setReserveMatrix(reserve.noses, i, x + facing * 1.62, ground + 1.43, z, 0.14, 0.12, 0.15, yaw);
+        const bob = Math.abs(gait) * 0.14 * motion + pulse * 0.22;
+        const bodyRoll = gait * 0.035 * motion - facing * pulse * 0.055;
+        setReserveMatrix(reserve.body, i, x, ground + 1.05 + bob, z, isBull ? 1.28 : 1.18, isBull ? 0.82 : 0.78, isBull ? 0.72 : 0.82, yaw, bodyRoll);
+        setReserveMatrix(reserve.head, i, x + facing * 0.95, ground + 1.48 + bob * 0.72, z, isBull ? 0.58 : 0.54, 0.58, isBull ? 0.58 : 0.55, yaw, -bodyRoll * 0.45);
+        setReserveMatrix(reserve.muzzles, i, x + facing * 1.35, ground + 1.42 + bob * 0.72, z, isBull ? 0.34 : 0.38, isBull ? 0.24 : 0.27, isBull ? 0.36 : 0.4, yaw);
+        setReserveMatrix(reserve.noses, i, x + facing * 1.62, ground + 1.43 + bob * 0.72, z, 0.14, 0.12, 0.15, yaw);
         const legOffsets = [[0.5, 0.36], [0.5, -0.36], [-0.5, 0.36], [-0.5, -0.36]];
         legOffsets.forEach(([xOffset, zOffset], legIndex) => {
-            setReserveMatrix(reserve.legs, i * 4 + legIndex, x + facing * xOffset, ground + 0.7, z + zOffset, 0.78, 0.78, 0.78, yaw);
+            const stride = Math.sin(phase + (legIndex === 0 || legIndex === 3 ? 0 : Math.PI));
+            const legLift = Math.max(0, stride) * 0.16 * motion + pulse * 0.08;
+            setReserveMatrix(reserve.legs, i * 4 + legIndex, x + facing * xOffset, ground + 0.7 + legLift, z + zOffset, 0.78, 0.78, 0.78, yaw, stride * 0.28 * motion);
         });
         [-1, 1].forEach((side, detailIndex) => {
-            setReserveMatrix(reserve.eyes, i * 2 + detailIndex, x + facing * 1.27, ground + 1.6, z + side * 0.23, 0.09, 0.075, 0.09, yaw);
+            setReserveMatrix(reserve.eyes, i * 2 + detailIndex, x + facing * 1.27, ground + 1.6 + bob * 0.72, z + side * 0.23, 0.09 + pulse * 0.025, 0.075 + pulse * 0.018, 0.09 + pulse * 0.025, yaw);
             if (isBull) {
-                setReserveMatrix(reserve.accents, i * 2 + detailIndex, x + facing * 0.82, ground + 2.0, z + side * 0.38, 0.14, 0.52, 0.14, yaw, side * 0.28);
+                setReserveMatrix(reserve.accents, i * 2 + detailIndex, x + facing * 0.82, ground + 2.0 + bob * 0.65, z + side * 0.38, 0.14, 0.52, 0.14, yaw, side * 0.28 + bodyRoll);
             } else {
-                setReserveMatrix(reserve.accents, i * 2 + detailIndex, x + facing * 0.72, ground + 1.98, z + side * 0.4, 0.18, 0.2, 0.14, yaw);
-                setReserveMatrix(reserve.beams, i * 2 + detailIndex, x + facing * 1.75, ground + 1.6, z + side * 0.23, 0.55, 0.62, 0.62, yaw);
+                setReserveMatrix(reserve.accents, i * 2 + detailIndex, x + facing * 0.72, ground + 1.98 + bob * 0.65, z + side * 0.4, 0.18, 0.2, 0.14, yaw);
+                setReserveMatrix(reserve.beams, i * 2 + detailIndex, x + facing * (1.72 + pulse * 0.35), ground + 1.6 + bob * 0.72, z + side * 0.23, 0.52 + pulse * 0.28, 0.62, 0.62, yaw);
             }
         });
+        if (i === 0) reserve.sample = { x, y: ground + 1.05 + bob, z };
     }
     reserve.count = count;
     reserve.body.count = reserve.head.count = reserve.muzzles.count = reserve.noses.count = count;
@@ -773,7 +912,6 @@ function layoutReserveSide(type, count) {
     if (reserve.beams) reserve.beams.count = count * 2;
     [reserve.body, reserve.head, reserve.legs, reserve.eyes, reserve.accents, reserve.muzzles, reserve.noses, reserve.beams].filter(Boolean).forEach((mesh) => {
         mesh.instanceMatrix.needsUpdate = true;
-        mesh.computeBoundingSphere();
     });
 }
 
@@ -788,6 +926,8 @@ function setReserveMatrix(mesh, index, x, y, z, sx, sy, sz, rotationY = 0, rotat
 function createFlyingBullKing() {
     bullKingRig = new THREE.Group();
     const mount = new THREE.Group();
+    kingMount = mount;
+    kingLegs.length = 0;
 
     const body = createMesh(geoBearBody, matKingBlack, 3.8, 1.75, 1.62);
     body.position.y = 0.1;
@@ -806,6 +946,7 @@ function createFlyingBullKing() {
         leg.position.set(x, -0.7, z);
         leg.rotation.z = index < 2 ? -0.58 : 0.58;
         mount.add(leg);
+        kingLegs.push(leg);
     });
 
     kingWingNear = createKingWing(1);
@@ -815,6 +956,7 @@ function createFlyingBullKing() {
     mount.add(kingWingNear, kingWingFar);
 
     const rider = createBullKingRider();
+    kingRider = rider;
     rider.position.set(-0.05, 1.82, 0.18);
     mount.add(rider);
 
@@ -932,6 +1074,7 @@ function createBullKingRider() {
     rider.add(arm);
 
     const staff = createMesh(geoStaff, matKingEnergy, 1, 1, 1);
+    kingStaff = staff;
     staff.scale.y = 0.76;
     staff.position.set(1.45, 1.9, 0.78);
     staff.rotation.z = -0.58;
@@ -958,6 +1101,20 @@ function createBullKingRider() {
 function smoothstep(edge0, edge1, value) {
     const t = clamp((value - edge0) / (edge1 - edge0), 0, 1);
     return t * t * (3 - 2 * t);
+}
+
+function mergeParts(parts) {
+    const transformed = parts.map(({ geometry, position = [0, 0, 0], rotation = [0, 0, 0], scale = [1, 1, 1] }) => {
+        const part = geometry.clone();
+        const transform = new THREE.Object3D();
+        transform.position.fromArray(position);
+        transform.rotation.fromArray(rotation);
+        transform.scale.fromArray(scale);
+        transform.updateMatrix();
+        part.applyMatrix4(transform.matrix);
+        return part;
+    });
+    return mergeGeometries(transformed, false);
 }
 
 function mulberry32(seed) {
@@ -1081,7 +1238,6 @@ function updateEntities(delta) {
     const finished = [];
     const now = Date.now();
     state.frontlineX += (state.targetFrontlineX - state.frontlineX) * 2 * delta;
-    if (Math.abs(state.frontlineX - lastReserveFrontlineX) >= 1) updateReserveForces(state.activity5m);
 
     frontlineLaser.position.x = state.frontlineX;
     fitFrontlineToTerrain();
@@ -1118,13 +1274,19 @@ function updateEntities(delta) {
         enforceArenaBounds(e);
 
         e.mesh.position.y = getTrenchHeight(e.mesh.position.x, e.mesh.position.z);
+        const stranded = isUnitStranded(e.type, e.mesh.position.x, state.frontlineX, e.isWhale ? 9 : 6);
+        const inCombatZone = Math.abs(e.mesh.position.x - state.frontlineX) <= (e.isWhale ? 16 : 11);
+        const targetOutsideCombat = e.target
+            && Math.abs(e.target.mesh.position.x - state.frontlineX) > (e.target.isWhale ? 18 : 13);
+        if (stranded || !inCombatZone || targetOutsideCombat) e.target = null;
 
-        if (!e.target || e.target.hp <= 0 || e.target.retired) {
+        if ((!e.target || e.target.hp <= 0 || e.target.retired) && !stranded && inCombatZone) {
             let closest = null;
             let minDist = Infinity;
             for (let j = 0; j < entities.length; j++) {
                 const other = entities[j];
-                if (other !== e && other.type !== e.type && other.hp > 0 && !other.retired) {
+                const opponentInCombatZone = Math.abs(other.mesh.position.x - state.frontlineX) <= (other.isWhale ? 18 : 13);
+                if (other !== e && other.type !== e.type && other.hp > 0 && !other.retired && opponentInCombatZone) {
                     const d = e.mesh.position.distanceToSquared(other.mesh.position);
                     if (d < minDist) {
                         minDist = d;
@@ -1140,7 +1302,7 @@ function updateEntities(delta) {
         const dmgBase = (e.isWhale ? 150 : 35) * e.power * supportMultiplier;
         let isMoving = false;
 
-        if (e.target) {
+        if (e.target && !stranded) {
             const dx = e.target.mesh.position.x - e.mesh.position.x;
             const dz = e.target.mesh.position.z - e.mesh.position.z;
             const distSq = dx * dx + dz * dz;
@@ -1190,9 +1352,12 @@ function updateEntities(delta) {
             if (distSq > 1.4) {
                 const dist = Math.sqrt(distSq);
                 const steering = getSteering(e, dx / dist, dz / dist);
-                e.mesh.position.x += steering.x * speed * 0.75 * delta;
-                e.mesh.position.z += steering.z * speed * 0.75 * delta;
-                e.mesh.rotation.y = Math.atan2(-steering.z, steering.x);
+                const retreatMultiplier = stranded ? 1.08 : 0.75;
+                e.mesh.position.x += steering.x * speed * retreatMultiplier * delta;
+                e.mesh.position.z += steering.z * speed * retreatMultiplier * delta;
+                e.mesh.rotation.y = stranded
+                    ? (e.type === 'bull' ? 0 : Math.PI)
+                    : Math.atan2(-steering.z, steering.x);
                 e.body.position.y = 1.3 + Math.abs(Math.sin(e.animTime * 12)) * 0.12;
                 isMoving = true;
             } else {
@@ -1314,18 +1479,52 @@ function recoverIfStuck(entity, delta) {
 function updateBullKing(delta) {
     if (!bullKingRig) return;
     kingTime += delta;
-    const x = clamp(state.frontlineX - 23, ARENA.minX + 14, ARENA.maxX - 28);
-    const z = -7;
-    const hover = Math.sin(kingTime * 1.25) * 0.7;
-    _kingTarget.set(x, getTrenchHeight(x, z) + 7.8 + hover, z);
-    bullKingRig.position.lerp(_kingTarget, Math.min(1, delta * 1.8));
-    bullKingRig.rotation.z = Math.sin(kingTime * 0.8) * 0.025;
-    bullKingRig.rotation.y = Math.sin(kingTime * 0.45) * 0.045;
-    const flap = Math.sin(kingTime * 4.2) * 0.24;
+    const tactics = deriveBattleTactics({
+        buySol: state.buySol60s,
+        sellSol: state.sellSol60s,
+        buyCount: state.activity5m.buyCount,
+        sellCount: state.activity5m.sellCount,
+    });
+    const reactionAge = (Date.now() - kingReactionAt) / 1000;
+    const reaction = reactionAge >= 0 && reactionAge < 2.2
+        ? Math.sin((reactionAge / 2.2) * Math.PI) * kingReactionStrength
+        : 0;
+    const patrolSpeed = 0.32 + tactics.activityLevel * 0.16 + tactics.flowIntensity * 0.2;
+    const trailingDistance = 20 - Math.max(0, tactics.balance) * 4 + Math.max(0, -tactics.balance) * 5;
+    const x = clamp(
+        state.frontlineX - trailingDistance + Math.sin(kingTime * patrolSpeed * 0.72) * (2.2 + tactics.activityLevel * 1.8) + reaction * 1.8,
+        ARENA.minX + 14,
+        ARENA.maxX - 22,
+    );
+    const z = clamp(
+        -3 + Math.sin(kingTime * patrolSpeed) * 12 + Math.sin(kingTime * patrolSpeed * 0.37) * 4,
+        ARENA.minZ + 12,
+        ARENA.maxZ - 12,
+    );
+    const hover = Math.sin(kingTime * (1.35 + tactics.flowIntensity * 0.45)) * 0.85 + reaction * 0.45;
+    _kingTarget.set(x, getTrenchHeight(x, z) + 8.4 + hover, z);
+    const travelX = _kingTarget.x - bullKingRig.position.x;
+    const travelZ = _kingTarget.z - bullKingRig.position.z;
+    bullKingRig.position.lerp(_kingTarget, Math.min(1, delta * (1.35 + tactics.flowIntensity * 0.9)));
+    const frontlineYaw = Math.atan2(z, Math.max(5, state.frontlineX - x));
+    bullKingRig.rotation.y = THREE.MathUtils.lerp(bullKingRig.rotation.y, frontlineYaw * 0.34, delta * 2.2);
+    bullKingRig.rotation.x = THREE.MathUtils.lerp(bullKingRig.rotation.x, clamp(-travelZ * 0.018, -0.12, 0.12), delta * 2.5);
+    bullKingRig.rotation.z = THREE.MathUtils.lerp(bullKingRig.rotation.z, clamp(travelX * 0.015, -0.1, 0.1) - reaction * 0.035, delta * 3);
+    const flapRate = 4.6 + tactics.activityLevel * 1.8 + reaction * 1.5;
+    const flap = Math.sin(kingTime * flapRate) * (0.27 + tactics.flowIntensity * 0.08 + reaction * 0.05);
     kingWingNear.rotation.x = 0.12 + flap;
     kingWingFar.rotation.x = -0.12 - flap;
+    kingLegs.forEach((leg, index) => {
+        const base = index < 2 ? -0.58 : 0.58;
+        leg.rotation.z = base + Math.sin(kingTime * 3.2 + index * Math.PI) * (0.08 + reaction * 0.05);
+    });
+    if (kingMount) kingMount.position.y = Math.sin(kingTime * 1.7) * 0.12;
+    if (kingRider) kingRider.rotation.z = Math.sin(kingTime * 1.15) * 0.025 - reaction * 0.035;
+    if (kingStaff) kingStaff.rotation.z = -0.58 - reaction * 0.16 + Math.sin(kingTime * 1.8) * 0.025;
     const supporting = bullSupportUntil > Date.now();
-    if (kingStaffGlow) kingStaffGlow.intensity = supporting ? 11 + Math.sin(kingTime * 11) * 3 : 4.5 + Math.sin(kingTime * 2) * 1.2;
+    if (kingStaffGlow) kingStaffGlow.intensity = supporting
+        ? 11 + Math.sin(kingTime * 11) * 3
+        : 4.5 + Math.sin(kingTime * 2) * 1.2 + reaction * 4;
 }
 
 function updateSupportWaves(delta) {
@@ -1465,6 +1664,12 @@ function gameLoop(timestamp) {
     const delta = Math.min(frameTimer.getDelta(), 0.1);
     updateProjectiles(delta);
     updateEntities(delta);
+    updateTerritorialControl();
+    reserveUpdateAccumulator += delta;
+    if (reserveUpdateAccumulator >= RESERVE_UPDATE_INTERVAL) {
+        updateReserveAnimation(reserveUpdateAccumulator);
+        reserveUpdateAccumulator = 0;
+    }
     updateBullKing(delta);
     updateSupportWaves(delta);
     updateKingStrikes(delta);

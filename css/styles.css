@@ -439,6 +439,33 @@ canvas { width: 100%; height: 100%; display: block; outline: none; }
     text-shadow: 0 0 12px rgba(0,255,136,.35);
 }
 
+#battle-state {
+    position: absolute;
+    top: 18px;
+    left: 50%;
+    z-index: 45;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    min-width: 260px;
+    padding: 8px 16px;
+    transform: translateX(-50%);
+    border: 1px solid rgba(255,255,255,.12);
+    border-radius: 10px;
+    background: rgba(3,7,5,.72);
+    backdrop-filter: blur(10px);
+    pointer-events: none;
+    transition: border-color .35s ease, box-shadow .35s ease, color .35s ease;
+}
+
+#battle-state strong { font-family:'Orbitron', sans-serif; font-size:11px; letter-spacing:1.2px; }
+#battle-state span { color:#929b95; font-size:8px; font-weight:600; letter-spacing:.25px; }
+#battle-state.bull { color:var(--meadow-green); border-color:rgba(0,255,136,.38); box-shadow:0 0 24px rgba(0,255,136,.12); }
+#battle-state.bear { color:#d22b55; border-color:rgba(155,23,57,.5); box-shadow:0 0 24px rgba(155,23,57,.16); }
+#battle-state.contested { color:#f1d37a; border-color:rgba(241,211,122,.35); }
+#battle-state.holding { color:#b7c0ba; }
+
 #market-pulse {
     margin-top: 18px;
     padding: 12px;
@@ -486,6 +513,9 @@ canvas { width: 100%; height: 100%; display: block; outline: none; }
     .info-box { min-width: 78px; align-items: flex-start; }
     #mini-chart { min-width: 120px; }
     #data-legend { bottom: 8px; gap: 4px 10px; width: calc(100% - 16px); white-space: normal; flex-wrap: wrap; justify-content: center; border-radius: 14px; font-size: 9px; }
+    #battle-state { top: 8px; min-width: 0; width:calc(100% - 24px); padding:6px 10px; }
+    #battle-state strong { font-size:9px; }
+    #battle-state span { font-size:7px; }
     #floating-socials { display: none; }
 }
 

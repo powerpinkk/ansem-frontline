@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ARENA, clampArenaPosition, formationTarget, tradeLane, unitHasExpired } from '../js/navigation.js';
+import { ARENA, clampArenaPosition, formationTarget, isUnitStranded, tradeLane, unitHasExpired } from '../js/navigation.js';
 
 describe('battlefield navigation', () => {
     it('keeps every unit inside the playable arena', () => {
@@ -18,6 +18,13 @@ describe('battlefield navigation', () => {
         const bear = formationTarget('bear', 20, 3, 0, false);
         expect(bull.x).toBeLessThan(20);
         expect(bear.x).toBeGreaterThan(20);
+    });
+
+    it('detects units isolated behind a moved pressure frontline', () => {
+        expect(isUnitStranded('bear', -4, 10)).toBe(true);
+        expect(isUnitStranded('bear', 8, 10)).toBe(false);
+        expect(isUnitStranded('bull', 18, 10)).toBe(true);
+        expect(isUnitStranded('bull', 8, 10)).toBe(false);
     });
 
     it('expires normal activity before giant trades', () => {

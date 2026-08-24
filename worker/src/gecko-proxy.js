@@ -11,7 +11,7 @@ export function parseGeckoProxyUrl(requestUrl) {
         const requestedLimit = Number.parseInt(url.searchParams.get('limit') || '60', 10);
         upstream.searchParams.set('limit', String(Math.max(1, Math.min(60, Number.isFinite(requestedLimit) ? requestedLimit : 60))));
     }
-    return { upstream: upstream.toString(), cacheTtl: resource === 'trades' ? 5 : 30 };
+    return { upstream: upstream.toString(), cacheTtl: resource === 'trades' ? 8 : 30 };
 }
 
 export async function fetchGeckoProxy(request, origin, allowedOrigin) {

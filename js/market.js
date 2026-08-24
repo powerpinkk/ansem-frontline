@@ -100,6 +100,27 @@ export function scaleActivityToReserves(tradeCount, limit = 24) {
     return Math.min(limit, Math.max(3, Math.round(Math.sqrt(count) * 2.5)));
 }
 
+export function deriveBattleTactics({ buySol = 0, sellSol = 0, buyCount = 0, sellCount = 0 } = {}) {
+    const safeBuySol = Math.max(0, number(buySol));
+    const safeSellSol = Math.max(0, number(sellSol));
+    const totalSol = safeBuySol + safeSellSol;
+    const totalTrades = Math.max(0, number(buyCount)) + Math.max(0, number(sellCount));
+    const balance = totalSol > 0 ? (safeBuySol - safeSellSol) / totalSol : 0;
+    const flowIntensity = Math.min(1, Math.log1p(totalSol) / Math.log(41));
+    const activityLevel = Math.min(1, Math.log1p(totalTrades) / Math.log(221));
+
+    if (totalSol < 0.01) {
+        return { state: 'holding', label: 'RESERVES HOLDING', balance: 0, flowIntensity: 0, activityLevel };
+    }
+    if (Math.abs(balance) < 0.12) {
+        return { state: 'contested', label: 'FRONTLINE CONTESTED', balance, flowIntensity, activityLevel };
+    }
+    if (balance > 0) {
+        return { state: 'bull', label: 'BLACK BULLS ADVANCING', balance, flowIntensity, activityLevel };
+    }
+    return { state: 'bear', label: 'GRIZZLIES ADVANCING', balance, flowIntensity, activityLevel };
+}
+
 export function evaluateBuySwarm(trades, now = Date.now(), lastTriggeredAt = 0) {
     const recent = trades.filter((trade) => now - trade.timestamp <= CONFIG.BUY_SWARM_WINDOW_MS);
     const unique = [...new Map(recent.map((trade) => [trade.txHash || trade.id, trade])).values()];

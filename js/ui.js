@@ -1,4 +1,5 @@
 import { CONFIG } from './config.js';
+import { deriveBattleTactics } from './market.js';
 import { state } from './state.js';
 
 const DOM = {};
@@ -36,6 +37,9 @@ export function initUI(sceneHooks = {}) {
     DOM.buyFlowCount = document.getElementById('buy-flow-count');
     DOM.sellFlowCount = document.getElementById('sell-flow-count');
     DOM.pressureVolume = document.getElementById('pressure-volume');
+    DOM.battleState = document.getElementById('battle-state');
+    DOM.battleStateLabel = document.getElementById('battle-state-label');
+    DOM.battleStateDetail = document.getElementById('battle-state-detail');
 
     setupMiniChart();
     bindControls();
@@ -151,7 +155,24 @@ export function updateDashboardUI() {
             DOM.pressureVolume.textContent = `${formatSol(state.buySol60s)} / ${formatSol(state.sellSol60s)} SOL`;
             DOM.pressureVolume.title = 'Verified buy SOL / sell SOL in the rolling 60-second window';
         }
+        updateBattleState();
     });
+}
+
+function updateBattleState() {
+    if (!DOM.battleState) return;
+    const tactics = deriveBattleTactics({
+        buySol: state.buySol60s,
+        sellSol: state.sellSol60s,
+        buyCount: state.activity5m.buyCount,
+        sellCount: state.activity5m.sellCount,
+    });
+    DOM.battleState.className = tactics.state;
+    DOM.battleStateLabel.textContent = tactics.label;
+    if (tactics.state === 'bull') DOM.battleStateDetail.textContent = 'Bulls surge forward · grizzlies backpedal toward their lines';
+    else if (tactics.state === 'bear') DOM.battleStateDetail.textContent = 'Grizzlies push forward · bulls fall back toward the King';
+    else if (tactics.state === 'contested') DOM.battleStateDetail.textContent = 'Both sides brace around the live 60s pressure line';
+    else DOM.battleStateDetail.textContent = 'No verified SOL flow in 60s · 5m ranks remain alert';
 }
 
 function formatSol(value) {
@@ -190,6 +211,7 @@ export function addOnChainTrade(trade) {
 export function updateActivityUI(activity) {
     if (DOM.buyFlowCount) DOM.buyFlowCount.textContent = String(activity?.buyCount || 0);
     if (DOM.sellFlowCount) DOM.sellFlowCount.textContent = String(activity?.sellCount || 0);
+    updateBattleState();
 }
 
 export function addWhaleSpawnEvent(type, solValue, usdValue) {
@@ -238,10 +260,13 @@ export function addBullSwarmEvent({ buyCount, buySol, dominance }) {
     trimFeed(DOM.killfeed, CONFIG.MAX_KILLFEED);
 }
 
-export function addKingReclaimEvent({ count, solValue }) {
+export function addKingReclaimEvent({ count, solValue, reason, bullPercent }) {
     const row = document.createElement('div');
     row.className = 'kill-item bull-swarm-event';
-    row.textContent = `${new Date().toLocaleTimeString()} · KING'S RECLAMATION · ${count} stranded ${count === 1 ? 'grizzly' : 'grizzlies'} cleared after ${solValue.toFixed(1)} SOL buy`;
+    const trigger = reason === 'sustained-control'
+        ? `${Math.round(bullPercent)}% sustained buy pressure`
+        : `${solValue.toFixed(1)} SOL buy reversal`;
+    row.textContent = `${new Date().toLocaleTimeString()} · KING'S RECLAMATION · ${count} stranded ${count === 1 ? 'grizzly' : 'grizzlies'} cleared · ${trigger}`;
     DOM.killfeed.prepend(row);
     trimFeed(DOM.killfeed, CONFIG.MAX_KILLFEED);
 }

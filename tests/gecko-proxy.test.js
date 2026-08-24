@@ -7,7 +7,7 @@ describe('GeckoTerminal proxy routing', () => {
     it('allows only a Solana pool trade route', () => {
         expect(parseGeckoProxyUrl(`https://relay.example/gecko/networks/solana/pools/${pool}/trades`)).toEqual({
             upstream: `https://api.geckoterminal.com/api/v2/networks/solana/pools/${pool}/trades`,
-            cacheTtl: 5,
+            cacheTtl: 8,
         });
     });
 

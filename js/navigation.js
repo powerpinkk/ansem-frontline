@@ -42,6 +42,12 @@ export function formationTarget(type, frontlineX, lane, formationIndex = 0, isWh
     }, isWhale ? 4 : 1.5);
 }
 
+export function isUnitStranded(type, unitX, frontlineX, margin = 6) {
+    return type === 'bull'
+        ? unitX > frontlineX + margin
+        : unitX < frontlineX - margin;
+}
+
 export function unitHasExpired(entity, now = Date.now()) {
     const lifetime = entity.isWhale ? WHALE_LIFETIME_MS : UNIT_LIFETIME_MS;
     return now - entity.bornAt >= lifetime;

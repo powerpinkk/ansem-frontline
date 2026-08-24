@@ -16,7 +16,7 @@ An open-source 3D market visualization that turns verified `$ANSEM` swaps on Sol
 | Sell worth at least 20 SOL | Giant bear with luminous red eyes and aura |
 | Verified buy/sell counts across tracked pools over five minutes | Scaled, GPU-instanced reserve formations behind each side |
 | Five or more unique buys totaling at least 5 SOL in 12 seconds, with ≥75% buy dominance | The flying Bull King casts three green support waves |
-| A giant buy or buy-regime reversal reclaims territory containing stranded bears | The Bull King clears those isolated units with a green staff ray |
+| A giant buy, buy-regime reversal or sustained ≥65% buy pressure reclaims territory containing stranded bears | The Bull King clears those isolated units with a green staff ray |
 | 60-second net buy/sell volume | Bull/bear dominance and frontline position |
 | Reference-pool OHLCV | One-hour mini price chart |
 
@@ -24,11 +24,13 @@ Every frontline unit originates from a verified swap returned by the Helius rela
 
 The display deliberately separates three time horizons so that activity and trend are not conflated: the mini chart shows one-hour price direction, the frontline and pressure bars encode verified SOL flow over the latest 60 seconds, and the reserve ranks show exact five-minute buy/sell transaction counts. Position on the battlefield represents the short-term pressure balance; color alone is never the only signal.
 
-Units advance toward real opposing flow when it exists and otherwise hold formation around the rolling pressure frontline. Deterministic lanes, local avoidance, separation, stuck recovery and hard arena bounds keep the visualization readable. Regular units remain for 75 seconds and giant trades for 105 seconds, then retire without being counted as combat defeats; this keeps the battlefield representative of recent activity instead of accumulating historical trades forever.
+Units advance toward real opposing flow when it exists and otherwise hold formation around the rolling pressure frontline. A tactical leash limits pursuit to the active combat zone: units isolated by a moving frontline abandon their target and backpedal toward their own side while continuing to face the enemy. Deterministic lanes, local avoidance, separation, stuck recovery and hard arena bounds keep the visualization readable. Regular units remain for 75 seconds and giant trades for 105 seconds, then retire without being counted as combat defeats; this keeps the battlefield representative of recent activity instead of accumulating historical trades forever.
 
 The Bull King is a persistent visual commander inspired by the project's character artwork. A buy swarm can temporarily illuminate and strengthen existing bulls in the illustrative combat layer, but it never creates synthetic trades or directly changes dominance, price, or frontline position. Swarms have a 25-second cooldown and ignore duplicate transaction signatures.
 
-Territorial reclamation is similarly deterministic: after a buy-regime reversal, or a giant buy that advances the frontline materially, the King targets only verified bears left behind the new bull line. His staff ray retires those isolated units and records the event in the battle log; bears still positioned on their valid side remain untouched, and the effect has no influence on market calculations.
+Territorial reclamation is similarly deterministic: after a buy-regime reversal, a giant buy that advances the frontline materially, or sustained buy control of at least 65%, the King targets only verified bears left behind the new bull line. His staff ray retires those isolated units and records the trigger in the battle log; bears still positioned on their valid side remain untouched, and the effect has no influence on market calculations.
+
+Reserve formations are animated rather than decorative. Their population comes from five-minute transaction counts, their marching energy comes from total five-minute activity, their forward or backward stance comes from the rolling 60-second SOL balance, and each newly verified swap sends a size-weighted movement ripple through the corresponding ranks. The losing formation retreats while facing the opponent. The King continuously patrols bull territory and changes distance, wing cadence and staff pose with the same real flow signals.
 
 ## Data methodology
 

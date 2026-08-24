@@ -11,6 +11,7 @@ let pollingFallback = true;
 let fallbackTimer = null;
 let streamStarted = false;
 let bootstrapPromise = null;
+let lastChartAttempt = 0;
 const bootstrapAttemptedAt = new Map();
 
 export function initAPI(nextCallbacks) {
@@ -205,13 +206,15 @@ function updateTrend(price) {
 }
 
 async function fetchChartIfNeeded(livePrice) {
-    if (!state.referencePool || Date.now() - state.lastChartFetch < CONFIG.CHART_CACHE_MS) return;
+    const now = Date.now();
+    if (!state.referencePool || now - Math.max(state.lastChartFetch, lastChartAttempt) < CONFIG.CHART_CACHE_MS) return;
+    lastChartAttempt = now;
     const json = await fetchJson(`${CONFIG.GECKO_BASE}/${state.referencePool.address}/ohlcv/minute?limit=60`);
     const candles = json.data?.attributes?.ohlcv_list;
     if (!candles?.length) return;
     state.priceHistory = candles.slice().reverse().map((candle) => Number(candle[4]));
     state.priceHistory[state.priceHistory.length - 1] = livePrice;
-    state.lastChartFetch = Date.now();
+    state.lastChartFetch = now;
 }
 
 async function fetchPoolTrades(pool) {
