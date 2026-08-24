@@ -26,7 +26,7 @@ The Bull King is a persistent visual commander inspired by the project's charact
 
 ## Data methodology
 
-DexScreener is used in the browser to discover active Solana pools and calculate a liquidity-weighted token price. The browser sends the four selected public pool addresses and current market prices to a Cloudflare Durable Object, which validates them before opening the preferred Helius WebSocket path. The Worker parses confirmed balance changes and broadcasts normalized trades without exposing the Helius key. If Helius does not explicitly confirm `live`, the browser keeps or restores GeckoTerminal polling of the same pools. GeckoTerminal also supplies OHLCV candles.
+DexScreener is used in the browser to discover active Solana pools and calculate a liquidity-weighted token price. If that discovery request is unavailable, the Cloudflare Worker derives a conservative fallback price from Helius DAS metadata and returns two explicitly identified SOL pools; the interface labels this reduced coverage as `FALLBACK` instead of implying full market coverage. The browser sends the selected public pool addresses and current market prices to a Cloudflare Durable Object, which validates them before opening the preferred Helius WebSocket path. The Worker parses confirmed balance changes and broadcasts normalized trades without exposing the Helius key. If Helius does not explicitly confirm `live`, the browser keeps or restores GeckoTerminal polling of the same pools. GeckoTerminal also supplies OHLCV candles, whose failure is isolated from the trade feed.
 
 Trade value is normalized to SOL:
 
@@ -39,9 +39,11 @@ The UI displays the number of monitored pools and their share of DexScreener-rep
 ## Architecture
 
 ```text
-DexScreener ── pool discovery, price, liquidity, market cap
+DexScreener ── primary pool discovery, price, liquidity, market cap
       │
       ├── pool ranking and coverage calculation
+      │
+Helius DAS ── fallback price and known SOL pools
       │
 Helius WSS ── confirmed pool transactions
       │
@@ -94,6 +96,7 @@ js/scene.js                Three.js world and combat simulation
 js/stream.js               WebSocket client and reconnection
 worker/src/index.js        Cloudflare/Helius real-time relay
 worker/src/configuration.js Validated public pool configuration
+worker/src/market-fallback.js Helius market fallback normalization
 worker/src/parser.js       Generic Solana balance-change parser
 tests/market.test.js       Market semantics and parsing tests
 tests/navigation.test.js   Deterministic movement and lifecycle tests
@@ -119,7 +122,8 @@ Never add the Helius key to `.env`, Vercel client variables or source control.
 
 ## Limitations and roadmap
 
-- Without the optional relay, public polling is near-real-time and the four-pool cap protects GeckoTerminal's rate limit.
+- Without the relay, or while its streaming path is unavailable, public polling is near-real-time and the four-pool cap protects GeckoTerminal's rate limit.
+- DexScreener outages reduce discovery to two known SOL pools and Helius metadata; the application marks that state as fallback coverage and does not invent an hourly change value.
 - With the relay, the four highest-scoring pools discovered by DexScreener are subscribed over Helius standard WebSockets; unsupported or unusual transactions can still fall back to the polling source.
 - Free-service quotas are suitable for a portfolio demo, not an SLA-backed trading product.
 - Combat outcomes are illustrative and do not predict price movement.

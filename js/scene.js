@@ -16,7 +16,8 @@ let scene, camera, renderer, frontlineLaser, orbitControls, trenchGlowLight, ter
 let bullKingRig, kingWingNear, kingWingFar, kingStaffGlow;
 let kingTime = 0;
 let bullSupportUntil = 0;
-let clock = new THREE.Clock();
+let lastFrontlineFitX = Number.POSITIVE_INFINITY;
+const frameTimer = new THREE.Timer();
 let canvasContainer, floatContainer;
 
 const geoBox = new THREE.BoxGeometry(1, 1, 1);
@@ -81,6 +82,7 @@ export function initScene(callbacks = {}) {
     onKillEvent = callbacks.onKillEvent || onKillEvent;
     canvasContainer = document.getElementById('canvas-container');
     floatContainer = document.getElementById('floating-text-container');
+    frameTimer.connect(document);
     init3D();
     if (import.meta.env.DEV) {
         window.__ansemSceneDiagnostics = () => ({
@@ -94,6 +96,12 @@ export function initScene(callbacks = {}) {
             supportWaves: supportWaves.length,
             supportedBulls: entities.filter((entity) => entity.type === 'bull' && entity.supportUntil > Date.now()).length,
             bullKing: bullKingRig ? { x: bullKingRig.position.x, y: bullKingRig.position.y, z: bullKingRig.position.z } : null,
+            render: renderer ? {
+                calls: renderer.info.render.calls,
+                triangles: renderer.info.render.triangles,
+                geometries: renderer.info.memory.geometries,
+                textures: renderer.info.memory.textures,
+            } : null,
             bounds: ARENA,
         });
         window.__ansemTriggerBullKingSupport = () => triggerBullKingSupport({ buySol: 12, dominance: 0.84 });
@@ -207,12 +215,6 @@ export function spawnUnit(type, initial = false, isWhale = false, trade = null) 
             leg.position.set(pos[0], 0.72, pos[1]);
             const paw = createMesh(geoBearMuzzle, matBearHead, 0.42, 0.2, 0.34);
             paw.position.set(0.2, -1.0, 0);
-            [-0.12, 0.12].forEach((z) => {
-                const claw = createMesh(geoCone, matSnout, 0.08, 0.32, 0.08);
-                claw.position.set(0.42, -0.02, z);
-                claw.rotation.z = -Math.PI / 2;
-                paw.add(claw);
-            });
             leg.add(paw);
             group.add(leg);
             legs.push(leg);
@@ -344,11 +346,11 @@ function init3D() {
         1000
     );
 
-    renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+    renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
     renderer.setSize(canvasContainer.clientWidth, canvasContainer.clientHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
     renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.shadowMap.type = THREE.PCFShadowMap;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.12;
@@ -381,7 +383,7 @@ function init3D() {
     orbitControls.dampingFactor = 0.05;
     orbitControls.enabled = false;
 
-    const planeGeo = new THREE.PlaneGeometry(300, 150, 150, 75);
+    const planeGeo = new THREE.PlaneGeometry(360, 240, 144, 96);
     planeGeo.rotateX(-Math.PI / 2);
     const posAttribute = planeGeo.attributes.position;
     const colors = [];
@@ -426,18 +428,18 @@ function init3D() {
 
     frontlineLaser = new THREE.Group();
     const coreLaser = new THREE.Mesh(
-        new THREE.PlaneGeometry(0.8, 150, 1, 75),
-        new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending })
+        new THREE.PlaneGeometry(0.8, 240, 1, 96),
+        new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending, depthWrite: false })
     );
     const glowLaser = new THREE.Mesh(
-        new THREE.PlaneGeometry(3.5, 150, 1, 75),
-        new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.2, blending: THREE.AdditiveBlending })
+        new THREE.PlaneGeometry(3.5, 240, 1, 96),
+        new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.2, blending: THREE.AdditiveBlending, depthWrite: false })
     );
     coreLaser.rotation.x = -Math.PI / 2;
     glowLaser.rotation.x = -Math.PI / 2;
     frontlineLaser.add(coreLaser, glowLaser);
     scene.add(frontlineLaser);
-    fitFrontlineToTerrain();
+    fitFrontlineToTerrain(true);
 
     trenchGlowLight = new THREE.PointLight(0xffffff, 2.5, 50);
     scene.add(trenchGlowLight);
@@ -454,54 +456,78 @@ function init3D() {
 function createLandscapeProps() {
     const rockGeo = new THREE.DodecahedronGeometry(1, 0);
     const rockMat = new THREE.MeshStandardMaterial({ color: 0x4b443b, roughness: 1 });
+    const rockTransforms = [];
     for (let i = 0; i < 52; i++) {
         const x = (landscapeRandom() - 0.5) * 230;
         const z = signedOuterPosition(18, 62);
         const rawScale = 0.7 + landscapeRandom() * 2.2;
         const scale = z > 16 && z < 54 ? Math.min(rawScale, 1.15) : rawScale;
-        const rock = new THREE.Mesh(rockGeo, rockMat);
-        rock.scale.set(scale, scale * 0.7, scale);
-        rock.position.set(x, getTrenchHeight(x, z) + scale * 0.25, z);
-        rock.rotation.set(landscapeRandom() * Math.PI, landscapeRandom() * Math.PI, 0);
-        rock.castShadow = true;
-        rock.receiveShadow = true;
-        scene.add(rock);
+        rockTransforms.push({
+            x,
+            y: getTrenchHeight(x, z) + scale * 0.25,
+            z,
+            scale,
+            rotationX: landscapeRandom() * Math.PI,
+            rotationY: landscapeRandom() * Math.PI,
+        });
         if (Math.abs(z) < 30) obstacles.push({ x, z, radius: scale * 1.35 });
     }
-    createBattleEdgeRocks(rockGeo, rockMat);
+    createBattleEdgeRocks(rockTransforms);
+    const rocks = new THREE.InstancedMesh(rockGeo, rockMat, rockTransforms.length);
+    const rockDummy = new THREE.Object3D();
+    rockTransforms.forEach((transform, index) => {
+        rockDummy.position.set(transform.x, transform.y, transform.z);
+        rockDummy.rotation.set(transform.rotationX, transform.rotationY, 0);
+        rockDummy.scale.set(transform.scale, transform.scale * 0.7, transform.scale);
+        rockDummy.updateMatrix();
+        rocks.setMatrixAt(index, rockDummy.matrix);
+    });
+    rocks.instanceMatrix.needsUpdate = true;
+    rocks.castShadow = true;
+    rocks.receiveShadow = true;
+    scene.add(rocks);
+
     const trunkGeo = new THREE.CylinderGeometry(0.35, 0.55, 5, 7);
     const crownGeo = new THREE.ConeGeometry(2.4, 6.5, 9);
     const trunkMat = new THREE.MeshStandardMaterial({ color: 0x3a2416, roughness: 1 });
     const crownMat = new THREE.MeshStandardMaterial({ color: 0x173d22, roughness: 0.95 });
+    const trunks = new THREE.InstancedMesh(trunkGeo, trunkMat, 38);
+    const crowns = new THREE.InstancedMesh(crownGeo, crownMat, 38);
+    const treeDummy = new THREE.Object3D();
     for (let i = 0; i < 38; i++) {
         const x = (landscapeRandom() - 0.5) * 235;
         const z = signedOuterPosition(25, 67);
-        const tree = new THREE.Group();
-        const trunk = new THREE.Mesh(trunkGeo, trunkMat);
-        const crown = new THREE.Mesh(crownGeo, crownMat);
-        trunk.position.y = 2.5;
-        crown.position.y = 7;
-        trunk.castShadow = crown.castShadow = true;
-        tree.add(trunk, crown);
-        tree.position.set(x, getTrenchHeight(x, z), z);
         const scale = z > 20 && z < 55 ? 0.72 + landscapeRandom() * 0.2 : 0.75 + landscapeRandom() * 0.7;
-        tree.scale.setScalar(scale);
-        scene.add(tree);
+        const groundY = getTrenchHeight(x, z);
+        treeDummy.position.set(x, groundY + 2.5 * scale, z);
+        treeDummy.rotation.set(0, landscapeRandom() * Math.PI, 0);
+        treeDummy.scale.setScalar(scale);
+        treeDummy.updateMatrix();
+        trunks.setMatrixAt(i, treeDummy.matrix);
+        treeDummy.position.y = groundY + 7 * scale;
+        treeDummy.updateMatrix();
+        crowns.setMatrixAt(i, treeDummy.matrix);
     }
+    trunks.instanceMatrix.needsUpdate = true;
+    crowns.instanceMatrix.needsUpdate = true;
+    trunks.castShadow = crowns.castShadow = true;
+    trunks.receiveShadow = crowns.receiveShadow = true;
+    scene.add(trunks, crowns);
 }
 
-function createBattleEdgeRocks(geometry, material) {
+function createBattleEdgeRocks(rockTransforms) {
     for (let i = 0; i < 12; i++) {
         const x = -52 + landscapeRandom() * 104;
         const z = (i % 2 ? 1 : -1) * (12.3 + landscapeRandom() * 1.3);
         const scale = 0.45 + landscapeRandom() * 0.5;
-        const rock = new THREE.Mesh(geometry, material);
-        rock.scale.set(scale, scale * 0.62, scale);
-        rock.position.set(x, getTrenchHeight(x, z) + scale * 0.2, z);
-        rock.rotation.set(landscapeRandom() * Math.PI, landscapeRandom() * Math.PI, 0);
-        rock.castShadow = true;
-        rock.receiveShadow = true;
-        scene.add(rock);
+        rockTransforms.push({
+            x,
+            y: getTrenchHeight(x, z) + scale * 0.2,
+            z,
+            scale,
+            rotationX: landscapeRandom() * Math.PI,
+            rotationY: landscapeRandom() * Math.PI,
+        });
         obstacles.push({ x, z, radius: scale * 1.2 });
     }
 }
@@ -580,7 +606,7 @@ function createFlyingBullKing() {
     mount.add(mountAura);
 
     bullKingRig.add(mount);
-    bullKingRig.scale.setScalar(0.98);
+    bullKingRig.scale.setScalar(1.12);
     bullKingRig.position.set(-26, 10, -7);
     scene.add(bullKingRig);
 }
@@ -636,10 +662,14 @@ function createBullKingRider() {
     const head = createMesh(geoSphere, matKingSkin, 0.72, 0.8, 0.7);
     head.position.set(0.15, 2.82, 0);
     head.rotation.y = -0.18;
-    const beard = createMesh(geoCone, matKingHair, 0.35, 0.45, 0.3);
-    beard.position.set(0.5, 2.55, 0);
-    beard.rotation.z = -Math.PI / 2;
-    rider.add(torso, coatTail, head, beard);
+    const jawBeard = createMesh(geoBearMuzzle, matKingHair, 0.42, 0.3, 0.5);
+    jawBeard.position.set(0.48, 2.52, 0);
+    const goatee = createMesh(geoCone, matKingHair, 0.24, 0.62, 0.24);
+    goatee.position.set(0.58, 2.18, 0);
+    goatee.rotation.z = Math.PI;
+    const moustache = createMesh(geoBox, matKingHair, 0.26, 0.06, 0.34);
+    moustache.position.set(0.69, 2.68, 0);
+    rider.add(torso, coatTail, head, jawBeard, goatee, moustache);
 
     const sash = createMesh(geoBox, matKingSaddle, 0.2, 1.75, 0.78);
     sash.position.set(0.05, 1.48, 0);
@@ -658,9 +688,12 @@ function createBullKingRider() {
     nose.position.set(0.77, 2.82, 0);
     rider.add(nose);
 
-    for (let i = 0; i < 7; i++) {
-        const hair = createMesh(geoCone, matKingHair, 0.18, 0.58 + (i % 2) * 0.18, 0.18);
-        hair.position.set(-0.2 + (i % 4) * 0.18, 3.5 + Math.floor(i / 4) * 0.08, -0.28 + (i % 3) * 0.28);
+    const fade = createMesh(geoBearHead, matKingHair, 0.58, 0.26, 0.61);
+    fade.position.set(-0.08, 3.38, 0);
+    rider.add(fade);
+    for (let i = 0; i < 10; i++) {
+        const hair = createMesh(geoCone, matKingHair, 0.2, 0.62 + (i % 3) * 0.12, 0.2);
+        hair.position.set(-0.28 + (i % 5) * 0.16, 3.58 + Math.floor(i / 5) * 0.12, -0.3 + (i % 3) * 0.3);
         rider.add(hair);
     }
 
@@ -692,6 +725,7 @@ function createBullKingRider() {
         point.position.set(0.02, 4.02 + (index === 1 ? 0.1 : 0), z);
         rider.add(point);
     });
+    rider.scale.setScalar(1.16);
     return rider;
 }
 
@@ -965,17 +999,20 @@ function updateEntities(delta) {
     }
 }
 
-function fitFrontlineToTerrain() {
+function fitFrontlineToTerrain(force = false) {
     if (!frontlineLaser) return;
-    for (const strip of frontlineLaser.children) {
+    if (!force && Math.abs(state.frontlineX - lastFrontlineFitX) < 0.001) return;
+    lastFrontlineFitX = state.frontlineX;
+    frontlineLaser.children.forEach((strip, stripIndex) => {
         const positions = strip.geometry.attributes.position;
         for (let i = 0; i < positions.count; i++) {
             const localX = positions.getX(i);
             const localZ = -positions.getY(i);
-            positions.setZ(i, getTrenchHeight(state.frontlineX + localX, localZ) + 0.16);
+            const surfaceOffset = stripIndex === 0 ? 0.44 : 0.32;
+            positions.setZ(i, getTrenchHeight(state.frontlineX + localX, localZ) + surfaceOffset);
         }
         positions.needsUpdate = true;
-    }
+    });
 }
 
 function getSteering(entity, desiredX, desiredZ) {
@@ -1053,7 +1090,7 @@ function updateBullKing(delta) {
     const x = clamp(state.frontlineX - 23, ARENA.minX + 14, ARENA.maxX - 28);
     const z = -7;
     const hover = Math.sin(kingTime * 1.25) * 0.7;
-    _kingTarget.set(x, getTrenchHeight(x, z) + 9.6 + hover, z);
+    _kingTarget.set(x, getTrenchHeight(x, z) + 7.8 + hover, z);
     bullKingRig.position.lerp(_kingTarget, Math.min(1, delta * 1.8));
     bullKingRig.rotation.z = Math.sin(kingTime * 0.8) * 0.025;
     bullKingRig.rotation.y = Math.sin(kingTime * 0.45) * 0.045;
@@ -1174,9 +1211,10 @@ function spawnFloatingText(dmg, pos3D, color, isCrit) {
     setTimeout(() => el.remove(), 800);
 }
 
-function gameLoop() {
+function gameLoop(timestamp) {
     requestAnimationFrame(gameLoop);
-    const delta = Math.min(clock.getDelta(), 0.1);
+    frameTimer.update(timestamp);
+    const delta = Math.min(frameTimer.getDelta(), 0.1);
     updateProjectiles(delta);
     updateEntities(delta);
     updateBullKing(delta);

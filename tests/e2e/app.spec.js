@@ -15,7 +15,7 @@ test.beforeEach(async ({ page }) => {
             await route.fulfill({ json: { data: { attributes: { ohlcv_list: candles.reverse() } } } });
             return;
         }
-        const isBuyPool = url.includes('pool-buy');
+        const isBuyPool = url.includes('pool-buy') || url.includes('6e7V9eegCHw997T72MxgwwJipZ6GJyZF8NvjkzT1rvpN');
         await route.fulfill({ json: { data: [geckoTrade(isBuyPool)] } });
     });
 });
@@ -44,6 +44,8 @@ test('renders verified swaps and the WebGL battlefield', async ({ page }, testIn
         expect(entity.z).toBeLessThanOrEqual(diagnostics.bounds.maxZ);
     }
     expect(diagnostics.bullKing).not.toBeNull();
+    expect(diagnostics.render.calls).toBeLessThan(220);
+    expect(diagnostics.render.geometries).toBeLessThan(80);
     await page.evaluate(() => {
         window.__ansemPreviewRedBear();
         window.__ansemTriggerBullKingSupport();
@@ -54,6 +56,41 @@ test('renders verified swaps and the WebGL battlefield', async ({ page }, testIn
     expect(support.supportedBulls).toBeGreaterThan(0);
     expect(pageErrors).toEqual([]);
     await page.screenshot({ path: `.artifacts/${testInfo.project.name}.png`, fullPage: true });
+});
+
+test('boots from the Helius market fallback when DexScreener is unavailable', async ({ page }) => {
+    await page.unroute('https://api.dexscreener.com/**');
+    await page.route('https://api.dexscreener.com/**', (route) => route.fulfill({ status: 503, json: { error: 'unavailable' } }));
+    await page.route('https://ansem-frontline-stream.ansem-frontline.workers.dev/market', (route) => route.fulfill({
+        json: {
+            price: 0.259,
+            solPriceUsd: 95.4,
+            mcap: 258_000_000,
+            chg: null,
+            pools: [
+                { address: '6e7V9eegCHw997T72MxgwwJipZ6GJyZF8NvjkzT1rvpN', dexId: 'meteora', quoteSymbol: 'SOL' },
+                { address: 'FnzKY6x7entQ1eR3D225dQyT7ybfka4PskBMQhb8L3CC', dexId: 'pumpswap', quoteSymbol: 'SOL' },
+            ],
+            source: 'helius-fallback',
+        },
+    }));
+    await page.goto('/');
+    await expect(page.locator('#price')).toHaveText('$0.259000', { timeout: 12_000 });
+    await expect(page.locator('#coverage-value')).toHaveText('2 / FALLBACK');
+    await expect(page.locator('#change')).toHaveText('—');
+    await expect(page.locator('.trade-item')).toHaveCount(2, { timeout: 12_000 });
+});
+
+test('covers an ultrawide battlefield without layout gaps', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== 'desktop-chromium', 'One ultrawide visual check is sufficient');
+    await page.setViewportSize({ width: 1886, height: 991 });
+    const pageErrors = [];
+    page.on('pageerror', (error) => pageErrors.push(error.message));
+    await page.goto('/');
+    await expect(page.locator('#three-canvas')).toBeVisible();
+    await expect(page.locator('#connection-label')).toContainText('LIVE', { timeout: 12_000 });
+    expect(pageErrors).toEqual([]);
+    await page.screenshot({ path: '.artifacts/ultrawide.png', fullPage: true });
 });
 
 function pair(address, dexId, volume) {

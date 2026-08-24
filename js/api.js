@@ -90,9 +90,9 @@ function receiveStreamTrade(trade) {
     receiveTrade(trade, false);
 }
 
-async function fetchJson(url) {
+async function fetchJson(url, timeoutMs = 8_000) {
     const controller = new AbortController();
-    const timeout = window.setTimeout(() => controller.abort(), 8_000);
+    const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
     try {
         const response = await fetch(url, { signal: controller.signal, headers: { accept: 'application/json' } });
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -103,7 +103,26 @@ async function fetchJson(url) {
 }
 
 async function fetchMarketData() {
-    const data = await fetchJson(`${CONFIG.DEXSCREENER_TOKEN_URL}/${CONFIG.TOKEN_MINT}`);
+    let market;
+    try {
+        market = await fetchDexMarketData();
+    } catch (error) {
+        console.warn('[market] DexScreener unavailable, using Helius fallback', error);
+        market = await fetchRelayMarketData();
+    }
+    state.price = market.price;
+    startStreamIfReady();
+    updateTrend(market.price);
+    try {
+        await fetchChartIfNeeded(market.price);
+    } catch (error) {
+        console.warn('[chart] OHLCV unavailable', error);
+    }
+    callbacks.onMarketUpdate?.(market);
+}
+
+async function fetchDexMarketData() {
+    const data = await fetchJson(`${CONFIG.DEXSCREENER_TOKEN_URL}/${CONFIG.TOKEN_MINT}`, 4_500);
     const pairs = data?.pairs || [];
     if (!pairs.length) throw new Error('No $ANSEM markets returned by DexScreener');
     const now = Date.now();
@@ -124,11 +143,30 @@ async function fetchMarketData() {
         : Number(pairs[0].priceUsd || 0);
     const mcap = Number(pairs[0].marketCap || pairs[0].fdv || 0);
     const chg = Number(pairs[0].priceChange?.h1 || 0);
-    state.price = price;
-    startStreamIfReady();
-    updateTrend(price);
-    await fetchChartIfNeeded(price);
-    callbacks.onMarketUpdate?.({ price, mcap, chg, pools: state.trackedPools.length, coverage: state.marketCoverage, referencePool: state.referencePool });
+    return { price, mcap, chg, pools: state.trackedPools.length, coverage: state.marketCoverage, referencePool: state.referencePool, source: 'dexscreener' };
+}
+
+async function fetchRelayMarketData() {
+    const data = await fetchJson(CONFIG.RELAY_MARKET_URL, 5_000);
+    if (!(Number(data.price) > 0) || !(Number(data.solPriceUsd) > 0) || !data.pools?.length) {
+        throw new Error('Invalid Helius market fallback');
+    }
+    if (!state.trackedPools.length) {
+        state.trackedPools = data.pools.map((pool) => ({ ...pool, liquidityUsd: 0, volumeH24Usd: 0, volumeH1Usd: 0 }));
+        state.referencePool = state.trackedPools[0];
+        state.poolCursor = 0;
+    }
+    state.solPriceUsd = Number(data.solPriceUsd);
+    state.marketCoverage = null;
+    return {
+        price: Number(data.price),
+        mcap: Number(data.mcap || 0),
+        chg: Number.isFinite(Number(data.chg)) && data.chg !== null ? Number(data.chg) : null,
+        pools: state.trackedPools.length,
+        coverage: null,
+        referencePool: state.referencePool,
+        source: data.source || 'helius-fallback',
+    };
 }
 
 function startStreamIfReady() {

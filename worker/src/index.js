@@ -1,23 +1,67 @@
 import { DurableObject } from 'cloudflare:workers';
 import { parseTransaction } from './parser.js';
 import { parseClientConfiguration } from './configuration.js';
-
+import { normalizeHeliusMarket, SOL_MINT } from './market-fallback.js';
 
 export default {
     async fetch(request, env) {
         const url = new URL(request.url);
+        const origin = request.headers.get('Origin');
+        if (!isAllowedOrigin(origin, env.ALLOWED_ORIGIN)) return new Response('Origin not allowed', { status: 403 });
+        if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders(origin, env.ALLOWED_ORIGIN) });
         if (url.pathname === '/health') {
             return Response.json({ ok: true, service: 'ansem-frontline-stream' });
         }
+        if (url.pathname === '/market') return fetchFallbackMarket(env, origin);
         if (url.pathname !== '/stream') return new Response('Not found', { status: 404 });
-        const origin = request.headers.get('Origin');
-        if (env.ALLOWED_ORIGIN && origin && origin !== env.ALLOWED_ORIGIN && !origin.startsWith('http://localhost:')) {
-            return new Response('Origin not allowed', { status: 403 });
-        }
         const id = env.STREAM_HUB.idFromName('ansem-mainnet');
         return env.STREAM_HUB.get(id).fetch(request);
     },
 };
+
+function isAllowedOrigin(origin, allowedOrigin) {
+    return !origin || !allowedOrigin || origin === allowedOrigin || origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:');
+}
+
+function corsHeaders(origin, allowedOrigin) {
+    return {
+        'access-control-allow-origin': origin && isAllowedOrigin(origin, allowedOrigin) ? origin : allowedOrigin,
+        'access-control-allow-methods': 'GET, OPTIONS',
+        vary: 'Origin',
+        'cache-control': 'public, max-age=15',
+    };
+}
+
+async function fetchFallbackMarket(env, origin) {
+    try {
+        const [token, sol] = await Promise.all([
+            fetchHeliusAsset(env, env.TOKEN_MINT),
+            fetchHeliusAsset(env, SOL_MINT),
+        ]);
+        const market = normalizeHeliusMarket(token, sol);
+        if (!market) throw new Error('Helius price data unavailable');
+        return Response.json(market, { headers: corsHeaders(origin, env.ALLOWED_ORIGIN) });
+    } catch (error) {
+        console.error('[market-fallback] request failed', error instanceof Error ? error.name : 'UnknownError');
+        return Response.json({ error: 'Market fallback unavailable' }, { status: 503, headers: corsHeaders(origin, env.ALLOWED_ORIGIN) });
+    }
+}
+
+async function fetchHeliusAsset(env, mint) {
+    const response = await fetch(`https://mainnet.helius-rpc.com/?api-key=${encodeURIComponent(env.HELIUS_API_KEY)}`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+            jsonrpc: '2.0', id: mint, method: 'getAsset',
+            params: { id: mint, displayOptions: { showFungible: true } },
+        }),
+        signal: AbortSignal.timeout(8_000),
+    });
+    if (!response.ok) throw new Error(`Helius asset ${response.status}`);
+    const payload = await response.json();
+    if (payload.error) throw new Error(`Helius asset RPC ${payload.error.code}`);
+    return payload.result;
+}
 
 export class StreamHub extends DurableObject {
     constructor(ctx, env) {

@@ -83,14 +83,19 @@ export function updateMarketUI({ price, mcap, chg, pools, coverage, referencePoo
         DOM.price.textContent = `$${price.toFixed(6)}`;
     }
 
-    if (DOM.change) {
+    if (DOM.change && Number.isFinite(chg)) {
         DOM.change.textContent = `${chg >= 0 ? '+' : ''}${chg.toFixed(2)}%`;
         DOM.change.className = chg > 0 ? 'positive' : (chg < 0 ? 'negative' : 'neutral');
+    } else if (DOM.change) {
+        DOM.change.textContent = '—';
+        DOM.change.className = 'neutral';
     }
 
     if (DOM.coverageValue) {
-        DOM.coverageValue.textContent = `${pools} / ${coverage.toFixed(0)}%`;
-        DOM.coverageValue.title = `Top ${pools} pools by activity; ${coverage.toFixed(1)}% of reported 24h volume. Reference chart: ${referencePool?.dexId || '—'}.`;
+        DOM.coverageValue.textContent = Number.isFinite(coverage) ? `${pools} / ${coverage.toFixed(0)}%` : `${pools} / FALLBACK`;
+        DOM.coverageValue.title = Number.isFinite(coverage)
+            ? `Top ${pools} pools by activity; ${coverage.toFixed(1)}% of reported 24h volume. Reference chart: ${referencePool?.dexId || '—'}.`
+            : `${pools} verified fallback pools via Helius. Reference chart: ${referencePool?.dexId || '—'}.`;
     }
 
     renderMiniChart();
