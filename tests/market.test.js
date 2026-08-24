@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { calculatePressure, deriveSolPrice, parseGeckoTrade, selectTrackedPools } from '../js/market.js';
+import { calculatePressure, deriveSolPrice, evaluateBuySwarm, parseGeckoTrade, selectTrackedPools } from '../js/market.js';
 import { CONFIG } from '../js/config.js';
 
 const pool = { address: 'pool-1', dexId: 'pumpswap', quoteSymbol: 'SOL' };
@@ -70,5 +70,25 @@ describe('pool selection and pressure', () => {
         ], now);
         expect(pressure.bullPercent).toBe(25);
         expect(pressure.bearPercent).toBe(75);
+    });
+});
+
+describe('verified buy swarm detection', () => {
+    it('triggers only for a dominant cluster of unique real buys above the SOL threshold', () => {
+        const now = Date.now();
+        const buys = Array.from({ length: 5 }, (_, index) => ({
+            id: `buy-${index}`, txHash: `signature-${index}`, isBuy: true, solValue: 1.2, timestamp: now - index * 500,
+        }));
+        expect(evaluateBuySwarm([...buys, { id: 'sell', txHash: 'sell', isBuy: false, solValue: 1, timestamp: now }], now, 0)).toMatchObject({
+            triggered: true, buyCount: 5, buySol: 6,
+        });
+    });
+
+    it('does not retrigger during cooldown or from duplicate transactions', () => {
+        const now = Date.now();
+        const duplicate = { id: 'same', txHash: 'same-signature', isBuy: true, solValue: 10, timestamp: now };
+        expect(evaluateBuySwarm(Array(6).fill(duplicate), now, 0).triggered).toBe(false);
+        const buys = Array.from({ length: 5 }, (_, index) => ({ id: String(index), isBuy: true, solValue: 2, timestamp: now }));
+        expect(evaluateBuySwarm(buys, now, now - 1_000).triggered).toBe(false);
     });
 });

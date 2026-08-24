@@ -43,6 +43,15 @@ test('renders verified swaps and the WebGL battlefield', async ({ page }, testIn
         expect(entity.z).toBeGreaterThanOrEqual(diagnostics.bounds.minZ);
         expect(entity.z).toBeLessThanOrEqual(diagnostics.bounds.maxZ);
     }
+    expect(diagnostics.bullKing).not.toBeNull();
+    await page.evaluate(() => {
+        window.__ansemPreviewRedBear();
+        window.__ansemTriggerBullKingSupport();
+    });
+    await page.waitForTimeout(350);
+    const support = await page.evaluate(() => window.__ansemSceneDiagnostics());
+    expect(support.supportWaves).toBeGreaterThan(0);
+    expect(support.supportedBulls).toBeGreaterThan(0);
     expect(pageErrors).toEqual([]);
     await page.screenshot({ path: `.artifacts/${testInfo.project.name}.png`, fullPage: true });
 });

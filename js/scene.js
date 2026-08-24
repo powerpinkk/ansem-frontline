@@ -8,10 +8,14 @@ let onKillEvent = () => {};
 let entities = [];
 let particles = [];
 let projectiles = [];
+let supportWaves = [];
 const MAX_ENTITIES_PER_SIDE = 32;
 const obstacles = [];
 
 let scene, camera, renderer, frontlineLaser, orbitControls, trenchGlowLight, terrainMaterial;
+let bullKingRig, kingWingNear, kingWingFar, kingStaffGlow;
+let kingTime = 0;
+let bullSupportUntil = 0;
 let clock = new THREE.Clock();
 let canvasContainer, floatContainer;
 
@@ -20,8 +24,13 @@ const geoCone = new THREE.ConeGeometry(1, 1, 8);
 const geoSphere = new THREE.SphereGeometry(1, 16, 16);
 const geoLegBull = new THREE.BoxGeometry(0.3, 1.0, 0.3);
 geoLegBull.translate(0, -0.5, 0);
-const geoLegBear = new THREE.BoxGeometry(0.45, 0.9, 0.45);
-geoLegBear.translate(0, -0.45, 0);
+const geoBearBody = new THREE.SphereGeometry(1, 14, 10);
+const geoBearHead = new THREE.SphereGeometry(1, 12, 9);
+const geoBearMuzzle = new THREE.SphereGeometry(1, 10, 7);
+const geoBearLeg = new THREE.CylinderGeometry(0.27, 0.38, 1, 7);
+geoBearLeg.translate(0, -0.5, 0);
+const geoStaff = new THREE.CylinderGeometry(0.11, 0.16, 5.2, 8);
+const supportWaveGeometry = new THREE.RingGeometry(1, 1.35, 40);
 const unitAuraGeometry = new THREE.RingGeometry(1.2, 1.8, 24);
 const projectileGeometry = new THREE.CylinderGeometry(0.15, 0.15, 2.0, 8);
 projectileGeometry.rotateZ(Math.PI / 2);
@@ -31,11 +40,19 @@ projectileGlowGeometry.rotateZ(Math.PI / 2);
 const matBullBody = new THREE.MeshPhysicalMaterial({ color: 0x111613, metalness: 0.6, roughness: 0.2 });
 const matBullHead = new THREE.MeshPhysicalMaterial({ color: 0x0a100c, metalness: 0.7, roughness: 0.2 });
 const matBullHorn = new THREE.MeshStandardMaterial({ color: 0x00ff88, emissive: 0x00ff88, emissiveIntensity: 2.0, roughness: 0.2 });
-const matBearBody = new THREE.MeshPhysicalMaterial({ color: 0x1f0a0e, metalness: 0.5, roughness: 0.3 });
-const matBearHead = new THREE.MeshPhysicalMaterial({ color: 0x140508, metalness: 0.6, roughness: 0.2 });
+const matBearBody = new THREE.MeshPhysicalMaterial({ color: 0x8f1324, metalness: 0.12, roughness: 0.62, clearcoat: 0.2 });
+const matBearHead = new THREE.MeshPhysicalMaterial({ color: 0xb51c30, metalness: 0.1, roughness: 0.58, clearcoat: 0.18 });
+const matBearDarkFur = new THREE.MeshStandardMaterial({ color: 0x4d0711, roughness: 0.82 });
 const matSnout = new THREE.MeshPhysicalMaterial({ color: 0x050505, metalness: 0.9, roughness: 0.1 });
 const matParticleBull = new THREE.MeshBasicMaterial({ color: 0x00ff88 });
 const matParticleBear = new THREE.MeshBasicMaterial({ color: 0xff3366 });
+const matKingBlack = new THREE.MeshPhysicalMaterial({ color: 0x111b18, metalness: 0.42, roughness: 0.34, clearcoat: 0.45 });
+const matKingWing = new THREE.MeshPhysicalMaterial({ color: 0x183c30, emissive: 0x052a1c, emissiveIntensity: 0.55, metalness: 0.2, roughness: 0.48, side: THREE.DoubleSide });
+const matKingSkin = new THREE.MeshStandardMaterial({ color: 0x75452f, roughness: 0.72 });
+const matKingCloth = new THREE.MeshPhysicalMaterial({ color: 0x090d0d, metalness: 0.35, roughness: 0.38 });
+const matKingHair = new THREE.MeshStandardMaterial({ color: 0x100b08, roughness: 0.95 });
+const matKingEnergy = new THREE.MeshStandardMaterial({ color: 0x00b965, emissive: 0x00c86c, emissiveIntensity: 1.35, roughness: 0.22 });
+const matKingSaddle = new THREE.MeshPhysicalMaterial({ color: 0x075d3b, emissive: 0x00a85e, emissiveIntensity: 0.7, metalness: 0.52, roughness: 0.32 });
 const matBullEye = new THREE.MeshStandardMaterial({ color: 0x021008, emissive: 0x00ff88, emissiveIntensity: 3, metalness: 0.85, roughness: 0.08 });
 const matBullWhaleEye = matBullEye.clone();
 matBullWhaleEye.emissiveIntensity = 8;
@@ -58,6 +75,7 @@ let audioEnabled = false;
 
 const _camTarget = new THREE.Vector3();
 const _lookTarget = new THREE.Vector3();
+const _kingTarget = new THREE.Vector3();
 
 export function initScene(callbacks = {}) {
     onKillEvent = callbacks.onKillEvent || onKillEvent;
@@ -73,8 +91,19 @@ export function initScene(callbacks = {}) {
                 retired: entity.retired,
             })),
             projectiles: projectiles.length,
+            supportWaves: supportWaves.length,
+            supportedBulls: entities.filter((entity) => entity.type === 'bull' && entity.supportUntil > Date.now()).length,
+            bullKing: bullKingRig ? { x: bullKingRig.position.x, y: bullKingRig.position.y, z: bullKingRig.position.z } : null,
             bounds: ARENA,
         });
+        window.__ansemTriggerBullKingSupport = () => triggerBullKingSupport({ buySol: 12, dominance: 0.84 });
+        window.__ansemPreviewRedBear = () => {
+            const bear = entities.find((entity) => entity.type === 'bear');
+            if (!bear) return;
+            bear.mesh.position.set(state.frontlineX + 4, getTrenchHeight(state.frontlineX + 4, 10), 10);
+            bear.vx = 0;
+            bear.vz = 0;
+        };
     }
 }
 
@@ -146,18 +175,26 @@ export function spawnUnit(type, initial = false, isWhale = false, trade = null) 
             legs.push(leg);
         });
     } else {
-        bodyGroup.position.y = 1.3;
-        bodyGroup.add(createMesh(geoBox, matBearBody, 1.4, 1.5, 1.2));
-        const head = createMesh(geoBox, matBearHead, 0.8, 0.8, 0.8);
-        head.position.set(0.8, 0.4, 0);
+        bodyGroup.position.y = 1.35;
+        const bearTorso = createMesh(geoBearBody, matBearBody, 1.72, 0.98, 1.02);
+        bearTorso.position.x = -0.18;
+        bodyGroup.add(bearTorso);
+        const shoulder = createMesh(geoBearBody, matBearDarkFur, 0.92, 1.12, 1.1);
+        shoulder.position.set(0.72, 0.2, 0);
+        bodyGroup.add(shoulder);
+        const head = createMesh(geoBearHead, matBearHead, 0.72, 0.8, 0.72);
+        head.position.set(1.5, 0.5, 0);
         bodyGroup.add(head);
-        const snout = createMesh(geoBox, matSnout, 0.4, 0.3, 0.5);
-        snout.position.set(0.4, -0.2, 0);
+        const snout = createMesh(geoBearMuzzle, matBearDarkFur, 0.5, 0.34, 0.52);
+        snout.position.set(0.72, -0.18, 0);
         head.add(snout);
-        const earL = createMesh(geoSphere, matBearHead, 0.3, 0.3, 0.3);
-        earL.position.set(-0.1, 0.45, 0.35);
-        const earR = createMesh(geoSphere, matBearHead, 0.3, 0.3, 0.3);
-        earR.position.set(-0.1, 0.45, -0.35);
+        const nose = createMesh(geoSphere, matSnout, 0.22, 0.16, 0.24);
+        nose.position.set(1.12, -0.1, 0);
+        head.add(nose);
+        const earL = createMesh(geoSphere, matBearDarkFur, 0.29, 0.32, 0.2);
+        earL.position.set(-0.16, 0.65, 0.47);
+        const earR = createMesh(geoSphere, matBearDarkFur, 0.29, 0.32, 0.2);
+        earR.position.set(-0.16, 0.65, -0.47);
         head.add(earL, earR);
         const eyeMat = isWhale ? matBearWhaleEye : matBearEye;
         const eyeL = createMesh(geoSphere, eyeMat, isWhale ? 0.15 : 0.1, isWhale ? 0.15 : 0.1, isWhale ? 0.15 : 0.1);
@@ -165,9 +202,18 @@ export function spawnUnit(type, initial = false, isWhale = false, trade = null) 
         const eyeR = createMesh(geoSphere, eyeMat, isWhale ? 0.15 : 0.1, isWhale ? 0.15 : 0.1, isWhale ? 0.15 : 0.1);
         eyeR.position.set(0.35, 0.15, -0.35);
         head.add(eyeL, eyeR);
-        [[0.4, 0.4], [0.4, -0.4], [-0.4, 0.4], [-0.4, -0.4]].forEach((pos) => {
-            const leg = createMesh(geoLegBear, matBearBody, 1, 1, 1);
-            leg.position.set(pos[0], 0.6, pos[1]);
+        [[0.72, 0.56], [0.72, -0.56], [-0.72, 0.56], [-0.72, -0.56]].forEach((pos) => {
+            const leg = createMesh(geoBearLeg, matBearDarkFur, 1, 1.1, 1);
+            leg.position.set(pos[0], 0.72, pos[1]);
+            const paw = createMesh(geoBearMuzzle, matBearHead, 0.42, 0.2, 0.34);
+            paw.position.set(0.2, -1.0, 0);
+            [-0.12, 0.12].forEach((z) => {
+                const claw = createMesh(geoCone, matSnout, 0.08, 0.32, 0.08);
+                claw.position.set(0.42, -0.02, z);
+                claw.rotation.z = -Math.PI / 2;
+                paw.add(claw);
+            });
+            leg.add(paw);
             group.add(leg);
             legs.push(leg);
         });
@@ -200,6 +246,7 @@ export function spawnUnit(type, initial = false, isWhale = false, trade = null) 
         trade,
         power: Math.max(0.75, Math.min(3, Math.log10((trade?.solValue || 0.1) + 1) + 0.8)),
         laneTarget: spawnZ,
+        supportUntil: type === 'bull' ? bullSupportUntil : 0,
         bornAt: Math.min(Date.now(), Number(trade?.timestamp) || Date.now()),
         retired: false,
         stuckTime: 0,
@@ -244,6 +291,36 @@ export function applyTradeImpulse(isBuy, solValue, isWhale) {
     if (isWhale && state.cameraMode === 'auto') state.screenShake = 0.45;
     const impulse = Math.min(8, Math.max(0.25, Math.log2(solValue + 1)));
     state.targetFrontlineX = Math.max(-45, Math.min(45, state.targetFrontlineX + (isBuy ? impulse : -impulse)));
+}
+
+export function triggerBullKingSupport({ buySol, dominance }) {
+    if (!bullKingRig) return;
+    const now = Date.now();
+    const duration = 6_500 + Math.min(3_500, buySol * 120);
+    bullSupportUntil = now + duration;
+    entities.forEach((entity) => {
+        if (entity.type === 'bull' && entity.hp > 0 && !entity.retired) entity.supportUntil = bullSupportUntil;
+    });
+    const strength = clamp(0.9 + buySol / 18 + dominance * 0.6, 1.2, 2.8);
+    for (let i = 0; i < 3; i++) spawnSupportWave(i * 0.28, strength);
+    if (state.cameraMode === 'auto') state.screenShake = Math.max(state.screenShake, 0.18);
+    playTone(260, 'sine', 0.55, 0.035);
+}
+
+function spawnSupportWave(delay, strength) {
+    const material = new THREE.MeshBasicMaterial({
+        color: 0x00ff88,
+        transparent: true,
+        opacity: 0,
+        side: THREE.DoubleSide,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+    });
+    const mesh = new THREE.Mesh(supportWaveGeometry, material);
+    mesh.rotation.y = Math.PI / 2;
+    mesh.visible = false;
+    scene.add(mesh);
+    supportWaves.push({ mesh, age: -delay, strength });
 }
 
 function getTrenchHeight(x, z) {
@@ -345,6 +422,7 @@ function init3D() {
 
     createLandscapeProps();
     createGrassTufts();
+    createFlyingBullKing();
 
     frontlineLaser = new THREE.Group();
     const coreLaser = new THREE.Mesh(
@@ -453,6 +531,168 @@ function createGrassTufts() {
     }
     grassMesh.instanceMatrix.needsUpdate = true;
     scene.add(grassMesh);
+}
+
+function createFlyingBullKing() {
+    bullKingRig = new THREE.Group();
+    const mount = new THREE.Group();
+
+    const body = createMesh(geoBearBody, matKingBlack, 3.8, 1.75, 1.62);
+    body.position.y = 0.1;
+    const chest = createMesh(geoBearBody, matBullBody, 1.8, 1.92, 1.72);
+    chest.position.set(1.65, 0.28, 0);
+    const head = createMesh(geoBearHead, matBullHead, 1.48, 1.28, 1.32);
+    head.position.set(3.85, 0.72, 0);
+    const muzzle = createMesh(geoBearMuzzle, matSnout, 0.82, 0.48, 0.78);
+    muzzle.position.set(1.05, -0.3, 0);
+    head.add(muzzle);
+    addKingBullFace(head);
+    mount.add(body, chest, head);
+
+    [[1.8, 0.95], [1.8, -0.95], [-1.8, 0.95], [-1.8, -0.95]].forEach(([x, z], index) => {
+        const leg = createMesh(geoLegBull, matKingBlack, 1.65, 1.8, 1.65);
+        leg.position.set(x, -0.7, z);
+        leg.rotation.z = index < 2 ? -0.58 : 0.58;
+        mount.add(leg);
+    });
+
+    kingWingNear = createKingWing(1);
+    kingWingFar = createKingWing(-1);
+    kingWingNear.position.set(-0.35, 0.45, 1.15);
+    kingWingFar.position.set(-0.35, 0.45, -1.15);
+    mount.add(kingWingNear, kingWingFar);
+
+    const rider = createBullKingRider();
+    rider.position.set(-0.05, 1.82, 0.18);
+    mount.add(rider);
+
+    const saddle = createMesh(geoBox, matKingSaddle, 1.5, 0.28, 1.25);
+    saddle.position.set(-0.1, 1.58, 0);
+    saddle.rotation.z = -0.05;
+    mount.add(saddle);
+
+    const mountAura = new THREE.Mesh(
+        new THREE.RingGeometry(3.4, 4.1, 48),
+        new THREE.MeshBasicMaterial({ color: 0x00ff88, transparent: true, opacity: 0.18, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false })
+    );
+    mountAura.rotation.x = -Math.PI / 2;
+    mountAura.position.y = -1.85;
+    mount.add(mountAura);
+
+    bullKingRig.add(mount);
+    bullKingRig.scale.setScalar(0.98);
+    bullKingRig.position.set(-26, 10, -7);
+    scene.add(bullKingRig);
+}
+
+function addKingBullFace(head) {
+    const hornLeft = createMesh(geoCone, matBullHorn, 0.38, 1.5, 0.38);
+    hornLeft.position.set(0.05, 1.05, 0.92);
+    hornLeft.rotation.set(Math.PI / 5, 0, -Math.PI / 2.8);
+    const hornRight = createMesh(geoCone, matBullHorn, 0.38, 1.5, 0.38);
+    hornRight.position.set(0.05, 1.05, -0.92);
+    hornRight.rotation.set(-Math.PI / 5, 0, -Math.PI / 2.8);
+    const eyeLeft = createMesh(geoSphere, matBullWhaleEye, 0.17, 0.13, 0.17);
+    eyeLeft.position.set(1.15, 0.3, 0.62);
+    const eyeRight = createMesh(geoSphere, matBullWhaleEye, 0.17, 0.13, 0.17);
+    eyeRight.position.set(1.15, 0.3, -0.62);
+    head.add(hornLeft, hornRight, eyeLeft, eyeRight);
+}
+
+function createKingWing(side) {
+    const wing = new THREE.Group();
+    const shape = new THREE.Shape();
+    shape.moveTo(0, 0);
+    shape.lineTo(-1.0, 1.05);
+    shape.lineTo(-2.35, 2.5);
+    shape.lineTo(-2.15, 0.75);
+    shape.lineTo(-4.15, 1.95);
+    shape.lineTo(-3.2, 0.15);
+    shape.lineTo(-5.2, 0.55);
+    shape.lineTo(-3.8, -0.72);
+    shape.lineTo(-1.15, -0.62);
+    shape.closePath();
+    const membrane = new THREE.Mesh(new THREE.ShapeGeometry(shape), matKingWing);
+    membrane.scale.set(1.12, 1.05, 1);
+    membrane.rotation.y = side * 0.18;
+    membrane.castShadow = true;
+    wing.add(membrane);
+    for (let i = 0; i < 3; i++) {
+        const rib = createMesh(geoStaff, matKingSaddle, 0.32, 0.78 + i * 0.12, 0.32);
+        rib.position.set(-1.25 - i * 1.05, 0.42 + i * 0.25, side * 0.05);
+        rib.rotation.z = 1.05 + i * 0.1;
+        wing.add(rib);
+    }
+    return wing;
+}
+
+function createBullKingRider() {
+    const rider = new THREE.Group();
+    const torso = createMesh(geoBox, matKingCloth, 1.05, 1.65, 0.72);
+    torso.position.y = 1.45;
+    const coatTail = createMesh(geoCone, matKingCloth, 0.9, 1.8, 0.65);
+    coatTail.position.set(-0.48, 0.55, 0);
+    coatTail.rotation.z = Math.PI / 2.6;
+    const head = createMesh(geoSphere, matKingSkin, 0.72, 0.8, 0.7);
+    head.position.set(0.15, 2.82, 0);
+    head.rotation.y = -0.18;
+    const beard = createMesh(geoCone, matKingHair, 0.35, 0.45, 0.3);
+    beard.position.set(0.5, 2.55, 0);
+    beard.rotation.z = -Math.PI / 2;
+    rider.add(torso, coatTail, head, beard);
+
+    const sash = createMesh(geoBox, matKingSaddle, 0.2, 1.75, 0.78);
+    sash.position.set(0.05, 1.48, 0);
+    sash.rotation.z = -0.42;
+    rider.add(sash);
+
+    [-1, 1].forEach((side) => {
+        const eye = createMesh(geoSphere, matKingEnergy, 0.075, 0.065, 0.075);
+        eye.position.set(0.62, 2.98, side * 0.27);
+        const brow = createMesh(geoBox, matKingHair, 0.22, 0.055, 0.06);
+        brow.position.set(0.62, 3.15, side * 0.27);
+        brow.rotation.x = side * 0.16;
+        rider.add(eye, brow);
+    });
+    const nose = createMesh(geoBearMuzzle, matKingSkin, 0.13, 0.17, 0.12);
+    nose.position.set(0.77, 2.82, 0);
+    rider.add(nose);
+
+    for (let i = 0; i < 7; i++) {
+        const hair = createMesh(geoCone, matKingHair, 0.18, 0.58 + (i % 2) * 0.18, 0.18);
+        hair.position.set(-0.2 + (i % 4) * 0.18, 3.5 + Math.floor(i / 4) * 0.08, -0.28 + (i % 3) * 0.28);
+        rider.add(hair);
+    }
+
+    const arm = createMesh(geoBearLeg, matKingCloth, 0.68, 1.5, 0.68);
+    arm.position.set(0.68, 1.82, 0.55);
+    arm.rotation.z = -0.82;
+    const hand = createMesh(geoSphere, matKingSkin, 0.22, 0.22, 0.22);
+    hand.position.set(0, -1.12, 0);
+    arm.add(hand);
+    rider.add(arm);
+
+    const staff = createMesh(geoStaff, matKingEnergy, 1, 1, 1);
+    staff.scale.y = 0.76;
+    staff.position.set(1.45, 1.9, 0.78);
+    staff.rotation.z = -0.58;
+    const staffCrown = createMesh(geoCone, matKingEnergy, 0.42, 0.92, 0.42);
+    staffCrown.position.y = 2.78;
+    staff.add(staffCrown);
+    kingStaffGlow = new THREE.PointLight(0x00ff88, 5, 18, 2);
+    kingStaffGlow.position.set(0, 2.35, 0);
+    staff.add(kingStaffGlow);
+    rider.add(staff);
+
+    const crownBand = createMesh(geoBox, matKingEnergy, 0.68, 0.12, 0.68);
+    crownBand.position.set(0.02, 3.66, 0);
+    rider.add(crownBand);
+    [-0.38, 0, 0.38].forEach((z, index) => {
+        const point = createMesh(geoCone, matKingEnergy, 0.16, index === 1 ? 0.72 : 0.52, 0.16);
+        point.position.set(0.02, 4.02 + (index === 1 ? 0.1 : 0), z);
+        rider.add(point);
+    });
+    return rider;
 }
 
 function smoothstep(edge0, edge1, value) {
@@ -599,10 +839,12 @@ function updateEntities(delta) {
         }
 
         e.body.scale.lerp(e.baseScale, 10 * delta);
-        e.aura.visible = e.isWhale;
+        const isSupported = e.type === 'bull' && e.supportUntil > now;
+        e.aura.visible = e.isWhale || isSupported;
         if (e.aura.visible) {
             e.aura.rotation.z -= delta * 1.4;
-            e.aura.material.opacity = 0.24 + Math.sin(e.animTime * 3) * 0.08;
+            const baseOpacity = e.isWhale ? 0.24 : 0.12;
+            e.aura.material.opacity = baseOpacity + Math.sin(e.animTime * 3) * 0.07;
         }
 
         e.animTime += delta;
@@ -633,7 +875,8 @@ function updateEntities(delta) {
         }
 
         const speed = e.isWhale ? 8 : 9;
-        const dmgBase = (e.isWhale ? 150 : 35) * e.power;
+        const supportMultiplier = isSupported ? 1.18 : 1;
+        const dmgBase = (e.isWhale ? 150 : 35) * e.power * supportMultiplier;
         let isMoving = false;
 
         if (e.target) {
@@ -804,6 +1047,48 @@ function recoverIfStuck(entity, delta) {
     entity.stuckTime = 0;
 }
 
+function updateBullKing(delta) {
+    if (!bullKingRig) return;
+    kingTime += delta;
+    const x = clamp(state.frontlineX - 23, ARENA.minX + 14, ARENA.maxX - 28);
+    const z = -7;
+    const hover = Math.sin(kingTime * 1.25) * 0.7;
+    _kingTarget.set(x, getTrenchHeight(x, z) + 9.6 + hover, z);
+    bullKingRig.position.lerp(_kingTarget, Math.min(1, delta * 1.8));
+    bullKingRig.rotation.z = Math.sin(kingTime * 0.8) * 0.025;
+    bullKingRig.rotation.y = Math.sin(kingTime * 0.45) * 0.045;
+    const flap = Math.sin(kingTime * 4.2) * 0.24;
+    kingWingNear.rotation.x = 0.12 + flap;
+    kingWingFar.rotation.x = -0.12 - flap;
+    const supporting = bullSupportUntil > Date.now();
+    if (kingStaffGlow) kingStaffGlow.intensity = supporting ? 11 + Math.sin(kingTime * 11) * 3 : 4.5 + Math.sin(kingTime * 2) * 1.2;
+}
+
+function updateSupportWaves(delta) {
+    for (let i = supportWaves.length - 1; i >= 0; i--) {
+        const wave = supportWaves[i];
+        wave.age += delta;
+        if (wave.age < 0) continue;
+        if (!wave.launched) {
+            wave.launched = true;
+            wave.mesh.visible = true;
+            wave.mesh.position.copy(bullKingRig.position);
+            wave.mesh.position.x += 2.8;
+            wave.mesh.position.y += 4.2;
+            wave.mesh.position.z += 0.8;
+        }
+        wave.mesh.position.x += (20 + wave.strength * 3) * delta;
+        wave.mesh.scale.setScalar(1 + wave.age * (3.2 + wave.strength));
+        wave.mesh.material.opacity = Math.max(0, (1 - wave.age / 1.65) * 0.38);
+        wave.mesh.rotation.z += delta * 0.45;
+        if (wave.age >= 1.65) {
+            scene.remove(wave.mesh);
+            wave.mesh.material.dispose();
+            supportWaves.splice(i, 1);
+        }
+    }
+}
+
 function updateCamera(delta) {
     if (state.cameraMode === 'auto') {
         if (entities.length > 0) {
@@ -894,6 +1179,8 @@ function gameLoop() {
     const delta = Math.min(clock.getDelta(), 0.1);
     updateProjectiles(delta);
     updateEntities(delta);
+    updateBullKing(delta);
+    updateSupportWaves(delta);
     updateParticles(delta);
     updateCamera(delta);
     renderer.render(scene, camera);

@@ -424,6 +424,14 @@ canvas { width: 100%; height: 100%; display: block; outline: none; }
 .trade-link.is-whale { border-left:2px solid var(--bull-gold); padding-left:8px; }
 .bull-kill { color:var(--meadow-green); font-weight:600; }
 .bear-kill { color:var(--bear-red); font-weight:600; }
+.bull-swarm-event {
+    color: #baffd8;
+    font-weight: 800;
+    background: linear-gradient(90deg, rgba(0,255,136,.16), rgba(0,255,136,.02));
+    border-left: 3px solid var(--meadow-green);
+    padding-left: 10px;
+    text-shadow: 0 0 12px rgba(0,255,136,.35);
+}
 
 .trades-empty {
     padding: 16px 0;

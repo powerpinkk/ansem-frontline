@@ -205,3 +205,11 @@ export function showTradesWaiting() {
         DOM.tradesfeed.innerHTML = '<div class="trades-empty">Waiting for on-chain swaps…</div>';
     }
 }
+
+export function addBullSwarmEvent({ buyCount, buySol, dominance }) {
+    const row = document.createElement('div');
+    row.className = 'kill-item bull-swarm-event';
+    row.textContent = `${new Date().toLocaleTimeString()} · BULL SWARM · ${buyCount} buys · ${buySol.toFixed(1)} SOL · King's support ${Math.round(dominance * 100)}%`;
+    DOM.killfeed.prepend(row);
+    trimFeed(DOM.killfeed, CONFIG.MAX_KILLFEED);
+}

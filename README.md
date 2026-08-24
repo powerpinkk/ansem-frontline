@@ -14,12 +14,15 @@ An open-source 3D market visualization that turns verified `$ANSEM` swaps on Sol
 | Verified sell | One bear |
 | Buy worth at least 20 SOL | Giant black bull with luminous green eyes and aura |
 | Sell worth at least 20 SOL | Giant bear with luminous red eyes and aura |
+| Five or more unique buys totaling at least 5 SOL in 12 seconds, with ≥75% buy dominance | The flying Bull King casts three green support waves |
 | 60-second net buy/sell volume | Bull/bear dominance and frontline position |
 | Reference-pool OHLCV | One-hour mini price chart |
 
 Every spawned unit originates from a verified swap returned by the Helius relay or GeckoTerminal fallback. There are no randomly generated market events. Combat animation and damage are visual metaphors and are intentionally simulated.
 
 Units advance toward real opposing flow when it exists and otherwise hold formation around the rolling pressure frontline. Deterministic lanes, local avoidance, separation, stuck recovery and hard arena bounds keep the visualization readable. Regular units remain for 75 seconds and giant trades for 105 seconds, then retire without being counted as combat defeats; this keeps the battlefield representative of recent activity instead of accumulating historical trades forever.
+
+The Bull King is a persistent visual commander inspired by the project's character artwork. A buy swarm can temporarily illuminate and strengthen existing bulls in the illustrative combat layer, but it never creates synthetic trades or directly changes dominance, price, or frontline position. Swarms have a 25-second cooldown and ignore duplicate transaction signatures.
 
 ## Data methodology
 

@@ -85,3 +85,24 @@ export function calculatePressure(trades, now = Date.now()) {
     const bullPercent = total > 0 ? (buySol / total) * 100 : 50;
     return { buySol, sellSol, totalSol: total, bullPercent, bearPercent: 100 - bullPercent };
 }
+
+export function evaluateBuySwarm(trades, now = Date.now(), lastTriggeredAt = 0) {
+    const recent = trades.filter((trade) => now - trade.timestamp <= CONFIG.BUY_SWARM_WINDOW_MS);
+    const unique = [...new Map(recent.map((trade) => [trade.txHash || trade.id, trade])).values()];
+    const buys = unique.filter((trade) => trade.isBuy);
+    const buySol = buys.reduce((sum, trade) => sum + trade.solValue, 0);
+    const sellSol = unique.filter((trade) => !trade.isBuy).reduce((sum, trade) => sum + trade.solValue, 0);
+    const totalSol = buySol + sellSol;
+    const dominance = totalSol > 0 ? buySol / totalSol : 0;
+    const cooledDown = now - lastTriggeredAt >= CONFIG.BUY_SWARM_COOLDOWN_MS;
+    return {
+        triggered: cooledDown
+            && buys.length >= CONFIG.BUY_SWARM_MIN_TRADES
+            && buySol >= CONFIG.BUY_SWARM_MIN_SOL
+            && dominance >= CONFIG.BUY_SWARM_MIN_DOMINANCE,
+        buyCount: buys.length,
+        buySol,
+        dominance,
+        windowMs: CONFIG.BUY_SWARM_WINDOW_MS,
+    };
+}
