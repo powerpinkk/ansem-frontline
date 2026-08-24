@@ -1,17 +1,27 @@
 import { CONFIG } from './config.js';
 import { calculatePressure, deriveSolPrice, parseGeckoTrade, selectTrackedPools } from './market.js';
-import { bootstrappedPools, seenTradeIds, state } from './state.js';
+import { connectTradeStream } from './stream.js';
+import { bootstrappedPools, seenTradeHashes, seenTradeIds, state } from './state.js';
 
 let callbacks = {};
 let priceDelay = CONFIG.FETCH_MIN_DELAY_MS;
 let tradesDelay = CONFIG.TRADES_POLL_MIN_DELAY_MS;
 let lastPoolDiscovery = 0;
+let pollingFallback = !CONFIG.STREAM_URL;
+let fallbackTimer = null;
 
 export function initAPI(nextCallbacks) {
     callbacks = nextCallbacks;
     setConnection('connecting');
     schedule(runMarketLoop, 0);
-    schedule(runTradeLoop, 1200);
+    if (CONFIG.STREAM_URL) {
+        connectTradeStream(CONFIG.STREAM_URL, {
+            onTrade: receiveStreamTrade,
+            onStatus: handleStreamStatus,
+        });
+    } else {
+        schedule(runTradeLoop, 1200);
+    }
 }
 
 function schedule(task, delay) { window.setTimeout(task, delay); }
@@ -44,6 +54,7 @@ async function runMarketLoop() {
 }
 
 async function runTradeLoop() {
+    if (!pollingFallback) return;
     const pool = state.trackedPools[state.poolCursor % state.trackedPools.length];
     if (!pool) {
         schedule(runTradeLoop, CONFIG.TRADES_POLL_MIN_DELAY_MS);
@@ -61,6 +72,28 @@ async function runTradeLoop() {
     }
     refreshConnection();
     schedule(runTradeLoop, tradesDelay);
+}
+
+function handleStreamStatus(status) {
+    if (status === 'online') {
+        pollingFallback = false;
+        window.clearTimeout(fallbackTimer);
+        state.tradesFailures = 0;
+        refreshConnection();
+        return;
+    }
+    window.clearTimeout(fallbackTimer);
+    fallbackTimer = window.setTimeout(() => {
+        if (pollingFallback) return;
+        pollingFallback = true;
+        schedule(runTradeLoop, 0);
+    }, 5_000);
+}
+
+function receiveStreamTrade(trade) {
+    if (!trade?.txHash || seenTradeHashes.has(trade.txHash)) return;
+    seenTradeHashes.add(trade.txHash);
+    receiveTrade(trade, false);
 }
 
 async function fetchJson(url) {
@@ -130,19 +163,27 @@ async function fetchPoolTrades(pool) {
     const trades = (json.data || []).map((entry) => parseGeckoTrade(entry, pool, state.solPriceUsd)).filter(Boolean).sort((a, b) => a.timestamp - b.timestamp);
     if (!trades.length) return;
     if (!bootstrappedPools.has(pool.address)) {
-        trades.forEach((trade) => seenTradeIds.add(trade.id));
+        trades.forEach((trade) => {
+            seenTradeIds.add(trade.id);
+            seenTradeHashes.add(trade.txHash);
+        });
         trades.slice(-CONFIG.TRADES_BOOTSTRAP_COUNT).forEach((trade) => receiveTrade(trade, true));
         bootstrappedPools.add(pool.address);
         return;
     }
-    trades.filter((trade) => !seenTradeIds.has(trade.id)).forEach((trade) => {
+    trades.filter((trade) => !seenTradeIds.has(trade.id) && !seenTradeHashes.has(trade.txHash)).forEach((trade) => {
         seenTradeIds.add(trade.id);
+        seenTradeHashes.add(trade.txHash);
         receiveTrade(trade, false);
     });
     if (seenTradeIds.size > 2_000) {
         const activeIds = trades.map((trade) => trade.id);
         seenTradeIds.clear();
         activeIds.forEach((id) => seenTradeIds.add(id));
+    }
+    if (seenTradeHashes.size > 2_000) {
+        seenTradeHashes.clear();
+        trades.forEach((trade) => seenTradeHashes.add(trade.txHash));
     }
 }
 

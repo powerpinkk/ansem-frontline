@@ -25,4 +25,5 @@ export const state = {
 };
 
 export const seenTradeIds = new Set();
+export const seenTradeHashes = new Set();
 export const bootstrappedPools = new Set();

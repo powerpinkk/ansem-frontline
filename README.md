@@ -21,7 +21,7 @@ Every spawned unit originates from a trade returned by GeckoTerminal. There are 
 
 ## Data methodology
 
-DexScreener is used to discover active Solana pools and calculate a liquidity-weighted token price. The application ranks supported SOL and stablecoin pools using recent volume and liquidity, then polls the four most active pools in rotation. GeckoTerminal supplies the verified swap records and OHLCV candles.
+DexScreener is used to discover active Solana pools and calculate a liquidity-weighted token price. The preferred production path uses a Helius standard WebSocket behind a Cloudflare Durable Object: the Worker subscribes to every discovered pool, parses confirmed balance changes and broadcasts normalized trades without exposing the Helius key. If the stream is unavailable, the browser automatically returns to GeckoTerminal polling of the four most active pools. GeckoTerminal also supplies OHLCV candles.
 
 Trade value is normalized to SOL:
 
@@ -38,7 +38,12 @@ DexScreener ── pool discovery, price, liquidity, market cap
       │
       ├── pool ranking and coverage calculation
       │
-GeckoTerminal ── verified swaps and OHLCV
+Helius WSS ── confirmed pool transactions
+      │
+Cloudflare Durable Object ── secure parsing and WebSocket broadcast
+      │
+      ├── automatic fallback: GeckoTerminal verified swaps
+      ├── GeckoTerminal OHLCV
       │
       ├── parsing, SOL normalization, deduplication
       ├── rolling 60-second pressure model
@@ -80,6 +85,9 @@ js/api.js                  Resilient multi-pool data ingestion
 js/state.js                Runtime state
 js/ui.js                   Safe DOM rendering and controls
 js/scene.js                Three.js world and combat simulation
+js/stream.js               WebSocket client and reconnection
+worker/src/index.js        Cloudflare/Helius real-time relay
+worker/src/parser.js       Generic Solana balance-change parser
 tests/market.test.js       Market semantics and parsing tests
 .github/workflows/ci.yml   Automated quality gate
 vercel.json                Deployment and security headers
@@ -89,11 +97,23 @@ vercel.json                Deployment and security headers
 
 The application has no backend, accounts, cookies, wallet connection or trading capability. It does not contain private API keys. Wallet addresses visible in the public trade feed originate from public Solana transactions and are not persisted by this project.
 
+The optional Helius credential is stored only as a Cloudflare Worker secret. `VITE_STREAM_URL` is a public relay URL and can safely be configured in Vercel.
+
+## Free real-time relay deployment
+
+1. Create free Helius and Cloudflare accounts.
+2. Authenticate Wrangler with `npx wrangler login`.
+3. Store the key securely: `npx wrangler secret put HELIUS_API_KEY --config worker/wrangler.jsonc`.
+4. Deploy: `npm run worker:deploy`.
+5. Add the resulting `/stream` WebSocket URL to Vercel as `VITE_STREAM_URL` and redeploy.
+
+Never add the Helius key to `.env`, Vercel client variables or source control.
+
 ## Limitations and roadmap
 
-- Public polling is near-real-time rather than websocket-level real-time.
-- The four-pool cap protects GeckoTerminal's public rate limit; market coverage is disclosed in the UI.
-- A production-grade all-pool stream would require a dedicated indexed Solana data provider and a server-side credential proxy.
+- Without the optional relay, public polling is near-real-time and the four-pool cap protects GeckoTerminal's rate limit.
+- With the relay, all pools discovered by DexScreener are subscribed over Helius standard WebSockets; unsupported or unusual transactions can still fall back to the polling source.
+- Free-service quotas are suitable for a portfolio demo, not an SLA-backed trading product.
 - Combat outcomes are illustrative and do not predict price movement.
 
 ## License

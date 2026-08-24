@@ -8,6 +8,9 @@ playwright-report/
 .env
 .env.*
 !.env.example
+.dev.vars
+.wrangler/
+.wrangler-dist/
 *.log
 .DS_Store
 Thumbs.db

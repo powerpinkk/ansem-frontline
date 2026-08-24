@@ -1,0 +1,18 @@
+{
+  "$schema": "../node_modules/wrangler/config-schema.json",
+  "name": "ansem-frontline-stream",
+  "main": "src/index.js",
+  "compatibility_date": "2026-08-24",
+  "durable_objects": {
+    "bindings": [
+      { "name": "STREAM_HUB", "class_name": "StreamHub" }
+    ]
+  },
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["StreamHub"] }
+  ],
+  "vars": {
+    "TOKEN_MINT": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+    "ALLOWED_ORIGIN": "https://ansem-frontline.vercel.app"
+  }
+}
