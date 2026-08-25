@@ -303,7 +303,11 @@ test('scales a high-volume market into hundreds of moving forces with a wider au
         after.camera.z - before.camera.z,
     )).toBeLessThanOrEqual(10.5);
     await expect(page.locator('#visible-coverage')).toContainText(/BULL FORCE 2\d\d · BEAR FORCE 2\d\d/);
-    await page.screenshot({ path: '.artifacts/high-volume.png', fullPage: true });
+    // Keep the visual proof locally; GitHub's software renderer can stall while
+    // rasterizing a full-page capture containing hundreds of WebGL instances.
+    if (!process.env.CI) {
+        await page.screenshot({ path: '.artifacts/high-volume.png', fullPage: true });
+    }
 });
 
 test('covers an ultrawide battlefield without layout gaps', async ({ page }, testInfo) => {
