@@ -2039,10 +2039,14 @@ function updateCrowdSide(type, doctrine, opponentCount, delta) {
         const dz = targetZ - agent.z;
         const distance = Math.max(0.001, Math.hypot(dx, dz));
         const steering = getCrowdSteering(agent, dx / distance, dz / distance);
-        const speed = 7.2 * doctrine.speed * roleSpeed * agent.speedBias * (agent.retiring ? 0 : 1);
+        const speed = Math.min(9.4, 7.2 * doctrine.speed * roleSpeed * agent.speedBias) * (agent.retiring ? 0 : 1);
         const arrival = distance < 2.2 && !agent.retiring ? clamp(distance / 2.2, 0.12, 1) : 1;
         agent.vx = THREE.MathUtils.damp(agent.vx, steering.x * speed * arrival, 4.4, delta);
         agent.vz = THREE.MathUtils.damp(agent.vz, steering.z * speed * arrival, 4.4, delta);
+        // Aggregate ranks may sidestep terrain or circle an opponent, but their
+        // longitudinal movement is never allowed to reverse. Market pressure
+        // resolves through eliminations and new reinforcements, not retreats.
+        if (!agent.retiring) agent.vx = direction * Math.max(0, direction * agent.vx);
         agent.x = clamp(agent.x + agent.vx * delta, ARENA.minX + 0.7, ARENA.maxX - 0.7);
         agent.z = clamp(agent.z + agent.vz * delta, ARENA.minZ + 0.7, ARENA.maxZ - 0.7);
         const contactPartner = agent.engagementPartner;
