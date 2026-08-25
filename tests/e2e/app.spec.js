@@ -271,6 +271,19 @@ test('auto camera follows the king defense without cuts or environment flashes',
 test('scales a high-volume market into hundreds of moving forces with a wider auto shot', async ({ page }, testInfo) => {
     test.setTimeout(120_000);
     test.skip(testInfo.project.name !== 'desktop-chromium', 'One high-volume GPU check is sufficient');
+    // GitHub's runner reports very few logical CPUs, which intentionally selects
+    // the constrained 120-per-side profile. This test specifically verifies the
+    // capable-desktop profile; the constrained cap is covered by unit tests.
+    await page.addInitScript(() => {
+        Object.defineProperty(Navigator.prototype, 'hardwareConcurrency', {
+            configurable: true,
+            get: () => 8,
+        });
+        Object.defineProperty(Navigator.prototype, 'deviceMemory', {
+            configurable: true,
+            get: () => 8,
+        });
+    });
     await page.goto('/');
     await page.waitForFunction(() => typeof window.__ansemSetBattlePressure === 'function');
     await page.evaluate(() => window.__ansemSetBattlePressure({
