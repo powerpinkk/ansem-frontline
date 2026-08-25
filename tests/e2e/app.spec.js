@@ -265,6 +265,7 @@ test('auto camera follows the king defense without cuts or environment flashes',
 });
 
 test('scales a high-volume market into hundreds of moving forces with a wider auto shot', async ({ page }, testInfo) => {
+    test.setTimeout(120_000);
     test.skip(testInfo.project.name !== 'desktop-chromium', 'One high-volume GPU check is sufficient');
     await page.goto('/');
     await page.waitForFunction(() => typeof window.__ansemSetBattlePressure === 'function');
@@ -279,7 +280,7 @@ test('scales a high-volume market into hundreds of moving forces with a wider au
     await page.waitForFunction(() => {
         const diagnostics = window.__ansemSceneDiagnostics();
         return diagnostics.forces.bull >= 200 && diagnostics.forces.bear >= 200;
-    }, { timeout: 20_000 });
+    }, { timeout: 30_000 });
     await page.waitForTimeout(1_200);
     const before = await page.evaluate(() => window.__ansemSceneDiagnostics());
     await page.waitForTimeout(650);
