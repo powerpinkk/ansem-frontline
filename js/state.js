@@ -6,7 +6,6 @@ export const state = {
     targetFrontlineX: 0,
     screenShake: 0,
     marketTrend: 0,
-    averageX: 0,
     buySol60s: 0,
     sellSol60s: 0,
     liveTrades: [],

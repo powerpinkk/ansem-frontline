@@ -41,7 +41,10 @@ let lastKingDefenseAt = 0;
 let lastTerritoryAuditAt = 0;
 let bullControlSince = 0;
 let kingFocusUntil = 0;
+let kingFocusStartedAt = 0;
+let kingFocusPeakUntil = 0;
 let kingFocusX = 0;
+let kingFocusZ = 0;
 let kingDefenseUntil = 0;
 let kingThreat = null;
 let kingReactionAt = 0;
@@ -154,6 +157,12 @@ let audioEnabled = false;
 
 const _camTarget = new THREE.Vector3();
 const _lookTarget = new THREE.Vector3();
+const _lookDesired = new THREE.Vector3();
+const _cameraMove = new THREE.Vector3();
+const _lookMove = new THREE.Vector3();
+const _cameraDirection = new THREE.Vector3();
+let cameraShakeOffsetX = 0;
+let cameraShakeOffsetY = 0;
 const _kingTarget = new THREE.Vector3();
 const _rayDirection = new THREE.Vector3();
 const _rayUp = new THREE.Vector3(0, 1, 0);
@@ -169,6 +178,12 @@ const pointerPosition = new THREE.Vector2();
 const unitRaycaster = new THREE.Raycaster();
 const projectilePool = { bull: [], bear: [] };
 const particlePool = [];
+const _environmentTarget = new THREE.Color(0x0a120e);
+const _terrainEmissiveTarget = new THREE.Color(0x000000);
+const _frontlineColorTarget = new THREE.Color(0xffffff);
+let terrainEmissiveIntensityTarget = 0;
+let lastCameraEventWeight = 0;
+let lastCameraActionSpread = 0;
 
 export function initScene(callbacks = {}) {
     onKillEvent = callbacks.onKillEvent || onKillEvent;
@@ -217,7 +232,20 @@ export function initScene(callbacks = {}) {
                 pixelRatio: renderer.getPixelRatio(),
                 contextLost,
             } : null,
-            camera: camera ? { x: camera.position.x, y: camera.position.y, z: camera.position.z } : null,
+            camera: camera ? {
+                x: camera.position.x,
+                y: camera.position.y,
+                z: camera.position.z,
+                lookX: _lookTarget.x,
+                lookY: _lookTarget.y,
+                lookZ: _lookTarget.z,
+                eventWeight: lastCameraEventWeight,
+                actionSpread: lastCameraActionSpread,
+            } : null,
+            environment: scene?.background ? {
+                background: scene.background.getHex(),
+                target: _environmentTarget.getHex(),
+            } : null,
             frontlineX: state.frontlineX,
             viewport: renderer && canvasContainer ? {
                 canvasWidth: renderer.domElement.clientWidth,
@@ -228,6 +256,7 @@ export function initScene(callbacks = {}) {
             bounds: ARENA,
         });
         window.__ansemTriggerBullKingSupport = () => triggerBullKingSupport({ buySol: 12, dominance: 0.84 });
+        window.__ansemSetFrontlineColor = (colorHex) => setFrontlineColor(colorHex);
         window.__ansemTriggerReclamation = () => {
             const bear = entities.find((entity) => entity.type === 'bear');
             if (bear) bear.mesh.position.x = 0;
@@ -310,9 +339,19 @@ export function setSceneActive(active) {
 }
 
 export function setCameraMode(mode) {
+    const previousMode = state.cameraMode;
+    clearCameraShakeOffset();
     state.cameraMode = mode;
     window.__ansemSetCameraUI?.(mode);
-    if (orbitControls) orbitControls.enabled = mode === 'free';
+    if (!orbitControls) return;
+    orbitControls.enabled = mode === 'free';
+    if (mode === 'free') {
+        orbitControls.target.copy(_lookTarget);
+        orbitControls.update();
+    } else if (previousMode !== 'auto') {
+        camera.getWorldDirection(_cameraDirection);
+        _lookTarget.copy(camera.position).addScaledVector(_cameraDirection, 45);
+    }
 }
 
 export function toggleAudio() {
@@ -471,17 +510,16 @@ function publishVisibleUnitCount() {
 }
 
 export function setFrontlineColor(colorHex) {
-    frontlineMaterial?.color.setHex(colorHex);
+    _frontlineColorTarget.setHex(colorHex);
     if (scene && colorHex !== 0xffffff) {
         const tint = colorHex === 0x00ff88 ? 0x091a10 : 0x1a090d;
-        scene.background.setHex(tint);
-        scene.fog.color.setHex(tint);
-        terrainMaterial?.emissive.setHex(colorHex);
-        if (terrainMaterial) terrainMaterial.emissiveIntensity = 0.018;
+        _environmentTarget.setHex(tint);
+        _terrainEmissiveTarget.setHex(colorHex);
+        terrainEmissiveIntensityTarget = 0.018;
     } else if (scene) {
-        scene.background.setHex(0x0a120e);
-        scene.fog.color.setHex(0x0a120e);
-        terrainMaterial?.emissive.setHex(0x000000);
+        _environmentTarget.setHex(0x0a120e);
+        _terrainEmissiveTarget.setHex(0x000000);
+        terrainEmissiveIntensityTarget = 0;
     }
 }
 
@@ -492,8 +530,8 @@ export function applyTradeImpulse(isBuy, solValue, isWhale) {
         kingReactionStrength = strength;
     }
     if (state.cameraMode !== 'auto') return;
-    if (isWhale) state.screenShake = 0.45;
-    else if (solValue >= 5) state.screenShake = Math.max(state.screenShake, 0.12);
+    if (isWhale) state.screenShake = Math.max(state.screenShake, 0.12);
+    else if (solValue >= 5) state.screenShake = Math.max(state.screenShake, 0.045);
 }
 
 export function handleTerritoryShift(trade, meta = {}) {
@@ -574,8 +612,7 @@ function castKingWard(intruders, tactics) {
             < closest.mesh.position.distanceToSquared(bullKingRig.position) ? entity : closest;
     }, null);
     kingDefenseUntil = now + 3_200;
-    kingFocusUntil = now + 2_400;
-    kingFocusX = (bullKingRig.position.x + _rayTarget.x) * 0.5;
+    beginKingCameraFocus(_rayTarget, 2_400);
     kingReactionAt = now;
     kingReactionStrength = 2.4;
     intruders.forEach((entity) => {
@@ -597,7 +634,6 @@ function castKingWard(intruders, tactics) {
         reason: 'king-defense',
         bullPercent: (tactics.balance + 1) * 50,
     });
-    state.screenShake = Math.max(state.screenShake, 0.24);
     playTone(145, 'sawtooth', 0.52, 0.035);
 }
 
@@ -609,8 +645,7 @@ function castKingReclamation(stranded, solValue, previous, next, reason = 'trade
     spawnKingStrike(_rayTarget);
     kingThreat = stranded[0] || null;
     kingDefenseUntil = Date.now() + 2_400;
-    kingFocusUntil = Date.now() + 1_650;
-    kingFocusX = (bullKingRig.position.x + _rayTarget.x) * 0.5;
+    beginKingCameraFocus(_rayTarget, 1_650);
     kingReactionAt = Date.now();
     kingReactionStrength = 2;
     stranded.forEach((entity) => {
@@ -625,8 +660,16 @@ function castKingReclamation(stranded, solValue, previous, next, reason = 'trade
         reason,
         bullPercent: tactics ? (tactics.balance + 1) * 50 : null,
     });
-    state.screenShake = Math.max(state.screenShake, 0.32);
     playTone(170, 'sawtooth', 0.75, 0.045);
+}
+
+function beginKingCameraFocus(target, holdMs) {
+    const now = Date.now();
+    kingFocusStartedAt = now;
+    kingFocusPeakUntil = now + holdMs;
+    kingFocusUntil = kingFocusPeakUntil + 1_300;
+    kingFocusX = (bullKingRig.position.x + target.x) * 0.5;
+    kingFocusZ = (bullKingRig.position.z + target.z) * 0.5;
 }
 
 function spawnKingStrike(target) {
@@ -637,7 +680,7 @@ function spawnKingStrike(target) {
     const material = new THREE.MeshBasicMaterial({
         color: 0x00ff88,
         transparent: true,
-        opacity: 0.92,
+        opacity: 0.72,
         blending: THREE.AdditiveBlending,
         depthWrite: false,
     });
@@ -666,7 +709,7 @@ export function triggerBullKingSupport({ buySol, dominance }) {
     const strength = clamp(0.9 + buySol / 18 + dominance * 0.6, 1.2, 2.8);
     const waveCount = prefersReducedMotion ? 1 : 3;
     for (let i = 0; i < waveCount; i++) spawnSupportWave(i * 0.28, strength);
-    if (state.cameraMode === 'auto') state.screenShake = Math.max(state.screenShake, 0.18);
+    if (state.cameraMode === 'auto') state.screenShake = Math.max(state.screenShake, 0.035);
     playTone(260, 'sine', 0.55, 0.035);
 }
 
@@ -707,7 +750,8 @@ function init3D() {
         1000
     );
     camera.position.set(25, 25, 40);
-    camera.lookAt(0, -2, 0);
+    _lookTarget.set(0, -2, 0);
+    camera.lookAt(_lookTarget);
 
     renderer = new THREE.WebGLRenderer({ canvas, antialias: !isConstrainedDevice, powerPreference: 'high-performance' });
     renderer.setSize(Math.max(1, canvasContainer.clientWidth), Math.max(1, canvasContainer.clientHeight), false);
@@ -1308,7 +1352,7 @@ function applyDamage(attacker, target, dmg, isCrit, direction) {
 
     if (target.hp <= 0) {
         onKillEvent(attacker.type, target.type, isCrit, attacker.isWhale, target.isWhale);
-        if (state.cameraMode === 'auto') state.screenShake = attacker.isWhale ? 0.6 : 0.15;
+        if (state.cameraMode === 'auto') state.screenShake = Math.max(state.screenShake, attacker.isWhale ? 0.14 : 0.035);
         soundDeath();
     }
 }
@@ -1731,9 +1775,9 @@ function updateKingStrikes(delta) {
         const strike = kingStrikes[i];
         strike.age += delta;
         const progress = Math.min(1, strike.age / 1.15);
-        strike.material.opacity = (1 - progress) * 0.92;
-        strike.beam.scale.x = strike.beam.scale.z = 1 + Math.sin(progress * Math.PI) * 1.8;
-        strike.impact.scale.setScalar(1.6 + progress * 8);
+        strike.material.opacity = (1 - progress) * 0.72;
+        strike.beam.scale.x = strike.beam.scale.z = 1 + Math.sin(progress * Math.PI) * 0.75;
+        strike.impact.scale.setScalar(1.6 + progress * 6.5);
         strike.impact.rotation.z += delta * 1.8;
         if (progress >= 1) {
             scene.remove(strike.beam, strike.impact);
@@ -1744,34 +1788,112 @@ function updateKingStrikes(delta) {
 }
 
 function updateCamera(delta) {
+    clearCameraShakeOffset();
     if (state.cameraMode === 'auto') {
-        if (entities.length > 0) {
-            let totalX = 0;
-            for (let i = 0; i < entities.length; i++) totalX += entities[i].mesh.position.x;
-            state.averageX += ((totalX / entities.length) - state.averageX) * 2 * delta;
-        }
+        const now = Date.now();
+        const framing = calculateCameraFraming(now);
+        const eventWeight = getKingCameraWeight(now);
+        lastCameraEventWeight = eventWeight;
+        const focusX = THREE.MathUtils.lerp(framing.x, kingFocusX, eventWeight * 0.76);
+        const focusZ = THREE.MathUtils.lerp(framing.z, kingFocusZ, eventWeight * 0.76);
+        const spread = framing.spread;
 
-        const reclaimFocus = Date.now() < kingFocusUntil;
-        const flowCenter = entities.length > 0
-            ? state.frontlineX * 0.72 + state.averageX * 0.28
-            : state.frontlineX;
-        const followX = clamp(reclaimFocus ? kingFocusX : flowCenter, -48, 48);
-        _camTarget.set(followX + (reclaimFocus ? 20 : 25), reclaimFocus ? 30 : 25, reclaimFocus ? 52 : 40);
-        camera.position.lerp(_camTarget, 3 * delta);
+        _camTarget.set(
+            focusX + 24 + spread * 0.05,
+            24.5 + spread * 0.09 + eventWeight * 2.2,
+            focusZ + 39 + spread * 0.16 + eventWeight * 4.5,
+        );
+        _lookDesired.set(focusX, -1.35, focusZ * 0.72);
+        dampVector(camera.position, _camTarget, 1.85, 18, delta, _cameraMove);
+        dampVector(_lookTarget, _lookDesired, 2.25, 24, delta, _lookMove);
 
         if (state.screenShake > 0) {
             if (!prefersReducedMotion) {
-                camera.position.x += (Math.random() - 0.5) * state.screenShake * 2;
-                camera.position.y += (Math.random() - 0.5) * state.screenShake * 2;
+                cameraShakeOffsetX = Math.sin(kingTime * 38) * state.screenShake;
+                cameraShakeOffsetY = Math.sin(kingTime * 31 + 0.8) * state.screenShake * 0.42;
+                camera.position.x += cameraShakeOffsetX;
+                camera.position.y += cameraShakeOffsetY;
             }
-            state.screenShake -= delta;
+            state.screenShake = Math.max(0, state.screenShake - delta * 0.42);
         }
 
-        _lookTarget.set(followX, -2, 0);
         camera.lookAt(_lookTarget);
     } else if (orbitControls) {
         orbitControls.update();
     }
+}
+
+function calculateCameraFraming(now) {
+    let weightedX = state.frontlineX * 4;
+    let weightedZ = 0;
+    let totalWeight = 4;
+
+    for (const entity of entities) {
+        if (entity.retired || entity.hp <= 0) continue;
+        const age = now - entity.bornAt;
+        let weight = 0.75;
+        if (entity.behavior === 'engage' || entity.target) weight += 2.35;
+        else if (entity.behavior === 'retreat') weight += 1.1;
+        if (entity.isWhale) weight += 1.4;
+        if (age < 12_000) weight += 0.65;
+        weightedX += clamp(entity.mesh.position.x, state.frontlineX - 48, state.frontlineX + 48) * weight;
+        weightedZ += entity.mesh.position.z * weight;
+        totalWeight += weight;
+    }
+
+    const x = clamp(weightedX / totalWeight, -46, 46);
+    const z = clamp(weightedZ / totalWeight, ARENA.minZ + 3, ARENA.maxZ - 3);
+    let variance = 0;
+    let varianceWeight = 0;
+    for (const entity of entities) {
+        if (entity.retired || entity.hp <= 0) continue;
+        const weight = entity.behavior === 'engage' || entity.target ? 2 : 1;
+        const dx = entity.mesh.position.x - x;
+        const dz = entity.mesh.position.z - z;
+        variance += (dx * dx + dz * dz * 0.45) * weight;
+        varianceWeight += weight;
+    }
+    lastCameraActionSpread = clamp(Math.sqrt(variance / Math.max(1, varianceWeight)), 0, 42);
+    return { x, z, spread: lastCameraActionSpread };
+}
+
+function clearCameraShakeOffset() {
+    if (!camera) return;
+    camera.position.x -= cameraShakeOffsetX;
+    camera.position.y -= cameraShakeOffsetY;
+    cameraShakeOffsetX = 0;
+    cameraShakeOffsetY = 0;
+}
+
+function getKingCameraWeight(now) {
+    if (now < kingFocusStartedAt || now >= kingFocusUntil) return 0;
+    const fadeIn = smoothstep(0, 480, now - kingFocusStartedAt);
+    const fadeOut = 1 - smoothstep(kingFocusPeakUntil, kingFocusUntil, now);
+    return fadeIn * fadeOut;
+}
+
+function dampVector(current, target, response, maxSpeed, delta, scratch) {
+    scratch.subVectors(target, current);
+    const distance = scratch.length();
+    if (distance < 0.0001) return;
+    const exponentialStep = distance * (1 - Math.exp(-response * delta));
+    const step = Math.min(distance, exponentialStep, maxSpeed * delta);
+    current.addScaledVector(scratch, step / distance);
+}
+
+function updateEnvironment(delta) {
+    if (!scene || !terrainMaterial || !frontlineMaterial) return;
+    const environmentBlend = 1 - Math.exp(-1.25 * delta);
+    const accentBlend = 1 - Math.exp(-2.2 * delta);
+    scene.background.lerp(_environmentTarget, environmentBlend);
+    scene.fog.color.lerp(_environmentTarget, environmentBlend);
+    terrainMaterial.emissive.lerp(_terrainEmissiveTarget, environmentBlend);
+    terrainMaterial.emissiveIntensity = THREE.MathUtils.lerp(
+        terrainMaterial.emissiveIntensity,
+        terrainEmissiveIntensityTarget,
+        environmentBlend,
+    );
+    frontlineMaterial.color.lerp(_frontlineColorTarget, accentBlend);
 }
 
 function spawnParticles(pos, material, isExplosion, isWhale = false) {
@@ -1853,6 +1975,7 @@ function gameLoop(timestamp) {
     updateSupportWaves(delta);
     updateKingStrikes(delta);
     updateParticles(delta);
+    updateEnvironment(delta);
     updateCamera(delta);
     renderer.render(scene, camera);
     updateAdaptiveQuality(delta);

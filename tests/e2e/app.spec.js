@@ -180,6 +180,87 @@ test('the Bull King visibly repels a verified bear that reaches his airspace', a
     await page.screenshot({ path: `.artifacts/king-defense-${testInfo.project.name}.png`, fullPage: true });
 });
 
+test('auto camera follows the king defense without cuts or environment flashes', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== 'desktop-chromium', 'One frame-continuity check is sufficient');
+    await page.goto('/');
+    await page.waitForFunction(() => (
+        typeof window.__ansemSceneDiagnostics === 'function'
+        && typeof window.__ansemTriggerKingDefense === 'function'
+        && typeof window.__ansemSetFrontlineColor === 'function'
+    ));
+    await expect(page.locator('.trade-item')).toHaveCount(2, { timeout: 12_000 });
+
+    const continuity = await page.evaluate(async () => {
+        const read = () => window.__ansemSceneDiagnostics();
+        const before = read();
+        window.__ansemSetFrontlineColor(0xff3366);
+        const immediate = read();
+        window.__ansemTriggerKingDefense();
+
+        const samples = [];
+        await new Promise((resolve) => {
+            const startedAt = performance.now();
+            const capture = (timestamp) => {
+                const diagnostics = read();
+                samples.push({
+                    elapsed: timestamp - startedAt,
+                    camera: diagnostics.camera,
+                    background: diagnostics.environment.background,
+                });
+                if (timestamp - startedAt < 4_000) requestAnimationFrame(capture);
+                else resolve();
+            };
+            requestAnimationFrame(capture);
+        });
+
+        const coordinate = (value, axis, prefix) => value[prefix ? `${prefix}${axis.toUpperCase()}` : axis];
+        const distance = (a, b, prefix = '') => Math.hypot(
+            coordinate(b, 'x', prefix) - coordinate(a, 'x', prefix),
+            coordinate(b, 'y', prefix) - coordinate(a, 'y', prefix),
+            coordinate(b, 'z', prefix) - coordinate(a, 'z', prefix),
+        );
+        let maxCameraStep = 0;
+        let maxLookStep = 0;
+        let maxCameraSpeed = 0;
+        let maxLookSpeed = 0;
+        for (let index = 1; index < samples.length; index++) {
+            const previous = samples[index - 1];
+            const current = samples[index];
+            const seconds = Math.max(0.001, (current.elapsed - previous.elapsed) / 1_000);
+            const cameraStep = distance(previous.camera, current.camera);
+            const lookStep = distance(previous.camera, current.camera, 'look');
+            maxCameraStep = Math.max(maxCameraStep, cameraStep);
+            maxLookStep = Math.max(maxLookStep, lookStep);
+            maxCameraSpeed = Math.max(maxCameraSpeed, cameraStep / seconds);
+            maxLookSpeed = Math.max(maxLookSpeed, lookStep / seconds);
+        }
+
+        const middle = samples.find((sample) => sample.elapsed >= 600) || samples.at(-1);
+        return {
+            sampleCount: samples.length,
+            backgroundBefore: before.environment.background,
+            backgroundImmediate: immediate.environment.background,
+            backgroundAfter600ms: middle.background,
+            maxCameraStep,
+            maxLookStep,
+            maxCameraSpeed,
+            maxLookSpeed,
+            peakEventWeight: Math.max(...samples.map((sample) => sample.camera.eventWeight)),
+            finalEventWeight: samples.at(-1).camera.eventWeight,
+        };
+    });
+
+    expect(continuity.sampleCount).toBeGreaterThan(15);
+    expect(continuity.backgroundImmediate).toBe(continuity.backgroundBefore);
+    expect(continuity.backgroundAfter600ms).not.toBe(continuity.backgroundBefore);
+    expect(continuity.peakEventWeight).toBeGreaterThan(0.95);
+    expect(continuity.finalEventWeight).toBe(0);
+    expect(continuity.maxCameraStep).toBeLessThanOrEqual(1.9);
+    expect(continuity.maxLookStep).toBeLessThanOrEqual(2.5);
+    expect(continuity.maxCameraSpeed).toBeLessThanOrEqual(18.5);
+    expect(continuity.maxLookSpeed).toBeLessThanOrEqual(24.5);
+});
+
 test('covers an ultrawide battlefield without layout gaps', async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== 'desktop-chromium', 'One ultrawide visual check is sufficient');
     await page.setViewportSize({ width: 1886, height: 991 });
