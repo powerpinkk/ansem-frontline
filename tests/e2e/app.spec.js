@@ -177,7 +177,9 @@ test('the Bull King visibly repels a verified bear that reaches his airspace', a
     expect(defending.kingStrikes).toBeGreaterThan(0);
     await expect(page.locator('#killfeed')).toContainText("KING'S WARD");
 
-    await page.waitForTimeout(900);
+    await page.waitForFunction((initialRotation) => (
+        Math.abs(window.__ansemSceneDiagnostics().bullKing.rotationY - initialRotation) > 0.03
+    ), defending.bullKing.rotationY, { polling: 100, timeout: 8_000 });
     const repelled = await page.evaluate(() => window.__ansemSceneDiagnostics());
     const survivingBear = repelled.entities.find((entity) => entity.type === 'bear');
     expect(survivingBear).toBeTruthy();
@@ -298,7 +300,10 @@ test('scales a high-volume market into hundreds of moving forces with a wider au
         const diagnostics = window.__ansemSceneDiagnostics();
         return diagnostics.forces.bull >= 200 && diagnostics.forces.bear >= 200;
     }, undefined, { polling: 100, timeout: 30_000 });
-    await page.waitForTimeout(1_200);
+    await page.waitForFunction(() => {
+        const camera = window.__ansemSceneDiagnostics().camera;
+        return camera.fov > 47 && camera.y > 28;
+    }, undefined, { polling: 100, timeout: 12_000 });
     const before = await page.evaluate(() => window.__ansemSceneDiagnostics());
     await page.waitForTimeout(650);
     const after = await page.evaluate(() => window.__ansemSceneDiagnostics());
