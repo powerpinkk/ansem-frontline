@@ -197,7 +197,7 @@ function updateBattleState() {
     if (tactics.state === 'bull') DOM.battleStateDetail.textContent = 'Bulls surge forward · grizzlies backpedal toward their lines';
     else if (tactics.state === 'bear') DOM.battleStateDetail.textContent = 'Grizzlies push forward · bulls fall back toward the King';
     else if (tactics.state === 'contested') DOM.battleStateDetail.textContent = 'Both sides cross contested ground while 60s SOL flow moves the marker';
-    else DOM.battleStateDetail.textContent = 'No verified SOL flow in 60s · recent swaps keep patrolling';
+    else DOM.battleStateDetail.textContent = 'No verified SOL flow in 60s · tracked 5m market ranks muster behind the front';
     updateVisibleCoverage(state.visibleCombatants);
 }
 
@@ -251,8 +251,10 @@ export function updateVisibleCoverage(counts = state.visibleCombatants) {
     const cutoff = Date.now() - CONFIG.PRESSURE_WINDOW_MS;
     const recentVerified = state.liveTrades.filter((trade) => trade.timestamp >= cutoff).length;
     const total = Number(counts?.total || 0);
-    DOM.visibleCoverage.textContent = `${total} COMBATANT${total === 1 ? '' : 'S'} SHOWN · ${recentVerified} VERIFIED SWAP${recentVerified === 1 ? '' : 'S'} / 60S`;
-    DOM.visibleCoverage.title = `The battlefield shows at most ${CONFIG.MAX_VISIBLE_UNITS_PER_SIDE} recent verified swaps per side for performance and readability.`;
+    const bull = Number(counts?.bull || 0);
+    const bear = Number(counts?.bear || 0);
+    DOM.visibleCoverage.textContent = `BULL FORCE ${bull} · BEAR FORCE ${bear} · ${recentVerified} VERIFIED SWAP${recentVerified === 1 ? '' : 'S'} / 60S`;
+    DOM.visibleCoverage.title = `Solid champions represent up to ${CONFIG.MAX_VISIBLE_UNITS_PER_SIDE} individually verifiable swaps per side. Instanced army ranks scale from tracked 5-minute transaction counts plus verified 60-second SOL volume; ${total} total visual forces are currently rendered.`;
 }
 
 export function showUnitInspector(entity) {

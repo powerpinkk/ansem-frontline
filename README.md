@@ -12,20 +12,21 @@ An open-source 3D market visualization that turns verified `$ANSEM` swaps on Sol
 
 | Market event | Battlefield representation |
 | --- | --- |
-| Verified buy | One black bull |
-| Verified sell | One bear |
+| Verified buy | One individually inspectable black-bull champion |
+| Verified sell | One individually inspectable grizzly champion |
 | Buy worth at least 20 SOL | Giant black bull with luminous green eyes and aura |
 | Sell worth at least 20 SOL | Giant bear with luminous red eyes and aura |
-| Verified buy/sell counts across tracked pools over five minutes | Exact numeric market-force context in the sidebar; no units are generated from aggregates |
+| Reported buy/sell counts across tracked pools over five minutes | Base depth of each instanced army |
+| Verified buy/sell SOL over 60 seconds | Non-linear reinforcements, army aggression and pressure-line movement |
 | Five or more unique buys totaling at least 5 SOL in 12 seconds, with ≥75% buy dominance | The flying Bull King casts three green support waves |
 | A giant buy, buy-regime reversal or sustained ≥65% buy pressure reclaims territory containing stranded bears | The Bull King clears those isolated units with a green staff ray |
 | 60-second net buy/sell volume | Bull/bear dominance and frontline position |
 | Reference-pool OHLCV | One-hour mini price chart |
 | Selected battlefield combatant | Verified SOL size, USD value, pool, age and direct Solscan transaction link |
 
-Every bull and bear originates from a verified swap returned by the Helius relay or GeckoTerminal fallback. Five-minute DexScreener transaction counts remain visible only as numeric context and never generate battlefield characters. There are no randomly generated or aggregate-derived units. Combat animation, damage and the Bull King's territorial clear are visual metaphors and are intentionally simulated; they never alter price, order-flow dominance or the underlying trade feed.
+The visualization deliberately separates inspectable swaps from market-scale ranks. Each detailed foreground champion originates from a Helius or GeckoTerminal swap and links to its Solscan transaction. The lower-detail army ranks are an explicit aggregate visualization: each side starts from DexScreener's reported five-minute transaction count, then receives a non-linear reinforcement based on verified 60-second SOL and the recent verified-swap count. They are not presented as one character per transaction. This allows a quiet market to remain a skirmish and a genuinely high-activity market to grow toward hundreds per side without manufacturing signatures or letting one whale masquerade as hundreds of swaps. Combat motion, damage and the Bull King's actions are visual metaphors and never alter price, dominance or the underlying trade feed.
 
-The display deliberately separates three time horizons so that activity and trend are not conflated: the mini chart shows one-hour price direction, the frontline and pressure bars encode verified SOL flow over the latest 60 seconds, and the sidebar shows exact five-minute buy/sell transaction counts. The segmented pressure marker represents a rolling market balance, not a wall or collision boundary. A visible coverage label discloses both the recent verified-swap count and the number of combatants currently rendered; the scene is capped at eight recent units per side for readability and predictable performance.
+The display deliberately separates three time horizons so that activity and trend are not conflated: the mini chart shows one-hour price direction, the frontline and pressure bars encode verified SOL flow over the latest 60 seconds, and the sidebar reports five-minute buy/sell transaction counts across tracked pools. The segmented pressure marker represents a rolling market balance, not a wall or collision boundary. A visible coverage label discloses both the recent verified-swap count and the volume-weighted visual force per side. Detailed champions are capped at eight recent swaps per side; instanced ranks scale to 260 per side on capable devices and 120 per side on constrained devices.
 
 Units can cross the pressure line to patrol contested ground or pursue a verified opposing swap. Their operating area shifts continuously with 60-second SOL control rather than snapping to either side of the line. Target acquisition is distance-based across the arena and never turns off merely because a unit crossed the market marker. Deterministic lanes, local avoidance, separation, alternating patrol waypoints, stuck recovery and hard arena bounds keep the visualization readable. Regular units remain for 75 seconds and giant trades for 105 seconds, then retire without being counted as combat defeats; this keeps the battlefield representative of recent activity instead of accumulating historical trades forever.
 
@@ -35,7 +36,7 @@ The Bull King is a persistent visual commander inspired by the project's charact
 
 Territorial reclamation is similarly deterministic: after a buy-regime reversal, a giant buy that advances the frontline materially, or sustained buy control of at least 65%, the King targets only verified bears left behind the new bull line. His staff ray retires those isolated units and records the trigger in the battle log; bears still positioned on their valid side remain untouched, and the effect has no influence on market calculations.
 
-The King continuously patrols bull territory and changes distance, wing cadence and staff pose with real flow signals. His presence is the only persistent character; all ordinary combatants are recent verified swaps.
+The King uses a deterministic command state instead of aimless patrol motion. He stays behind the bull front in `overwatch`, tracks the busiest combat lane, advances to `lead` during buy control, falls back to `guard` during sell control, moves into `rally` for buy swarms and enters `defend` only when a verified grizzly reaches his airspace. Position, orientation, banking, wings and staff all transition continuously between those objectives.
 
 When the page is hidden, the WebGL loop pauses instead of wasting battery on frames the browser cannot display. Returning to the page resets the render clock, refreshes market state, reconfigures the live stream, conservatively catches up recent pool trades and summarizes verified flow received while away. The renderer also adapts pixel density on sustained slow devices, pools short-lived projectiles and particles, respects reduced-motion preferences and recovers from WebGL context loss without altering market data.
 
@@ -71,14 +72,15 @@ Cloudflare Durable Object ── secure parsing and WebSocket broadcast
       ├── rolling 60-second pressure model
       │
       └── Three.js battlefield
-            ├── verified-swap battlefield entities only
+            ├── inspectable verified-swap champions
+            ├── instanced volume-weighted market-force ranks
             ├── traversable rolling pressure line
             ├── trade-sized combat attributes
             ├── terrain, grass, rocks and trees
             └── bounded patrols, obstacle steering and stuck recovery
 ```
 
-The code deliberately separates external data (`api.js`), pure market calculations (`market.js`), navigation rules (`navigation.js`), UI (`ui.js`) and rendering/simulation (`scene.js`).
+The code deliberately separates external data (`api.js`), pure market calculations (`market.js`), volume/strategy rules (`battlefield.js`), navigation rules (`navigation.js`), UI (`ui.js`) and rendering/simulation (`scene.js`).
 
 ## Local development
 
@@ -107,6 +109,7 @@ index.html                 Application shell
 css/styles.css             Responsive interface
 js/config.js               Public token and polling configuration
 js/market.js               Pure pool/trade/pressure calculations
+js/battlefield.js          Pure force-scaling and tactical doctrine
 js/navigation.js           Arena bounds, lanes, patrols and lifetime rules
 js/api.js                  Resilient multi-pool data ingestion
 js/state.js                Runtime state
@@ -118,6 +121,7 @@ worker/src/configuration.js Validated public pool configuration
 worker/src/market-fallback.js Helius market fallback normalization
 worker/src/parser.js       Generic Solana balance-change parser
 tests/market.test.js       Market semantics and parsing tests
+tests/battlefield.test.js  Force scale, doctrines and King modes
 tests/navigation.test.js   Deterministic movement and lifecycle tests
 .github/workflows/ci.yml   Automated quality gate
 vercel.json                Deployment and security headers

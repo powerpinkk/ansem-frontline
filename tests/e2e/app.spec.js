@@ -43,6 +43,8 @@ test('renders verified swaps and the WebGL battlefield', async ({ page }, testIn
     expect(dimensions.height).toBeGreaterThan(200);
     const diagnostics = await page.evaluate(() => window.__ansemSceneDiagnostics());
     expect(diagnostics.entities.length).toBe(2);
+    expect(diagnostics.forces.targetBull).toBeGreaterThan(diagnostics.forces.targetBear);
+    expect(diagnostics.forces.targetBull + diagnostics.forces.targetBear).toBeGreaterThan(100);
     for (const entity of diagnostics.entities) {
         expect(Number.isFinite(entity.x)).toBe(true);
         expect(Number.isFinite(entity.z)).toBe(true);
@@ -54,7 +56,7 @@ test('renders verified swaps and the WebGL battlefield', async ({ page }, testIn
     expect(diagnostics.bullKing).not.toBeNull();
     await expect(page.locator('#battle-state-label')).toContainText(/ADVANCING|CONTESTED|QUIET/);
     await expect(page.locator('#battle-state-flow')).toContainText(/BUYERS|SELLERS|NO VERIFIED FLOW/);
-    await expect(page.locator('#visible-coverage')).toContainText('2 COMBATANTS SHOWN');
+    await expect(page.locator('#visible-coverage')).toContainText('BULL FORCE');
     await expect(page.locator('#data-freshness')).toContainText('DATA');
     expect(diagnostics.render.calls).toBeLessThan(220);
     expect(diagnostics.render.geometries).toBeLessThan(80);
@@ -167,6 +169,7 @@ test('the Bull King visibly repels a verified bear that reaches his airspace', a
     expect(invadingBear).toBeTruthy();
     expect(invadingBear.forcedRetreat).toBe(true);
     expect(defending.bullKing.defending).toBe(true);
+    expect(defending.bullKing.mode).toBe('defend');
     expect(defending.kingStrikes).toBeGreaterThan(0);
     await expect(page.locator('#killfeed')).toContainText("KING'S WARD");
 
@@ -259,6 +262,47 @@ test('auto camera follows the king defense without cuts or environment flashes',
     expect(continuity.maxLookStep).toBeLessThanOrEqual(2.5);
     expect(continuity.maxCameraSpeed).toBeLessThanOrEqual(18.5);
     expect(continuity.maxLookSpeed).toBeLessThanOrEqual(24.5);
+});
+
+test('scales a high-volume market into hundreds of moving forces with a wider auto shot', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== 'desktop-chromium', 'One high-volume GPU check is sufficient');
+    await page.goto('/');
+    await page.waitForFunction(() => typeof window.__ansemSetBattlePressure === 'function');
+    await page.evaluate(() => window.__ansemSetBattlePressure({
+        buySol: 400,
+        sellSol: 320,
+        buyCount: 200,
+        sellCount: 200,
+        verifiedBuyCount: 20,
+        verifiedSellCount: 20,
+    }));
+    await page.waitForFunction(() => {
+        const diagnostics = window.__ansemSceneDiagnostics();
+        return diagnostics.forces.bull >= 200 && diagnostics.forces.bear >= 200;
+    }, { timeout: 20_000 });
+    await page.waitForTimeout(1_200);
+    const before = await page.evaluate(() => window.__ansemSceneDiagnostics());
+    await page.waitForTimeout(650);
+    const after = await page.evaluate(() => window.__ansemSceneDiagnostics());
+
+    expect(before.forces.targetBull).toBe(260);
+    expect(before.forces.targetBear).toBe(260);
+    expect(before.forces.bullStance).toBe('clash');
+    expect(before.forces.bearStance).toBe('clash');
+    expect(before.forces.engaged).toBeGreaterThan(5);
+    expect(before.camera.fov).toBeGreaterThan(47);
+    expect(before.camera.y).toBeGreaterThan(28);
+    expect(before.bullKing.mode).toBe('marshal');
+    expect(before.render.calls).toBeLessThan(230);
+    expect(Math.abs(after.forces.bullCenterX - before.forces.bullCenterX)
+        + Math.abs(after.forces.bearCenterX - before.forces.bearCenterX)).toBeGreaterThan(0.1);
+    expect(Math.hypot(
+        after.camera.x - before.camera.x,
+        after.camera.y - before.camera.y,
+        after.camera.z - before.camera.z,
+    )).toBeLessThanOrEqual(10.5);
+    await expect(page.locator('#visible-coverage')).toContainText(/BULL FORCE 2\d\d · BEAR FORCE 2\d\d/);
+    await page.screenshot({ path: '.artifacts/high-volume.png', fullPage: true });
 });
 
 test('covers an ultrawide battlefield without layout gaps', async ({ page }, testInfo) => {

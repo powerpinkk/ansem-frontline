@@ -31,6 +31,8 @@ export const CONFIG = {
     MAX_KILLFEED: 20,
     TRADES_BOOTSTRAP_COUNT: 16,
     MAX_VISIBLE_UNITS_PER_SIDE: 8,
+    MAX_BATTLEFIELD_FORCES_PER_SIDE: 260,
+    MAX_BATTLEFIELD_FORCES_CONSTRAINED: 120,
 
     DEXSCREENER_TOKEN_URL: 'https://api.dexscreener.com/token-pairs/v1/solana',
     DEXSCREENER_PAIR_URL: 'https://api.dexscreener.com/latest/dex/pairs/solana',

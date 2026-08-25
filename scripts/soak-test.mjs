@@ -15,11 +15,14 @@ const summary = {
     samples: 0,
     minEntities: Number.POSITIVE_INFINITY,
     maxEntities: 0,
+    maxVisualForces: 0,
     maxRenderCalls: 0,
     bullCrossings: 0,
     bearCrossings: 0,
     invalidPositions: 0,
     outOfBounds: 0,
+    crowdInvalidPositions: 0,
+    crowdOutOfBounds: 0,
     viewportMismatches: 0,
     stalledPatrols: new Set(),
     lineDwells: new Set(),
@@ -52,9 +55,12 @@ try {
         summary.samples += 1;
         summary.minEntities = Math.min(summary.minEntities, diagnostics.entities.length);
         summary.maxEntities = Math.max(summary.maxEntities, diagnostics.entities.length);
+        summary.maxVisualForces = Math.max(summary.maxVisualForces, (diagnostics.forces?.bull || 0) + (diagnostics.forces?.bear || 0));
         summary.maxRenderCalls = Math.max(summary.maxRenderCalls, diagnostics.render?.calls || 0);
         summary.connectionStates.add(sample.connection);
         summary.battleStates.add(sample.battle);
+        summary.crowdInvalidPositions += diagnostics.forces?.invalidPositions || 0;
+        summary.crowdOutOfBounds += diagnostics.forces?.outOfBounds || 0;
 
         if (Math.abs(diagnostics.viewport.canvasWidth - diagnostics.viewport.containerWidth) > 1
             || Math.abs(diagnostics.viewport.canvasHeight - diagnostics.viewport.containerHeight) > 1) {
@@ -86,7 +92,8 @@ try {
 
         if (now >= nextProgressAt) {
             const elapsedSeconds = Math.round((now - startedAt) / 1000);
-            console.log(`[soak] ${elapsedSeconds}s · ${sample.connection} · ${sample.battle} · ${diagnostics.entities.length} units · ${sample.tradeRows} feed rows`);
+            const visualForces = (diagnostics.forces?.bull || 0) + (diagnostics.forces?.bear || 0);
+            console.log(`[soak] ${elapsedSeconds}s · ${sample.connection} · ${sample.battle} · ${diagnostics.entities.length} verified / ${visualForces} ranks · ${sample.tradeRows} feed rows`);
             nextProgressAt = now + 60_000;
         }
     }
@@ -104,7 +111,8 @@ try {
     };
     console.log(JSON.stringify(report, null, 2));
 
-    if (pageErrors.length || summary.invalidPositions || summary.outOfBounds || summary.viewportMismatches
+    if (pageErrors.length || summary.invalidPositions || summary.outOfBounds || summary.crowdInvalidPositions
+        || summary.crowdOutOfBounds || summary.viewportMismatches
         || summary.stalledPatrols.size || summary.lineDwells.size) {
         process.exitCode = 1;
     }
