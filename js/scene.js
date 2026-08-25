@@ -734,6 +734,7 @@ function castKingWard(intruders, tactics) {
             < closest.mesh.position.distanceToSquared(bullKingRig.position) ? entity : closest;
     }, null);
     kingDefenseUntil = now + 3_200;
+    kingMode = 'defend';
     beginKingCameraFocus(_rayTarget, 2_400);
     kingReactionAt = now;
     kingReactionStrength = 2.4;
@@ -767,6 +768,7 @@ function castKingReclamation(stranded, solValue, previous, next, reason = 'trade
     spawnKingStrike(_rayTarget);
     kingThreat = stranded[0] || null;
     kingDefenseUntil = Date.now() + 2_400;
+    kingMode = 'defend';
     beginKingCameraFocus(_rayTarget, 1_650);
     kingReactionAt = Date.now();
     kingReactionStrength = 2;
@@ -1822,6 +1824,10 @@ function syncCrowdPopulation(type, target, delta) {
     if (gap === 0) return;
     crowdSpawnBudget[type] += delta * clamp(12 + Math.abs(gap) * 0.32, 12, 72);
     let changes = Math.min(Math.abs(gap), Math.floor(crowdSpawnBudget[type]));
+    // A volume shock must be represented immediately even when the renderer is
+    // running at a very low frame rate. New ranks still grow in through `life`,
+    // so this catches up the simulation without a visible one-frame pop.
+    if (Math.abs(gap) > 64) changes = Math.abs(gap);
     if (!agents.length && gap > 0) changes = Math.max(1, changes);
     if (changes <= 0) return;
     crowdSpawnBudget[type] = Math.max(0, crowdSpawnBudget[type] - changes);
@@ -2142,7 +2148,8 @@ function updateBullKing(delta) {
     const reaction = reactionAge >= 0 && reactionAge < 2.2
         ? Math.sin((reactionAge / 2.2) * Math.PI) * kingReactionStrength
         : 0;
-    const defending = now < kingDefenseUntil && kingThreat && !kingThreat.retired && kingThreat.hp > 0;
+    const defending = now < kingDefenseUntil && Boolean(kingThreat);
+    if (!defending && now >= kingDefenseUntil) kingThreat = null;
     const supporting = bullSupportUntil > now;
     const directive = deriveKingDirective({ tactics, defending, supporting });
     kingMode = directive.mode;

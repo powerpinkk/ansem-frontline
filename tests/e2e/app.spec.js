@@ -3,6 +3,10 @@ import { expect, test } from '@playwright/test';
 const token = '9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump';
 const sol = 'So11111111111111111111111111111111111111112';
 
+async function captureLocalScreenshot(page, path) {
+    if (!process.env.CI) await page.screenshot({ path, fullPage: true });
+}
+
 test.beforeEach(async ({ page }) => {
     await page.route('https://api.dexscreener.com/**', async (route) => {
         await route.fulfill({ json: { pairs: [pair('pool-buy', 'pumpswap', 1_000_000), pair('pool-sell', 'meteora', 800_000)] } });
@@ -86,7 +90,7 @@ test('renders verified swaps and the WebGL battlefield', async ({ page }, testIn
     expect(support.entities.filter((entity) => entity.type === 'bear')).toHaveLength(0);
     await expect(page.locator('#killfeed')).toContainText("KING'S RECLAMATION");
     expect(pageErrors).toEqual([]);
-    await page.screenshot({ path: `.artifacts/${testInfo.project.name}.png`, fullPage: true });
+    await captureLocalScreenshot(page, `.artifacts/${testInfo.project.name}.png`);
 });
 
 test('opens verifiable details for a battlefield combatant', async ({ page }, testInfo) => {
@@ -180,7 +184,7 @@ test('the Bull King visibly repels a verified bear that reaches his airspace', a
     expect(survivingBear.x).toBeGreaterThan(invadingBear.x + 2);
     expect(repelled.bullKing.x).not.toBeCloseTo(defending.bullKing.x, 1);
     expect(Math.abs(repelled.bullKing.rotationY - defending.bullKing.rotationY)).toBeGreaterThan(0.03);
-    await page.screenshot({ path: `.artifacts/king-defense-${testInfo.project.name}.png`, fullPage: true });
+    await captureLocalScreenshot(page, `.artifacts/king-defense-${testInfo.project.name}.png`);
 });
 
 test('auto camera follows the king defense without cuts or environment flashes', async ({ page }, testInfo) => {
@@ -280,7 +284,7 @@ test('scales a high-volume market into hundreds of moving forces with a wider au
     await page.waitForFunction(() => {
         const diagnostics = window.__ansemSceneDiagnostics();
         return diagnostics.forces.bull >= 200 && diagnostics.forces.bear >= 200;
-    }, { timeout: 30_000 });
+    }, undefined, { polling: 100, timeout: 30_000 });
     await page.waitForTimeout(1_200);
     const before = await page.evaluate(() => window.__ansemSceneDiagnostics());
     await page.waitForTimeout(650);
@@ -303,11 +307,7 @@ test('scales a high-volume market into hundreds of moving forces with a wider au
         after.camera.z - before.camera.z,
     )).toBeLessThanOrEqual(10.5);
     await expect(page.locator('#visible-coverage')).toContainText(/BULL FORCE 2\d\d · BEAR FORCE 2\d\d/);
-    // Keep the visual proof locally; GitHub's software renderer can stall while
-    // rasterizing a full-page capture containing hundreds of WebGL instances.
-    if (!process.env.CI) {
-        await page.screenshot({ path: '.artifacts/high-volume.png', fullPage: true });
-    }
+    await captureLocalScreenshot(page, '.artifacts/high-volume.png');
 });
 
 test('covers an ultrawide battlefield without layout gaps', async ({ page }, testInfo) => {
@@ -319,7 +319,7 @@ test('covers an ultrawide battlefield without layout gaps', async ({ page }, tes
     await expect(page.locator('#three-canvas')).toBeVisible();
     await expect(page.locator('#connection-label')).toContainText('LIVE', { timeout: 12_000 });
     expect(pageErrors).toEqual([]);
-    await page.screenshot({ path: '.artifacts/ultrawide.png', fullPage: true });
+    await captureLocalScreenshot(page, '.artifacts/ultrawide.png');
 });
 
 function pair(address, dexId, volume) {
