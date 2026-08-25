@@ -321,9 +321,10 @@ test('scales a high-volume market into hundreds of moving forces with a wider au
         const diagnostics = window.__ansemSceneDiagnostics();
         return diagnostics.forces.bull >= 200 && diagnostics.forces.bear >= 200;
     }, undefined, { polling: 100, timeout: 30_000 });
-    await page.waitForFunction(() => (
-        window.__ansemSceneDiagnostics().forces.engaged > 5
-    ), undefined, { polling: 100, timeout: 12_000 });
+    await page.waitForFunction(() => {
+        const { forces } = window.__ansemSceneDiagnostics();
+        return forces.engaged >= Math.floor((forces.bull + forces.bear) * 0.8);
+    }, undefined, { polling: 100, timeout: 12_000 });
     await page.waitForFunction(() => {
         const camera = window.__ansemSceneDiagnostics().camera;
         return camera.fov > 47 && camera.y > 28;
@@ -336,7 +337,9 @@ test('scales a high-volume market into hundreds of moving forces with a wider au
     expect(before.forces.targetBear).toBe(260);
     expect(before.forces.bullStance).toBe('clash');
     expect(before.forces.bearStance).toBe('clash');
-    expect(before.forces.engaged).toBeGreaterThan(5);
+    expect(before.forces.engaged).toBeGreaterThanOrEqual(
+        Math.floor((before.forces.bull + before.forces.bear) * 0.8),
+    );
     expect(before.forces.maxTurnRate).toBeLessThanOrEqual(3.21);
     expect(before.forces.maxSpeed).toBeLessThan(7);
     expect(before.forces.contactGap).toBeGreaterThan(-3);

@@ -30,6 +30,7 @@ const crowdSpatial = {
     bull: Array.from({ length: CROWD_LANE_COUNT }, () => []),
     bear: Array.from({ length: CROWD_LANE_COUNT }, () => []),
 };
+const crowdPairIndex = { bull: new Map(), bear: new Map() };
 let crowdClashAccumulator = 0;
 let devBattleOverride = null;
 let lastPublishedForces = '';
@@ -1793,6 +1794,7 @@ function updateEntities(delta) {
         }
 
         applySeparation(e, delta);
+        makeCrowdYieldToChampion(e, delta);
         enforceArenaBounds(e);
         e.mesh.position.y = getTrenchHeight(e.mesh.position.x, e.mesh.position.z);
 
@@ -1870,14 +1872,15 @@ function updateCrowdForces(delta) {
 
     const bullDoctrine = deriveForceDoctrine('bull', tactics);
     const bearDoctrine = deriveForceDoctrine('bear', tactics);
-    if (!Number.isFinite(crowdFormationX)) crowdFormationX = state.frontlineX;
-    // The market marker can jump instantly; bodies cannot. Keeping this below
-    // combatant travel speed lets each contact pair carry the line together.
-    const formationSpeed = 2.4 + tactics.flowIntensity * 1.5 + tactics.activityLevel * 0.5;
-    crowdFormationX += clamp(
-        state.frontlineX - crowdFormationX,
-        -formationSpeed * delta,
-        formationSpeed * delta,
+    if (!Number.isFinite(crowdFormationX)) crowdFormationX = 0;
+    // This is the battle's campaign centre, deliberately independent from the
+    // visual market marker. Verified SOL pressure moves it continuously; the
+    // marker itself never drags ranks around as if it were a wall.
+    const campaignPush = tactics.balance * (0.9 + tactics.flowIntensity * 1.35);
+    crowdFormationX = clamp(
+        crowdFormationX + campaignPush * delta,
+        ARENA.minX + 18,
+        ARENA.maxX - 18,
     );
     crowdBattle.bullStance = bullDoctrine.stance;
     crowdBattle.bearStance = bearDoctrine.stance;
@@ -1925,13 +1928,19 @@ function createCrowdAgent(type) {
     const laneUnit = (laneSlot + 0.5 + stagger) / CROWD_LANE_COUNT;
     const lane = clamp(-11.4 + laneUnit * 22.8 + (random() - 0.5) * 0.46, ARENA.minZ + 1.2, ARENA.maxZ - 1.2);
     const direction = type === 'bull' ? 1 : -1;
-    const edgeX = direction > 0 ? ARENA.spawnBullX + random() * 5 : ARENA.spawnBearX - random() * 5;
-    const bootstrapDepth = 5.5 + rank * 1.08 + random() * 1.2;
-    const spawnX = kingTime < 7
-        ? clamp(state.frontlineX - direction * bootstrapDepth, ARENA.minX + 1, ARENA.maxX - 1)
-        : edgeX;
+    // Aggregate ranks are reinforcements, not background extras. They enter on
+    // their own side of a deterministic combat sector, so a volume spike grows
+    // into many readable skirmishes instead of one inert pile at centre field.
+    const sector = getCombatSector(rank, laneSlot);
+    const spawnDepth = 4.8 + (rank % 6) * 0.9 + random() * 1.1;
+    const spawnX = clamp(
+        sector.x - direction * spawnDepth,
+        ARENA.minX + 1,
+        ARENA.maxX - 1,
+    );
     return {
         type,
+        pairId: sequence,
         role,
         rank,
         lane,
@@ -1942,7 +1951,7 @@ function createCrowdAgent(type) {
         size: 0.66 + random() * 0.16,
         speedBias: 0.9 + random() * 0.2,
         x: spawnX,
-        z: clamp(lane + (random() - 0.5) * 2.4, ARENA.minZ + 1, ARENA.maxZ - 1),
+        z: clamp(sector.z + (random() - 0.5) * 1.15, ARENA.minZ + 1, ARENA.maxZ - 1),
         vx: 0,
         vz: 0,
         heading: direction > 0 ? 0 : Math.PI,
@@ -1953,6 +1962,9 @@ function createCrowdAgent(type) {
         stuckTime: 0,
         opponentDistance: Number.POSITIVE_INFINITY,
         engagementPartner: null,
+        duelAnchorX: sector.x,
+        duelAnchorZ: sector.z,
+        combatOffset: (random() - 0.5) * 1.7,
         formationTargetX: spawnX,
         formationTargetZ: lane,
         life: 0,
@@ -1977,50 +1989,51 @@ function updateCrowdSide(type, doctrine, opponentCount, delta) {
             agent.life = Math.max(0, agent.life - delta * 0.72);
         } else {
             agent.life = Math.min(1, agent.life + delta * 1.45);
-            const frontDistance = {
-                muster: 2.3,
-                clash: 1.05,
-                surge: 0.65,
-                advance: 0.9,
-                hold: 1.35,
-                fallback: 1.7,
-            }[doctrine.stance];
-            targetX = crowdFormationX
-                - direction * frontDistance
-                - direction * rankDepth;
-            if (agent.role === 'vanguard') targetX += direction * 0.9;
-            else if (agent.role === 'flank') {
-                targetX += direction * 0.45;
-                targetZ = agent.flankSide * (9.8 + wave * 0.55);
-            } else if (agent.role === 'support') targetX -= direction * 2.2;
-            else if (agent.role === 'reserve') targetX -= direction * 3.6;
+            // Unpaired reinforcements join the campaign from their own side;
+            // they never seek or defend the market marker.
+            targetX = crowdFormationX - direction * Math.min(24, 7 + rankDepth);
+            if (agent.role === 'flank') targetZ = agent.flankSide * (9.8 + wave * 0.55);
         }
 
         agent.formationTargetX = targetX;
         agent.formationTargetZ = targetZ;
         opponent = !agent.retiring && opponentCount > 0 ? findCrowdOpponent(agent, type) : null;
-        const engagementRadius = doctrine.stance === 'fallback'
-            ? 3.6
-            : doctrine.stance === 'muster' ? 2.8 : 4.2 + crowdBattle.intensity * 2.8;
+        // A rank with a rival is already participating while it closes the last
+        // metres. This keeps every aggregate unit either charging, duelling or
+        // withdrawing; none is a decorative, static formation.
+        const engagementRadius = 10.5 + crowdBattle.intensity * 2.2;
         agent.opponentDistance = opponent?.distance ?? Number.POSITIVE_INFINITY;
         agent.engaged = !agent.retiring
             && opponent
             && opponent.distance <= engagementRadius;
-        if (agent.engaged) {
+        if (opponent) {
             const attackCycle = Math.max(0, Math.sin(kingTime * (2.4 + doctrine.aggression * 1.4) + agent.phase));
-            const preferredDistance = 1.45 + (agent.role === 'support' ? 0.35 : 0);
-            // Both fighters converge on the same stable duel midpoint, but remain
-            // on their own side of it. Chasing the opponent's latest position made
-            // pairs overshoot, swap sides and reverse direction every few frames.
-            const opponentAnchorZ = Number.isFinite(opponent.agent.formationTargetZ)
-                ? opponent.agent.formationTargetZ
-                : opponent.agent.z;
-            const duelMidX = crowdFormationX;
-            const duelMidZ = (agent.formationTargetZ + opponentAnchorZ) * 0.5;
-            targetX = duelMidX - direction * preferredDistance * 0.5
-                + direction * attackCycle * 0.12;
-            targetZ = THREE.MathUtils.lerp(agent.lane, duelMidZ, 0.62)
-                + Math.sin(agent.phase + kingTime * 0.32) * 0.1;
+            const preferredDistance = 2.35 + (agent.role === 'support' ? 0.45 : 0);
+            const partner = opponent.agent;
+            const isPrimaryPair = partner.engagementPartner === agent;
+            if (isPrimaryPair && type === 'bull') {
+                const pressurePush = doctrine.sideBalance * (0.45 + crowdBattle.intensity * 0.75);
+                const nextAnchorX = clamp(
+                    (agent.duelAnchorX ?? crowdFormationX) + pressurePush * delta,
+                    ARENA.minX + 14,
+                    ARENA.maxX - 14,
+                );
+                agent.duelAnchorX = nextAnchorX;
+                partner.duelAnchorX = nextAnchorX;
+            }
+            const duelAnchorX = Number.isFinite(agent.duelAnchorX)
+                ? agent.duelAnchorX
+                : Number.isFinite(partner.duelAnchorX) ? partner.duelAnchorX : crowdFormationX;
+            const duelAnchorZ = Number.isFinite(agent.duelAnchorZ)
+                ? agent.duelAnchorZ
+                : Number.isFinite(partner.duelAnchorZ) ? partner.duelAnchorZ : (agent.lane + partner.lane) * 0.5;
+            // Both sides charge the same encounter, then circle and strike around
+            // it. Their target is a rival, never the market line.
+            const supportOffset = isPrimaryPair ? 0 : 0.85 + Math.abs(agent.combatOffset);
+            targetX = duelAnchorX - direction * (preferredDistance * 0.5 + supportOffset)
+                + direction * attackCycle * 0.42;
+            targetZ = duelAnchorZ + agent.combatOffset
+                + direction * Math.sin(agent.phase + kingTime * 1.9) * (agent.engaged ? 0.48 : 0.2);
         }
 
         const dx = targetX - agent.x;
@@ -2035,7 +2048,7 @@ function updateCrowdSide(type, doctrine, opponentCount, delta) {
         agent.z = clamp(agent.z + agent.vz * delta, ARENA.minZ + 0.7, ARENA.maxZ - 0.7);
         const contactPartner = agent.engagementPartner;
         if (contactPartner && !contactPartner.retiring && Math.abs(contactPartner.z - agent.z) < 5.5) {
-            const contactSpacing = 0.72;
+            const contactSpacing = 1.15;
             if (type === 'bull' && agent.x > contactPartner.x - contactSpacing) {
                 agent.x = contactPartner.x - contactSpacing;
                 agent.vx = Math.min(agent.vx, contactPartner.vx || 0);
@@ -2078,12 +2091,20 @@ function updateCrowdSide(type, doctrine, opponentCount, delta) {
     for (let index = 0; index < agents.length; index++) {
         const agent = agents[index];
         const speed = Math.hypot(agent.vx, agent.vz);
-        const attackPulse = agent.engaged ? Math.max(0, Math.sin(kingTime * 5.2 + agent.phase)) : 0;
+        // The crowd has to read as a battle even at the camera's overview
+        // distance: a short lunge, recoil and body roll make active pairs clear
+        // without changing their collision-safe simulation positions.
+        const attackPulse = agent.engaged ? Math.max(0, Math.sin(kingTime * 6.6 + agent.phase)) : 0;
         const bob = prefersReducedMotion ? 0 : Math.abs(Math.sin(kingTime * (7.5 + speed * 0.45) + agent.phase)) * 0.13;
-        const scale = agent.size * smoothstep(0, 0.82, agent.life) * (1 + attackPulse * 0.08);
-        _crowdTransform.position.set(agent.x, getTrenchHeight(agent.x, agent.z) + bob, agent.z);
-        _crowdTransform.rotation.set(0, agent.heading, (agent.vx * direction > 0 ? -1 : 1) * attackPulse * 0.045);
-        _crowdTransform.scale.set(scale * (1 + attackPulse * 0.05), scale, scale);
+        const scale = agent.size * smoothstep(0, 0.82, agent.life) * (1 + attackPulse * 0.13);
+        const lunge = attackPulse * 0.34;
+        _crowdTransform.position.set(
+            agent.x + Math.cos(agent.heading) * lunge,
+            getTrenchHeight(agent.x, agent.z) + bob + attackPulse * 0.06,
+            agent.z - Math.sin(agent.heading) * lunge,
+        );
+        _crowdTransform.rotation.set(0, agent.heading, (agent.vx * direction > 0 ? -1 : 1) * attackPulse * 0.13);
+        _crowdTransform.scale.set(scale * (1 + attackPulse * 0.16), scale * (1 - attackPulse * 0.06), scale);
         _crowdTransform.updateMatrix();
         meshes.body.setMatrixAt(index, _crowdTransform.matrix);
         meshes.accent.setMatrixAt(index, _crowdTransform.matrix);
@@ -2115,6 +2136,20 @@ function getCrowdSteering(agent, desiredX, desiredZ) {
         steerX += radialX * force * 2.1 - radialZ * agent.avoidanceSide * force * 1.25;
         steerZ += radialZ * force * 2.1 + radialX * agent.avoidanceSide * force * 1.25;
     }
+    // Verified swaps are champions inside the same battlefield. Aggregate ranks
+    // route around their bodies rather than visibly phasing through them.
+    for (const entity of entities) {
+        if (entity.retired || entity.hp <= 0) continue;
+        const dx = agent.x - entity.mesh.position.x;
+        const dz = agent.z - entity.mesh.position.z;
+        const distanceSq = dx * dx + dz * dz;
+        const radius = (entity.isWhale ? 4.2 : 2.15) + agent.size;
+        if (distanceSq >= radius * radius) continue;
+        const distance = Math.max(0.001, Math.sqrt(distanceSq));
+        const force = clamp((radius - distance) / radius, 0.15, 1);
+        steerX += (dx / distance) * force * 2.4;
+        steerZ += (dz / distance) * force * 2.4 + (dx / distance) * agent.avoidanceSide * force * 0.65;
+    }
     const length = Math.hypot(steerX, steerZ) || 1;
     return { x: steerX / length, z: steerZ / length };
 }
@@ -2127,9 +2162,33 @@ function crowdLaneIndex(z) {
     );
 }
 
+function getCombatSector(rank, laneIndex) {
+    const pairKey = Math.max(0, rank) * CROWD_LANE_COUNT + laneIndex;
+    const sectorCapacity = 260;
+    const sectorSlot = (pairKey * 37) % sectorCapacity;
+    const sectorColumns = 20;
+    const sectorRows = sectorCapacity / sectorColumns;
+    const sectorColumn = sectorSlot % sectorColumns;
+    const sectorRow = Math.floor(sectorSlot / sectorColumns);
+    const sectorRandom = mulberry32(pairKey * 0x45d9f3b);
+    return {
+        x: clamp(
+            crowdFormationX + (sectorColumn - (sectorColumns - 1) * 0.5) * 3.05 + (sectorRandom() - 0.5) * 0.5,
+            ARENA.minX + 14,
+            ARENA.maxX - 14,
+        ),
+        z: clamp(
+            ARENA.minZ + (sectorRow + 0.5) * ((ARENA.maxZ - ARENA.minZ) / sectorRows) + (sectorRandom() - 0.5) * 0.45,
+            ARENA.minZ + 1.2,
+            ARENA.maxZ - 1.2,
+        ),
+    };
+}
+
 function rebuildCrowdSpatialIndex() {
     for (const type of ['bull', 'bear']) {
         crowdSpatial[type].forEach((bucket) => { bucket.length = 0; });
+        crowdPairIndex[type].clear();
         for (const agent of crowdAgents[type]) {
             const partner = agent.engagementPartner;
             if (partner && (
@@ -2142,7 +2201,10 @@ function rebuildCrowdSpatialIndex() {
                 if (partner.engagementPartner === agent) partner.engagementPartner = null;
                 agent.engagementPartner = null;
             }
-            if (!agent.retiring) crowdSpatial[type][crowdLaneIndex(agent.z)].push(agent);
+            if (!agent.retiring) {
+                crowdSpatial[type][crowdLaneIndex(agent.z)].push(agent);
+                crowdPairIndex[type].set(agent.pairId, agent);
+            }
         }
     }
 }
@@ -2158,28 +2220,68 @@ function findCrowdOpponent(agent, type) {
         };
     }
     const opponentType = type === 'bull' ? 'bear' : 'bull';
+    // Give equal-strength ranks a stable one-to-one rival before considering a
+    // nearby fallback. This prevents two coloured crowds from merging into a
+    // single blob: each mirrored pair shares a sector and faces its own enemy.
+    const mirroredOpponent = crowdPairIndex[opponentType].get(agent.pairId);
+    if (mirroredOpponent && (!mirroredOpponent.engagementPartner || mirroredOpponent.engagementPartner === agent)) {
+        agent.engagementPartner = mirroredOpponent;
+        mirroredOpponent.engagementPartner = agent;
+        const sector = getCombatSector(agent.rank, agent.pairId % CROWD_LANE_COUNT);
+        agent.duelAnchorX = sector.x;
+        mirroredOpponent.duelAnchorX = sector.x;
+        agent.duelAnchorZ = sector.z;
+        mirroredOpponent.duelAnchorZ = sector.z;
+        mirroredOpponent.combatOffset = agent.combatOffset;
+        return {
+            agent: mirroredOpponent,
+            distance: Math.hypot(mirroredOpponent.x - agent.x, mirroredOpponent.z - agent.z),
+        };
+    }
     const laneIndex = crowdLaneIndex(agent.z);
     let closest = null;
     let closestDistanceSq = Number.POSITIVE_INFINITY;
+    let sharedTarget = null;
+    let sharedDistanceSq = Number.POSITIVE_INFINITY;
     for (let offset = -1; offset <= 1; offset++) {
         const bucket = crowdSpatial[opponentType][laneIndex + offset];
         if (!bucket) continue;
         for (const opponent of bucket) {
-            if (opponent.engagementPartner && opponent.engagementPartner !== agent) continue;
             const dx = opponent.x - agent.x;
             const dz = opponent.z - agent.z;
             const distanceSq = dx * dx + dz * dz;
             const rankPenalty = (opponent.rank - agent.rank) ** 2 * 4;
             const matchScore = distanceSq + rankPenalty;
+            if (matchScore < sharedDistanceSq) {
+                sharedTarget = opponent;
+                sharedDistanceSq = matchScore;
+            }
+            if (opponent.engagementPartner && opponent.engagementPartner !== agent) continue;
             if (matchScore < closestDistanceSq) {
                 closest = opponent;
                 closestDistanceSq = matchScore;
             }
         }
     }
-    if (!closest) return null;
+    if (!closest) {
+        if (!sharedTarget) return null;
+        return {
+            agent: sharedTarget,
+            distance: Math.hypot(sharedTarget.x - agent.x, sharedTarget.z - agent.z),
+        };
+    }
     agent.engagementPartner = closest;
     closest.engagementPartner = agent;
+    const averageRank = (agent.rank + closest.rank) * 0.5;
+    // Spread pairs through deterministic combat sectors. This preserves a
+    // readable duel for every rank at low volume and turns high volume into a
+    // battlefield of simultaneous skirmishes instead of a single mixed block.
+    const sectorLaneIndex = crowdLaneIndex((agent.lane + closest.lane) * 0.5);
+    const sector = getCombatSector(Math.max(0, Math.round(averageRank)), sectorLaneIndex);
+    agent.duelAnchorX = sector.x;
+    closest.duelAnchorX = sector.x;
+    agent.duelAnchorZ = sector.z;
+    closest.duelAnchorZ = sector.z;
     return { agent: closest, distance: Math.hypot(closest.x - agent.x, closest.z - agent.z) };
 }
 
@@ -2316,11 +2418,27 @@ function updateCrowdSnapshot(tactics, delta) {
 
 function updateCrowdClashEffects(delta) {
     if (prefersReducedMotion || crowdBattle.engaged < 6) return;
-    crowdClashAccumulator += delta * Math.min(7, crowdBattle.engaged * 0.035) * (0.4 + crowdBattle.intensity * 0.6);
+    crowdClashAccumulator += delta * Math.min(18, crowdBattle.engaged * 0.055) * (0.4 + crowdBattle.intensity * 0.6);
     while (crowdClashAccumulator >= 1) {
         crowdClashAccumulator -= 1;
-        const z = clamp(crowdBattle.hotspotZ + (landscapeRandom() - 0.5) * 8, ARENA.minZ + 1, ARENA.maxZ - 1);
-        const x = clamp(crowdBattle.hotspotX + (landscapeRandom() - 0.5) * 5, ARENA.minX + 2, ARENA.maxX - 2);
+        // Emit impacts from an actual paired clash, never from a synthetic
+        // central hotspot. The sparks therefore explain visible combat instead
+        // of making unrelated ground appear active.
+        const activePairs = crowdAgents.bull.filter((agent) => (
+            agent.engaged
+            && agent.engagementPartner
+            && !agent.engagementPartner.retiring
+        ));
+        const pair = activePairs.length
+            ? activePairs[Math.floor(landscapeRandom() * activePairs.length)]
+            : null;
+        const rival = pair?.engagementPartner;
+        const z = pair && rival
+            ? clamp((pair.z + rival.z) * 0.5, ARENA.minZ + 1, ARENA.maxZ - 1)
+            : clamp(crowdBattle.hotspotZ + (landscapeRandom() - 0.5) * 8, ARENA.minZ + 1, ARENA.maxZ - 1);
+        const x = pair && rival
+            ? clamp((pair.x + rival.x) * 0.5, ARENA.minX + 2, ARENA.maxX - 2)
+            : clamp(crowdBattle.hotspotX + (landscapeRandom() - 0.5) * 5, ARENA.minX + 2, ARENA.maxX - 2);
         _crowdImpact.set(x, getTrenchHeight(x, z) + 0.8, z);
         spawnParticles(_crowdImpact, landscapeRandom() < 0.5 ? matParticleBull : matParticleBear, false, false, 0.45);
     }
@@ -2379,6 +2497,35 @@ function applySeparation(entity, delta) {
     }
     entity.mesh.position.x += pushX * delta * 2.8;
     entity.mesh.position.z += pushZ * delta * 2.8;
+}
+
+function makeCrowdYieldToChampion(entity, delta) {
+    // Detailed on-chain units are champions in the same physical battlefield,
+    // not ghosts. Nearby aggregate ranks step aside with a small lateral bias;
+    // this prevents either layer visibly travelling through the other while
+    // keeping the champion's target selection responsive.
+    const championX = entity.mesh.position.x;
+    const championZ = entity.mesh.position.z;
+    const clearance = entity.isWhale ? 4.9 : 2.7;
+    for (const type of ['bull', 'bear']) {
+        for (const agent of crowdAgents[type]) {
+            if (agent.retiring) continue;
+            const dx = agent.x - championX;
+            const dz = agent.z - championZ;
+            const distanceSq = dx * dx + dz * dz;
+            const radius = clearance + agent.size;
+            if (distanceSq >= radius * radius) continue;
+            const distance = Math.max(0.001, Math.sqrt(distanceSq));
+            const force = (radius - distance) / radius;
+            const radialX = dx / distance;
+            const radialZ = dz / distance;
+            const lateral = agent.avoidanceSide * force * 0.42;
+            agent.x = clamp(agent.x + (radialX * force * 5.4 - radialZ * lateral) * delta, ARENA.minX + 0.7, ARENA.maxX - 0.7);
+            agent.z = clamp(agent.z + (radialZ * force * 5.4 + radialX * lateral) * delta, ARENA.minZ + 0.7, ARENA.maxZ - 0.7);
+            agent.vx += radialX * force * 1.2;
+            agent.vz += radialZ * force * 1.2;
+        }
+    }
 }
 
 function enforceArenaBounds(entity) {
