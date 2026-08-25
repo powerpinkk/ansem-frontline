@@ -32,6 +32,7 @@ const crowdSpatial = {
 };
 const crowdPairIndex = { bull: new Map(), bear: new Map() };
 let crowdClashAccumulator = 0;
+let crowdCasualtyAccumulator = 0;
 let devBattleOverride = null;
 let lastPublishedForces = '';
 let kingMode = 'overwatch';
@@ -1869,23 +1870,18 @@ function updateCrowdForces(delta) {
     syncCrowdPopulation('bull', Math.max(0, targets.bull - verifiedBull), delta);
     syncCrowdPopulation('bear', Math.max(0, targets.bear - verifiedBear), delta);
     rebuildCrowdSpatialIndex();
+    resolveCrowdCasualties(tactics, delta);
 
     const bullDoctrine = deriveForceDoctrine('bull', tactics);
     const bearDoctrine = deriveForceDoctrine('bear', tactics);
-    if (!Number.isFinite(crowdFormationX)) crowdFormationX = 0;
-    // This is the battle's campaign centre, deliberately independent from the
-    // visual market marker. Verified SOL pressure moves it continuously; the
-    // marker itself never drags ranks around as if it were a wall.
-    const campaignPush = tactics.balance * (0.9 + tactics.flowIntensity * 1.35);
-    crowdFormationX = clamp(
-        crowdFormationX + campaignPush * delta,
-        ARENA.minX + 18,
-        ARENA.maxX - 18,
-    );
+    // The marker is market information only. Pressure is expressed through
+    // reinforcements and casualties, not by dragging both armies backwards.
+    crowdFormationX = 0;
     crowdBattle.bullStance = bullDoctrine.stance;
     crowdBattle.bearStance = bearDoctrine.stance;
     updateCrowdSide('bull', bullDoctrine, crowdAgents.bear.length, delta);
     updateCrowdSide('bear', bearDoctrine, crowdAgents.bull.length, delta);
+    preventCrowdSideOverlap();
     updateCrowdSnapshot(tactics, delta);
     updateCrowdClashEffects(delta);
     publishVisibleUnitCount();
@@ -1917,6 +1913,32 @@ function syncCrowdPopulation(type, target, delta) {
     }
 }
 
+function resolveCrowdCasualties(tactics, delta) {
+    const pressure = Math.abs(tactics.balance || 0);
+    const activity = clamp(tactics.flowIntensity || 0, 0, 1);
+    if (pressure < 0.08 || activity < 0.02) return;
+    // Stronger confirmed pressure removes opposing aggregate ranks at a limited
+    // rate. Population sync then supplies fresh reinforcements from that side's
+    // base, creating a continuous push instead of a backwards reset.
+    crowdCasualtyAccumulator += delta * (0.45 + pressure * 2.4 + activity * 1.35);
+    while (crowdCasualtyAccumulator >= 1) {
+        crowdCasualtyAccumulator -= 1;
+        const losingType = tactics.balance > 0 ? 'bear' : 'bull';
+        const candidates = crowdAgents[losingType].filter((agent) => (
+            !agent.retiring && agent.engagementPartner && agent.engaged
+        ));
+        if (!candidates.length) return;
+        const casualty = candidates[Math.floor(landscapeRandom() * candidates.length)];
+        const winner = casualty.engagementPartner;
+        casualty.retiring = true;
+        casualty.life = Math.min(casualty.life, 0.9);
+        casualty.engagementPartner = null;
+        if (winner?.engagementPartner === casualty) winner.engagementPartner = null;
+        _crowdImpact.set(casualty.x, getTrenchHeight(casualty.x, casualty.z) + 0.75, casualty.z);
+        spawnParticles(_crowdImpact, losingType === 'bull' ? matParticleBear : matParticleBull, false, false, 0.55);
+    }
+}
+
 function createCrowdAgent(type) {
     const sequence = crowdSequence[type]++;
     const random = mulberry32(sequence * 0x9e3779b1 + (type === 'bull' ? 0x51f15e : 0xb34a29));
@@ -1928,13 +1950,11 @@ function createCrowdAgent(type) {
     const laneUnit = (laneSlot + 0.5 + stagger) / CROWD_LANE_COUNT;
     const lane = clamp(-11.4 + laneUnit * 22.8 + (random() - 0.5) * 0.46, ARENA.minZ + 1.2, ARENA.maxZ - 1.2);
     const direction = type === 'bull' ? 1 : -1;
-    // Aggregate ranks are reinforcements, not background extras. They enter on
-    // their own side of a deterministic combat sector, so a volume spike grows
-    // into many readable skirmishes instead of one inert pile at centre field.
-    const sector = getCombatSector(rank, laneSlot);
-    const spawnDepth = 4.8 + (rank % 6) * 0.9 + random() * 1.1;
+    // Reinforcements enter from their own base. They only move forward into the
+    // battlefield; a change of market pressure never makes them march backwards.
+    const spawnDepth = 3.5 + (rank % 7) * 0.7 + random() * 0.9;
     const spawnX = clamp(
-        sector.x - direction * spawnDepth,
+        (direction > 0 ? ARENA.spawnBullX + 25 : ARENA.spawnBearX - 25) - direction * spawnDepth,
         ARENA.minX + 1,
         ARENA.maxX - 1,
     );
@@ -1951,7 +1971,7 @@ function createCrowdAgent(type) {
         size: 0.66 + random() * 0.16,
         speedBias: 0.9 + random() * 0.2,
         x: spawnX,
-        z: clamp(sector.z + (random() - 0.5) * 1.15, ARENA.minZ + 1, ARENA.maxZ - 1),
+        z: clamp(lane + (random() - 0.5) * 1.15, ARENA.minZ + 1, ARENA.maxZ - 1),
         vx: 0,
         vz: 0,
         heading: direction > 0 ? 0 : Math.PI,
@@ -1962,8 +1982,8 @@ function createCrowdAgent(type) {
         stuckTime: 0,
         opponentDistance: Number.POSITIVE_INFINITY,
         engagementPartner: null,
-        duelAnchorX: sector.x,
-        duelAnchorZ: sector.z,
+        duelAnchorX: 0,
+        duelAnchorZ: lane,
         combatOffset: (random() - 0.5) * 1.7,
         formationTargetX: spawnX,
         formationTargetZ: lane,
@@ -1985,62 +2005,41 @@ function updateCrowdSide(type, doctrine, opponentCount, delta) {
         let opponent;
 
         if (agent.retiring) {
-            targetX = direction > 0 ? ARENA.spawnBullX - 2 : ARENA.spawnBearX + 2;
+            targetX = agent.x;
+            targetZ = agent.z;
             agent.life = Math.max(0, agent.life - delta * 0.72);
         } else {
             agent.life = Math.min(1, agent.life + delta * 1.45);
-            // Unpaired reinforcements join the campaign from their own side;
-            // they never seek or defend the market marker.
-            targetX = crowdFormationX - direction * Math.min(24, 7 + rankDepth);
+            // Unengaged ranks march forward towards a neutral theatre. They do
+            // not guard, follow or retreat from the visual market marker.
+            targetX = direction * Math.min(18, 4 + rankDepth * 0.38);
             if (agent.role === 'flank') targetZ = agent.flankSide * (9.8 + wave * 0.55);
         }
 
         agent.formationTargetX = targetX;
         agent.formationTargetZ = targetZ;
         opponent = !agent.retiring && opponentCount > 0 ? findCrowdOpponent(agent, type) : null;
-        // A rank with a rival is already participating while it closes the last
-        // metres. This keeps every aggregate unit either charging, duelling or
-        // withdrawing; none is a decorative, static formation.
-        const engagementRadius = 10.5 + crowdBattle.intensity * 2.2;
+        const engagementRadius = 5.2 + crowdBattle.intensity * 1.2;
         agent.opponentDistance = opponent?.distance ?? Number.POSITIVE_INFINITY;
         agent.engaged = !agent.retiring
             && opponent
             && opponent.distance <= engagementRadius;
         if (opponent) {
             const attackCycle = Math.max(0, Math.sin(kingTime * (2.4 + doctrine.aggression * 1.4) + agent.phase));
-            const preferredDistance = 2.35 + (agent.role === 'support' ? 0.45 : 0);
+            const preferredDistance = 2.15 + (agent.role === 'support' ? 0.45 : 0);
             const partner = opponent.agent;
-            const isPrimaryPair = partner.engagementPartner === agent;
-            if (isPrimaryPair && type === 'bull') {
-                const pressurePush = doctrine.sideBalance * (0.45 + crowdBattle.intensity * 0.75);
-                const nextAnchorX = clamp(
-                    (agent.duelAnchorX ?? crowdFormationX) + pressurePush * delta,
-                    ARENA.minX + 14,
-                    ARENA.maxX - 14,
-                );
-                agent.duelAnchorX = nextAnchorX;
-                partner.duelAnchorX = nextAnchorX;
-            }
-            const duelAnchorX = Number.isFinite(agent.duelAnchorX)
-                ? agent.duelAnchorX
-                : Number.isFinite(partner.duelAnchorX) ? partner.duelAnchorX : crowdFormationX;
-            const duelAnchorZ = Number.isFinite(agent.duelAnchorZ)
-                ? agent.duelAnchorZ
-                : Number.isFinite(partner.duelAnchorZ) ? partner.duelAnchorZ : (agent.lane + partner.lane) * 0.5;
-            // Both sides charge the same encounter, then circle and strike around
-            // it. Their target is a rival, never the market line.
-            const supportOffset = isPrimaryPair ? 0 : 0.85 + Math.abs(agent.combatOffset);
-            targetX = duelAnchorX - direction * (preferredDistance * 0.5 + supportOffset)
-                + direction * attackCycle * 0.42;
-            targetZ = duelAnchorZ + agent.combatOffset
-                + direction * Math.sin(agent.phase + kingTime * 1.9) * (agent.engaged ? 0.48 : 0.2);
+            // A rank advances into a concrete opposing rank. Collision-safe
+            // spacing below keeps the two sides distinct instead of blended.
+            targetX = partner.x - direction * preferredDistance + direction * attackCycle * 0.22;
+            targetZ = partner.z + agent.combatOffset
+                + direction * Math.sin(agent.phase + kingTime * 1.9) * (agent.engaged ? 0.35 : 0.16);
         }
 
         const dx = targetX - agent.x;
         const dz = targetZ - agent.z;
         const distance = Math.max(0.001, Math.hypot(dx, dz));
         const steering = getCrowdSteering(agent, dx / distance, dz / distance);
-        const speed = 3.65 * doctrine.speed * roleSpeed * agent.speedBias * (agent.retiring ? 1.28 : 1);
+        const speed = 7.2 * doctrine.speed * roleSpeed * agent.speedBias * (agent.retiring ? 0 : 1);
         const arrival = distance < 2.2 && !agent.retiring ? clamp(distance / 2.2, 0.12, 1) : 1;
         agent.vx = THREE.MathUtils.damp(agent.vx, steering.x * speed * arrival, 4.4, delta);
         agent.vz = THREE.MathUtils.damp(agent.vz, steering.z * speed * arrival, 4.4, delta);
@@ -2152,6 +2151,25 @@ function getCrowdSteering(agent, desiredX, desiredZ) {
     }
     const length = Math.hypot(steerX, steerZ) || 1;
     return { x: steerX / length, z: steerZ / length };
+}
+
+function preventCrowdSideOverlap() {
+    // A battle has a contact line, not two ghost crowds. Keep every nearby bull
+    // to the left of every nearby bear. This is deliberately independent from
+    // the decorative market marker and applies to non-paired reinforcements too.
+    for (const bull of crowdAgents.bull) {
+        if (bull.retiring) continue;
+        for (const bear of crowdAgents.bear) {
+            if (bear.retiring || Math.abs(bull.z - bear.z) > 1.7) continue;
+            const spacing = 0.92 + (bull.size + bear.size) * 0.34;
+            if (bull.x <= bear.x - spacing) continue;
+            const contact = (bull.x + bear.x) * 0.5;
+            bull.x = Math.min(bull.x, contact - spacing * 0.5);
+            bear.x = Math.max(bear.x, contact + spacing * 0.5);
+            bull.vx = Math.min(bull.vx, 0);
+            bear.vx = Math.max(bear.vx, 0);
+        }
+    }
 }
 
 function crowdLaneIndex(z) {
