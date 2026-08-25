@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { deriveForceDoctrine, deriveKingDirective, deriveVisualForces } from '../js/battlefield.js';
+import { deriveForceDoctrine, deriveKingDirective, deriveVisualForces, shouldKingWard } from '../js/battlefield.js';
 
 describe('volume-weighted battlefield forces', () => {
     it('scales from quiet skirmishes to hundreds without claiming one whale is hundreds of swaps', () => {
@@ -33,5 +33,11 @@ describe('battle doctrines', () => {
         expect(deriveKingDirective({ tactics: market, supporting: true }).mode).toBe('rally');
         expect(deriveKingDirective({ tactics: market, defending: true }).mode).toBe('defend');
         expect(deriveKingDirective({ tactics: { balance: -0.7, flowIntensity: 0.8 } }).mode).toBe('guard');
+    });
+
+    it('does not let the king erase an invasion while sellers clearly control the market', () => {
+        expect(shouldKingWard({ balance: -0.82 })).toBe(false);
+        expect(shouldKingWard({ balance: -0.14 })).toBe(true);
+        expect(shouldKingWard({ balance: 0.5 })).toBe(true);
     });
 });

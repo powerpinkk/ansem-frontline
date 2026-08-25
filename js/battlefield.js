@@ -67,7 +67,7 @@ export function deriveForceDoctrine(type, tactics = {}) {
     };
 }
 
-export function deriveKingDirective({ tactics = {}, defending = false, supporting = false } = {}) {
+export function deriveKingDirective({ tactics = {}, defending = false, supporting = false, mode: forcedMode = null } = {}) {
     const balance = clamp(Number(tactics.balance) || 0, -1, 1);
     const flowIntensity = clamp(Number(tactics.flowIntensity) || 0, 0, 1);
     let mode = 'overwatch';
@@ -76,20 +76,34 @@ export function deriveKingDirective({ tactics = {}, defending = false, supportin
     else if (flowIntensity >= 0.04 && balance >= 0.18) mode = 'lead';
     else if (flowIntensity >= 0.04 && balance <= -0.18) mode = 'guard';
     else if (flowIntensity >= 0.04) mode = 'marshal';
+    if (['defend', 'rally', 'lead', 'marshal', 'overwatch', 'guard'].includes(forcedMode)) mode = forcedMode;
 
     const trailingByMode = {
-        defend: 7,
-        rally: 11,
+        defend: 9,
+        rally: 12,
         lead: 14,
         marshal: 18,
         overwatch: 22,
-        guard: 25,
+        guard: 28,
+    };
+    const altitudeByMode = {
+        defend: 10.8,
+        rally: 10,
+        lead: 9.2,
+        marshal: 9.8,
+        overwatch: 10.2,
+        guard: 11.4,
     };
     return {
         mode,
         trailingDistance: trailingByMode[mode],
-        altitude: mode === 'defend' ? 10.2 : mode === 'rally' ? 9.6 : 8.8,
-        response: mode === 'defend' ? 3.8 : mode === 'rally' ? 2.2 : 1.35,
-        maxSpeed: mode === 'defend' ? 19 : mode === 'rally' ? 14 : 10,
+        altitude: altitudeByMode[mode],
+        response: mode === 'defend' ? 3.8 : mode === 'rally' ? 2.2 : mode === 'guard' ? 1.7 : 1.35,
+        maxSpeed: mode === 'defend' ? 19 : mode === 'rally' ? 14 : mode === 'guard' ? 12 : 10,
     };
+}
+
+export function shouldKingWard(tactics = {}) {
+    const balance = clamp(Number(tactics.balance) || 0, -1, 1);
+    return balance >= -0.15;
 }

@@ -17,6 +17,15 @@ const summary = {
     maxEntities: 0,
     maxVisualForces: 0,
     maxRenderCalls: 0,
+    maxCrowdSpeed: 0,
+    maxCrowdTurnRate: 0,
+    maxCrowdOverlaps: 0,
+    maxCrossedPairs: 0,
+    minContactGap: Number.POSITIVE_INFINITY,
+    crowdDirectionChanges: 0,
+    maxKingSpeed: 0,
+    maxKingTurnRate: 0,
+    kingModeChanges: 0,
     bullCrossings: 0,
     bearCrossings: 0,
     invalidPositions: 0,
@@ -28,6 +37,7 @@ const summary = {
     lineDwells: new Set(),
     connectionStates: new Set(),
     battleStates: new Set(),
+    kingModes: new Set(),
 };
 
 page.on('pageerror', (error) => pageErrors.push(error.message));
@@ -38,7 +48,11 @@ page.on('response', (response) => {
 
 try {
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30_000 });
-    await page.waitForFunction(() => typeof window.__ansemSceneDiagnostics === 'function', { timeout: 20_000 });
+    await page.waitForFunction(
+        () => typeof window.__ansemSceneDiagnostics === 'function',
+        undefined,
+        { timeout: 20_000 },
+    );
     const startedAt = Date.now();
     let nextProgressAt = startedAt;
 
@@ -57,8 +71,18 @@ try {
         summary.maxEntities = Math.max(summary.maxEntities, diagnostics.entities.length);
         summary.maxVisualForces = Math.max(summary.maxVisualForces, (diagnostics.forces?.bull || 0) + (diagnostics.forces?.bear || 0));
         summary.maxRenderCalls = Math.max(summary.maxRenderCalls, diagnostics.render?.calls || 0);
+        summary.maxCrowdSpeed = Math.max(summary.maxCrowdSpeed, diagnostics.forces?.maxSpeed || 0);
+        summary.maxCrowdTurnRate = Math.max(summary.maxCrowdTurnRate, diagnostics.forces?.maxTurnRate || 0);
+        summary.maxCrowdOverlaps = Math.max(summary.maxCrowdOverlaps, diagnostics.forces?.overlaps || 0);
+        summary.maxCrossedPairs = Math.max(summary.maxCrossedPairs, diagnostics.forces?.crossedPairs || 0);
+        summary.minContactGap = Math.min(summary.minContactGap, diagnostics.forces?.contactGap ?? Number.POSITIVE_INFINITY);
+        summary.crowdDirectionChanges = Math.max(summary.crowdDirectionChanges, diagnostics.forces?.directionChanges || 0);
+        summary.maxKingSpeed = Math.max(summary.maxKingSpeed, diagnostics.bullKing?.speed || 0);
+        summary.maxKingTurnRate = Math.max(summary.maxKingTurnRate, diagnostics.bullKing?.turnRate || 0);
+        summary.kingModeChanges = Math.max(summary.kingModeChanges, diagnostics.bullKing?.modeChanges || 0);
         summary.connectionStates.add(sample.connection);
         summary.battleStates.add(sample.battle);
+        if (diagnostics.bullKing?.mode) summary.kingModes.add(diagnostics.bullKing.mode);
         summary.crowdInvalidPositions += diagnostics.forces?.invalidPositions || 0;
         summary.crowdOutOfBounds += diagnostics.forces?.outOfBounds || 0;
 
@@ -99,12 +123,14 @@ try {
     }
 
     if (!Number.isFinite(summary.minEntities)) summary.minEntities = 0;
+    if (!Number.isFinite(summary.minContactGap)) summary.minContactGap = 0;
     const report = {
         ...summary,
         stalledPatrols: [...summary.stalledPatrols],
         lineDwells: [...summary.lineDwells],
         connectionStates: [...summary.connectionStates],
         battleStates: [...summary.battleStates],
+        kingModes: [...summary.kingModes],
         pageErrors,
         requestFailures: [...new Set(requestFailures)].slice(0, 20),
         httpErrors: [...new Set(httpErrors)].slice(0, 20),
@@ -113,7 +139,10 @@ try {
 
     if (pageErrors.length || summary.invalidPositions || summary.outOfBounds || summary.crowdInvalidPositions
         || summary.crowdOutOfBounds || summary.viewportMismatches
-        || summary.stalledPatrols.size || summary.lineDwells.size) {
+        || summary.stalledPatrols.size || summary.lineDwells.size
+        || summary.maxCrowdTurnRate > 3.25 || summary.maxCrowdSpeed > 10
+        || summary.maxKingTurnRate > 3.25 || summary.maxKingSpeed > 19.5
+        || summary.maxCrowdOverlaps > 2 || summary.maxCrossedPairs > 2 || summary.minContactGap < -12) {
         process.exitCode = 1;
     }
 } finally {

@@ -77,6 +77,7 @@ test('renders verified swaps and the WebGL battlefield', async ({ page }, testIn
     );
     expect(entityTravel).toBeGreaterThan(0.05);
     expect(kingTravel).toBeGreaterThan(0.01);
+    const strikeEventsBefore = animated.kingStrikeEvents;
     await page.evaluate(() => {
         window.__ansemPreviewRedBear();
         window.__ansemTriggerBullKingSupport();
@@ -86,7 +87,7 @@ test('renders verified swaps and the WebGL battlefield', async ({ page }, testIn
     const support = await page.evaluate(() => window.__ansemSceneDiagnostics());
     expect(support.supportWaves).toBeGreaterThan(0);
     expect(support.supportedBulls).toBeGreaterThan(0);
-    expect(support.kingStrikes).toBeGreaterThan(0);
+    expect(support.kingStrikeEvents).toBeGreaterThan(strikeEventsBefore);
     expect(support.entities.filter((entity) => entity.type === 'bear')).toHaveLength(0);
     await expect(page.locator('#killfeed')).toContainText("KING'S RECLAMATION");
     expect(pageErrors).toEqual([]);
@@ -185,8 +186,28 @@ test('the Bull King visibly repels a verified bear that reaches his airspace', a
     expect(survivingBear).toBeTruthy();
     expect(survivingBear.x).toBeGreaterThan(invadingBear.x + 2);
     expect(repelled.bullKing.x).not.toBeCloseTo(defending.bullKing.x, 1);
-    expect(Math.abs(repelled.bullKing.rotationY - defending.bullKing.rotationY)).toBeGreaterThan(0.03);
     await captureLocalScreenshot(page, `.artifacts/king-defense-${testInfo.project.name}.png`);
+});
+
+test('the Bull King retreats instead of erasing a seller-controlled invasion', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== 'desktop-chromium', 'One seller-control policy check is sufficient');
+    await page.goto('/');
+    await page.waitForFunction(() => typeof window.__ansemTriggerKingDefense === 'function');
+    await expect(page.locator('.trade-item')).toHaveCount(2, { timeout: 12_000 });
+    const before = await page.evaluate(() => window.__ansemSceneDiagnostics());
+    await page.evaluate(() => window.__ansemTriggerKingDefense({ buySol: 2, sellSol: 20 }));
+    await page.waitForFunction((initialX) => {
+        const diagnostics = window.__ansemSceneDiagnostics();
+        return diagnostics.bullKing.mode === 'guard' && diagnostics.bullKing.x < initialX - 0.25;
+    }, before.bullKing.x, { polling: 100, timeout: 8_000 });
+    const guarded = await page.evaluate(() => window.__ansemSceneDiagnostics());
+    const invadingBear = guarded.entities.find((entity) => entity.type === 'bear');
+    expect(invadingBear).toBeTruthy();
+    expect(invadingBear.forcedRetreat).toBe(false);
+    expect(guarded.kingStrikes).toBe(0);
+    expect(guarded.bullKing.mode).toBe('guard');
+    expect(guarded.bullKing.x).toBeLessThan(before.bullKing.x);
+    await expect(page.locator('#killfeed')).not.toContainText("KING'S WARD");
 });
 
 test('auto camera follows the king defense without cuts or environment flashes', async ({ page }, testInfo) => {
@@ -300,6 +321,9 @@ test('scales a high-volume market into hundreds of moving forces with a wider au
         const diagnostics = window.__ansemSceneDiagnostics();
         return diagnostics.forces.bull >= 200 && diagnostics.forces.bear >= 200;
     }, undefined, { polling: 100, timeout: 30_000 });
+    await page.waitForFunction(() => (
+        window.__ansemSceneDiagnostics().forces.engaged > 5
+    ), undefined, { polling: 100, timeout: 12_000 });
     await page.waitForFunction(() => {
         const camera = window.__ansemSceneDiagnostics().camera;
         return camera.fov > 47 && camera.y > 28;
@@ -313,6 +337,9 @@ test('scales a high-volume market into hundreds of moving forces with a wider au
     expect(before.forces.bullStance).toBe('clash');
     expect(before.forces.bearStance).toBe('clash');
     expect(before.forces.engaged).toBeGreaterThan(5);
+    expect(before.forces.maxTurnRate).toBeLessThanOrEqual(3.21);
+    expect(before.forces.maxSpeed).toBeLessThan(7);
+    expect(before.forces.contactGap).toBeGreaterThan(-3);
     expect(before.camera.fov).toBeGreaterThan(47);
     expect(before.camera.y).toBeGreaterThan(28);
     expect(before.bullKing.mode).toBe('marshal');

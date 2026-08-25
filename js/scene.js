@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { CONFIG } from './config.js';
-import { deriveForceDoctrine, deriveKingDirective, deriveVisualForces } from './battlefield.js';
+import { deriveForceDoctrine, deriveKingDirective, deriveVisualForces, shouldKingWard } from './battlefield.js';
 import { state } from './state.js';
 import { ARENA, clamp, clampArenaPosition, isFinitePosition, isUnitStranded, tacticalPatrolTarget, tradeLane, unitHasExpired } from './navigation.js';
 import { deriveBattleTactics } from './market.js';
@@ -18,18 +18,25 @@ let particles = [];
 let projectiles = [];
 let supportWaves = [];
 let kingStrikes = [];
+let kingStrikeEvents = 0;
 const MAX_ENTITIES_PER_SIDE = CONFIG.MAX_VISIBLE_UNITS_PER_SIDE;
 const obstacles = [];
 const crowdAgents = { bull: [], bear: [] };
 const crowdMeshes = { bull: null, bear: null };
 const crowdSpawnBudget = { bull: 0, bear: 0 };
-let crowdSequence = 0;
+const crowdSequence = { bull: 0, bear: 0 };
+const CROWD_LANE_COUNT = 12;
+const crowdSpatial = {
+    bull: Array.from({ length: CROWD_LANE_COUNT }, () => []),
+    bear: Array.from({ length: CROWD_LANE_COUNT }, () => []),
+};
 let crowdClashAccumulator = 0;
 let devBattleOverride = null;
 let lastPublishedForces = '';
 let kingMode = 'overwatch';
 let crowdHotBin = 3;
 let lastCrowdHotBinAt = 0;
+let crowdFormationX = null;
 const crowdBattle = {
     targetBull: 0,
     targetBear: 0,
@@ -39,8 +46,18 @@ const crowdBattle = {
     centerZ: 0,
     bullCenterX: ARENA.spawnBullX,
     bearCenterX: ARENA.spawnBearX,
+    bullFrontX: ARENA.spawnBullX,
+    bearFrontX: ARENA.spawnBearX,
+    contactGap: ARENA.spawnBearX - ARENA.spawnBullX,
     spread: 0,
     engaged: 0,
+    overlaps: 0,
+    crossedPairs: 0,
+    pairedFighters: 0,
+    meanSpeed: 0,
+    maxSpeed: 0,
+    maxTurnRate: 0,
+    directionChanges: 0,
     intensity: 0,
     bullStance: 'muster',
     bearStance: 'muster',
@@ -75,6 +92,12 @@ let kingDefenseUntil = 0;
 let kingThreat = null;
 let kingReactionAt = 0;
 let kingReactionStrength = 0;
+let kingCommandZ = -7;
+let kingCommandZUntil = 0;
+let kingModeSince = Date.now();
+let kingModeChanges = 0;
+let kingSpeed = 0;
+let kingTurnRate = 0;
 const KING_SANCTUM_RADIUS = 15;
 const KING_DEFENSE_COOLDOWN_MS = 4_500;
 const frameTimer = new THREE.Timer();
@@ -202,7 +225,7 @@ const matBearWhaleEye = matBearEye.clone();
 matBearWhaleEye.emissiveIntensity = 13;
 const matBearLaser = new THREE.MeshBasicMaterial({ color: 0x5b001d, transparent: true, opacity: 0.82, blending: THREE.AdditiveBlending, depthWrite: false });
 const matCrowdBull = new THREE.MeshStandardMaterial({ color: 0x090d0b, metalness: 0.42, roughness: 0.42 });
-const matCrowdBullAccent = new THREE.MeshStandardMaterial({ color: 0x00d977, emissive: 0x00a85e, emissiveIntensity: 1.5, roughness: 0.28 });
+const matCrowdBullAccent = new THREE.MeshStandardMaterial({ color: 0x00b96a, emissive: 0x007a46, emissiveIntensity: 0.85, roughness: 0.34 });
 const matCrowdBear = new THREE.MeshStandardMaterial({ color: 0xa86f49, roughness: 0.82, metalness: 0.03 });
 const matCrowdBearAccent = new THREE.MeshBasicMaterial({ color: 0x740020 });
 const projectileMaterials = {
@@ -229,6 +252,7 @@ const _cameraFramingCenter = new THREE.Vector3();
 const _cameraFramingDesired = new THREE.Vector3();
 const _cameraFramingMove = new THREE.Vector3();
 const _kingMove = new THREE.Vector3();
+const _kingPreviousPosition = new THREE.Vector3(-26, 10, -7);
 const _crowdTransform = new THREE.Object3D();
 const _crowdImpact = new THREE.Vector3();
 let cameraShakeOffsetX = 0;
@@ -280,13 +304,9 @@ export function initScene(callbacks = {}) {
             projectiles: projectiles.length,
             supportWaves: supportWaves.length,
             kingStrikes: kingStrikes.length,
+            kingStrikeEvents,
             supportedBulls: entities.filter((entity) => entity.type === 'bull' && entity.supportUntil > Date.now()).length,
-            tactics: deriveBattleTactics({
-                buySol: state.buySol60s,
-                sellSol: state.sellSol60s,
-                buyCount: state.activity5m.buyCount,
-                sellCount: state.activity5m.sellCount,
-            }),
+            battle: getSceneTactics(),
             forces: {
                 bull: crowdAgents.bull.length,
                 bear: crowdAgents.bear.length,
@@ -299,8 +319,19 @@ export function initScene(callbacks = {}) {
                 centerZ: crowdBattle.centerZ,
                 bullCenterX: crowdBattle.bullCenterX,
                 bearCenterX: crowdBattle.bearCenterX,
+                bullFrontX: crowdBattle.bullFrontX,
+                bearFrontX: crowdBattle.bearFrontX,
+                contactGap: crowdBattle.contactGap,
+                formationX: crowdFormationX,
                 spread: crowdBattle.spread,
                 intensity: crowdBattle.intensity,
+                overlaps: crowdBattle.overlaps,
+                crossedPairs: crowdBattle.crossedPairs,
+                pairedFighters: crowdBattle.pairedFighters,
+                meanSpeed: crowdBattle.meanSpeed,
+                maxSpeed: crowdBattle.maxSpeed,
+                maxTurnRate: crowdBattle.maxTurnRate,
+                directionChanges: crowdBattle.directionChanges,
                 bullStance: crowdBattle.bullStance,
                 bearStance: crowdBattle.bearStance,
                 ...getCrowdHealth(),
@@ -312,6 +343,11 @@ export function initScene(callbacks = {}) {
                 rotationY: bullKingRig.rotation.y,
                 defending: Date.now() < kingDefenseUntil,
                 mode: kingMode,
+                modeChanges: kingModeChanges,
+                modeAgeMs: Date.now() - kingModeSince,
+                commandZ: kingCommandZ,
+                speed: kingSpeed,
+                turnRate: kingTurnRate,
             } : null,
             render: renderer ? {
                 calls: renderer.info.render.calls,
@@ -382,7 +418,7 @@ export function initScene(callbacks = {}) {
             bear.vx = 0;
             bear.vz = 0;
         };
-        window.__ansemTriggerKingDefense = () => {
+        window.__ansemTriggerKingDefense = (pressure = {}) => {
             const bear = entities.find((entity) => entity.type === 'bear' && !entity.retired);
             if (!bear || !bullKingRig) return;
             bear.mesh.position.set(
@@ -393,8 +429,27 @@ export function initScene(callbacks = {}) {
             bear.vx = 0;
             bear.vz = 0;
             bear.target = null;
-            state.buySol60s = 2;
-            state.sellSol60s = 20;
+            state.buySol60s = Math.max(0, Number.isFinite(Number(pressure.buySol)) ? Number(pressure.buySol) : 12);
+            state.sellSol60s = Math.max(0, Number.isFinite(Number(pressure.sellSol)) ? Number(pressure.sellSol) : 8);
+            devBattleOverride = {
+                buySol: state.buySol60s,
+                sellSol: state.sellSol60s,
+                buyCount: state.activity5m.buyCount,
+                sellCount: state.activity5m.sellCount,
+                verifiedBuyCount: 1,
+                verifiedSellCount: 1,
+            };
+            const totalSol = devBattleOverride.buySol + devBattleOverride.sellSol;
+            const bullPercent = totalSol > 0 ? (devBattleOverride.buySol / totalSol) * 100 : 50;
+            state.momentum = bullPercent;
+            state.frontlineX = clamp((bullPercent - 50) * 0.9, -45, 45);
+            state.targetFrontlineX = state.frontlineX;
+            if (!shouldKingWard(deriveBattleTactics(devBattleOverride))) {
+                kingDefenseUntil = 0;
+                kingThreat = null;
+                bear.forcedRetreatUntil = 0;
+                bear.forcedRetreatX = null;
+            }
             lastKingDefenseAt = 0;
             lastTerritoryAuditAt = 0;
             updateTerritorialControl();
@@ -680,12 +735,7 @@ function updateTerritorialControl() {
     const now = Date.now();
     if (now - lastTerritoryAuditAt < 400) return;
     lastTerritoryAuditAt = now;
-    const tactics = deriveBattleTactics({
-        buySol: state.buySol60s,
-        sellSol: state.sellSol60s,
-        buyCount: state.activity5m.buyCount,
-        sellCount: state.activity5m.sellCount,
-    });
+    const { inputs, tactics } = getSceneTactics(now);
     if (defendKingSanctum(now, tactics)) return;
     const bullsControlField = tactics.balance >= 0.3 && state.frontlineX >= 3;
     if (!bullsControlField) {
@@ -703,11 +753,11 @@ function updateTerritorialControl() {
     );
     if (!stranded.length) return;
     lastKingReclaimAt = now;
-    castKingReclamation(stranded, state.buySol60s, state.frontlineX, state.targetFrontlineX, 'sustained-control', tactics);
+    castKingReclamation(stranded, inputs.buySol, state.frontlineX, state.targetFrontlineX, 'sustained-control', tactics);
 }
 
 function defendKingSanctum(now, tactics) {
-    if (!bullKingRig || now - lastKingDefenseAt < KING_DEFENSE_COOLDOWN_MS) return false;
+    if (!bullKingRig || !shouldKingWard(tactics) || now - lastKingDefenseAt < KING_DEFENSE_COOLDOWN_MS) return false;
     const intruders = entities.filter((entity) => {
         if (entity.type !== 'bear' || entity.retired || entity.hp <= 0 || entity.forcedRetreatUntil > now) return false;
         const dx = entity.mesh.position.x - bullKingRig.position.x;
@@ -734,7 +784,7 @@ function castKingWard(intruders, tactics) {
             < closest.mesh.position.distanceToSquared(bullKingRig.position) ? entity : closest;
     }, null);
     kingDefenseUntil = now + 3_200;
-    kingMode = 'defend';
+    setKingMode('defend', now);
     beginKingCameraFocus(_rayTarget, 2_400);
     kingReactionAt = now;
     kingReactionStrength = 2.4;
@@ -768,7 +818,7 @@ function castKingReclamation(stranded, solValue, previous, next, reason = 'trade
     spawnKingStrike(_rayTarget);
     kingThreat = stranded[0] || null;
     kingDefenseUntil = Date.now() + 2_400;
-    kingMode = 'defend';
+    setKingMode('defend');
     beginKingCameraFocus(_rayTarget, 1_650);
     kingReactionAt = Date.now();
     kingReactionStrength = 2;
@@ -818,6 +868,7 @@ function spawnKingStrike(target) {
     impact.scale.setScalar(1.6);
     scene.add(beam, impact);
     kingStrikes.push({ beam, impact, material, age: 0 });
+    kingStrikeEvents += 1;
 }
 
 export function triggerBullKingSupport({ buySol, dominance }) {
@@ -1291,6 +1342,8 @@ function createFlyingBullKing() {
     });
     bullKingRig.scale.setScalar(1.12);
     bullKingRig.position.set(-26, 10, -7);
+    _kingPreviousPosition.copy(bullKingRig.position);
+    kingCommandZ = bullKingRig.position.z;
     scene.add(bullKingRig);
 }
 
@@ -1715,6 +1768,14 @@ function updateEntities(delta) {
                 if (!e.lineProximityAt) e.lineProximityAt = now;
                 const crossingDirection = Math.sign(hold.x - state.frontlineX) || e.patrolSide;
                 steering.x += crossingDirection * 1.05;
+                if (now - e.lineProximityAt > 2_500) {
+                    // The marker is information, never collision geometry. If
+                    // terrain avoidance has kept a patrol beside it for several
+                    // seconds, commit to the crossing and resume normal steering
+                    // once clear instead of circling parallel to the line.
+                    steering.x = crossingDirection * Math.max(0.72, Math.abs(steering.x));
+                    steering.z *= 0.45;
+                }
                 const steeringLength = Math.hypot(steering.x, steering.z) || 1;
                 steering.x /= steeringLength;
                 steering.z /= steeringLength;
@@ -1805,9 +1866,19 @@ function updateCrowdForces(delta) {
 
     syncCrowdPopulation('bull', Math.max(0, targets.bull - verifiedBull), delta);
     syncCrowdPopulation('bear', Math.max(0, targets.bear - verifiedBear), delta);
+    rebuildCrowdSpatialIndex();
 
     const bullDoctrine = deriveForceDoctrine('bull', tactics);
     const bearDoctrine = deriveForceDoctrine('bear', tactics);
+    if (!Number.isFinite(crowdFormationX)) crowdFormationX = state.frontlineX;
+    // The market marker can jump instantly; bodies cannot. Keeping this below
+    // combatant travel speed lets each contact pair carry the line together.
+    const formationSpeed = 2.4 + tactics.flowIntensity * 1.5 + tactics.activityLevel * 0.5;
+    crowdFormationX += clamp(
+        state.frontlineX - crowdFormationX,
+        -formationSpeed * delta,
+        formationSpeed * delta,
+    );
     crowdBattle.bullStance = bullDoctrine.stance;
     crowdBattle.bearStance = bearDoctrine.stance;
     updateCrowdSide('bull', bullDoctrine, crowdAgents.bear.length, delta);
@@ -1844,31 +1915,46 @@ function syncCrowdPopulation(type, target, delta) {
 }
 
 function createCrowdAgent(type) {
-    const sequence = crowdSequence++;
+    const sequence = crowdSequence[type]++;
     const random = mulberry32(sequence * 0x9e3779b1 + (type === 'bull' ? 0x51f15e : 0xb34a29));
     const roles = ['vanguard', 'skirmisher', 'vanguard', 'flank', 'support', 'vanguard', 'flank', 'reserve'];
     const role = roles[sequence % roles.length];
-    const laneUnit = (sequence * 0.61803398875 + random() * 0.18) % 1;
-    const lane = -12.2 + laneUnit * 24.4;
+    const rank = Math.floor(sequence / CROWD_LANE_COUNT);
+    const laneSlot = sequence % CROWD_LANE_COUNT;
+    const stagger = rank % 2 === 0 ? 0 : 0.45;
+    const laneUnit = (laneSlot + 0.5 + stagger) / CROWD_LANE_COUNT;
+    const lane = clamp(-11.4 + laneUnit * 22.8 + (random() - 0.5) * 0.46, ARENA.minZ + 1.2, ARENA.maxZ - 1.2);
     const direction = type === 'bull' ? 1 : -1;
     const edgeX = direction > 0 ? ARENA.spawnBullX + random() * 5 : ARENA.spawnBearX - random() * 5;
-    const bootstrapDepth = 7 + (sequence % 16) * 1.28 + random() * 2.5;
+    const bootstrapDepth = 5.5 + rank * 1.08 + random() * 1.2;
     const spawnX = kingTime < 7
         ? clamp(state.frontlineX - direction * bootstrapDepth, ARENA.minX + 1, ARENA.maxX - 1)
         : edgeX;
     return {
         type,
         role,
-        rank: Math.floor((sequence % 224) / 14),
+        rank,
         lane,
         flankSide: lane >= 0 ? 1 : -1,
+        avoidanceSide: sequence % 2 === 0 ? 1 : -1,
+        depthJitter: (random() - 0.5) * 0.72,
         phase: random() * Math.PI * 2,
-        size: 0.58 + random() * 0.16,
-        speedBias: 0.88 + random() * 0.24,
+        size: 0.66 + random() * 0.16,
+        speedBias: 0.9 + random() * 0.2,
         x: spawnX,
         z: clamp(lane + (random() - 0.5) * 2.4, ARENA.minZ + 1, ARENA.maxZ - 1),
         vx: 0,
         vz: 0,
+        heading: direction > 0 ? 0 : Math.PI,
+        turnRate: 0,
+        travelSign: 0,
+        lastX: spawnX,
+        lastZ: lane,
+        stuckTime: 0,
+        opponentDistance: Number.POSITIVE_INFINITY,
+        engagementPartner: null,
+        formationTargetX: spawnX,
+        formationTargetZ: lane,
         life: 0,
         retiring: false,
         engaged: false,
@@ -1879,56 +1965,109 @@ function updateCrowdSide(type, doctrine, opponentCount, delta) {
     const agents = crowdAgents[type];
     const direction = doctrine.direction;
     for (const agent of agents) {
-        const roleSpeed = agent.role === 'vanguard' ? 1.14 : agent.role === 'flank' ? 1.06 : agent.role === 'support' ? 0.88 : 1;
-        const rankDepth = agent.rank * (0.82 + doctrine.cohesion * 0.32);
-        const wave = Math.sin(kingTime * (0.42 + crowdBattle.intensity * 0.35) + agent.phase);
+        const roleSpeed = agent.role === 'vanguard' ? 1.1 : agent.role === 'flank' ? 1.04 : agent.role === 'support' ? 0.9 : 1;
+        const rankDepth = agent.rank * (0.9 + doctrine.cohesion * 0.22) + agent.depthJitter;
+        const wave = Math.sin(kingTime * (0.28 + crowdBattle.intensity * 0.16) + agent.phase);
         let targetX;
-        let targetZ = agent.lane + wave * (agent.role === 'skirmisher' ? 2.1 : 0.7);
+        let targetZ = agent.lane + wave * (agent.role === 'skirmisher' ? 0.72 : 0.32);
+        let opponent;
 
         if (agent.retiring) {
             targetX = direction > 0 ? ARENA.spawnBullX - 2 : ARENA.spawnBearX + 2;
             agent.life = Math.max(0, agent.life - delta * 0.72);
         } else {
             agent.life = Math.min(1, agent.life + delta * 1.45);
-            const stanceDepth = {
-                muster: -10,
-                clash: 1.5,
-                surge: 5.5,
-                advance: 3,
-                hold: -4.5,
-                fallback: -8.5,
+            const frontDistance = {
+                muster: 2.3,
+                clash: 1.05,
+                surge: 0.65,
+                advance: 0.9,
+                hold: 1.35,
+                fallback: 1.7,
             }[doctrine.stance];
-            targetX = state.frontlineX
-                + direction * (stanceDepth + doctrine.penetration * 0.62 - rankDepth * (doctrine.stance === 'muster' ? 0.72 : 0.46));
-            if (agent.role === 'vanguard') targetX += direction * 3.2;
+            targetX = crowdFormationX
+                - direction * frontDistance
+                - direction * rankDepth;
+            if (agent.role === 'vanguard') targetX += direction * 0.9;
             else if (agent.role === 'flank') {
-                targetX += direction * 2.4;
-                targetZ = agent.flankSide * (10.2 + wave * 1.15);
-            } else if (agent.role === 'support') targetX -= direction * 5.2;
-            else if (agent.role === 'reserve') targetX -= direction * 7.4;
+                targetX += direction * 0.45;
+                targetZ = agent.flankSide * (9.8 + wave * 0.55);
+            } else if (agent.role === 'support') targetX -= direction * 2.2;
+            else if (agent.role === 'reserve') targetX -= direction * 3.6;
         }
 
-        const engagementRadius = 2.8 + crowdBattle.intensity * 5.2;
+        agent.formationTargetX = targetX;
+        agent.formationTargetZ = targetZ;
+        opponent = !agent.retiring && opponentCount > 0 ? findCrowdOpponent(agent, type) : null;
+        const engagementRadius = doctrine.stance === 'fallback'
+            ? 3.6
+            : doctrine.stance === 'muster' ? 2.8 : 4.2 + crowdBattle.intensity * 2.8;
+        agent.opponentDistance = opponent?.distance ?? Number.POSITIVE_INFINITY;
         agent.engaged = !agent.retiring
-            && opponentCount > 0
-            && doctrine.stance !== 'muster'
-            && doctrine.stance !== 'fallback'
-            && Math.abs(agent.x - state.frontlineX) < engagementRadius;
+            && opponent
+            && opponent.distance <= engagementRadius;
         if (agent.engaged) {
-            const attackCycle = Math.sin(kingTime * (3.4 + doctrine.aggression * 2.2) + agent.phase);
-            targetX = state.frontlineX + direction * (doctrine.penetration * 0.28 + attackCycle * 1.35);
-            targetZ += Math.sin(kingTime * 1.7 + agent.phase) * 0.85;
+            const attackCycle = Math.max(0, Math.sin(kingTime * (2.4 + doctrine.aggression * 1.4) + agent.phase));
+            const preferredDistance = 1.45 + (agent.role === 'support' ? 0.35 : 0);
+            // Both fighters converge on the same stable duel midpoint, but remain
+            // on their own side of it. Chasing the opponent's latest position made
+            // pairs overshoot, swap sides and reverse direction every few frames.
+            const opponentAnchorZ = Number.isFinite(opponent.agent.formationTargetZ)
+                ? opponent.agent.formationTargetZ
+                : opponent.agent.z;
+            const duelMidX = crowdFormationX;
+            const duelMidZ = (agent.formationTargetZ + opponentAnchorZ) * 0.5;
+            targetX = duelMidX - direction * preferredDistance * 0.5
+                + direction * attackCycle * 0.12;
+            targetZ = THREE.MathUtils.lerp(agent.lane, duelMidZ, 0.62)
+                + Math.sin(agent.phase + kingTime * 0.32) * 0.1;
         }
 
         const dx = targetX - agent.x;
         const dz = targetZ - agent.z;
         const distance = Math.max(0.001, Math.hypot(dx, dz));
         const steering = getCrowdSteering(agent, dx / distance, dz / distance);
-        const speed = 4.8 * doctrine.speed * roleSpeed * agent.speedBias * (agent.retiring ? 1.18 : 1);
-        agent.vx = THREE.MathUtils.damp(agent.vx, steering.x * speed, 5.5, delta);
-        agent.vz = THREE.MathUtils.damp(agent.vz, steering.z * speed, 5.5, delta);
+        const speed = 3.65 * doctrine.speed * roleSpeed * agent.speedBias * (agent.retiring ? 1.28 : 1);
+        const arrival = distance < 2.2 && !agent.retiring ? clamp(distance / 2.2, 0.12, 1) : 1;
+        agent.vx = THREE.MathUtils.damp(agent.vx, steering.x * speed * arrival, 4.4, delta);
+        agent.vz = THREE.MathUtils.damp(agent.vz, steering.z * speed * arrival, 4.4, delta);
         agent.x = clamp(agent.x + agent.vx * delta, ARENA.minX + 0.7, ARENA.maxX - 0.7);
         agent.z = clamp(agent.z + agent.vz * delta, ARENA.minZ + 0.7, ARENA.maxZ - 0.7);
+        const contactPartner = agent.engagementPartner;
+        if (contactPartner && !contactPartner.retiring && Math.abs(contactPartner.z - agent.z) < 5.5) {
+            const contactSpacing = 0.72;
+            if (type === 'bull' && agent.x > contactPartner.x - contactSpacing) {
+                agent.x = contactPartner.x - contactSpacing;
+                agent.vx = Math.min(agent.vx, contactPartner.vx || 0);
+            } else if (type === 'bear' && agent.x < contactPartner.x + contactSpacing) {
+                agent.x = contactPartner.x + contactSpacing;
+                agent.vx = Math.max(agent.vx, contactPartner.vx || 0);
+            }
+        }
+
+        const moved = Math.hypot(agent.x - agent.lastX, agent.z - agent.lastZ);
+        agent.stuckTime = distance > 1.8 && moved < 0.004 ? agent.stuckTime + delta : 0;
+        if (agent.stuckTime > 1.25) {
+            agent.lane = clamp(agent.lane + agent.avoidanceSide * 1.4, ARENA.minZ + 1.2, ARENA.maxZ - 1.2);
+            agent.avoidanceSide *= -1;
+            agent.stuckTime = 0;
+        }
+        agent.lastX = agent.x;
+        agent.lastZ = agent.z;
+
+        const travelSign = Math.abs(agent.vx) > 0.7 ? Math.sign(agent.vx) : 0;
+        if (travelSign && agent.travelSign && travelSign !== agent.travelSign) crowdBattle.directionChanges += 1;
+        if (travelSign) agent.travelSign = travelSign;
+        const desiredHeading = agent.engaged
+            ? Math.atan2(-(opponent.agent.z - agent.z), opponent.agent.x - agent.x)
+            : Math.hypot(agent.vx, agent.vz) > 0.12
+                ? Math.atan2(-agent.vz, agent.vx)
+                : agent.heading;
+        const headingDelta = Math.atan2(Math.sin(desiredHeading - agent.heading), Math.cos(desiredHeading - agent.heading));
+        const maxTurnSpeed = agent.engaged ? 3.2 : 2.35;
+        const headingStep = clamp(headingDelta, -maxTurnSpeed * delta, maxTurnSpeed * delta);
+        agent.heading += headingStep;
+        agent.turnRate = Math.abs(headingStep) / Math.max(0.001, delta);
     }
 
     for (let index = agents.length - 1; index >= 0; index--) {
@@ -1943,7 +2082,7 @@ function updateCrowdSide(type, doctrine, opponentCount, delta) {
         const bob = prefersReducedMotion ? 0 : Math.abs(Math.sin(kingTime * (7.5 + speed * 0.45) + agent.phase)) * 0.13;
         const scale = agent.size * smoothstep(0, 0.82, agent.life) * (1 + attackPulse * 0.08);
         _crowdTransform.position.set(agent.x, getTrenchHeight(agent.x, agent.z) + bob, agent.z);
-        _crowdTransform.rotation.set(0, Math.atan2(-agent.vz, agent.vx || direction), (agent.vx * direction > 0 ? -1 : 1) * attackPulse * 0.07);
+        _crowdTransform.rotation.set(0, agent.heading, (agent.vx * direction > 0 ? -1 : 1) * attackPulse * 0.045);
         _crowdTransform.scale.set(scale * (1 + attackPulse * 0.05), scale, scale);
         _crowdTransform.updateMatrix();
         meshes.body.setMatrixAt(index, _crowdTransform.matrix);
@@ -1957,24 +2096,99 @@ function updateCrowdSide(type, doctrine, opponentCount, delta) {
 
 function getCrowdSteering(agent, desiredX, desiredZ) {
     let steerX = desiredX;
-    let steerZ = desiredZ + (agent.lane - agent.z) * 0.008;
+    let steerZ = desiredZ + (agent.lane - agent.z) * 0.025;
     for (const obstacle of obstacles) {
         const dx = agent.x - obstacle.x;
         const dz = agent.z - obstacle.z;
         const distanceSq = dx * dx + dz * dz;
-        const safeRadius = obstacle.radius + 1.05;
-        if (distanceSq < 0.001 || distanceSq >= safeRadius * safeRadius) continue;
-        const distance = Math.sqrt(distanceSq);
-        const force = (safeRadius - distance) / safeRadius;
-        steerX += (dx / distance) * force * 2.5;
-        steerZ += (dz / distance) * force * 2.5;
+        const safeRadius = obstacle.radius + 1.35;
+        const probeX = agent.x + desiredX * 2.4;
+        const probeZ = agent.z + desiredZ * 2.4;
+        const probeDx = probeX - obstacle.x;
+        const probeDz = probeZ - obstacle.z;
+        const probeDistanceSq = probeDx * probeDx + probeDz * probeDz;
+        if (distanceSq >= safeRadius * safeRadius && probeDistanceSq >= safeRadius * safeRadius) continue;
+        const distance = Math.max(0.001, Math.sqrt(distanceSq));
+        const force = clamp((safeRadius + 1.2 - distance) / safeRadius, 0.2, 1.4);
+        const radialX = dx / distance;
+        const radialZ = dz / distance;
+        steerX += radialX * force * 2.1 - radialZ * agent.avoidanceSide * force * 1.25;
+        steerZ += radialZ * force * 2.1 + radialX * agent.avoidanceSide * force * 1.25;
     }
     const length = Math.hypot(steerX, steerZ) || 1;
     return { x: steerX / length, z: steerZ / length };
 }
 
+function crowdLaneIndex(z) {
+    return clamp(
+        Math.floor(((z - ARENA.minZ) / (ARENA.maxZ - ARENA.minZ)) * CROWD_LANE_COUNT),
+        0,
+        CROWD_LANE_COUNT - 1,
+    );
+}
+
+function rebuildCrowdSpatialIndex() {
+    for (const type of ['bull', 'bear']) {
+        crowdSpatial[type].forEach((bucket) => { bucket.length = 0; });
+        for (const agent of crowdAgents[type]) {
+            const partner = agent.engagementPartner;
+            if (partner && (
+                agent.retiring
+                || partner.retiring
+                || partner.engagementPartner !== agent
+                || Math.abs(partner.rank - agent.rank) > 2
+                || Math.hypot(partner.x - agent.x, partner.z - agent.z) > 10
+            )) {
+                if (partner.engagementPartner === agent) partner.engagementPartner = null;
+                agent.engagementPartner = null;
+            }
+            if (!agent.retiring) crowdSpatial[type][crowdLaneIndex(agent.z)].push(agent);
+        }
+    }
+}
+
+function findCrowdOpponent(agent, type) {
+    if (agent.engagementPartner && !agent.engagementPartner.retiring) {
+        return {
+            agent: agent.engagementPartner,
+            distance: Math.hypot(
+                agent.engagementPartner.x - agent.x,
+                agent.engagementPartner.z - agent.z,
+            ),
+        };
+    }
+    const opponentType = type === 'bull' ? 'bear' : 'bull';
+    const laneIndex = crowdLaneIndex(agent.z);
+    let closest = null;
+    let closestDistanceSq = Number.POSITIVE_INFINITY;
+    for (let offset = -1; offset <= 1; offset++) {
+        const bucket = crowdSpatial[opponentType][laneIndex + offset];
+        if (!bucket) continue;
+        for (const opponent of bucket) {
+            if (opponent.engagementPartner && opponent.engagementPartner !== agent) continue;
+            const dx = opponent.x - agent.x;
+            const dz = opponent.z - agent.z;
+            const distanceSq = dx * dx + dz * dz;
+            const rankPenalty = (opponent.rank - agent.rank) ** 2 * 4;
+            const matchScore = distanceSq + rankPenalty;
+            if (matchScore < closestDistanceSq) {
+                closest = opponent;
+                closestDistanceSq = matchScore;
+            }
+        }
+    }
+    if (!closest) return null;
+    agent.engagementPartner = closest;
+    closest.engagementPartner = agent;
+    return { agent: closest, distance: Math.hypot(closest.x - agent.x, closest.z - agent.z) };
+}
+
 function updateCrowdSnapshot(tactics, delta) {
     const bins = Array.from({ length: 8 }, () => ({ bull: 0, bear: 0 }));
+    const laneFronts = Array.from({ length: CROWD_LANE_COUNT }, () => ({
+        bull: Number.NEGATIVE_INFINITY,
+        bear: Number.POSITIVE_INFINITY,
+    }));
     let sumX = 0;
     let sumZ = 0;
     let count = 0;
@@ -1983,6 +2197,17 @@ function updateCrowdSnapshot(tactics, delta) {
     let bearX = 0;
     let bullCount = 0;
     let bearCount = 0;
+    let bullFrontX = Number.NEGATIVE_INFINITY;
+    let bearFrontX = Number.POSITIVE_INFINITY;
+    let speedSum = 0;
+    let maxSpeed = 0;
+    let maxTurnRate = 0;
+    let overlaps = 0;
+    let crossedPairs = 0;
+    let pairedFighters = 0;
+    const pairedBullFronts = [];
+    const pairedBearFronts = [];
+    const pairGaps = [];
     for (const type of ['bull', 'bear']) {
         for (const agent of crowdAgents[type]) {
             if (agent.retiring) continue;
@@ -1992,13 +2217,32 @@ function updateCrowdSnapshot(tactics, delta) {
             if (type === 'bull') {
                 bullX += agent.x;
                 bullCount += 1;
+                bullFrontX = Math.max(bullFrontX, agent.x);
+                const laneFront = laneFronts[crowdLaneIndex(agent.z)];
+                laneFront.bull = Math.max(laneFront.bull, agent.x);
+                if (agent.engaged && agent.opponentDistance < 0.95) overlaps += 1;
+                if (agent.engagementPartner && !agent.engagementPartner.retiring) {
+                    pairedFighters += 1;
+                    const pairGap = agent.engagementPartner.x - agent.x;
+                    pairedBullFronts.push(agent.x);
+                    pairedBearFronts.push(agent.engagementPartner.x);
+                    pairGaps.push(pairGap);
+                    if (pairGap < -0.5) crossedPairs += 1;
+                }
             } else {
                 bearX += agent.x;
                 bearCount += 1;
+                bearFrontX = Math.min(bearFrontX, agent.x);
+                const laneFront = laneFronts[crowdLaneIndex(agent.z)];
+                laneFront.bear = Math.min(laneFront.bear, agent.x);
             }
+            const speed = Math.hypot(agent.vx, agent.vz);
+            speedSum += speed;
+            maxSpeed = Math.max(maxSpeed, speed);
+            maxTurnRate = Math.max(maxTurnRate, agent.turnRate);
             if (agent.engaged) engaged += 1;
             const bin = clamp(Math.floor(((agent.z - ARENA.minZ) / (ARENA.maxZ - ARENA.minZ)) * bins.length), 0, bins.length - 1);
-            const contactWeight = 1 / (1 + Math.abs(agent.x - state.frontlineX) * 0.12);
+            const contactWeight = 1 / (1 + Math.abs(agent.x - crowdFormationX) * 0.12);
             bins[bin][type] += contactWeight * (agent.engaged ? 2.4 : 1);
         }
     }
@@ -2031,14 +2275,43 @@ function updateCrowdSnapshot(tactics, delta) {
         lastCrowdHotBinAt = now;
     }
     const hotZ = ARENA.minZ + ((crowdHotBin + 0.5) / bins.length) * (ARENA.maxZ - ARENA.minZ);
+    const median = (values, fallback) => {
+        if (!values.length) return fallback;
+        values.sort((a, b) => a - b);
+        const middle = Math.floor(values.length / 2);
+        return values.length % 2 ? values[middle] : (values[middle - 1] + values[middle]) * 0.5;
+    };
+    const bullLaneFronts = laneFronts.filter((lane) => Number.isFinite(lane.bull)).map((lane) => lane.bull);
+    const bearLaneFronts = laneFronts.filter((lane) => Number.isFinite(lane.bear)).map((lane) => lane.bear);
+    const laneGaps = laneFronts
+        .filter((lane) => Number.isFinite(lane.bull) && Number.isFinite(lane.bear))
+        .map((lane) => lane.bear - lane.bull);
+    const bullFrontTarget = median(
+        pairedBullFronts,
+        median(bullLaneFronts, bullCount ? bullFrontX : ARENA.spawnBullX),
+    );
+    const bearFrontTarget = median(
+        pairedBearFronts,
+        median(bearLaneFronts, bearCount ? bearFrontX : ARENA.spawnBearX),
+    );
+    const contactGapTarget = median(pairGaps, median(laneGaps, bearFrontTarget - bullFrontTarget));
     crowdBattle.centerX = THREE.MathUtils.damp(crowdBattle.centerX, centerX, 1.1, delta);
     crowdBattle.centerZ = THREE.MathUtils.damp(crowdBattle.centerZ, centerZ, 1.1, delta);
     crowdBattle.bullCenterX = THREE.MathUtils.damp(crowdBattle.bullCenterX, bullCount ? bullX / bullCount : ARENA.spawnBullX, 1.1, delta);
     crowdBattle.bearCenterX = THREE.MathUtils.damp(crowdBattle.bearCenterX, bearCount ? bearX / bearCount : ARENA.spawnBearX, 1.1, delta);
-    crowdBattle.hotspotX = THREE.MathUtils.damp(crowdBattle.hotspotX, state.frontlineX + tactics.balance * 2.5, 1.25, delta);
+    crowdBattle.bullFrontX = THREE.MathUtils.damp(crowdBattle.bullFrontX, bullFrontTarget, 2.2, delta);
+    crowdBattle.bearFrontX = THREE.MathUtils.damp(crowdBattle.bearFrontX, bearFrontTarget, 2.2, delta);
+    crowdBattle.contactGap = THREE.MathUtils.damp(crowdBattle.contactGap, contactGapTarget, 2.2, delta);
+    crowdBattle.hotspotX = THREE.MathUtils.damp(crowdBattle.hotspotX, crowdFormationX + tactics.balance * 2.5, 1.25, delta);
     crowdBattle.hotspotZ = THREE.MathUtils.damp(crowdBattle.hotspotZ, hotZ, 0.72, delta);
     crowdBattle.spread = THREE.MathUtils.damp(crowdBattle.spread, Math.sqrt(variance / Math.max(1, count)), 1.1, delta);
     crowdBattle.engaged = engaged;
+    crowdBattle.overlaps = overlaps;
+    crowdBattle.crossedPairs = crossedPairs;
+    crowdBattle.pairedFighters = pairedFighters;
+    crowdBattle.meanSpeed = count ? speedSum / count : 0;
+    crowdBattle.maxSpeed = maxSpeed;
+    crowdBattle.maxTurnRate = maxTurnRate;
 }
 
 function updateCrowdClashEffects(delta) {
@@ -2151,29 +2424,52 @@ function updateBullKing(delta) {
     const defending = now < kingDefenseUntil && Boolean(kingThreat);
     if (!defending && now >= kingDefenseUntil) kingThreat = null;
     const supporting = bullSupportUntil > now;
-    const directive = deriveKingDirective({ tactics, defending, supporting });
-    kingMode = directive.mode;
-    const battleZ = clamp(crowdBattle.hotspotZ * 0.82, ARENA.minZ + 5, ARENA.maxZ - 5);
+    const requestedDirective = deriveKingDirective({ tactics, defending, supporting });
+    const urgentModeChange = defending || supporting || kingMode === 'defend' || kingMode === 'rally';
+    if (requestedDirective.mode !== kingMode && (urgentModeChange || now - kingModeSince >= 2_800)) {
+        setKingMode(requestedDirective.mode, now);
+    }
+    const directive = deriveKingDirective({ tactics, mode: kingMode });
+    const desiredBattleZ = clamp(crowdBattle.hotspotZ * 0.72, ARENA.minZ + 5, ARENA.maxZ - 5);
+    const urgentCommand = defending ? kingThreat.mesh.position.z : null;
+    if (Number.isFinite(urgentCommand)) {
+        kingCommandZ = clamp(urgentCommand, ARENA.minZ + 5, ARENA.maxZ - 5);
+        kingCommandZUntil = now + 3_200;
+    } else if (now >= kingCommandZUntil && Math.abs(desiredBattleZ - kingCommandZ) >= 2.8) {
+        kingCommandZ = desiredBattleZ;
+        kingCommandZUntil = now + 6_500;
+    }
+    const bullFrontReference = crowdAgents.bull.length
+        ? Math.min(state.frontlineX, crowdBattle.bullFrontX)
+        : state.frontlineX;
+    const guardBuffer = kingMode === 'guard' ? Math.max(0, -tactics.balance) * 5 : 0;
     const targetX = clamp(
-        defending ? kingThreat.mesh.position.x - 7 : state.frontlineX - directive.trailingDistance,
-        ARENA.minX + 12,
+        defending
+            ? Math.min(kingThreat.mesh.position.x - 9, bullFrontReference - 5)
+            : bullFrontReference - directive.trailingDistance - guardBuffer,
+        ARENA.minX + 8,
         ARENA.maxX - 14,
     );
-    const targetZ = clamp(
-        defending ? kingThreat.mesh.position.z : battleZ,
-        ARENA.minZ + 5,
-        ARENA.maxZ - 5,
-    );
+    const targetZ = kingCommandZ;
     const hover = Math.sin(kingTime * (1.25 + tactics.flowIntensity * 0.35)) * (prefersReducedMotion ? 0.18 : 0.62)
         + reaction * 0.22;
     _kingTarget.set(targetX, getTrenchHeight(targetX, targetZ) + directive.altitude + hover, targetZ);
     const travelX = _kingTarget.x - bullKingRig.position.x;
     const travelZ = _kingTarget.z - bullKingRig.position.z;
+    const previousYaw = bullKingRig.rotation.y;
+    _kingPreviousPosition.copy(bullKingRig.position);
     dampVector(bullKingRig.position, _kingTarget, directive.response, directive.maxSpeed, delta, _kingMove);
-    const watchX = defending ? kingThreat.mesh.position.x : state.frontlineX + 8 + Math.max(0, tactics.balance) * 5;
-    const watchZ = defending ? kingThreat.mesh.position.z : crowdBattle.hotspotZ;
+    const watchX = defending ? kingThreat.mesh.position.x : crowdBattle.hotspotX;
+    const watchZ = defending ? kingThreat.mesh.position.z : kingCommandZ;
     const desiredYaw = Math.atan2(-(watchZ - bullKingRig.position.z), watchX - bullKingRig.position.x);
-    bullKingRig.rotation.y = lerpAngle(bullKingRig.rotation.y, desiredYaw, Math.min(1, delta * (defending ? 6.5 : 2.8)));
+    const yawDelta = Math.atan2(Math.sin(desiredYaw - bullKingRig.rotation.y), Math.cos(desiredYaw - bullKingRig.rotation.y));
+    const maxYawSpeed = defending ? 3.2 : 1.45;
+    bullKingRig.rotation.y += clamp(yawDelta, -maxYawSpeed * delta, maxYawSpeed * delta);
+    kingSpeed = bullKingRig.position.distanceTo(_kingPreviousPosition) / Math.max(0.001, delta);
+    kingTurnRate = Math.abs(Math.atan2(
+        Math.sin(bullKingRig.rotation.y - previousYaw),
+        Math.cos(bullKingRig.rotation.y - previousYaw),
+    )) / Math.max(0.001, delta);
     bullKingRig.rotation.x = THREE.MathUtils.lerp(bullKingRig.rotation.x, clamp(-travelZ * 0.018, -0.12, 0.12), delta * 2.5);
     bullKingRig.rotation.z = THREE.MathUtils.lerp(bullKingRig.rotation.z, clamp(travelX * 0.015, -0.1, 0.1) - reaction * 0.035, delta * 3);
     const flapRate = 4.6 + tactics.activityLevel * 1.8 + reaction * 1.5 + (defending ? 2.5 : 0);
@@ -2195,9 +2491,11 @@ function updateBullKing(delta) {
         : 4.5 + Math.sin(kingTime * 2) * 1.2 + reaction * 4;
 }
 
-function lerpAngle(from, to, amount) {
-    const difference = Math.atan2(Math.sin(to - from), Math.cos(to - from));
-    return from + difference * amount;
+function setKingMode(nextMode, now = Date.now()) {
+    if (nextMode === kingMode) return;
+    kingMode = nextMode;
+    kingModeSince = now;
+    kingModeChanges += 1;
 }
 
 function updateSupportWaves(delta) {
@@ -2253,7 +2551,9 @@ function updateCamera(delta) {
         lastCameraEventWeight = eventWeight;
         const visualForceCount = crowdAgents.bull.length + crowdAgents.bear.length + entities.length;
         const massScale = smoothstep(24, MAX_CROWD_PER_SIDE * 1.65, visualForceCount);
-        const eventBlend = eventWeight * THREE.MathUtils.lerp(0.58, 0.36, massScale);
+        // Keep the commander readable without abandoning the army-scale story.
+        // Large battles retain substantially more frontline context during wards.
+        const eventBlend = eventWeight * THREE.MathUtils.lerp(0.42, 0.18, massScale);
         const focusX = THREE.MathUtils.lerp(_cameraFramingCenter.x, kingFocusX, eventBlend);
         const focusZ = THREE.MathUtils.lerp(_cameraFramingCenter.z, kingFocusZ, eventBlend);
         const spread = framing.spread;
