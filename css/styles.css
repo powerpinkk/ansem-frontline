@@ -149,6 +149,19 @@ body {
     border-color: rgba(255, 170, 0, 0.25);
 }
 
+.data-freshness {
+    display: inline-block;
+    margin-left: 7px;
+    color: #657069;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 8px;
+    letter-spacing: .7px;
+    vertical-align: middle;
+}
+
+.data-freshness.fresh { color: #83b99d; }
+.data-freshness.stale { color: var(--status-degraded); }
+
 @keyframes pulse {
     0%, 100% { opacity: 1; transform: scale(1); }
     50% { opacity: 0.5; transform: scale(0.85); }
@@ -184,6 +197,25 @@ body {
     background: rgba(0,0,0,0.4);
     border: 1px solid rgba(255,255,255,0.08);
     display: block;
+}
+
+.mini-chart-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.mini-chart-wrap > span {
+    position: absolute;
+    top: 3px;
+    left: 5px;
+    z-index: 1;
+    color: rgba(208, 220, 212, .58);
+    font-family: 'Orbitron', sans-serif;
+    font-size: 6px;
+    font-weight: 700;
+    letter-spacing: .7px;
+    pointer-events: none;
 }
 
 #price-container {
@@ -247,6 +279,7 @@ body {
 #main { display: flex; flex: 1 1 auto; min-width: 0; min-height: 0; position: relative; overflow: hidden; }
 #canvas-container { flex: 1 1 auto; min-width: 0; min-height: 0; position: relative; overflow: hidden; background: #0a120e; }
 #three-canvas { position: absolute; inset: 0; }
+#three-canvas.is-inspectable { cursor: crosshair; }
 
 #data-legend {
     position: absolute;
@@ -460,11 +493,143 @@ canvas { width: 100%; height: 100%; display: block; outline: none; }
 }
 
 #battle-state strong { font-family:'Orbitron', sans-serif; font-size:11px; letter-spacing:1.2px; }
+#battle-state b { color:#f1f5f2; font-family:'Orbitron', sans-serif; font-size:9px; letter-spacing:.7px; }
 #battle-state span { color:#929b95; font-size:8px; font-weight:600; letter-spacing:.25px; }
 #battle-state.bull { color:var(--meadow-green); border-color:rgba(0,255,136,.38); box-shadow:0 0 24px rgba(0,255,136,.12); }
 #battle-state.bear { color:#d22b55; border-color:rgba(155,23,57,.5); box-shadow:0 0 24px rgba(155,23,57,.16); }
 #battle-state.contested { color:#f1d37a; border-color:rgba(241,211,122,.35); }
 #battle-state.holding { color:#b7c0ba; }
+
+.field-trade-signal {
+    position: absolute;
+    top: 92px;
+    left: 50%;
+    z-index: 44;
+    min-width: 190px;
+    padding: 7px 13px;
+    transform: translate(-50%, -8px);
+    border: 1px solid transparent;
+    border-radius: 999px;
+    background: rgba(3,7,5,.78);
+    color: #fff;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: .7px;
+    text-align: center;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.field-trade-signal.show { animation: marketSignal 3.2s ease both; }
+.field-trade-signal.buy { color:var(--meadow-green); border-color:rgba(0,255,136,.35); box-shadow:0 0 20px rgba(0,255,136,.13); }
+.field-trade-signal.sell { color:#f05478; border-color:rgba(155,23,57,.55); box-shadow:0 0 20px rgba(155,23,57,.18); }
+
+@keyframes marketSignal {
+    0% { opacity:0; transform:translate(-50%, -12px) scale(.96); }
+    12%, 72% { opacity:1; transform:translate(-50%, 0) scale(1); }
+    100% { opacity:0; transform:translate(-50%, 8px) scale(.98); }
+}
+
+.visible-coverage {
+    position: absolute;
+    right: 14px;
+    bottom: 62px;
+    z-index: 42;
+    padding: 7px 10px;
+    border: 1px solid rgba(255,255,255,.09);
+    border-radius: 7px;
+    background: rgba(3,7,5,.72);
+    color: #849087;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 7px;
+    font-weight: 700;
+    letter-spacing: .65px;
+    pointer-events: none;
+}
+
+.away-summary {
+    position: absolute;
+    left: 50%;
+    bottom: 104px;
+    z-index: 70;
+    max-width: calc(100% - 32px);
+    padding: 10px 15px;
+    transform: translate(-50%, 12px);
+    border: 1px solid rgba(0,255,136,.28);
+    border-radius: 9px;
+    background: rgba(3,10,6,.92);
+    color: #c8d6cd;
+    font-size: 10px;
+    font-weight: 700;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.away-summary.show { animation: awaySummary 6s ease both; }
+
+@keyframes awaySummary {
+    0% { opacity:0; transform:translate(-50%, 12px); }
+    10%, 78% { opacity:1; transform:translate(-50%, 0); }
+    100% { opacity:0; transform:translate(-50%, -8px); }
+}
+
+.renderer-status {
+    position: absolute;
+    inset: 0;
+    z-index: 80;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    background: rgba(2,3,2,.78);
+    color: #d8e4dc;
+    text-align: center;
+}
+
+.renderer-status[hidden] { display: none; }
+.renderer-status strong { color:var(--status-degraded); font-family:'Orbitron', sans-serif; font-size:13px; }
+.renderer-status span { max-width:360px; color:#8b9690; font-size:10px; }
+
+.unit-inspector {
+    position: absolute;
+    top: 50%;
+    right: 16px;
+    z-index: 65;
+    width: 230px;
+    padding: 16px;
+    transform: translateY(-50%);
+    border: 1px solid rgba(255,255,255,.14);
+    border-radius: 12px;
+    background: rgba(3,7,5,.92);
+    backdrop-filter: blur(16px);
+    box-shadow: 0 16px 45px rgba(0,0,0,.55);
+}
+
+.unit-inspector[hidden] { display:none; }
+.unit-inspector.buy { border-color:rgba(0,255,136,.4); }
+.unit-inspector.sell { border-color:rgba(155,23,57,.62); }
+.unit-inspector #unit-inspector-close {
+    position:absolute;
+    top:6px;
+    right:8px;
+    width:26px;
+    height:26px;
+    border:0;
+    background:transparent;
+    color:#8e9992;
+    cursor:pointer;
+    font-size:20px;
+}
+.unit-inspector > span { display:block; color:#747f78; font-size:7px; font-weight:800; letter-spacing:1.1px; }
+.unit-inspector > strong { display:block; margin:5px 24px 12px 0; color:#fff; font-family:'Orbitron', sans-serif; font-size:13px; }
+.unit-inspector dl { display:grid; gap:7px; margin-bottom:13px; }
+.unit-inspector dl div { display:flex; justify-content:space-between; gap:12px; padding-bottom:6px; border-bottom:1px solid rgba(255,255,255,.05); }
+.unit-inspector dt { color:#707a74; font-size:9px; }
+.unit-inspector dd { overflow:hidden; color:#d2dad5; font-family:'Orbitron', sans-serif; font-size:8px; text-overflow:ellipsis; white-space:nowrap; }
+.unit-inspector a { color:var(--meadow-green); font-size:8px; font-weight:800; letter-spacing:.7px; text-decoration:none; }
+.unit-inspector.sell a { color:#f05478; }
 
 #market-pulse {
     margin-top: 18px;
@@ -515,7 +680,12 @@ canvas { width: 100%; height: 100%; display: block; outline: none; }
     #data-legend { bottom: 8px; gap: 4px 10px; width: calc(100% - 16px); white-space: normal; flex-wrap: wrap; justify-content: center; border-radius: 14px; font-size: 9px; }
     #battle-state { top: 8px; min-width: 0; width:calc(100% - 24px); padding:6px 10px; }
     #battle-state strong { font-size:9px; }
+    #battle-state b { font-size:7px; }
     #battle-state span { font-size:7px; }
+    .field-trade-signal { top:76px; max-width:calc(100% - 24px); font-size:7px; }
+    .visible-coverage { right:8px; bottom:76px; max-width:calc(100% - 16px); font-size:6px; }
+    .unit-inspector { top:auto; right:8px; bottom:72px; left:8px; width:auto; transform:none; }
+    .data-freshness { font-size:7px; }
     #floating-socials { display: none; }
 }
 

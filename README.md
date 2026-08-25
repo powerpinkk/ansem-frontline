@@ -2,6 +2,8 @@
 
 An open-source 3D market visualization that turns verified `$ANSEM` swaps on Solana into a live bull-versus-bear battlefield.
 
+![The $ANSEM Frontline live battlefield](public/og-card.png)
+
 - Token: `$ANSEM`
 - Contract address: `9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump`
 - Live application: [ansem-frontline.vercel.app](https://ansem-frontline.vercel.app/)
@@ -19,10 +21,11 @@ An open-source 3D market visualization that turns verified `$ANSEM` swaps on Sol
 | A giant buy, buy-regime reversal or sustained ≥65% buy pressure reclaims territory containing stranded bears | The Bull King clears those isolated units with a green staff ray |
 | 60-second net buy/sell volume | Bull/bear dominance and frontline position |
 | Reference-pool OHLCV | One-hour mini price chart |
+| Selected battlefield combatant | Verified SOL size, USD value, pool, age and direct Solscan transaction link |
 
 Every bull and bear originates from a verified swap returned by the Helius relay or GeckoTerminal fallback. Five-minute DexScreener transaction counts remain visible only as numeric context and never generate battlefield characters. There are no randomly generated or aggregate-derived units. Combat animation, damage and the Bull King's territorial clear are visual metaphors and are intentionally simulated; they never alter price, order-flow dominance or the underlying trade feed.
 
-The display deliberately separates three time horizons so that activity and trend are not conflated: the mini chart shows one-hour price direction, the frontline and pressure bars encode verified SOL flow over the latest 60 seconds, and the sidebar shows exact five-minute buy/sell transaction counts. The luminous pressure line represents a rolling market balance, not a wall or collision boundary.
+The display deliberately separates three time horizons so that activity and trend are not conflated: the mini chart shows one-hour price direction, the frontline and pressure bars encode verified SOL flow over the latest 60 seconds, and the sidebar shows exact five-minute buy/sell transaction counts. The segmented pressure marker represents a rolling market balance, not a wall or collision boundary. A visible coverage label discloses both the recent verified-swap count and the number of combatants currently rendered; the scene is capped at eight recent units per side for readability and predictable performance.
 
 Units can cross the pressure line to patrol contested ground or pursue a verified opposing swap. Their operating area shifts continuously with 60-second SOL control rather than snapping to either side of the line. Target acquisition is distance-based across the arena and never turns off merely because a unit crossed the market marker. Deterministic lanes, local avoidance, separation, alternating patrol waypoints, stuck recovery and hard arena bounds keep the visualization readable. Regular units remain for 75 seconds and giant trades for 105 seconds, then retire without being counted as combat defeats; this keeps the battlefield representative of recent activity instead of accumulating historical trades forever.
 
@@ -33,6 +36,8 @@ The Bull King is a persistent visual commander inspired by the project's charact
 Territorial reclamation is similarly deterministic: after a buy-regime reversal, a giant buy that advances the frontline materially, or sustained buy control of at least 65%, the King targets only verified bears left behind the new bull line. His staff ray retires those isolated units and records the trigger in the battle log; bears still positioned on their valid side remain untouched, and the effect has no influence on market calculations.
 
 The King continuously patrols bull territory and changes distance, wing cadence and staff pose with real flow signals. His presence is the only persistent character; all ordinary combatants are recent verified swaps.
+
+When the page is hidden, the WebGL loop pauses instead of wasting battery on frames the browser cannot display. Returning to the page resets the render clock, refreshes market state, reconfigures the live stream, conservatively catches up recent pool trades and summarizes verified flow received while away. The renderer also adapts pixel density on sustained slow devices, pools short-lived projectiles and particles, respects reduced-motion preferences and recovers from WebGL context loss without altering market data.
 
 ## Data methodology
 

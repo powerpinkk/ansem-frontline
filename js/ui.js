@@ -5,6 +5,8 @@ import { state } from './state.js';
 const DOM = {};
 let miniChartCtx = null;
 let lastRenderedBullPct = -1;
+let signalTimer = null;
+let selectedTrade = null;
 let sceneCallbacks = {
     setFrontlineColor: () => {},
 };
@@ -39,11 +41,27 @@ export function initUI(sceneHooks = {}) {
     DOM.pressureVolume = document.getElementById('pressure-volume');
     DOM.battleState = document.getElementById('battle-state');
     DOM.battleStateLabel = document.getElementById('battle-state-label');
+    DOM.battleStateFlow = document.getElementById('battle-state-flow');
     DOM.battleStateDetail = document.getElementById('battle-state-detail');
+    DOM.fieldTradeSignal = document.getElementById('field-trade-signal');
+    DOM.visibleCoverage = document.getElementById('visible-coverage');
+    DOM.dataFreshness = document.getElementById('data-freshness');
+    DOM.awaySummary = document.getElementById('away-summary');
+    DOM.rendererStatus = document.getElementById('renderer-status');
+    DOM.unitInspector = document.getElementById('unit-inspector');
+    DOM.unitInspectorClose = document.getElementById('unit-inspector-close');
+    DOM.unitInspectorTitle = document.getElementById('unit-inspector-title');
+    DOM.unitInspectorSol = document.getElementById('unit-inspector-sol');
+    DOM.unitInspectorUsd = document.getElementById('unit-inspector-usd');
+    DOM.unitInspectorPool = document.getElementById('unit-inspector-pool');
+    DOM.unitInspectorAge = document.getElementById('unit-inspector-age');
+    DOM.unitInspectorLink = document.getElementById('unit-inspector-link');
 
     setupMiniChart();
     bindControls();
     setConnectionStatus('connecting');
+    updateFreshnessUI();
+    window.setInterval(updateFreshnessUI, 1_000);
 }
 
 function setupMiniChart() {
@@ -61,6 +79,7 @@ function setupMiniChart() {
 
 function bindControls() {
     DOM.soundBtn?.addEventListener('click', () => window.__ansemToggleAudio?.());
+    DOM.unitInspectorClose?.addEventListener('click', hideUnitInspector);
 }
 
 export function bindCameraControls(setCameraMode) {
@@ -169,10 +188,17 @@ function updateBattleState() {
     });
     DOM.battleState.className = tactics.state;
     DOM.battleStateLabel.textContent = tactics.label;
+    const netSol = state.buySol60s - state.sellSol60s;
+    if (DOM.battleStateFlow) {
+        DOM.battleStateFlow.textContent = Math.abs(netSol) < 0.005
+            ? 'NO VERIFIED FLOW · 60S'
+            : `${netSol > 0 ? 'BUYERS' : 'SELLERS'} ${netSol > 0 ? '+' : '−'}${formatSol(Math.abs(netSol))} SOL · 60S`;
+    }
     if (tactics.state === 'bull') DOM.battleStateDetail.textContent = 'Bulls surge forward · grizzlies backpedal toward their lines';
     else if (tactics.state === 'bear') DOM.battleStateDetail.textContent = 'Grizzlies push forward · bulls fall back toward the King';
     else if (tactics.state === 'contested') DOM.battleStateDetail.textContent = 'Both sides cross contested ground while 60s SOL flow moves the marker';
     else DOM.battleStateDetail.textContent = 'No verified SOL flow in 60s · recent swaps keep patrolling';
+    updateVisibleCoverage(state.visibleCombatants);
 }
 
 function formatSol(value) {
@@ -206,6 +232,87 @@ export function addOnChainTrade(trade) {
     row.append(time, side, amount, value);
     DOM.tradesfeed.prepend(row);
     trimFeed(DOM.tradesfeed, CONFIG.MAX_TRADES_FEED);
+}
+
+export function showFieldTradeSignal(trade) {
+    if (!DOM.fieldTradeSignal || !trade) return;
+    window.clearTimeout(signalTimer);
+    const side = trade.isBuy ? 'BUY' : 'SELL';
+    const scale = trade.isWhale ? 'GIANT ' : '';
+    DOM.fieldTradeSignal.textContent = `${scale}${side} · ${formatSol(trade.solValue)} SOL · ${String(trade.dexId || 'ON-CHAIN').toUpperCase()}`;
+    DOM.fieldTradeSignal.className = `field-trade-signal ${trade.isBuy ? 'buy' : 'sell'}`;
+    void DOM.fieldTradeSignal.offsetWidth;
+    DOM.fieldTradeSignal.classList.add('show');
+    signalTimer = window.setTimeout(() => DOM.fieldTradeSignal?.classList.remove('show'), 3_300);
+}
+
+export function updateVisibleCoverage(counts = state.visibleCombatants) {
+    if (!DOM.visibleCoverage) return;
+    const cutoff = Date.now() - CONFIG.PRESSURE_WINDOW_MS;
+    const recentVerified = state.liveTrades.filter((trade) => trade.timestamp >= cutoff).length;
+    const total = Number(counts?.total || 0);
+    DOM.visibleCoverage.textContent = `${total} COMBATANT${total === 1 ? '' : 'S'} SHOWN · ${recentVerified} VERIFIED SWAP${recentVerified === 1 ? '' : 'S'} / 60S`;
+    DOM.visibleCoverage.title = `The battlefield shows at most ${CONFIG.MAX_VISIBLE_UNITS_PER_SIDE} recent verified swaps per side for performance and readability.`;
+}
+
+export function showUnitInspector(entity) {
+    const trade = entity?.trade;
+    if (!DOM.unitInspector || !trade?.txHash) {
+        hideUnitInspector();
+        return;
+    }
+    selectedTrade = trade;
+    DOM.unitInspector.hidden = false;
+    DOM.unitInspector.className = `unit-inspector ${trade.isBuy ? 'buy' : 'sell'}`;
+    DOM.unitInspectorTitle.textContent = `${trade.isWhale ? 'GIANT ' : ''}${trade.isBuy ? 'BLACK BULL · BUY' : 'GRIZZLY · SELL'}`;
+    DOM.unitInspectorSol.textContent = `${formatSol(trade.solValue)} SOL`;
+    DOM.unitInspectorUsd.textContent = `$${Math.round(trade.usdValue).toLocaleString()}`;
+    DOM.unitInspectorPool.textContent = String(trade.dexId || 'unknown').toUpperCase();
+    DOM.unitInspectorPool.title = `${trade.dexId || 'unknown'} · ${trade.quoteSymbol || '—'}`;
+    DOM.unitInspectorAge.textContent = formatAge(Date.now() - trade.timestamp);
+    DOM.unitInspectorLink.href = `https://solscan.io/tx/${encodeURIComponent(trade.txHash)}`;
+}
+
+export function hideUnitInspector() {
+    selectedTrade = null;
+    if (DOM.unitInspector) DOM.unitInspector.hidden = true;
+}
+
+export function showAwaySummary({ durationMs = 0, buys = 0, sells = 0, buySol = 0, sellSol = 0 } = {}) {
+    if (!DOM.awaySummary || durationMs < 5_000) return;
+    const netSol = buySol - sellSol;
+    const duration = durationMs >= 60_000 ? `${Math.round(durationMs / 60_000)}m` : `${Math.round(durationMs / 1_000)}s`;
+    DOM.awaySummary.textContent = `WHILE AWAY ${duration} · ${buys} BUY${buys === 1 ? '' : 'S'} · ${sells} SELL${sells === 1 ? '' : 'S'} · NET ${netSol >= 0 ? '+' : '−'}${formatSol(Math.abs(netSol))} SOL`;
+    DOM.awaySummary.classList.remove('show');
+    void DOM.awaySummary.offsetWidth;
+    DOM.awaySummary.classList.add('show');
+}
+
+export function setRendererStatus(status) {
+    if (!DOM.rendererStatus) return;
+    DOM.rendererStatus.hidden = status !== 'lost';
+}
+
+function updateFreshnessUI() {
+    if (selectedTrade && DOM.unitInspectorAge) {
+        DOM.unitInspectorAge.textContent = formatAge(Date.now() - selectedTrade.timestamp);
+    }
+    if (!DOM.dataFreshness) return;
+    const lastDataAt = Math.max(state.lastMarketAt || 0, state.lastTradeAt || 0);
+    if (!lastDataAt) {
+        DOM.dataFreshness.textContent = 'WAITING FOR MARKET DATA';
+        DOM.dataFreshness.className = 'data-freshness';
+        return;
+    }
+    const ageMs = Math.max(0, Date.now() - lastDataAt);
+    DOM.dataFreshness.textContent = `DATA ${formatAge(ageMs)} AGO`;
+    DOM.dataFreshness.className = `data-freshness ${ageMs < 20_000 ? 'fresh' : 'stale'}`;
+}
+
+function formatAge(ageMs) {
+    if (ageMs < 1_000) return 'NOW';
+    if (ageMs < 60_000) return `${Math.floor(ageMs / 1_000)}S`;
+    return `${Math.floor(ageMs / 60_000)}M`;
 }
 
 export function updateActivityUI(activity) {

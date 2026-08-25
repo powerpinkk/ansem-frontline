@@ -1,22 +1,26 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { CONFIG } from './config.js';
 import { state } from './state.js';
 import { ARENA, clamp, clampArenaPosition, isFinitePosition, isUnitStranded, tacticalPatrolTarget, tradeLane, unitHasExpired } from './navigation.js';
 import { deriveBattleTactics } from './market.js';
 
 let onKillEvent = () => {};
 let onReclaimEvent = () => {};
+let onInspectUnit = () => {};
+let onVisibleUnitsChange = () => {};
+let onRendererStatus = () => {};
 
 let entities = [];
 let particles = [];
 let projectiles = [];
 let supportWaves = [];
 let kingStrikes = [];
-const MAX_ENTITIES_PER_SIDE = 8;
+const MAX_ENTITIES_PER_SIDE = CONFIG.MAX_VISIBLE_UNITS_PER_SIDE;
 const obstacles = [];
 
-let scene, camera, renderer, frontlineLaser, orbitControls, trenchGlowLight, terrainMaterial;
+let scene, camera, renderer, frontlineLaser, frontlineMaterial, orbitControls, terrainMaterial;
 let bullKingRig, kingMount, kingRider, kingWingNear, kingWingFar, kingStaff, kingStaffGlow;
 const kingLegs = [];
 let kingTime = 0;
@@ -24,6 +28,14 @@ let bullSupportUntil = 0;
 let lastFrontlineFitX = Number.POSITIVE_INFINITY;
 let viewportObserver;
 let loopStarted = false;
+let loopActive = true;
+let animationFrameId = 0;
+let contextLost = false;
+let selectedEntity = null;
+let frameSampleTime = 0;
+let frameSampleCount = 0;
+let adaptivePixelRatio = 1;
+let stableFrameWindows = 0;
 let lastKingReclaimAt = 0;
 let lastKingDefenseAt = 0;
 let lastTerritoryAuditAt = 0;
@@ -38,6 +50,11 @@ const KING_SANCTUM_RADIUS = 15;
 const KING_DEFENSE_COOLDOWN_MS = 4_500;
 const frameTimer = new THREE.Timer();
 let canvasContainer, floatContainer;
+const reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+let prefersReducedMotion = reducedMotionQuery.matches;
+const isConstrainedDevice = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
+    || (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4)
+    || (navigator.deviceMemory && navigator.deviceMemory <= 4);
 
 const geoBox = new THREE.BoxGeometry(1, 1, 1);
 const geoCone = new THREE.ConeGeometry(1, 1, 8);
@@ -142,10 +159,23 @@ const _rayDirection = new THREE.Vector3();
 const _rayUp = new THREE.Vector3(0, 1, 0);
 const _rayStart = new THREE.Vector3();
 const _rayTarget = new THREE.Vector3();
+const _projectileTarget = new THREE.Vector3();
+const _projectileDirection = new THREE.Vector3();
+const _meleeDirection = new THREE.Vector3();
+const _screenVector = new THREE.Vector3();
+const _frontlineTransform = new THREE.Object3D();
+const pointerStart = new THREE.Vector2();
+const pointerPosition = new THREE.Vector2();
+const unitRaycaster = new THREE.Raycaster();
+const projectilePool = { bull: [], bear: [] };
+const particlePool = [];
 
 export function initScene(callbacks = {}) {
     onKillEvent = callbacks.onKillEvent || onKillEvent;
     onReclaimEvent = callbacks.onReclaimEvent || onReclaimEvent;
+    onInspectUnit = callbacks.onInspectUnit || onInspectUnit;
+    onVisibleUnitsChange = callbacks.onVisibleUnitsChange || onVisibleUnitsChange;
+    onRendererStatus = callbacks.onRendererStatus || onRendererStatus;
     canvasContainer = document.getElementById('canvas-container');
     floatContainer = document.getElementById('floating-text-container');
     frameTimer.connect(document);
@@ -184,6 +214,8 @@ export function initScene(callbacks = {}) {
                 triangles: renderer.info.render.triangles,
                 geometries: renderer.info.memory.geometries,
                 textures: renderer.info.memory.textures,
+                pixelRatio: renderer.getPixelRatio(),
+                contextLost,
             } : null,
             camera: camera ? { x: camera.position.x, y: camera.position.y, z: camera.position.z } : null,
             frontlineX: state.frontlineX,
@@ -233,14 +265,48 @@ export function initScene(callbacks = {}) {
             lastTerritoryAuditAt = 0;
             updateTerritorialControl();
         };
+        window.__ansemInspectFirstUnit = () => {
+            selectedEntity = entities.find((entity) => !entity.retired) || null;
+            onInspectUnit(selectedEntity);
+        };
+        window.__ansemFirstUnitScreenPoint = () => {
+            const rect = renderer.domElement.getBoundingClientRect();
+            for (const entity of entities) {
+                if (entity.retired) continue;
+                _screenVector.copy(entity.mesh.position);
+                _screenVector.y += entity.isWhale ? 3.5 : 1.4;
+                _screenVector.project(camera);
+                const point = {
+                    x: rect.left + (_screenVector.x * 0.5 + 0.5) * rect.width,
+                    y: rect.top + (-_screenVector.y * 0.5 + 0.5) * rect.height,
+                };
+                if (point.x >= rect.left && point.x <= rect.right && point.y >= rect.top && point.y <= rect.bottom) return point;
+            }
+            return null;
+        };
     }
 }
 
 export function startGameLoop() {
     if (loopStarted) return;
     loopStarted = true;
+    loopActive = !document.hidden;
     renderNow();
-    requestAnimationFrame(gameLoop);
+    if (loopActive) animationFrameId = requestAnimationFrame(gameLoop);
+}
+
+export function setSceneActive(active) {
+    loopActive = Boolean(active) && !contextLost;
+    if (!loopActive) {
+        window.cancelAnimationFrame(animationFrameId);
+        animationFrameId = 0;
+        if (audioCtx?.state === 'running') void audioCtx.suspend();
+        return;
+    }
+    if (audioEnabled && audioCtx?.state === 'suspended') void audioCtx.resume().catch(() => {});
+    frameTimer.reset();
+    syncViewport(true);
+    if (!animationFrameId) animationFrameId = requestAnimationFrame(gameLoop);
 }
 
 export function setCameraMode(mode) {
@@ -332,6 +398,10 @@ export function spawnUnit(type, initial = false, isWhale = false, trade = null) 
     }
 
     group.add(bodyGroup);
+    group.traverse((child) => {
+        if (child.isMesh) child.castShadow = false;
+    });
+    if (bodyGroup.children[0]?.isMesh) bodyGroup.children[0].castShadow = true;
     const sequence = entities.length;
     const spawnZ = tradeLane(trade, sequence);
     const entranceOffset = initial ? (isBull ? -6 : 6) : 0;
@@ -340,7 +410,7 @@ export function spawnUnit(type, initial = false, isWhale = false, trade = null) 
     group.position.set(spawnX, getTrenchHeight(spawnX, spawnZ), spawnZ);
     scene.add(group);
 
-    entities.push({
+    const entity = {
         mesh: group,
         body: bodyGroup,
         legs,
@@ -368,13 +438,20 @@ export function spawnUnit(type, initial = false, isWhale = false, trade = null) 
         retired: false,
         stuckTime: 0,
         lastPosition: new THREE.Vector2(spawnX, spawnZ),
-    });
+    };
+    group.userData.entity = entity;
+    entities.push(entity);
+    publishVisibleUnitCount();
 }
 
 function retireEntity(entity) {
     const index = entities.indexOf(entity);
     if (index === -1) return;
     entity.retired = true;
+    if (selectedEntity === entity) {
+        selectedEntity = null;
+        onInspectUnit(null);
+    }
     entity.target = null;
     entities.forEach((other) => { if (other.target === entity) other.target = null; });
     for (let i = projectiles.length - 1; i >= 0; i--) {
@@ -383,14 +460,18 @@ function retireEntity(entity) {
     scene.remove(entity.mesh);
     entity.aura?.material.dispose();
     entities.splice(index, 1);
+    publishVisibleUnitCount();
+}
+
+function publishVisibleUnitCount() {
+    const bull = entities.filter((entity) => entity.type === 'bull' && !entity.retired).length;
+    const bear = entities.filter((entity) => entity.type === 'bear' && !entity.retired).length;
+    state.visibleCombatants = { bull, bear, total: bull + bear };
+    onVisibleUnitsChange(state.visibleCombatants);
 }
 
 export function setFrontlineColor(colorHex) {
-    if (frontlineLaser?.children[0]) {
-        frontlineLaser.children[0].material.color.setHex(colorHex);
-        frontlineLaser.children[1].material.color.setHex(colorHex);
-    }
-    if (trenchGlowLight) trenchGlowLight.color.setHex(colorHex);
+    frontlineMaterial?.color.setHex(colorHex);
     if (scene && colorHex !== 0xffffff) {
         const tint = colorHex === 0x00ff88 ? 0x091a10 : 0x1a090d;
         scene.background.setHex(tint);
@@ -583,7 +664,8 @@ export function triggerBullKingSupport({ buySol, dominance }) {
         if (entity.type === 'bull' && entity.hp > 0 && !entity.retired) entity.supportUntil = bullSupportUntil;
     });
     const strength = clamp(0.9 + buySol / 18 + dominance * 0.6, 1.2, 2.8);
-    for (let i = 0; i < 3; i++) spawnSupportWave(i * 0.28, strength);
+    const waveCount = prefersReducedMotion ? 1 : 3;
+    for (let i = 0; i < waveCount; i++) spawnSupportWave(i * 0.28, strength);
     if (state.cameraMode === 'auto') state.screenShake = Math.max(state.screenShake, 0.18);
     playTone(260, 'sine', 0.55, 0.035);
 }
@@ -627,10 +709,11 @@ function init3D() {
     camera.position.set(25, 25, 40);
     camera.lookAt(0, -2, 0);
 
-    renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+    renderer = new THREE.WebGLRenderer({ canvas, antialias: !isConstrainedDevice, powerPreference: 'high-performance' });
     renderer.setSize(Math.max(1, canvasContainer.clientWidth), Math.max(1, canvasContainer.clientHeight), false);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
-    renderer.shadowMap.enabled = true;
+    adaptivePixelRatio = Math.min(window.devicePixelRatio || 1, isConstrainedDevice ? 1.1 : 1.5);
+    renderer.setPixelRatio(adaptivePixelRatio);
+    renderer.shadowMap.enabled = !isConstrainedDevice;
     renderer.shadowMap.type = THREE.PCFShadowMap;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -708,22 +791,22 @@ function init3D() {
     createFlyingBullKing();
 
     frontlineLaser = new THREE.Group();
-    const coreLaser = new THREE.Mesh(
-        new THREE.PlaneGeometry(0.8, 240, 1, 96),
-        new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending, depthWrite: false })
-    );
-    const glowLaser = new THREE.Mesh(
-        new THREE.PlaneGeometry(3.5, 240, 1, 96),
-        new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.2, blending: THREE.AdditiveBlending, depthWrite: false })
-    );
-    coreLaser.rotation.x = -Math.PI / 2;
-    glowLaser.rotation.x = -Math.PI / 2;
-    frontlineLaser.add(coreLaser, glowLaser);
+    const markerGeometry = new THREE.PlaneGeometry(0.34, 2.45);
+    markerGeometry.rotateX(-Math.PI / 2);
+    frontlineMaterial = new THREE.MeshBasicMaterial({
+        color: 0xffffff,
+        transparent: true,
+        opacity: 0.5,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+    });
+    const markerSegments = new THREE.InstancedMesh(markerGeometry, frontlineMaterial, 42);
+    markerSegments.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    markerSegments.frustumCulled = false;
+    frontlineLaser.add(markerSegments);
     scene.add(frontlineLaser);
     fitFrontlineToTerrain(true);
-
-    trenchGlowLight = new THREE.PointLight(0xffffff, 2.5, 50);
-    scene.add(trenchGlowLight);
 
     viewportObserver = new ResizeObserver(() => syncViewport());
     viewportObserver.observe(canvasContainer);
@@ -733,8 +816,15 @@ function init3D() {
     document.addEventListener('visibilitychange', () => {
         if (!document.hidden) syncViewport(true);
     });
+    reducedMotionQuery.addEventListener?.('change', (event) => { prefersReducedMotion = event.matches; });
+    canvas.addEventListener('pointerdown', handlePointerDown);
+    canvas.addEventListener('pointerup', handlePointerUp);
+    canvas.classList.add('is-inspectable');
+    canvas.addEventListener('webglcontextlost', handleContextLost, false);
+    canvas.addEventListener('webglcontextrestored', handleContextRestored, false);
     syncViewport(true);
     window.setTimeout(() => syncViewport(true), 0);
+    warmUpRenderer();
 
 }
 
@@ -752,6 +842,92 @@ function syncViewport(force = false) {
         renderer.setSize(width, height, false);
     }
     renderNow();
+}
+
+function handlePointerDown(event) {
+    pointerStart.set(event.clientX, event.clientY);
+}
+
+function handlePointerUp(event) {
+    if (Math.hypot(event.clientX - pointerStart.x, event.clientY - pointerStart.y) > 8) return;
+    const rect = renderer.domElement.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    pointerPosition.set(
+        ((event.clientX - rect.left) / rect.width) * 2 - 1,
+        -((event.clientY - rect.top) / rect.height) * 2 + 1,
+    );
+    unitRaycaster.setFromCamera(pointerPosition, camera);
+    const hit = unitRaycaster.intersectObjects(entities.map((entity) => entity.mesh), true)[0];
+    let current = hit?.object || null;
+    while (current && !current.userData.entity) current = current.parent;
+    selectedEntity = current?.userData.entity || findNearbyRayEntity();
+    onInspectUnit(selectedEntity);
+}
+
+function findNearbyRayEntity() {
+    let closest = null;
+    let closestDistance = Number.POSITIVE_INFINITY;
+    for (const entity of entities) {
+        if (entity.retired || entity.hp <= 0) continue;
+        _projectileTarget.copy(entity.mesh.position);
+        _projectileTarget.y += entity.isWhale ? 3.5 : 1.4;
+        const distance = unitRaycaster.ray.distanceToPoint(_projectileTarget);
+        const tolerance = entity.isWhale ? 5.5 : 2.4;
+        if (distance <= tolerance && distance < closestDistance) {
+            closest = entity;
+            closestDistance = distance;
+        }
+    }
+    return closest;
+}
+
+function handleContextLost(event) {
+    event.preventDefault();
+    contextLost = true;
+    setSceneActive(false);
+    onRendererStatus('lost');
+}
+
+function handleContextRestored() {
+    contextLost = false;
+    onRendererStatus('restored');
+    warmUpRenderer();
+    setSceneActive(!document.hidden);
+}
+
+function warmUpRenderer() {
+    if (renderer.extensions.has('KHR_parallel_shader_compile')) {
+        renderer.compileAsync(scene, camera).catch((error) => console.warn('[renderer] Shader warm-up failed', error));
+        return;
+    }
+    renderer.compile(scene, camera);
+}
+
+function updateAdaptiveQuality(delta) {
+    frameSampleTime += delta;
+    frameSampleCount += 1;
+    if (frameSampleTime < 5) return;
+    const fps = frameSampleCount / frameSampleTime;
+    const maxRatio = Math.min(window.devicePixelRatio || 1, isConstrainedDevice ? 1.1 : 1.5);
+    let nextRatio = adaptivePixelRatio;
+    if (fps < 43 && adaptivePixelRatio > 0.85) {
+        nextRatio = Math.max(0.85, adaptivePixelRatio - 0.15);
+        stableFrameWindows = 0;
+    } else if (fps > 57 && adaptivePixelRatio < maxRatio) {
+        stableFrameWindows += 1;
+        if (stableFrameWindows >= 3) {
+            nextRatio = Math.min(maxRatio, adaptivePixelRatio + 0.1);
+            stableFrameWindows = 0;
+        }
+    } else {
+        stableFrameWindows = 0;
+    }
+    frameSampleTime = 0;
+    frameSampleCount = 0;
+    if (Math.abs(nextRatio - adaptivePixelRatio) < 0.01) return;
+    adaptivePixelRatio = nextRatio;
+    renderer.setPixelRatio(adaptivePixelRatio);
+    syncViewport(true);
 }
 
 function renderNow() {
@@ -915,6 +1091,12 @@ function createFlyingBullKing() {
     mount.add(mountAura);
 
     bullKingRig.add(mount);
+    bullKingRig.traverse((child) => {
+        if (child.isMesh) child.castShadow = false;
+    });
+    [body, chest, head, kingWingNear.children[0], kingWingFar.children[0], rider.children[0]].forEach((mesh) => {
+        if (mesh?.isMesh) mesh.castShadow = true;
+    });
     bullKingRig.scale.setScalar(1.12);
     bullKingRig.position.set(-26, 10, -7);
     scene.add(bullKingRig);
@@ -1132,8 +1314,7 @@ function applyDamage(attacker, target, dmg, isCrit, direction) {
 }
 
 function spawnProjectile(attacker, target, dmg, isCrit) {
-    const mesh = new THREE.Mesh(projectileGeometry, projectileMaterials[attacker.type]);
-    mesh.add(new THREE.Mesh(projectileGlowGeometry, projectileGlowMaterials[attacker.type]));
+    const mesh = projectilePool[attacker.type].pop() || createProjectileMesh(attacker.type);
 
     mesh.position.copy(attacker.mesh.position);
     mesh.position.y += 1.5;
@@ -1141,6 +1322,13 @@ function spawnProjectile(attacker, target, dmg, isCrit) {
     soundShoot();
 
     projectiles.push({ mesh, attacker, target, dmg, isCrit, speed: 45 });
+}
+
+function createProjectileMesh(type) {
+    const mesh = new THREE.Mesh(projectileGeometry, projectileMaterials[type]);
+    mesh.add(new THREE.Mesh(projectileGlowGeometry, projectileGlowMaterials[type]));
+    mesh.userData.projectileType = type;
+    return mesh;
 }
 
 function updateProjectiles(delta) {
@@ -1151,19 +1339,19 @@ function updateProjectiles(delta) {
             continue;
         }
 
-        const targetPos = p.target.mesh.position.clone();
-        targetPos.y += 1.0;
+        _projectileTarget.copy(p.target.mesh.position);
+        _projectileTarget.y += 1.0;
 
-        const dir = new THREE.Vector3().subVectors(targetPos, p.mesh.position);
-        const dist = dir.length();
+        _projectileDirection.subVectors(_projectileTarget, p.mesh.position);
+        const dist = _projectileDirection.length();
 
         if (dist < 1.5) {
-            applyDamage(p.attacker, p.target, p.dmg, p.isCrit, dir.normalize());
+            applyDamage(p.attacker, p.target, p.dmg, p.isCrit, _projectileDirection.normalize());
             removeProjectile(i);
         } else {
-            dir.normalize();
-            p.mesh.position.add(dir.multiplyScalar(p.speed * delta));
-            p.mesh.lookAt(targetPos);
+            _projectileDirection.normalize();
+            p.mesh.position.addScaledVector(_projectileDirection, p.speed * delta);
+            p.mesh.lookAt(_projectileTarget);
         }
     }
 }
@@ -1172,6 +1360,8 @@ function removeProjectile(index) {
     const projectile = projectiles[index];
     if (!projectile) return;
     scene.remove(projectile.mesh);
+    const pool = projectilePool[projectile.mesh.userData.projectileType];
+    if (pool && pool.length < 12) pool.push(projectile.mesh);
     projectiles.splice(index, 1);
 }
 
@@ -1182,8 +1372,10 @@ function updateEntities(delta) {
 
     frontlineLaser.position.x = state.frontlineX;
     fitFrontlineToTerrain();
-    trenchGlowLight.position.x = state.frontlineX;
-    trenchGlowLight.position.y = getTrenchHeight(state.frontlineX, 0) - 1.0;
+    if (frontlineMaterial) {
+        const pulse = prefersReducedMotion ? 0 : Math.sin(kingTime * 2.6) * 0.08;
+        frontlineMaterial.opacity = 0.42 + pulse;
+    }
 
     for (const entity of entities) {
         if (entity.hp <= 0 || unitHasExpired(entity, now)) entity.retired = true;
@@ -1283,8 +1475,8 @@ function updateEntities(delta) {
                         e.cooldown = 1.5;
                         e.body.scale.set(1.4, 1.4, 1.4);
                     } else {
-                        const dir = new THREE.Vector3(dx, 0, dz).normalize();
-                        applyDamage(e, e.target, dmg, isCrit, dir);
+                        _meleeDirection.set(dx, 0, dz).normalize();
+                        applyDamage(e, e.target, dmg, isCrit, _meleeDirection);
                         e.cooldown = 0.7;
                         e.body.scale.set(1.4, 1.4, 1.4);
                         e.body.rotation.z = -0.5;
@@ -1366,16 +1558,17 @@ function fitFrontlineToTerrain(force = false) {
     if (!frontlineLaser) return;
     if (!force && Math.abs(state.frontlineX - lastFrontlineFitX) < 0.001) return;
     lastFrontlineFitX = state.frontlineX;
-    frontlineLaser.children.forEach((strip, stripIndex) => {
-        const positions = strip.geometry.attributes.position;
-        for (let i = 0; i < positions.count; i++) {
-            const localX = positions.getX(i);
-            const localZ = -positions.getY(i);
-            const surfaceOffset = stripIndex === 0 ? 0.44 : 0.32;
-            positions.setZ(i, getTrenchHeight(state.frontlineX + localX, localZ) + surfaceOffset);
-        }
-        positions.needsUpdate = true;
-    });
+    const segments = frontlineLaser.children[0];
+    if (!segments?.isInstancedMesh) return;
+    for (let i = 0; i < segments.count; i++) {
+        const z = -88 + i * (176 / Math.max(1, segments.count - 1));
+        _frontlineTransform.position.set(0, getTrenchHeight(state.frontlineX, z) + 0.24, z);
+        _frontlineTransform.rotation.set(0, 0, 0);
+        _frontlineTransform.scale.setScalar(i % 3 === 0 ? 1.18 : 1);
+        _frontlineTransform.updateMatrix();
+        segments.setMatrixAt(i, _frontlineTransform.matrix);
+    }
+    segments.instanceMatrix.needsUpdate = true;
 }
 
 function getSteering(entity, desiredX, desiredZ) {
@@ -1484,7 +1677,10 @@ function updateBullKing(delta) {
     bullKingRig.rotation.x = THREE.MathUtils.lerp(bullKingRig.rotation.x, clamp(-travelZ * 0.018, -0.12, 0.12), delta * 2.5);
     bullKingRig.rotation.z = THREE.MathUtils.lerp(bullKingRig.rotation.z, clamp(travelX * 0.015, -0.1, 0.1) - reaction * 0.035, delta * 3);
     const flapRate = 4.6 + tactics.activityLevel * 1.8 + reaction * 1.5 + (defending ? 2.5 : 0);
-    const flap = Math.sin(kingTime * flapRate) * (0.27 + tactics.flowIntensity * 0.08 + reaction * 0.05 + (defending ? 0.1 : 0));
+    const flapAmplitude = prefersReducedMotion
+        ? 0.07
+        : 0.27 + tactics.flowIntensity * 0.08 + reaction * 0.05 + (defending ? 0.1 : 0);
+    const flap = Math.sin(kingTime * flapRate) * flapAmplitude;
     kingWingNear.rotation.x = 0.12 + flap;
     kingWingFar.rotation.x = -0.12 - flap;
     kingLegs.forEach((leg, index) => {
@@ -1564,8 +1760,10 @@ function updateCamera(delta) {
         camera.position.lerp(_camTarget, 3 * delta);
 
         if (state.screenShake > 0) {
-            camera.position.x += (Math.random() - 0.5) * state.screenShake * 2;
-            camera.position.y += (Math.random() - 0.5) * state.screenShake * 2;
+            if (!prefersReducedMotion) {
+                camera.position.x += (Math.random() - 0.5) * state.screenShake * 2;
+                camera.position.y += (Math.random() - 0.5) * state.screenShake * 2;
+            }
             state.screenShake -= delta;
         }
 
@@ -1579,11 +1777,16 @@ function updateCamera(delta) {
 function spawnParticles(pos, material, isExplosion, isWhale = false) {
     let count = isExplosion ? 8 : 2;
     if (isWhale) count *= 2;
+    if (prefersReducedMotion) count = Math.min(2, count);
     if (particles.length > 100) return;
 
     for (let i = 0; i < count; i++) {
         const size = isExplosion ? 0.6 : 0.3;
-        const mesh = createMesh(geoBox, material, size, size, size);
+        const mesh = particlePool.pop() || createMesh(geoBox, material, 1, 1, 1);
+        mesh.material = material;
+        mesh.scale.setScalar(size);
+        mesh.castShadow = false;
+        mesh.receiveShadow = false;
         mesh.position.copy(pos);
         mesh.position.y += isWhale ? 2 : 1;
         scene.add(mesh);
@@ -1615,6 +1818,7 @@ function updateParticles(delta) {
         p.mesh.scale.setScalar(Math.max(0, p.life));
         if (p.life <= 0) {
             scene.remove(p.mesh);
+            if (particlePool.length < 120) particlePool.push(p.mesh);
             particles.splice(i, 1);
         }
     }
@@ -1626,18 +1830,20 @@ function spawnFloatingText(dmg, pos3D, color, isCrit) {
     el.textContent = isCrit ? `${dmg}!` : String(dmg);
     el.style.color = color;
 
-    const tempV = new THREE.Vector3(pos3D.x, pos3D.y + 2, pos3D.z).project(camera);
+    _screenVector.set(pos3D.x, pos3D.y + 2, pos3D.z).project(camera);
     const rect = canvasContainer.getBoundingClientRect();
 
-    el.style.left = `${(tempV.x * 0.5 + 0.5) * rect.width + (Math.random() - 0.5) * 20}px`;
-    el.style.top = `${(-tempV.y * 0.5 + 0.5) * rect.height + (Math.random() - 0.5) * 15}px`;
+    el.style.left = `${(_screenVector.x * 0.5 + 0.5) * rect.width + (Math.random() - 0.5) * 20}px`;
+    el.style.top = `${(-_screenVector.y * 0.5 + 0.5) * rect.height + (Math.random() - 0.5) * 15}px`;
 
     floatContainer.appendChild(el);
     setTimeout(() => el.remove(), 800);
 }
 
 function gameLoop(timestamp) {
-    requestAnimationFrame(gameLoop);
+    animationFrameId = 0;
+    if (!loopActive || contextLost) return;
+    animationFrameId = requestAnimationFrame(gameLoop);
     frameTimer.update(timestamp);
     const delta = Math.min(frameTimer.getDelta(), 0.1);
     updateProjectiles(delta);
@@ -1649,6 +1855,7 @@ function gameLoop(timestamp) {
     updateParticles(delta);
     updateCamera(delta);
     renderer.render(scene, camera);
+    updateAdaptiveQuality(delta);
 }
 
 window.__ansemToggleAudio = () => {

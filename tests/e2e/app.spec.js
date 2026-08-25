@@ -53,6 +53,9 @@ test('renders verified swaps and the WebGL battlefield', async ({ page }, testIn
     }
     expect(diagnostics.bullKing).not.toBeNull();
     await expect(page.locator('#battle-state-label')).toContainText(/ADVANCING|CONTESTED|QUIET/);
+    await expect(page.locator('#battle-state-flow')).toContainText(/BUYERS|SELLERS|NO VERIFIED FLOW/);
+    await expect(page.locator('#visible-coverage')).toContainText('2 COMBATANTS SHOWN');
+    await expect(page.locator('#data-freshness')).toContainText('DATA');
     expect(diagnostics.render.calls).toBeLessThan(220);
     expect(diagnostics.render.geometries).toBeLessThan(80);
     await page.waitForTimeout(350);
@@ -82,6 +85,53 @@ test('renders verified swaps and the WebGL battlefield', async ({ page }, testIn
     await expect(page.locator('#killfeed')).toContainText("KING'S RECLAMATION");
     expect(pageErrors).toEqual([]);
     await page.screenshot({ path: `.artifacts/${testInfo.project.name}.png`, fullPage: true });
+});
+
+test('opens verifiable details for a battlefield combatant', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== 'desktop-chromium', 'One interaction check is sufficient');
+    await page.goto('/');
+    await page.waitForFunction(() => typeof window.__ansemInspectFirstUnit === 'function');
+    await expect(page.locator('.trade-item')).toHaveCount(2, { timeout: 12_000 });
+    await page.waitForFunction(() => window.__ansemFirstUnitScreenPoint() !== null, { timeout: 12_000 });
+    const point = await page.evaluate(() => window.__ansemFirstUnitScreenPoint());
+    expect(point).toBeTruthy();
+    await page.mouse.click(point.x, point.y);
+    await expect(page.locator('#unit-inspector')).toBeVisible();
+    await expect(page.locator('#unit-inspector-title')).toContainText(/BLACK BULL|GRIZZLY/);
+    await expect(page.locator('#unit-inspector-link')).toHaveAttribute('href', /solscan\.io\/tx\//);
+    await page.locator('#unit-inspector-close').click();
+    await expect(page.locator('#unit-inspector')).toBeHidden();
+});
+
+test('pauses 3D work while hidden and resumes from a clean frame', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== 'desktop-chromium', 'One lifecycle check is sufficient');
+    await page.goto('/');
+    await page.waitForFunction(() => typeof window.__ansemHandleVisibility === 'function');
+    await expect(page.locator('.trade-item')).toHaveCount(2, { timeout: 12_000 });
+    await page.evaluate(() => {
+        Object.defineProperty(document, 'hidden', { configurable: true, value: true });
+        window.__ansemHandleVisibility();
+    });
+    const paused = await page.evaluate(() => window.__ansemSceneDiagnostics());
+    await page.waitForTimeout(400);
+    const stillPaused = await page.evaluate(() => window.__ansemSceneDiagnostics());
+    expect(Math.hypot(
+        stillPaused.bullKing.x - paused.bullKing.x,
+        stillPaused.bullKing.y - paused.bullKing.y,
+        stillPaused.bullKing.z - paused.bullKing.z,
+    )).toBeLessThan(0.001);
+    await page.evaluate(() => {
+        Object.defineProperty(document, 'hidden', { configurable: true, value: false });
+        window.__ansemHandleVisibility();
+    });
+    await page.waitForTimeout(400);
+    const resumed = await page.evaluate(() => window.__ansemSceneDiagnostics());
+    expect(Math.hypot(
+        resumed.bullKing.x - stillPaused.bullKing.x,
+        resumed.bullKing.y - stillPaused.bullKing.y,
+        resumed.bullKing.z - stillPaused.bullKing.z,
+    )).toBeGreaterThan(0.01);
+    expect(resumed.render.contextLost).toBe(false);
 });
 
 test('boots from the Helius market fallback when DexScreener is unavailable', async ({ page }) => {

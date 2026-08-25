@@ -10,6 +10,9 @@ let lastPoolDiscovery = 0;
 let pollingFallback = true;
 let fallbackTimer = null;
 let streamStarted = false;
+let streamController = null;
+let visibilityRefreshPromise = null;
+let marketRequestPromise = null;
 let bootstrapPromise = null;
 let lastChartAttempt = 0;
 let geckoRateLimitedUntil = 0;
@@ -20,6 +23,26 @@ export function initAPI(nextCallbacks) {
     setConnection('connecting');
     schedule(runMarketLoop, 0);
     schedule(runTradeLoop, 1200);
+    return { refresh: refreshAPI };
+}
+
+export function refreshAPI({ catchUpTrades = false } = {}) {
+    streamController?.reconnect();
+    if (visibilityRefreshPromise) return visibilityRefreshPromise;
+    visibilityRefreshPromise = (async () => {
+        try {
+            await fetchMarketDataShared();
+            state.priceFailures = 0;
+            if (catchUpTrades) await catchUpTrackedPools();
+        } catch (error) {
+            state.priceFailures += 1;
+            console.warn('[visibility-refresh]', error);
+        } finally {
+            refreshConnection();
+            visibilityRefreshPromise = null;
+        }
+    })();
+    return visibilityRefreshPromise;
 }
 
 function schedule(task, delay) { window.setTimeout(task, delay); }
@@ -39,7 +62,7 @@ function refreshConnection() {
 
 async function runMarketLoop() {
     try {
-        const market = await fetchMarketData();
+        const market = await fetchMarketDataShared();
         state.priceFailures = 0;
         priceDelay = market.source === 'dexscreener' ? CONFIG.FETCH_MIN_DELAY_MS : Math.max(15_000, CONFIG.FETCH_MIN_DELAY_MS);
     } catch (error) {
@@ -136,6 +159,7 @@ async function fetchMarketData() {
         market = await fetchRelayMarketData();
     }
     state.price = market.price;
+    state.lastMarketAt = Date.now();
     startStreamIfReady();
     updateTrend(market.price);
     try {
@@ -146,6 +170,12 @@ async function fetchMarketData() {
     void bootstrapTrackedPools();
     callbacks.onMarketUpdate?.(market);
     return market;
+}
+
+function fetchMarketDataShared() {
+    if (marketRequestPromise) return marketRequestPromise;
+    marketRequestPromise = fetchMarketData().finally(() => { marketRequestPromise = null; });
+    return marketRequestPromise;
 }
 
 async function fetchDexMarketData() {
@@ -202,7 +232,7 @@ async function fetchRelayMarketData() {
 function startStreamIfReady() {
     if (streamStarted || !CONFIG.STREAM_URL || !state.trackedPools.length || !(state.price > 0) || !(state.solPriceUsd > 0)) return;
     streamStarted = true;
-    connectTradeStream(CONFIG.STREAM_URL, {
+    streamController = connectTradeStream(CONFIG.STREAM_URL, {
         onTrade: receiveStreamTrade,
         onStatus: handleStreamStatus,
         getConfiguration: () => ({
@@ -329,6 +359,7 @@ async function fetchBootstrapTrades(pools) {
 function receiveTrade(trade, bootstrap) {
     const previousFrontlineX = state.targetFrontlineX;
     state.liveTrades.push(trade);
+    state.lastTradeAt = Math.max(state.lastTradeAt, Number(trade.timestamp) || Date.now());
     const cutoff = Date.now() - CONFIG.PRESSURE_WINDOW_MS;
     state.liveTrades = state.liveTrades.filter((item) => item.timestamp >= cutoff).slice(-500);
     const pressure = calculatePressure(state.liveTrades);
@@ -339,4 +370,19 @@ function receiveTrade(trade, bootstrap) {
     state.targetFrontlineX = Math.max(-45, Math.min(45, (pressure.bullPercent - 50) * 0.9));
     callbacks.onTrade?.(trade, { bootstrap, previousFrontlineX, nextFrontlineX: state.targetFrontlineX });
     callbacks.onPressureUpdate?.(pressure);
+}
+
+async function catchUpTrackedPools() {
+    for (const pool of state.trackedPools) {
+        if (Date.now() < geckoRateLimitedUntil) break;
+        try {
+            await fetchPoolTrades(pool);
+        } catch (error) {
+            if (error.status === 429) break;
+            console.warn(`[catch-up:${pool.dexId}]`, error);
+        }
+        if (pool !== state.trackedPools.at(-1)) {
+            await new Promise((resolve) => window.setTimeout(resolve, 350));
+        }
+    }
 }

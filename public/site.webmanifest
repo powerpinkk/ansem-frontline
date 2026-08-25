@@ -1,0 +1,17 @@
+{
+  "name": "$ANSEM Frontline",
+  "short_name": "Frontline",
+  "description": "Verified Solana swaps visualized as a live 3D bull-versus-bear battlefield.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#020302",
+  "theme_color": "#07100b",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

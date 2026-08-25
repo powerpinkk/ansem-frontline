@@ -6,13 +6,15 @@ export function connectTradeStream(url, handlers) {
 
     const connect = () => {
         if (stopped) return;
-        socket = new WebSocket(url);
+        if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) return;
+        const nextSocket = new WebSocket(url);
+        socket = nextSocket;
         handlers.onStatus?.('connecting');
-        socket.addEventListener('open', () => {
+        nextSocket.addEventListener('open', () => {
             retryDelay = 1_000;
-            socket.send(JSON.stringify({ type: 'configure', ...handlers.getConfiguration?.() }));
+            nextSocket.send(JSON.stringify({ type: 'configure', ...handlers.getConfiguration?.() }));
         });
-        socket.addEventListener('message', (event) => {
+        nextSocket.addEventListener('message', (event) => {
             try {
                 const message = JSON.parse(event.data);
                 if (message.type === 'trade') handlers.onTrade?.(message.data);
@@ -24,8 +26,11 @@ export function connectTradeStream(url, handlers) {
                 console.warn('[stream] Invalid message', error);
             }
         });
-        socket.addEventListener('close', reconnect);
-        socket.addEventListener('error', () => socket.close());
+        nextSocket.addEventListener('close', () => {
+            if (socket === nextSocket) socket = null;
+            reconnect();
+        });
+        nextSocket.addEventListener('error', () => nextSocket.close());
     };
 
     const reconnect = () => {
@@ -37,9 +42,23 @@ export function connectTradeStream(url, handlers) {
     };
 
     connect();
-    return () => {
-        stopped = true;
-        window.clearTimeout(retryTimer);
-        socket?.close();
+    return {
+        reconnect() {
+            if (stopped) return;
+            retryDelay = 1_000;
+            window.clearTimeout(retryTimer);
+            if (socket?.readyState === WebSocket.OPEN) {
+                socket.send(JSON.stringify({ type: 'configure', ...handlers.getConfiguration?.() }));
+                return;
+            }
+            socket?.close();
+            socket = null;
+            connect();
+        },
+        stop() {
+            stopped = true;
+            window.clearTimeout(retryTimer);
+            socket?.close();
+        },
     };
 }
