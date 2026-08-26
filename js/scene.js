@@ -183,8 +183,12 @@ const geoCrowdBullBody = mergeParts([
 const geoCrowdBullAccent = mergeParts([
     { geometry: geoCone, position: [0.82, 1.7, 0.42], rotation: [Math.PI / 6, 0, -Math.PI / 2.7], scale: [0.18, 0.62, 0.18] },
     { geometry: geoCone, position: [0.82, 1.7, -0.42], rotation: [-Math.PI / 6, 0, -Math.PI / 2.7], scale: [0.18, 0.62, 0.18] },
-    { geometry: geoSphere, position: [1.28, 1.38, 0.27], scale: [0.07, 0.07, 0.07] },
-    { geometry: geoSphere, position: [1.28, 1.38, -0.27], scale: [0.07, 0.07, 0.07] },
+]);
+const geoCrowdBullEyes = mergeParts([
+    { geometry: geoSphere, position: [1.28, 1.38, 0.27], scale: [0.105, 0.105, 0.105] },
+    { geometry: geoSphere, position: [1.28, 1.38, -0.27], scale: [0.105, 0.105, 0.105] },
+    { geometry: geoEyeLaser, position: [1.62, 1.38, 0.27], scale: [0.42, 0.34, 0.42] },
+    { geometry: geoEyeLaser, position: [1.62, 1.38, -0.27], scale: [0.42, 0.34, 0.42] },
 ]);
 const geoCrowdBearBody = mergeParts([
     { geometry: geoBearBody, position: [-0.1, 1.05, 0], scale: [1.24, 0.8, 0.78] },
@@ -196,8 +200,12 @@ const geoCrowdBearBody = mergeParts([
     { geometry: geoBearLeg, position: [-0.48, 0.72, -0.4], scale: [0.82, 0.78, 0.82] },
 ]);
 const geoCrowdBearAccent = mergeParts([
-    { geometry: geoSphere, position: [1.28, 1.45, 0.22], scale: [0.075, 0.075, 0.075] },
-    { geometry: geoSphere, position: [1.28, 1.45, -0.22], scale: [0.075, 0.075, 0.075] },
+    { geometry: geoSphere, position: [0.72, 1.82, 0.34], scale: [0.18, 0.18, 0.18] },
+    { geometry: geoSphere, position: [0.72, 1.82, -0.34], scale: [0.18, 0.18, 0.18] },
+]);
+const geoCrowdBearEyes = mergeParts([
+    { geometry: geoSphere, position: [1.28, 1.45, 0.22], scale: [0.11, 0.11, 0.11] },
+    { geometry: geoSphere, position: [1.28, 1.45, -0.22], scale: [0.11, 0.11, 0.11] },
     { geometry: geoEyeLaser, position: [1.7, 1.45, 0.22], scale: [0.35, 0.34, 0.35] },
     { geometry: geoEyeLaser, position: [1.7, 1.45, -0.22], scale: [0.35, 0.34, 0.35] },
 ]);
@@ -229,7 +237,9 @@ const matBearLaser = new THREE.MeshBasicMaterial({ color: 0x5b001d, transparent:
 const matCrowdBull = new THREE.MeshStandardMaterial({ color: 0x090d0b, metalness: 0.42, roughness: 0.42 });
 const matCrowdBullAccent = new THREE.MeshStandardMaterial({ color: 0x00b96a, emissive: 0x007a46, emissiveIntensity: 0.85, roughness: 0.34 });
 const matCrowdBear = new THREE.MeshStandardMaterial({ color: 0xa86f49, roughness: 0.82, metalness: 0.03 });
-const matCrowdBearAccent = new THREE.MeshBasicMaterial({ color: 0x740020 });
+const matCrowdBearAccent = new THREE.MeshStandardMaterial({ color: 0x59331f, roughness: 0.9 });
+const matCrowdBullEyes = new THREE.MeshBasicMaterial({ color: 0x25ff96, transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false });
+const matCrowdBearEyes = new THREE.MeshBasicMaterial({ color: 0xff174f, transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false });
 const projectileMaterials = {
     bull: new THREE.MeshBasicMaterial({ color: 0x00ff88 }),
     bear: new THREE.MeshBasicMaterial({ color: 0xff3366 }),
@@ -1264,24 +1274,30 @@ function createGrassTufts() {
 
 function createCrowdArmies() {
     const definitions = {
-        bull: [geoCrowdBullBody, matCrowdBull, geoCrowdBullAccent, matCrowdBullAccent],
-        bear: [geoCrowdBearBody, matCrowdBear, geoCrowdBearAccent, matCrowdBearAccent],
+        bull: [geoCrowdBullBody, matCrowdBull, geoCrowdBullAccent, matCrowdBullAccent, geoCrowdBullEyes, matCrowdBullEyes],
+        bear: [geoCrowdBearBody, matCrowdBear, geoCrowdBearAccent, matCrowdBearAccent, geoCrowdBearEyes, matCrowdBearEyes],
     };
-    for (const [type, [bodyGeometry, bodyMaterial, accentGeometry, accentMaterial]] of Object.entries(definitions)) {
+    for (const [type, [bodyGeometry, bodyMaterial, accentGeometry, accentMaterial, eyeGeometry, eyeMaterial]] of Object.entries(definitions)) {
         const body = new THREE.InstancedMesh(bodyGeometry, bodyMaterial, MAX_CROWD_PER_SIDE);
         const accent = new THREE.InstancedMesh(accentGeometry, accentMaterial, MAX_CROWD_PER_SIDE);
+        const eyes = new THREE.InstancedMesh(eyeGeometry, eyeMaterial, MAX_CROWD_PER_SIDE);
         body.count = 0;
         accent.count = 0;
+        eyes.count = 0;
         body.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
         accent.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+        eyes.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
         body.frustumCulled = false;
         accent.frustumCulled = false;
+        eyes.frustumCulled = false;
         body.castShadow = false;
         body.receiveShadow = false;
         accent.castShadow = false;
         accent.receiveShadow = false;
-        crowdMeshes[type] = { body, accent };
-        scene.add(body, accent);
+        eyes.castShadow = false;
+        eyes.receiveShadow = false;
+        crowdMeshes[type] = { body, accent, eyes };
+        scene.add(body, accent, eyes);
     }
 }
 
@@ -2111,11 +2127,14 @@ function updateCrowdSide(type, doctrine, opponentCount, delta) {
         _crowdTransform.updateMatrix();
         meshes.body.setMatrixAt(index, _crowdTransform.matrix);
         meshes.accent.setMatrixAt(index, _crowdTransform.matrix);
+        meshes.eyes.setMatrixAt(index, _crowdTransform.matrix);
     }
     meshes.body.count = agents.length;
     meshes.accent.count = agents.length;
+    meshes.eyes.count = agents.length;
     meshes.body.instanceMatrix.needsUpdate = true;
     meshes.accent.instanceMatrix.needsUpdate = true;
+    meshes.eyes.instanceMatrix.needsUpdate = true;
 }
 
 function getCrowdSteering(agent, desiredX, desiredZ) {
@@ -2521,14 +2540,16 @@ function applySeparation(entity, delta) {
     entity.mesh.position.z += pushZ * delta * 2.8;
 }
 
-function makeCrowdYieldToChampion(entity, delta) {
+function makeCrowdYieldToChampion(entity) {
     // Detailed on-chain units are champions in the same physical battlefield,
     // not ghosts. Nearby aggregate ranks step aside with a small lateral bias;
     // this prevents either layer visibly travelling through the other while
     // keeping the champion's target selection responsive.
     const championX = entity.mesh.position.x;
     const championZ = entity.mesh.position.z;
-    const clearance = entity.isWhale ? 4.9 : 2.7;
+    const clearance = entity.isWhale ? 5.6 : 3.45;
+    let correctionX = 0;
+    let correctionZ = 0;
     for (const type of ['bull', 'bear']) {
         for (const agent of crowdAgents[type]) {
             if (agent.retiring) continue;
@@ -2538,16 +2559,26 @@ function makeCrowdYieldToChampion(entity, delta) {
             const radius = clearance + agent.size;
             if (distanceSq >= radius * radius) continue;
             const distance = Math.max(0.001, Math.sqrt(distanceSq));
-            const force = (radius - distance) / radius;
-            const radialX = dx / distance;
-            const radialZ = dz / distance;
+            const penetration = radius - distance;
+            const force = penetration / radius;
+            const radialX = distanceSq < 0.001 ? agent.avoidanceSide : dx / distance;
+            const radialZ = distanceSq < 0.001 ? agent.flankSide * 0.35 : dz / distance;
             const lateral = agent.avoidanceSide * force * 0.42;
-            agent.x = clamp(agent.x + (radialX * force * 5.4 - radialZ * lateral) * delta, ARENA.minX + 0.7, ARENA.maxX - 0.7);
-            agent.z = clamp(agent.z + (radialZ * force * 5.4 + radialX * lateral) * delta, ARENA.minZ + 0.7, ARENA.maxZ - 0.7);
+            // Resolve the overlap immediately, then give the rank a lateral
+            // wake. This is a physical corridor, not a cosmetic nudge.
+            agent.x = clamp(agent.x + radialX * penetration * 0.82 - radialZ * lateral, ARENA.minX + 0.7, ARENA.maxX - 0.7);
+            agent.z = clamp(agent.z + radialZ * penetration * 0.82 + radialX * lateral, ARENA.minZ + 0.7, ARENA.maxZ - 0.7);
             agent.vx += radialX * force * 1.2;
             agent.vz += radialZ * force * 1.2;
+            correctionX -= radialX * penetration * 0.18;
+            correctionZ -= radialZ * penetration * 0.18;
         }
     }
+    // The detailed combatant also yields a little. Applying correction to both
+    // simulation layers guarantees that a large bull/bear cannot be rendered on
+    // top of mini ranks during a single high-speed frame.
+    entity.mesh.position.x += clamp(correctionX, -1.1, 1.1);
+    entity.mesh.position.z += clamp(correctionZ, -1.1, 1.1);
 }
 
 function enforceArenaBounds(entity) {
