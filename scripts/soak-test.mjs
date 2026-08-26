@@ -11,6 +11,7 @@ const requestFailures = [];
 const httpErrors = [];
 const positions = new Map();
 const nearLineSince = new Map();
+let previousKingPosition = null;
 const summary = {
     samples: 0,
     minEntities: Number.POSITIVE_INFINITY,
@@ -20,12 +21,17 @@ const summary = {
     maxCrowdSpeed: 0,
     maxCrowdTurnRate: 0,
     maxCrowdOverlaps: 0,
+    maxSameSideOverlaps: 0,
     maxCrossedPairs: 0,
+    maxChampionBypasses: 0,
+    maxMissingEyeInstances: 0,
+    maxMissingLegInstances: 0,
     minContactGap: Number.POSITIVE_INFINITY,
     crowdDirectionChanges: 0,
     maxKingSpeed: 0,
     maxKingTurnRate: 0,
     kingModeChanges: 0,
+    kingTravel: 0,
     bullCrossings: 0,
     bearCrossings: 0,
     invalidPositions: 0,
@@ -74,12 +80,24 @@ try {
         summary.maxCrowdSpeed = Math.max(summary.maxCrowdSpeed, diagnostics.forces?.maxSpeed || 0);
         summary.maxCrowdTurnRate = Math.max(summary.maxCrowdTurnRate, diagnostics.forces?.maxTurnRate || 0);
         summary.maxCrowdOverlaps = Math.max(summary.maxCrowdOverlaps, diagnostics.forces?.overlaps || 0);
+        summary.maxSameSideOverlaps = Math.max(summary.maxSameSideOverlaps, diagnostics.forces?.sameSideOverlaps || 0);
         summary.maxCrossedPairs = Math.max(summary.maxCrossedPairs, diagnostics.forces?.crossedPairs || 0);
+        summary.maxChampionBypasses = Math.max(summary.maxChampionBypasses, diagnostics.forces?.championBypasses || 0);
+        summary.maxMissingEyeInstances = Math.max(summary.maxMissingEyeInstances, diagnostics.forces?.missingEyeInstances || 0);
+        summary.maxMissingLegInstances = Math.max(summary.maxMissingLegInstances, diagnostics.forces?.missingLegInstances || 0);
         summary.minContactGap = Math.min(summary.minContactGap, diagnostics.forces?.contactGap ?? Number.POSITIVE_INFINITY);
         summary.crowdDirectionChanges = Math.max(summary.crowdDirectionChanges, diagnostics.forces?.directionChanges || 0);
         summary.maxKingSpeed = Math.max(summary.maxKingSpeed, diagnostics.bullKing?.speed || 0);
         summary.maxKingTurnRate = Math.max(summary.maxKingTurnRate, diagnostics.bullKing?.turnRate || 0);
         summary.kingModeChanges = Math.max(summary.kingModeChanges, diagnostics.bullKing?.modeChanges || 0);
+        if (previousKingPosition && diagnostics.bullKing) {
+            summary.kingTravel += Math.hypot(
+                diagnostics.bullKing.x - previousKingPosition.x,
+                diagnostics.bullKing.y - previousKingPosition.y,
+                diagnostics.bullKing.z - previousKingPosition.z,
+            );
+        }
+        if (diagnostics.bullKing) previousKingPosition = { ...diagnostics.bullKing };
         summary.connectionStates.add(sample.connection);
         summary.battleStates.add(sample.battle);
         if (diagnostics.bullKing?.mode) summary.kingModes.add(diagnostics.bullKing.mode);
@@ -142,7 +160,10 @@ try {
         || summary.stalledPatrols.size || summary.lineDwells.size
         || summary.maxCrowdTurnRate > 3.25 || summary.maxCrowdSpeed > 10
         || summary.maxKingTurnRate > 3.25 || summary.maxKingSpeed > 19.5
-        || summary.maxCrowdOverlaps > 2 || summary.maxCrossedPairs > 2 || summary.minContactGap < -12) {
+        || summary.maxCrowdOverlaps > 2 || summary.maxSameSideOverlaps > 2
+        || summary.maxCrossedPairs > 2 || summary.maxChampionBypasses > 0
+        || summary.maxMissingEyeInstances > 0 || summary.maxMissingLegInstances > 0
+        || summary.minContactGap < -12 || (summary.samples >= 4 && summary.kingTravel < 0.5)) {
         process.exitCode = 1;
     }
 } finally {

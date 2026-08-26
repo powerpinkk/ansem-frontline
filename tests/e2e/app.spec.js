@@ -337,6 +337,14 @@ test('scales a high-volume market into hundreds of moving forces with a wider au
     expect(before.forces.maxTurnRate).toBeLessThanOrEqual(3.21);
     expect(before.forces.maxSpeed).toBeLessThan(12);
     expect(before.forces.contactGap).toBeGreaterThan(-3);
+    expect({
+        total: before.forces.sameSideOverlaps,
+        sameLane: before.forces.sameLaneOverlaps,
+        crossLane: before.forces.crossLaneOverlaps,
+    }).toEqual({ total: 0, sameLane: 0, crossLane: 0 });
+    expect(before.forces.championBypasses).toBe(0);
+    expect(before.forces.missingEyeInstances).toBe(0);
+    expect(before.forces.missingLegInstances).toBe(0);
     expect(before.camera.fov).toBeGreaterThan(47);
     expect(before.camera.y).toBeGreaterThan(28);
     expect(before.bullKing.mode).toBe('marshal');
@@ -348,6 +356,39 @@ test('scales a high-volume market into hundreds of moving forces with a wider au
         after.camera.y - before.camera.y,
         after.camera.z - before.camera.z,
     )).toBeLessThanOrEqual(10.5);
+    await page.waitForFunction(() => window.__ansemSceneDiagnostics().forces.engaged >= 8, undefined, {
+        polling: 100,
+        timeout: 15_000,
+    });
+    const contactStart = await page.evaluate(() => window.__ansemSceneDiagnostics());
+    await page.waitForTimeout(1_200);
+    const contactEnd = await page.evaluate(() => window.__ansemSceneDiagnostics());
+    const priorRanks = Object.fromEntries(['bull', 'bear'].map((type) => [
+        type,
+        new Map(contactStart.ranks[type].filter((rank) => !rank.retiring).map((rank) => [rank.id, rank])),
+    ]));
+    const backwardSteps = ['bull', 'bear'].flatMap((type) => {
+        const direction = type === 'bull' ? 1 : -1;
+        return contactEnd.ranks[type]
+            .filter((rank) => !rank.retiring && priorRanks[type].has(rank.id))
+            .map((rank) => direction * (rank.x - priorRanks[type].get(rank.id).x))
+            .filter((advance) => advance < -0.35);
+    });
+    expect(contactEnd.forces.engaged).toBeGreaterThanOrEqual(8);
+    expect({
+        total: contactEnd.forces.sameSideOverlaps,
+        sameLane: contactEnd.forces.sameLaneOverlaps,
+        crossLane: contactEnd.forces.crossLaneOverlaps,
+        samples: contactEnd.forces.overlapSamples,
+    }).toEqual({ total: 0, sameLane: 0, crossLane: 0, samples: [] });
+    expect(contactEnd.forces.crossedPairs).toBeLessThanOrEqual(2);
+    expect(contactEnd.forces.championBypasses).toBe(0);
+    expect(backwardSteps).toEqual([]);
+    expect(Math.hypot(
+        contactEnd.bullKing.x - contactStart.bullKing.x,
+        contactEnd.bullKing.y - contactStart.bullKing.y,
+        contactEnd.bullKing.z - contactStart.bullKing.z,
+    )).toBeGreaterThan(0.05);
     await expect(page.locator('#visible-coverage')).toContainText(/BULL FORCE 2\d\d · BEAR FORCE 2\d\d/);
     await captureLocalScreenshot(page, '.artifacts/high-volume.png');
 });

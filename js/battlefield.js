@@ -53,8 +53,8 @@ export function deriveForceDoctrine(type, tactics = {}) {
     if (flowIntensity >= 0.035 && Math.abs(balance) < 0.12) stance = 'clash';
     else if (sideBalance >= 0.42) stance = 'surge';
     else if (sideBalance >= 0.12) stance = 'advance';
-    else if (sideBalance <= -0.42) stance = 'fallback';
-    else if (sideBalance <= -0.12) stance = 'hold';
+    else if (sideBalance <= -0.42) stance = 'reinforce';
+    else if (sideBalance <= -0.12) stance = 'resist';
 
     return {
         stance,

@@ -194,8 +194,8 @@ function updateBattleState() {
             ? 'NO VERIFIED FLOW · 60S'
             : `${netSol > 0 ? 'BUYERS' : 'SELLERS'} ${netSol > 0 ? '+' : '−'}${formatSol(Math.abs(netSol))} SOL · 60S`;
     }
-    if (tactics.state === 'bull') DOM.battleStateDetail.textContent = 'Bulls surge forward · grizzlies backpedal toward their lines';
-    else if (tactics.state === 'bear') DOM.battleStateDetail.textContent = 'Grizzlies push forward · bulls fall back toward the King';
+    if (tactics.state === 'bull') DOM.battleStateDetail.textContent = 'Bulls break grizzly ranks · fresh sellers reinforce from their camp';
+    else if (tactics.state === 'bear') DOM.battleStateDetail.textContent = 'Grizzlies break bull ranks · fresh buyers reinforce from the King’s camp';
     else if (tactics.state === 'contested') DOM.battleStateDetail.textContent = 'Both sides cross contested ground while 60s SOL flow moves the marker';
     else DOM.battleStateDetail.textContent = 'No verified SOL flow in 60s · tracked 5m market ranks muster behind the front';
     updateVisibleCoverage(state.visibleCombatants);

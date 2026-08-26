@@ -23,9 +23,9 @@ describe('volume-weighted battlefield forces', () => {
 describe('battle doctrines', () => {
     const market = { balance: 0.7, flowIntensity: 0.8, activityLevel: 0.9 };
 
-    it('orders the winning side to surge and the losing side to fall back', () => {
+    it('orders the winning side to surge while the losing side reinforces', () => {
         expect(deriveForceDoctrine('bull', market).stance).toBe('surge');
-        expect(deriveForceDoctrine('bear', market).stance).toBe('fallback');
+        expect(deriveForceDoctrine('bear', market).stance).toBe('reinforce');
     });
 
     it('gives the king purposeful modes instead of random patrol motion', () => {

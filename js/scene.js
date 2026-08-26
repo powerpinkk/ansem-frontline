@@ -26,11 +26,7 @@ const crowdMeshes = { bull: null, bear: null };
 const crowdSpawnBudget = { bull: 0, bear: 0 };
 const crowdSequence = { bull: 0, bear: 0 };
 const CROWD_LANE_COUNT = 12;
-const crowdSpatial = {
-    bull: Array.from({ length: CROWD_LANE_COUNT }, () => []),
-    bear: Array.from({ length: CROWD_LANE_COUNT }, () => []),
-};
-const crowdPairIndex = { bull: new Map(), bear: new Map() };
+const crowdOrders = { bull: new Map(), bear: new Map() };
 let crowdClashAccumulator = 0;
 let crowdCasualtyAccumulator = 0;
 let devBattleOverride = null;
@@ -343,6 +339,16 @@ export function initScene(callbacks = {}) {
                 bearStance: crowdBattle.bearStance,
                 ...getCrowdHealth(),
             },
+            ranks: Object.fromEntries(['bull', 'bear'].map((type) => [type, crowdAgents[type].map((agent) => ({
+                id: agent.id,
+                lane: agent.laneSlot,
+                x: agent.x,
+                z: agent.z,
+                vx: agent.vx,
+                vz: agent.vz,
+                engaged: agent.engaged,
+                retiring: agent.retiring,
+            }))])),
             bullKing: bullKingRig ? {
                 x: bullKingRig.position.x,
                 y: bullKingRig.position.y,
@@ -1860,13 +1866,62 @@ function getBattleInputs(now = Date.now()) {
 function getCrowdHealth() {
     let invalidPositions = 0;
     let outOfBounds = 0;
+    let sameSideOverlaps = 0;
+    let sameLaneOverlaps = 0;
+    let crossLaneOverlaps = 0;
+    const overlapSamples = [];
     for (const type of ['bull', 'bear']) {
-        for (const agent of crowdAgents[type]) {
+        const agents = crowdAgents[type].filter((agent) => !agent.retiring);
+        for (let index = 0; index < agents.length; index++) {
+            const agent = agents[index];
             if (!Number.isFinite(agent.x) || !Number.isFinite(agent.z)) invalidPositions += 1;
             else if (agent.x < ARENA.minX || agent.x > ARENA.maxX || agent.z < ARENA.minZ || agent.z > ARENA.maxZ) outOfBounds += 1;
+            for (let otherIndex = index + 1; otherIndex < agents.length; otherIndex++) {
+                const other = agents[otherIndex];
+                const minimum = (agent.size + other.size) * 0.62;
+                if (Math.hypot(agent.x - other.x, agent.z - other.z) < minimum) {
+                    sameSideOverlaps += 1;
+                    if (agent.laneSlot === other.laneSlot) sameLaneOverlaps += 1;
+                    else crossLaneOverlaps += 1;
+                    if (overlapSamples.length < 6) overlapSamples.push({
+                        type,
+                        first: agent.id,
+                        second: other.id,
+                        lane: agent.laneSlot,
+                        firstX: agent.x,
+                        secondX: other.x,
+                        xGap: Math.abs(agent.x - other.x),
+                        zGap: Math.abs(agent.z - other.z),
+                    });
+                }
+            }
         }
     }
-    return { invalidPositions, outOfBounds };
+    let championBypasses = 0;
+    for (const entity of entities) {
+        if (entity.retired || entity.hp <= 0 || entity.forcedRetreatUntil > Date.now()) continue;
+        const enemies = crowdAgents[entity.type === 'bull' ? 'bear' : 'bull'].filter((agent) => !agent.retiring);
+        if (!enemies.length) continue;
+        if (entity.type === 'bull' && entity.mesh.position.x > Math.min(...enemies.map((agent) => agent.x)) - 2.5) championBypasses += 1;
+        if (entity.type === 'bear' && entity.mesh.position.x < Math.max(...enemies.map((agent) => agent.x)) + 2.5) championBypasses += 1;
+    }
+    const missingEyeInstances = ['bull', 'bear'].reduce((total, type) => (
+        total + Math.abs((crowdMeshes[type]?.eyes?.count || 0) - crowdAgents[type].length)
+    ), 0);
+    const missingLegInstances = ['bull', 'bear'].reduce((total, type) => (
+        total + (crowdMeshes[type]?.legs || []).reduce((sum, leg) => sum + Math.abs(leg.count - crowdAgents[type].length), 0)
+    ), 0);
+    return {
+        invalidPositions,
+        outOfBounds,
+        sameSideOverlaps,
+        sameLaneOverlaps,
+        crossLaneOverlaps,
+        overlapSamples,
+        championBypasses,
+        missingEyeInstances,
+        missingLegInstances,
+    };
 }
 
 function getSceneTactics(now = Date.now()) {
@@ -1887,8 +1942,8 @@ function updateCrowdForces(delta) {
 
     syncCrowdPopulation('bull', Math.max(0, targets.bull - verifiedBull), delta);
     syncCrowdPopulation('bear', Math.max(0, targets.bear - verifiedBear), delta);
-    rebuildCrowdSpatialIndex();
     resolveCrowdCasualties(tactics, delta);
+    buildCrowdOrders();
 
     const bullDoctrine = deriveForceDoctrine('bull', tactics);
     const bearDoctrine = deriveForceDoctrine('bear', tactics);
@@ -1897,10 +1952,10 @@ function updateCrowdForces(delta) {
     crowdFormationX = 0;
     crowdBattle.bullStance = bullDoctrine.stance;
     crowdBattle.bearStance = bearDoctrine.stance;
-    updateCrowdSide('bull', bullDoctrine, crowdAgents.bear.length, delta);
-    updateCrowdSide('bear', bearDoctrine, crowdAgents.bull.length, delta);
+    updateCrowdSide('bull', bullDoctrine, delta);
+    updateCrowdSide('bear', bearDoctrine, delta);
     separateCrowdRanks();
-    preventCrowdSideOverlap();
+    enforceCrowdLaneOrder();
     refreshCrowdMeshes();
     updateCrowdSnapshot(tactics, delta);
     updateCrowdClashEffects(delta);
@@ -1962,27 +2017,37 @@ function resolveCrowdCasualties(tactics, delta) {
 function createCrowdAgent(type) {
     const sequence = crowdSequence[type]++;
     const random = mulberry32(sequence * 0x9e3779b1 + (type === 'bull' ? 0x51f15e : 0xb34a29));
+    const activeAgents = crowdAgents[type].filter((agent) => !agent.retiring);
+    const laneCounts = Array.from({ length: CROWD_LANE_COUNT }, (_, laneIndex) => (
+        activeAgents.filter((agent) => agent.laneSlot === laneIndex).length
+    ));
+    const smallestLane = Math.min(...laneCounts);
+    const laneSlot = laneCounts.indexOf(smallestLane);
     const roles = ['vanguard', 'skirmisher', 'vanguard', 'flank', 'support', 'vanguard', 'flank', 'reserve'];
     const role = roles[sequence % roles.length];
-    const rank = Math.floor(sequence / CROWD_LANE_COUNT);
-    const laneSlot = sequence % CROWD_LANE_COUNT;
-    const stagger = rank % 2 === 0 ? 0 : 0.45;
-    const laneUnit = (laneSlot + 0.5 + stagger) / CROWD_LANE_COUNT;
-    const lane = clamp(-11.4 + laneUnit * 22.8 + (random() - 0.5) * 0.46, ARENA.minZ + 1.2, ARENA.maxZ - 1.2);
+    const rank = laneCounts[laneSlot];
+    const laneUnit = (laneSlot + 0.5) / CROWD_LANE_COUNT;
+    const lane = clamp(ARENA.minZ + 1.5 + laneUnit * (ARENA.maxZ - ARENA.minZ - 3), ARENA.minZ + 1.2, ARENA.maxZ - 1.2);
     const direction = type === 'bull' ? 1 : -1;
     // Reinforcements enter from their own base. They only move forward into the
     // battlefield; a change of market pressure never makes them march backwards.
-    const spawnDepth = 3.5 + (rank % 7) * 0.7 + random() * 0.9;
+    const laneAgents = activeAgents.filter((agent) => agent.laneSlot === laneSlot);
+    const rearX = laneAgents.length
+        ? (direction > 0
+            ? Math.min(...laneAgents.map((agent) => agent.x))
+            : Math.max(...laneAgents.map((agent) => agent.x)))
+        : (direction > 0 ? -18 : 18);
     const spawnX = clamp(
-        (direction > 0 ? ARENA.spawnBullX + 25 : ARENA.spawnBearX - 25) - direction * spawnDepth,
+        rearX - direction * (2.1 + random() * 0.08),
         ARENA.minX + 1,
         ARENA.maxX - 1,
     );
     return {
+        id: sequence,
         type,
-        pairId: sequence,
         role,
         rank,
+        laneSlot,
         lane,
         flankSide: lane >= 0 ? 1 : -1,
         avoidanceSide: sequence % 2 === 0 ? 1 : -1,
@@ -1991,7 +2056,7 @@ function createCrowdAgent(type) {
         size: 0.66 + random() * 0.16,
         speedBias: 0.9 + random() * 0.2,
         x: spawnX,
-        z: clamp(lane + (random() - 0.5) * 1.15, ARENA.minZ + 1, ARENA.maxZ - 1),
+        z: clamp(lane + (random() - 0.5) * 0.16, ARENA.minZ + 1, ARENA.maxZ - 1),
         vx: 0,
         vz: 0,
         heading: direction > 0 ? 0 : Math.PI,
@@ -2002,9 +2067,7 @@ function createCrowdAgent(type) {
         stuckTime: 0,
         opponentDistance: Number.POSITIVE_INFINITY,
         engagementPartner: null,
-        duelAnchorX: 0,
-        duelAnchorZ: lane,
-        combatOffset: (random() - 0.5) * 1.7,
+        laneBias: (random() - 0.5) * 0.46,
         formationTargetX: spawnX,
         formationTargetZ: lane,
         life: 0,
@@ -2013,16 +2076,50 @@ function createCrowdAgent(type) {
     };
 }
 
-function updateCrowdSide(type, doctrine, opponentCount, delta) {
+function buildCrowdOrders() {
+    crowdOrders.bull.clear();
+    crowdOrders.bear.clear();
+    for (const type of ['bull', 'bear']) {
+        for (const agent of crowdAgents[type]) agent.engagementPartner = null;
+    }
+    for (let laneSlot = 0; laneSlot < CROWD_LANE_COUNT; laneSlot++) {
+        const bulls = crowdAgents.bull
+            .filter((agent) => !agent.retiring && agent.laneSlot === laneSlot)
+            .sort((a, b) => b.x - a.x);
+        const bears = crowdAgents.bear
+            .filter((agent) => !agent.retiring && agent.laneSlot === laneSlot)
+            .sort((a, b) => a.x - b.x);
+        if (bulls[0] && bears[0]) {
+            crowdOrders.bull.set(bulls[0], { opponent: bears[0], leader: null, depth: 0 });
+            crowdOrders.bear.set(bears[0], { opponent: bulls[0], leader: null, depth: 0 });
+            bulls[0].engagementPartner = bears[0];
+            bears[0].engagementPartner = bulls[0];
+        }
+        for (let index = 1; index < bulls.length; index++) {
+            crowdOrders.bull.set(bulls[index], { opponent: null, leader: bulls[index - 1], depth: index });
+            bulls[index].engagementPartner = null;
+        }
+        for (let index = 1; index < bears.length; index++) {
+            crowdOrders.bear.set(bears[index], { opponent: null, leader: bears[index - 1], depth: index });
+            bears[index].engagementPartner = null;
+        }
+        if (bulls[0] && !bears[0]) crowdOrders.bull.set(bulls[0], { opponent: null, leader: null, depth: 0 });
+        if (bears[0] && !bulls[0]) crowdOrders.bear.set(bears[0], { opponent: null, leader: null, depth: 0 });
+    }
+}
+
+function updateCrowdSide(type, doctrine, delta) {
     const agents = crowdAgents[type];
     const direction = doctrine.direction;
     for (const agent of agents) {
+        const previousX = agent.x;
         const roleSpeed = agent.role === 'vanguard' ? 1.1 : agent.role === 'flank' ? 1.04 : agent.role === 'support' ? 0.9 : 1;
         const rankDepth = agent.rank * (0.9 + doctrine.cohesion * 0.22) + agent.depthJitter;
         const wave = Math.sin(kingTime * (0.28 + crowdBattle.intensity * 0.16) + agent.phase);
         let targetX;
-        let targetZ = agent.lane + wave * (agent.role === 'skirmisher' ? 0.72 : 0.32);
-        let opponent;
+        let targetZ = agent.lane + agent.laneBias + wave * (agent.role === 'skirmisher' ? 0.38 : 0.18);
+        const order = crowdOrders[type].get(agent);
+        let opponent = null;
 
         if (agent.retiring) {
             targetX = agent.x;
@@ -2033,12 +2130,16 @@ function updateCrowdSide(type, doctrine, opponentCount, delta) {
             // Unengaged ranks march forward towards a neutral theatre. They do
             // not guard, follow or retreat from the visual market marker.
             targetX = direction * Math.min(18, 4 + rankDepth * 0.38);
-            if (agent.role === 'flank') targetZ = agent.flankSide * (9.8 + wave * 0.55);
         }
 
         agent.formationTargetX = targetX;
         agent.formationTargetZ = targetZ;
-        opponent = !agent.retiring && opponentCount > 0 ? findCrowdOpponent(agent, type) : null;
+        if (!agent.retiring && order?.opponent) {
+            opponent = {
+                agent: order.opponent,
+                distance: Math.hypot(order.opponent.x - agent.x, order.opponent.z - agent.z),
+            };
+        }
         const engagementRadius = 5.2 + crowdBattle.intensity * 1.2;
         agent.opponentDistance = opponent?.distance ?? Number.POSITIVE_INFINITY;
         agent.engaged = !agent.retiring
@@ -2051,8 +2152,16 @@ function updateCrowdSide(type, doctrine, opponentCount, delta) {
             // A rank advances into a concrete opposing rank. Collision-safe
             // spacing below keeps the two sides distinct instead of blended.
             targetX = partner.x - direction * preferredDistance + direction * attackCycle * 0.22;
-            targetZ = partner.z + agent.combatOffset
-                + direction * Math.sin(agent.phase + kingTime * 1.9) * (agent.engaged ? 0.35 : 0.16);
+            const sharedLane = (agent.lane + partner.lane) * 0.5;
+            targetZ = sharedLane + agent.laneBias * 0.35
+                + direction * Math.sin(agent.phase + kingTime * 1.9) * (agent.engaged ? 0.2 : 0.08);
+        } else if (!agent.retiring && order?.leader) {
+            // Reinforcements advance as a queue behind their own vanguard. They
+            // inherit the open ground when the leader falls instead of trying to
+            // occupy the same enemy contact point.
+            const queueSpacing = 1.65 + agent.size * 0.5;
+            targetX = order.leader.x - direction * queueSpacing;
+            targetZ = agent.lane + agent.laneBias + Math.sin(agent.phase + kingTime * 0.55) * 0.06;
         }
 
         const dx = targetX - agent.x;
@@ -2080,11 +2189,31 @@ function updateCrowdSide(type, doctrine, opponentCount, delta) {
                 agent.vx = Math.max(agent.vx, contactPartner.vx || 0);
             }
         }
+        // A force change can stop or eliminate a rank, but never rewinds a
+        // surviving soldier. Followers brake before their current leader so a
+        // later collision pass does not have to pull them backwards.
+        if (!agent.retiring) {
+            if (direction * (agent.x - previousX) < 0) agent.x = previousX;
+            if (order?.leader && !order.leader.retiring) {
+                const queueSpacing = 1.35 + (order.leader.size + agent.size) * 0.42;
+                const limit = order.leader.x - direction * queueSpacing;
+                if (direction * (agent.x - limit) > 0) {
+                    agent.x = direction > 0
+                        ? Math.max(previousX, limit)
+                        : Math.min(previousX, limit);
+                    agent.vx = direction * Math.min(
+                        Math.max(0, direction * agent.vx),
+                        Math.max(0, direction * order.leader.vx),
+                    );
+                }
+            }
+        }
 
         const moved = Math.hypot(agent.x - agent.lastX, agent.z - agent.lastZ);
         agent.stuckTime = distance > 1.8 && moved < 0.004 ? agent.stuckTime + delta : 0;
         if (agent.stuckTime > 1.25) {
-            agent.lane = clamp(agent.lane + agent.avoidanceSide * 1.4, ARENA.minZ + 1.2, ARENA.maxZ - 1.2);
+            agent.laneBias = clamp(agent.laneBias + agent.avoidanceSide * 0.38, -0.68, 0.68);
+            agent.z = clamp(agent.z + agent.avoidanceSide * 0.32, ARENA.minZ + 0.7, ARENA.maxZ - 0.7);
             agent.avoidanceSide *= -1;
             agent.stuckTime = 0;
         }
@@ -2110,35 +2239,6 @@ function updateCrowdSide(type, doctrine, opponentCount, delta) {
         if (agents[index].retiring && agents[index].life <= 0.001) agents.splice(index, 1);
     }
 
-    const meshes = crowdMeshes[type];
-    for (let index = 0; index < agents.length; index++) {
-        const agent = agents[index];
-        const speed = Math.hypot(agent.vx, agent.vz);
-        // The crowd has to read as a battle even at the camera's overview
-        // distance: a short lunge, recoil and body roll make active pairs clear
-        // without changing their collision-safe simulation positions.
-        const attackPulse = agent.engaged ? Math.max(0, Math.sin(kingTime * 6.6 + agent.phase)) : 0;
-        const bob = prefersReducedMotion ? 0 : Math.abs(Math.sin(kingTime * (7.5 + speed * 0.45) + agent.phase)) * 0.13;
-        const scale = agent.size * smoothstep(0, 0.82, agent.life) * (1 + attackPulse * 0.13);
-        const lunge = attackPulse * 0.34;
-        _crowdTransform.position.set(
-            agent.x + Math.cos(agent.heading) * lunge,
-            getTrenchHeight(agent.x, agent.z) + bob + attackPulse * 0.06,
-            agent.z - Math.sin(agent.heading) * lunge,
-        );
-        _crowdTransform.rotation.set(0, agent.heading, (agent.vx * direction > 0 ? -1 : 1) * attackPulse * 0.13);
-        _crowdTransform.scale.set(scale * (1 + attackPulse * 0.16), scale * (1 - attackPulse * 0.06), scale);
-        _crowdTransform.updateMatrix();
-        meshes.body.setMatrixAt(index, _crowdTransform.matrix);
-        meshes.accent.setMatrixAt(index, _crowdTransform.matrix);
-        meshes.eyes.setMatrixAt(index, _crowdTransform.matrix);
-    }
-    meshes.body.count = agents.length;
-    meshes.accent.count = agents.length;
-    meshes.eyes.count = agents.length;
-    meshes.body.instanceMatrix.needsUpdate = true;
-    meshes.accent.instanceMatrix.needsUpdate = true;
-    meshes.eyes.instanceMatrix.needsUpdate = true;
 }
 
 function getCrowdSteering(agent, desiredX, desiredZ) {
@@ -2157,8 +2257,8 @@ function getCrowdSteering(agent, desiredX, desiredZ) {
         if (distanceSq >= safeRadius * safeRadius && probeDistanceSq >= safeRadius * safeRadius) continue;
         const distance = Math.max(0.001, Math.sqrt(distanceSq));
         const force = clamp((safeRadius + 1.2 - distance) / safeRadius, 0.2, 1.4);
-        const radialX = dx / distance;
-        const radialZ = dz / distance;
+        const radialX = distanceSq < 0.001 ? -desiredZ * agent.avoidanceSide : dx / distance;
+        const radialZ = distanceSq < 0.001 ? desiredX * agent.avoidanceSide : dz / distance;
         steerX += radialX * force * 2.1 - radialZ * agent.avoidanceSide * force * 1.25;
         steerZ += radialZ * force * 2.1 + radialX * agent.avoidanceSide * force * 1.25;
     }
@@ -2173,63 +2273,88 @@ function getCrowdSteering(agent, desiredX, desiredZ) {
         if (distanceSq >= radius * radius) continue;
         const distance = Math.max(0.001, Math.sqrt(distanceSq));
         const force = clamp((radius - distance) / radius, 0.15, 1);
-        steerX += (dx / distance) * force * 2.4;
-        steerZ += (dz / distance) * force * 2.4 + (dx / distance) * agent.avoidanceSide * force * 0.65;
+        const radialX = distanceSq < 0.001 ? -desiredZ * agent.avoidanceSide : dx / distance;
+        const radialZ = distanceSq < 0.001 ? desiredX * agent.avoidanceSide : dz / distance;
+        steerX += radialX * force * 2.4;
+        steerZ += radialZ * force * 2.4 + radialX * agent.avoidanceSide * force * 0.65;
     }
     const length = Math.hypot(steerX, steerZ) || 1;
     return { x: steerX / length, z: steerZ / length };
 }
 
-function preventCrowdSideOverlap() {
-    // A battle has one advancing front, not independent lanes that can leak
-    // around each other. A bull may only advance once every bear ahead of the
-    // army has been removed; the mirrored rule applies to bears.
-    const bulls = crowdAgents.bull.filter((agent) => !agent.retiring);
-    const bears = crowdAgents.bear.filter((agent) => !agent.retiring);
-    if (!bulls.length || !bears.length) return;
-    const forwardBear = Math.min(...bears.map((agent) => agent.x));
-    const forwardBull = Math.max(...bulls.map((agent) => agent.x));
-    const spacing = 1.15;
-    const midpoint = (forwardBull + forwardBear) * 0.5;
-    const bullLimit = Math.min(forwardBear - spacing, midpoint - spacing * 0.5);
-    const bearLimit = Math.max(forwardBull + spacing, midpoint + spacing * 0.5);
-    for (const bull of bulls) {
-        if (bull.x <= bullLimit) continue;
-        bull.x = bullLimit;
-        bull.vx = 0;
-    }
-    for (const bear of bears) {
-        if (bear.x >= bearLimit) continue;
-        bear.x = bearLimit;
-        bear.vx = 0;
+function enforceCrowdLaneOrder() {
+    // The market marker is deliberately absent here: it is information, never
+    // collision geometry. Each lane instead preserves a physical vanguard and
+    // an advancing reinforcement queue. A unit can take its fallen leader's
+    // place, but cannot phase through a living ally or its current opponent.
+    for (const type of ['bull', 'bear']) {
+        const direction = type === 'bull' ? 1 : -1;
+        for (let laneSlot = 0; laneSlot < CROWD_LANE_COUNT; laneSlot++) {
+            const lane = crowdAgents[type]
+                .filter((agent) => !agent.retiring && agent.laneSlot === laneSlot)
+                .sort((a, b) => direction * (b.x - a.x));
+            for (let index = 1; index < lane.length; index++) {
+                const leader = lane[index - 1];
+                const follower = lane[index];
+                const spacing = 1.35 + (leader.size + follower.size) * 0.42;
+                const longitudinalGap = direction * (leader.x - follower.x);
+                if (longitudinalGap >= spacing) continue;
+                const orderedX = clamp(
+                    leader.x - direction * spacing,
+                    ARENA.minX + 0.7,
+                    ARENA.maxX - 0.7,
+                );
+                follower.x = direction > 0
+                    ? Math.max(follower.lastX, orderedX)
+                    : Math.min(follower.lastX, orderedX);
+                follower.vx = direction * Math.min(
+                    Math.max(0, direction * follower.vx),
+                    Math.max(0, direction * leader.vx),
+                );
+            }
+        }
     }
 }
 
 function separateCrowdRanks() {
     // Instanced models still need individual physical spacing. Resolve local
-    // crowd-crowd penetrations after steering so minis never occupy the same
-    // space or look like a single malformed model.
+    // crowd-crowd penetrations through a spatial grid. Same-lane spacing is
+    // handled by `enforceCrowdLaneOrder`; adjacent lanes separate laterally so
+    // collision correction cannot make either army appear to retreat.
+    const cellSize = 2.2;
     for (const type of ['bull', 'bear']) {
         const agents = crowdAgents[type].filter((agent) => !agent.retiring);
-        for (let index = 0; index < agents.length; index++) {
-            const first = agents[index];
-            for (let otherIndex = index + 1; otherIndex < agents.length; otherIndex++) {
-                const second = agents[otherIndex];
-                const dx = second.x - first.x;
-                const dz = second.z - first.z;
-                const distanceSq = dx * dx + dz * dz;
-                const clearance = (first.size + second.size) * 1.08;
-                if (distanceSq >= clearance * clearance) continue;
-                const distance = Math.max(0.001, Math.sqrt(distanceSq));
-                const overlap = (clearance - distance) * 0.5;
-                const normalX = distanceSq < 0.001 ? first.avoidanceSide : dx / distance;
-                const normalZ = distanceSq < 0.001 ? first.flankSide * 0.45 : dz / distance;
-                // Favor lateral resolution to preserve the no-retreat rule.
-                const lateralScale = Math.abs(normalZ) < 0.35 ? 0.32 : 1;
-                first.x = clamp(first.x - normalX * overlap * lateralScale, ARENA.minX + 0.7, ARENA.maxX - 0.7);
-                second.x = clamp(second.x + normalX * overlap * lateralScale, ARENA.minX + 0.7, ARENA.maxX - 0.7);
-                first.z = clamp(first.z - normalZ * overlap, ARENA.minZ + 0.7, ARENA.maxZ - 0.7);
-                second.z = clamp(second.z + normalZ * overlap, ARENA.minZ + 0.7, ARENA.maxZ - 0.7);
+        // A few inexpensive local solver passes prevent one resolved contact
+        // from creating a new penetration with the rank in the next lane.
+        for (let pass = 0; pass < 3; pass++) {
+            const grid = new Map();
+            for (const second of agents) {
+                const cellX = Math.floor((second.x - ARENA.minX) / cellSize);
+                const cellZ = Math.floor((second.z - ARENA.minZ) / cellSize);
+                for (let offsetX = -1; offsetX <= 1; offsetX++) {
+                    for (let offsetZ = -1; offsetZ <= 1; offsetZ++) {
+                        const neighbors = grid.get(`${cellX + offsetX}:${cellZ + offsetZ}`);
+                        if (!neighbors) continue;
+                        for (const first of neighbors) {
+                            if (first.laneSlot === second.laneSlot) continue;
+                            const dx = second.x - first.x;
+                            const dz = second.z - first.z;
+                            const distanceSq = dx * dx + dz * dz;
+                            const clearance = (first.size + second.size) * 1.08;
+                            if (distanceSq >= clearance * clearance) continue;
+                            const distance = Math.max(0.001, Math.sqrt(distanceSq));
+                            const overlap = (clearance - distance) * 0.5;
+                            const laneDirection = Math.sign(second.laneSlot - first.laneSlot)
+                                || Math.sign(dz)
+                                || first.flankSide;
+                            first.z = clamp(first.z - laneDirection * overlap, ARENA.minZ + 0.7, ARENA.maxZ - 0.7);
+                            second.z = clamp(second.z + laneDirection * overlap, ARENA.minZ + 0.7, ARENA.maxZ - 0.7);
+                        }
+                    }
+                }
+                const key = `${Math.floor((second.x - ARENA.minX) / cellSize)}:${Math.floor((second.z - ARENA.minZ) / cellSize)}`;
+                if (!grid.has(key)) grid.set(key, []);
+                grid.get(key).push(second);
             }
         }
     }
@@ -2271,6 +2396,9 @@ function refreshCrowdMeshes() {
                 meshes.legs[legIndex].setMatrixAt(index, _crowdLegMatrix);
             });
         }
+        meshes.body.count = agents.length;
+        meshes.accent.count = agents.length;
+        meshes.eyes.count = agents.length;
         meshes.body.instanceMatrix.needsUpdate = true;
         meshes.accent.instanceMatrix.needsUpdate = true;
         meshes.eyes.instanceMatrix.needsUpdate = true;
@@ -2287,129 +2415,6 @@ function crowdLaneIndex(z) {
         0,
         CROWD_LANE_COUNT - 1,
     );
-}
-
-function getCombatSector(rank, laneIndex) {
-    const pairKey = Math.max(0, rank) * CROWD_LANE_COUNT + laneIndex;
-    const sectorCapacity = 260;
-    const sectorSlot = (pairKey * 37) % sectorCapacity;
-    const sectorColumns = 20;
-    const sectorRows = sectorCapacity / sectorColumns;
-    const sectorColumn = sectorSlot % sectorColumns;
-    const sectorRow = Math.floor(sectorSlot / sectorColumns);
-    const sectorRandom = mulberry32(pairKey * 0x45d9f3b);
-    return {
-        x: clamp(
-            crowdFormationX + (sectorColumn - (sectorColumns - 1) * 0.5) * 3.05 + (sectorRandom() - 0.5) * 0.5,
-            ARENA.minX + 14,
-            ARENA.maxX - 14,
-        ),
-        z: clamp(
-            ARENA.minZ + (sectorRow + 0.5) * ((ARENA.maxZ - ARENA.minZ) / sectorRows) + (sectorRandom() - 0.5) * 0.45,
-            ARENA.minZ + 1.2,
-            ARENA.maxZ - 1.2,
-        ),
-    };
-}
-
-function rebuildCrowdSpatialIndex() {
-    for (const type of ['bull', 'bear']) {
-        crowdSpatial[type].forEach((bucket) => { bucket.length = 0; });
-        crowdPairIndex[type].clear();
-        for (const agent of crowdAgents[type]) {
-            const partner = agent.engagementPartner;
-            if (partner && (
-                agent.retiring
-                || partner.retiring
-                || partner.engagementPartner !== agent
-                || Math.abs(partner.rank - agent.rank) > 2
-                || Math.hypot(partner.x - agent.x, partner.z - agent.z) > 10
-            )) {
-                if (partner.engagementPartner === agent) partner.engagementPartner = null;
-                agent.engagementPartner = null;
-            }
-            if (!agent.retiring) {
-                crowdSpatial[type][crowdLaneIndex(agent.z)].push(agent);
-                crowdPairIndex[type].set(agent.pairId, agent);
-            }
-        }
-    }
-}
-
-function findCrowdOpponent(agent, type) {
-    if (agent.engagementPartner && !agent.engagementPartner.retiring) {
-        return {
-            agent: agent.engagementPartner,
-            distance: Math.hypot(
-                agent.engagementPartner.x - agent.x,
-                agent.engagementPartner.z - agent.z,
-            ),
-        };
-    }
-    const opponentType = type === 'bull' ? 'bear' : 'bull';
-    // Give equal-strength ranks a stable one-to-one rival before considering a
-    // nearby fallback. This prevents two coloured crowds from merging into a
-    // single blob: each mirrored pair shares a sector and faces its own enemy.
-    const mirroredOpponent = crowdPairIndex[opponentType].get(agent.pairId);
-    if (mirroredOpponent && (!mirroredOpponent.engagementPartner || mirroredOpponent.engagementPartner === agent)) {
-        agent.engagementPartner = mirroredOpponent;
-        mirroredOpponent.engagementPartner = agent;
-        const sector = getCombatSector(agent.rank, agent.pairId % CROWD_LANE_COUNT);
-        agent.duelAnchorX = sector.x;
-        mirroredOpponent.duelAnchorX = sector.x;
-        agent.duelAnchorZ = sector.z;
-        mirroredOpponent.duelAnchorZ = sector.z;
-        mirroredOpponent.combatOffset = agent.combatOffset;
-        return {
-            agent: mirroredOpponent,
-            distance: Math.hypot(mirroredOpponent.x - agent.x, mirroredOpponent.z - agent.z),
-        };
-    }
-    const laneIndex = crowdLaneIndex(agent.z);
-    let closest = null;
-    let closestDistanceSq = Number.POSITIVE_INFINITY;
-    let sharedTarget = null;
-    let sharedDistanceSq = Number.POSITIVE_INFINITY;
-    for (let offset = -1; offset <= 1; offset++) {
-        const bucket = crowdSpatial[opponentType][laneIndex + offset];
-        if (!bucket) continue;
-        for (const opponent of bucket) {
-            const dx = opponent.x - agent.x;
-            const dz = opponent.z - agent.z;
-            const distanceSq = dx * dx + dz * dz;
-            const rankPenalty = (opponent.rank - agent.rank) ** 2 * 4;
-            const matchScore = distanceSq + rankPenalty;
-            if (matchScore < sharedDistanceSq) {
-                sharedTarget = opponent;
-                sharedDistanceSq = matchScore;
-            }
-            if (opponent.engagementPartner && opponent.engagementPartner !== agent) continue;
-            if (matchScore < closestDistanceSq) {
-                closest = opponent;
-                closestDistanceSq = matchScore;
-            }
-        }
-    }
-    if (!closest) {
-        if (!sharedTarget) return null;
-        return {
-            agent: sharedTarget,
-            distance: Math.hypot(sharedTarget.x - agent.x, sharedTarget.z - agent.z),
-        };
-    }
-    agent.engagementPartner = closest;
-    closest.engagementPartner = agent;
-    const averageRank = (agent.rank + closest.rank) * 0.5;
-    // Spread pairs through deterministic combat sectors. This preserves a
-    // readable duel for every rank at low volume and turns high volume into a
-    // battlefield of simultaneous skirmishes instead of a single mixed block.
-    const sectorLaneIndex = crowdLaneIndex((agent.lane + closest.lane) * 0.5);
-    const sector = getCombatSector(Math.max(0, Math.round(averageRank)), sectorLaneIndex);
-    agent.duelAnchorX = sector.x;
-    closest.duelAnchorX = sector.x;
-    agent.duelAnchorZ = sector.z;
-    closest.duelAnchorZ = sector.z;
-    return { agent: closest, distance: Math.hypot(closest.x - agent.x, closest.z - agent.z) };
 }
 
 function updateCrowdSnapshot(tactics, delta) {
@@ -2634,7 +2639,6 @@ function makeCrowdYieldToChampion(entity) {
     const championX = entity.mesh.position.x;
     const championZ = entity.mesh.position.z;
     const clearance = entity.isWhale ? 5.6 : 3.45;
-    let correctionX = 0;
     let correctionZ = 0;
     for (const type of ['bull', 'bear']) {
         for (const agent of crowdAgents[type]) {
@@ -2647,17 +2651,15 @@ function makeCrowdYieldToChampion(entity) {
             const distance = Math.max(0.001, Math.sqrt(distanceSq));
             const penetration = radius - distance;
             const force = penetration / radius;
-            const radialX = distanceSq < 0.001 ? agent.avoidanceSide : dx / distance;
-            const radialZ = distanceSq < 0.001 ? agent.flankSide * 0.35 : dz / distance;
-            const lateral = agent.avoidanceSide * force * 0.42;
-            // Resolve the overlap immediately, then give the rank a lateral
-            // wake. This is a physical corridor, not a cosmetic nudge.
-            agent.x = clamp(agent.x + radialX * penetration * 0.82 - radialZ * lateral, ARENA.minX + 0.7, ARENA.maxX - 0.7);
-            agent.z = clamp(agent.z + radialZ * penetration * 0.82 + radialX * lateral, ARENA.minZ + 0.7, ARENA.maxZ - 0.7);
-            agent.vx += radialX * force * 1.2;
-            agent.vz += radialZ * force * 1.2;
-            correctionX -= radialX * penetration * 0.18;
-            correctionZ -= radialZ * penetration * 0.18;
+            const lateralDirection = Math.sign(dz)
+                || agent.avoidanceSide
+                || (agent.laneSlot % 2 === 0 ? 1 : -1);
+            // Open a lateral corridor. Never compress the queue along X: that
+            // axis is owned exclusively by lane order and market casualties.
+            const lateralShift = lateralDirection * penetration * (0.78 + force * 0.18);
+            agent.z = clamp(agent.z + lateralShift, ARENA.minZ + 0.7, ARENA.maxZ - 0.7);
+            agent.vz += lateralDirection * force * 1.15;
+            correctionZ -= lateralShift * 0.22;
         }
     }
     // The detailed combatant also yields a little. Applying correction to both
@@ -2666,7 +2668,6 @@ function makeCrowdYieldToChampion(entity) {
     // A warded intruder is already being pushed by the King's attack; do not
     // counteract that deliberate retreat with a crowd correction.
     if (entity.forcedRetreatUntil <= Date.now()) {
-        entity.mesh.position.x += clamp(correctionX, -1.1, 1.1);
         entity.mesh.position.z += clamp(correctionZ, -1.1, 1.1);
     }
 }
