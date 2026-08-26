@@ -238,8 +238,8 @@ const matCrowdBull = new THREE.MeshStandardMaterial({ color: 0x090d0b, metalness
 const matCrowdBullAccent = new THREE.MeshStandardMaterial({ color: 0x00b96a, emissive: 0x007a46, emissiveIntensity: 0.85, roughness: 0.34 });
 const matCrowdBear = new THREE.MeshStandardMaterial({ color: 0xa86f49, roughness: 0.82, metalness: 0.03 });
 const matCrowdBearAccent = new THREE.MeshStandardMaterial({ color: 0x59331f, roughness: 0.9 });
-const matCrowdBullEyes = new THREE.MeshBasicMaterial({ color: 0x25ff96, transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false });
-const matCrowdBearEyes = new THREE.MeshBasicMaterial({ color: 0xff174f, transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false });
+const matCrowdBullEyes = new THREE.MeshBasicMaterial({ color: 0x00ff72, transparent: true, opacity: 1, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false });
+const matCrowdBearEyes = new THREE.MeshBasicMaterial({ color: 0xff003c, transparent: true, opacity: 1, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false });
 const projectileMaterials = {
     bull: new THREE.MeshBasicMaterial({ color: 0x00ff88 }),
     bear: new THREE.MeshBasicMaterial({ color: 0xff3366 }),
@@ -2177,21 +2177,27 @@ function getCrowdSteering(agent, desiredX, desiredZ) {
 }
 
 function preventCrowdSideOverlap() {
-    // A battle has a contact line, not two ghost crowds. Keep every nearby bull
-    // to the left of every nearby bear. This is deliberately independent from
-    // the decorative market marker and applies to non-paired reinforcements too.
-    for (const bull of crowdAgents.bull) {
-        if (bull.retiring) continue;
-        for (const bear of crowdAgents.bear) {
-            if (bear.retiring || Math.abs(bull.z - bear.z) > 1.7) continue;
-            const spacing = 0.92 + (bull.size + bear.size) * 0.34;
-            if (bull.x <= bear.x - spacing) continue;
-            const contact = (bull.x + bear.x) * 0.5;
-            bull.x = Math.min(bull.x, contact - spacing * 0.5);
-            bear.x = Math.max(bear.x, contact + spacing * 0.5);
-            bull.vx = Math.min(bull.vx, 0);
-            bear.vx = Math.max(bear.vx, 0);
-        }
+    // A battle has one advancing front, not independent lanes that can leak
+    // around each other. A bull may only advance once every bear ahead of the
+    // army has been removed; the mirrored rule applies to bears.
+    const bulls = crowdAgents.bull.filter((agent) => !agent.retiring);
+    const bears = crowdAgents.bear.filter((agent) => !agent.retiring);
+    if (!bulls.length || !bears.length) return;
+    const forwardBear = Math.min(...bears.map((agent) => agent.x));
+    const forwardBull = Math.max(...bulls.map((agent) => agent.x));
+    const spacing = 1.15;
+    const midpoint = (forwardBull + forwardBear) * 0.5;
+    const bullLimit = Math.min(forwardBear - spacing, midpoint - spacing * 0.5);
+    const bearLimit = Math.max(forwardBull + spacing, midpoint + spacing * 0.5);
+    for (const bull of bulls) {
+        if (bull.x <= bullLimit) continue;
+        bull.x = bullLimit;
+        bull.vx = 0;
+    }
+    for (const bear of bears) {
+        if (bear.x >= bearLimit) continue;
+        bear.x = bearLimit;
+        bear.vx = 0;
     }
 }
 
