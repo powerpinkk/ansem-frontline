@@ -10,6 +10,7 @@ export const state = {
     sellSol60s: 0,
     liveTrades: [],
     priceHistory: [],
+    priceTicks30s: [],
     cameraMode: 'auto',
     lastChartFetch: 0,
 

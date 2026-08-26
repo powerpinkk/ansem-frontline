@@ -255,6 +255,17 @@ function startStreamIfReady() {
 }
 
 function updateTrend(price) {
+    const now = Date.now();
+    const numericPrice = Number(price);
+    if (numericPrice > 0) {
+        const previousTick = state.priceTicks30s.at(-1);
+        if (!previousTick || now - previousTick.timestamp >= 750 || previousTick.price !== numericPrice) {
+            state.priceTicks30s.push({ timestamp: now, price: numericPrice });
+        }
+        state.priceTicks30s = state.priceTicks30s
+            .filter((tick) => now - tick.timestamp <= 31_000)
+            .slice(-90);
+    }
     const priceDirection = state.prevPrice > 0 ? Math.sign(price - state.prevPrice) : 0;
     const pressure = calculatePressure(state.liveTrades);
     const pressureDirection = pressure.totalSol > 0 ? Math.sign(pressure.buySol - pressure.sellSol) : 0;

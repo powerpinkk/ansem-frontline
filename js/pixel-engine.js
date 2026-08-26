@@ -1,4 +1,6 @@
 const WINDOW_MS = 30_000;
+const LANE_COUNT = 3;
+const MAX_VISIBLE_PER_SIDE = 12;
 
 function clamp(value, min, max) {
     return Math.max(min, Math.min(max, value));
@@ -18,6 +20,18 @@ function crispRect(ctx, x, y, width, height, color) {
     ctx.fillRect(Math.round(x), Math.round(y), Math.round(width), Math.round(height));
 }
 
+function unitDimensions(unit) {
+    const scale = unit.isWhale ? 2 : 1;
+    return { scale, width: 19 * scale, height: 15 * scale };
+}
+
+function normalizeTick(tick, now) {
+    const timestamp = Number(tick?.timestamp);
+    const price = Number(tick?.price);
+    if (!(price > 0) || !Number.isFinite(timestamp) || now - timestamp < 0 || now - timestamp > WINDOW_MS) return null;
+    return { timestamp, price };
+}
+
 export function createPixelSnapshot(source, now = Date.now()) {
     const trades = (source.liveTrades || [])
         .filter((trade) => now - Number(trade.timestamp) >= 0 && now - Number(trade.timestamp) <= WINDOW_MS)
@@ -34,34 +48,151 @@ export function createPixelSnapshot(source, now = Date.now()) {
         if (trade.isBuy) buySol += trade.solValue;
         else sellSol += trade.solValue;
     }
+    const priceTicks = (source.priceTicks30s || [])
+        .map((tick) => normalizeTick(tick, now))
+        .filter(Boolean)
+        .sort((a, b) => a.timestamp - b.timestamp);
+    const price = Number(source.price) || priceTicks.at(-1)?.price || 0;
+    if (price > 0 && (!priceTicks.length || now - priceTicks.at(-1).timestamp > 600)) {
+        priceTicks.push({ timestamp: now, price });
+    }
     return {
         now,
         windowMs: WINDOW_MS,
         trades,
         buySol,
         sellSol,
-        price: Number(source.price) || 0,
+        price,
+        priceTicks: priceTicks.slice(-90),
         online: source.connection === 'online' || source.connection === 'degraded',
     };
+}
+
+function selectVisibleUnits(snapshot, isBuy) {
+    return snapshot.trades
+        .filter((trade) => trade.isBuy === isBuy)
+        .sort((a, b) => a.timestamp - b.timestamp || a.id.localeCompare(b.id))
+        .slice(-MAX_VISIBLE_PER_SIDE)
+        .map((unit, index) => ({
+            ...unit,
+            lane: index % LANE_COUNT,
+            phase: ((hashText(unit.id) >>> 4) % 628) / 100,
+        }));
+}
+
+function placeSide(units, isBull, combatX, width, height, now) {
+    const laneGroups = Array.from({ length: LANE_COUNT }, () => []);
+    units.forEach((unit) => laneGroups[unit.lane].push(unit));
+    const groundTop = Math.floor(height * 0.35);
+    const usableGround = Math.max(66, height - groundTop - 10);
+    const laneStep = usableGround / LANE_COUNT;
+    const placed = [];
+
+    laneGroups.forEach((laneUnits, lane) => {
+        let previous = null;
+        laneUnits.forEach((unit, rank) => {
+            const dimensions = unitDimensions(unit);
+            const target = previous
+                ? previous.targetX + (isBull ? -1 : 1) * (previous.width * 0.5 + dimensions.width * 0.5 + 5)
+                : combatX + (isBull ? -1 : 1) * (dimensions.width * 0.5 + 5);
+            const spawnX = isBull ? -dimensions.width * 0.5 : width + dimensions.width * 0.5;
+            const age = clamp(now - unit.timestamp, 0, WINDOW_MS);
+            const entry = clamp(age / 5_200, 0, 1);
+            let x = spawnX + (target - spawnX) * (entry * entry * (3 - 2 * entry));
+            if (previous) {
+                const orderedX = previous.x + (isBull ? -1 : 1) * (previous.width * 0.5 + dimensions.width * 0.5 + 4);
+                x = isBull ? Math.min(x, orderedX) : Math.max(x, orderedX);
+            }
+            const y = Math.round(groundTop + laneStep * (lane + 0.76));
+            const positioned = {
+                ...unit,
+                ...dimensions,
+                isBull,
+                rank,
+                x,
+                y,
+                targetX: target,
+                entry,
+                engaged: rank === 0 && entry > 0.76,
+            };
+            positioned.box = {
+                left: x - dimensions.width * 0.5,
+                right: x + dimensions.width * 0.5,
+                top: y - dimensions.height,
+                bottom: y + 2,
+            };
+            placed.push(positioned);
+            previous = positioned;
+        });
+    });
+    return placed;
+}
+
+export function layoutPixelBattle(snapshot, width = 960, height = 170, now = snapshot?.now || Date.now()) {
+    const buySol = Number(snapshot?.buySol) || 0;
+    const sellSol = Number(snapshot?.sellSol) || 0;
+    const totalSol = buySol + sellSol;
+    const buyShare = totalSol > 0 ? buySol / totalSol : 0.5;
+    const combatX = width * (0.32 + buyShare * 0.36);
+    const bulls = placeSide(selectVisibleUnits(snapshot, true), true, combatX, width, height, now);
+    const bears = placeSide(selectVisibleUnits(snapshot, false), false, combatX, width, height, now);
+
+    // Front ranks receive a small attack lunge, but the layout reserves a
+    // permanent gap so opposing sprites can never occupy the same pixels.
+    for (let lane = 0; lane < LANE_COUNT; lane++) {
+        const bull = bulls.find((unit) => unit.lane === lane && unit.rank === 0);
+        const bear = bears.find((unit) => unit.lane === lane && unit.rank === 0);
+        if (!bull || !bear) continue;
+        const gap = bear.box.left - bull.box.right;
+        const correction = Math.max(0, (4 - gap) * 0.5);
+        bull.x -= correction;
+        bear.x += correction;
+        bull.box.left -= correction;
+        bull.box.right -= correction;
+        bear.box.left += correction;
+        bear.box.right += correction;
+        bull.engaged = bull.engaged && bear.entry > 0.76;
+        bear.engaged = bear.engaged && bull.entry > 0.76;
+    }
+    return { buyShare, combatX, bulls, bears, units: [...bulls, ...bears].sort((a, b) => a.y - b.y) };
+}
+
+export function findPixelOverlaps(layout) {
+    const overlaps = [];
+    const units = layout?.units || [];
+    for (let index = 0; index < units.length; index++) {
+        for (let otherIndex = index + 1; otherIndex < units.length; otherIndex++) {
+            const first = units[index];
+            const second = units[otherIndex];
+            if (first.lane !== second.lane) continue;
+            if (first.box.left < second.box.right && first.box.right > second.box.left
+                && first.box.top < second.box.bottom && first.box.bottom > second.box.top) {
+                overlaps.push([first.id, second.id]);
+            }
+        }
+    }
+    return overlaps;
 }
 
 export class PixelFrontline {
     constructor(canvas) {
         this.canvas = canvas;
         this.ctx = canvas.getContext('2d', { alpha: false });
-        this.snapshot = createPixelSnapshot({ liveTrades: [] });
-        this.units = new Map();
+        this.snapshot = createPixelSnapshot({ liveTrades: [], priceTicks30s: [] });
         this.running = false;
         this.frame = 0;
+        this.lastLayout = layoutPixelBattle(this.snapshot);
         this.view = canvas.ownerDocument.defaultView || window;
-        this.resizeObserver = new this.view.ResizeObserver(() => this.resize());
-        this.resizeObserver.observe(canvas);
+        this.resizeObserver = typeof this.view.ResizeObserver === 'function'
+            ? new this.view.ResizeObserver(() => this.resize())
+            : null;
+        this.resizeObserver?.observe(canvas);
         this.resize();
     }
 
     resize() {
-        const width = Math.max(320, Math.floor(this.canvas.clientWidth || 960));
-        const height = Math.max(96, Math.floor(this.canvas.clientHeight || 160));
+        const width = Math.max(320, Math.floor(this.canvas.clientWidth || Number(this.canvas.getAttribute('width')) || 960));
+        const height = Math.max(96, Math.floor(this.canvas.clientHeight || Number(this.canvas.getAttribute('height')) || 170));
         const ratio = Math.min(this.view.devicePixelRatio || 1, 2);
         this.canvas.width = Math.floor(width * ratio);
         this.canvas.height = Math.floor(height * ratio);
@@ -74,23 +205,6 @@ export class PixelFrontline {
     setSnapshot(snapshot) {
         if (!snapshot || !Array.isArray(snapshot.trades)) return;
         this.snapshot = snapshot;
-        const active = new Set();
-        for (const trade of snapshot.trades) {
-            active.add(trade.id);
-            if (!this.units.has(trade.id)) {
-                const hash = hashText(trade.id);
-                this.units.set(trade.id, {
-                    ...trade,
-                    lane: hash % 5,
-                    phase: ((hash >>> 4) % 628) / 100,
-                });
-            } else {
-                Object.assign(this.units.get(trade.id), trade);
-            }
-        }
-        for (const id of this.units.keys()) {
-            if (!active.has(id)) this.units.delete(id);
-        }
     }
 
     start() {
@@ -99,15 +213,26 @@ export class PixelFrontline {
         const render = (time) => {
             if (!this.running) return;
             this.draw(time);
-            this.frame = requestAnimationFrame(render);
+            this.frame = this.view.requestAnimationFrame(render);
         };
-        this.frame = requestAnimationFrame(render);
+        this.frame = this.view.requestAnimationFrame(render);
     }
 
     destroy() {
         this.running = false;
-        cancelAnimationFrame(this.frame);
-        this.resizeObserver.disconnect();
+        this.view.cancelAnimationFrame(this.frame);
+        this.resizeObserver?.disconnect();
+    }
+
+    getDiagnostics() {
+        return {
+            width: this.width,
+            height: this.height,
+            bullCount: this.lastLayout.bulls.length,
+            bearCount: this.lastLayout.bears.length,
+            overlaps: findPixelOverlaps(this.lastLayout),
+            pricePoints: this.snapshot.priceTicks?.length || 0,
+        };
     }
 
     draw(time) {
@@ -115,95 +240,143 @@ export class PixelFrontline {
         const w = this.width;
         const h = this.height;
         const now = Date.now();
-        crispRect(ctx, 0, 0, w, h, '#020403');
-        crispRect(ctx, 0, Math.floor(h * 0.36), w, h * 0.64, '#5b4028');
-        crispRect(ctx, 0, Math.floor(h * 0.36), w, 4, '#27492b');
+        crispRect(ctx, 0, 0, w, h, '#020504');
+        crispRect(ctx, 0, Math.floor(h * 0.35), w, h * 0.65, '#503823');
+        ctx.globalAlpha = 0.48;
+        crispRect(ctx, 0, Math.floor(h * 0.35), w, Math.floor(h * 0.65), '#715135');
+        ctx.globalAlpha = 1;
+        crispRect(ctx, 0, Math.floor(h * 0.35), w, 4, '#285435');
         this.drawTrees(w, h);
         this.drawGroundDetail(w, h);
+        this.drawPriceTrace(w, h, now);
 
-        const totalSol = this.snapshot.buySol + this.snapshot.sellSol;
-        const buyShare = totalSol > 0 ? this.snapshot.buySol / totalSol : 0.5;
-        const markerX = Math.round(w * (0.22 + buyShare * 0.56));
-        for (let y = Math.floor(h * 0.39); y < h - 7; y += 9) crispRect(ctx, markerX, y, 2, 4, buyShare >= 0.5 ? '#00a85f' : '#8d1836');
+        this.lastLayout = layoutPixelBattle(this.snapshot, w, h, now);
+        const markerX = Math.round(w * (0.22 + this.lastLayout.buyShare * 0.56));
+        ctx.globalAlpha = 0.68;
+        for (let y = Math.floor(h * 0.39); y < h - 5; y += 9) {
+            crispRect(ctx, markerX, y, 2, 4, this.lastLayout.buyShare >= 0.5 ? '#00d97a' : '#a30f38');
+        }
+        ctx.globalAlpha = 1;
 
-        const bulls = [...this.units.values()].filter((unit) => unit.isBuy).slice(-26);
-        const bears = [...this.units.values()].filter((unit) => !unit.isBuy).slice(-26);
-        const furthestAge = Math.max(1, ...[...bulls, ...bears].map((unit) => now - unit.timestamp));
-        const combatX = w * 0.5 + (buyShare - 0.5) * w * 0.3;
-        const drawUnits = (units, isBull) => {
-            units.forEach((unit, index) => {
-                const age = clamp(now - unit.timestamp, 0, WINDOW_MS);
-                const entry = clamp(age / Math.min(8_000, furthestAge), 0, 1);
-                const depth = Math.floor(index / 5);
-                const side = isBull ? 1 : -1;
-                const spawnX = isBull ? 14 : w - 14;
-                const contactOffset = side * -(10 + depth * 10);
-                const x = spawnX + (combatX + contactOffset - spawnX) * entry
-                    + Math.sin(time * 0.006 + unit.phase) * (entry > 0.92 ? 3 : 0);
-                const laneStep = Math.max(12, Math.floor((h * 0.53) / 5));
-                const y = Math.floor(h * 0.42) + unit.lane * laneStep + (depth % 2) * 3;
-                this.drawUnit(unit, x, Math.min(h - 12, y), isBull, time);
-            });
-        };
-        drawUnits(bulls, true);
-        drawUnits(bears, false);
+        for (const unit of this.lastLayout.units) this.drawUnit(unit, time);
+        this.drawPressureBar(w, this.lastLayout.buyShare, this.lastLayout.bulls.length, this.lastLayout.bears.length);
+    }
 
-        this.drawPressureBar(w, h, buyShare, bulls.length, bears.length);
+    drawPriceTrace(w, h, now) {
+        const ctx = this.ctx;
+        const ticks = (this.snapshot.priceTicks || []).filter((tick) => now - tick.timestamp <= WINDOW_MS);
+        ctx.globalAlpha = 0.18;
+        ctx.strokeStyle = '#386a51';
+        ctx.lineWidth = 1;
+        for (let seconds = 5; seconds < 30; seconds += 5) {
+            const x = w * (1 - seconds / 30);
+            ctx.beginPath();
+            ctx.moveTo(x, 22);
+            ctx.lineTo(x, h - 3);
+            ctx.stroke();
+        }
+        ctx.globalAlpha = 1;
+        if (ticks.length < 2) return;
+        const prices = ticks.map((tick) => tick.price);
+        const min = Math.min(...prices);
+        const max = Math.max(...prices);
+        const range = Math.max(max - min, Math.max(max * 0.00025, 1e-9));
+        const rising = prices.at(-1) >= prices[0];
+        ctx.beginPath();
+        ticks.forEach((tick, index) => {
+            const x = clamp(((tick.timestamp - (now - WINDOW_MS)) / WINDOW_MS) * w, 0, w);
+            const y = 27 + (1 - (tick.price - min) / range) * (h - 52);
+            if (index === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+        });
+        ctx.globalAlpha = 0.34;
+        ctx.strokeStyle = rising ? '#00ff88' : '#ff164f';
+        ctx.lineWidth = 3;
+        ctx.stroke();
+        ctx.globalAlpha = 0.12;
+        ctx.lineWidth = 8;
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+        ctx.font = 'bold 8px monospace';
+        ctx.fillStyle = rising ? '#65dca4' : '#df5b7d';
+        ctx.textAlign = 'right';
+        ctx.fillText(`30S PRICE  $${this.snapshot.price.toFixed(6)}`, w - 8, 8);
+        ctx.textAlign = 'left';
     }
 
     drawTrees(w, h) {
-        const positions = [0.08, 0.17, 0.82, 0.91];
-        for (const position of positions) {
+        for (const position of [0.05, 0.14, 0.86, 0.95]) {
             const x = Math.floor(w * position);
-            crispRect(this.ctx, x, h * 0.25, 4, 17, '#3b2416');
-            crispRect(this.ctx, x - 7, h * 0.2, 18, 8, '#174125');
-            crispRect(this.ctx, x - 4, h * 0.15, 12, 8, '#1f5c31');
+            crispRect(this.ctx, x, h * 0.25, 4, 17, '#382116');
+            crispRect(this.ctx, x - 7, h * 0.2, 18, 8, '#153d23');
+            crispRect(this.ctx, x - 4, h * 0.15, 12, 8, '#216139');
         }
     }
 
     drawGroundDetail(w, h) {
-        for (let index = 0; index < 22; index++) {
+        for (let index = 0; index < 24; index++) {
             const x = (index * 97 + 43) % Math.max(1, Math.floor(w));
-            const y = Math.floor(h * 0.46) + ((index * 29) % Math.max(1, Math.floor(h * 0.46)));
+            const y = Math.floor(h * 0.43) + ((index * 29) % Math.max(1, Math.floor(h * 0.5)));
             if (index % 3 === 0) {
-                crispRect(this.ctx, x, y, 5, 3, '#3d3024');
-                crispRect(this.ctx, x + 2, y - 2, 4, 3, '#776047');
+                crispRect(this.ctx, x, y, 5, 3, '#372a20');
+                crispRect(this.ctx, x + 2, y - 2, 4, 3, '#80674a');
             } else {
-                crispRect(this.ctx, x, y, 2, 6, '#2a5d31');
-                crispRect(this.ctx, x + 3, y + 2, 2, 4, '#3f7944');
+                crispRect(this.ctx, x, y, 2, 6, '#286037');
+                crispRect(this.ctx, x + 3, y + 2, 2, 4, '#43864c');
             }
         }
     }
 
-    drawUnit(unit, x, y, isBull, time) {
+    drawUnit(unit, time) {
         const ctx = this.ctx;
-        const scale = unit.isWhale ? 3 : 2;
-        const direction = isBull ? 1 : -1;
-        const stride = Math.sin(time * 0.016 + unit.phase) > 0 ? 1 : -1;
-        const bodyX = x - (isBull ? 0 : 14 * scale);
-        if (isBull) {
-            crispRect(ctx, bodyX, y - 8 * scale, 13 * scale, 7 * scale, '#080b0a');
-            crispRect(ctx, bodyX + 9 * scale, y - 10 * scale, 7 * scale, 6 * scale, '#0b0f0d');
-            crispRect(ctx, bodyX + 13 * scale, y - 11 * scale, 2 * scale, 2 * scale, '#00ff88');
-            crispRect(ctx, bodyX + 2 * scale, y - 9 * scale, 6 * scale, scale, '#087f75');
-            crispRect(ctx, bodyX + 9 * scale, y - 13 * scale, 2 * scale, 4 * scale, '#d8fff0');
-            crispRect(ctx, bodyX + 14 * scale, y - 13 * scale, 2 * scale, 4 * scale, '#d8fff0');
-        } else {
-            crispRect(ctx, bodyX, y - 8 * scale, 13 * scale, 7 * scale, '#b97946');
-            crispRect(ctx, bodyX - 3 * scale, y - 10 * scale, 7 * scale, 6 * scale, '#c98b55');
-            crispRect(ctx, bodyX - 2 * scale, y - 11 * scale, 2 * scale, 2 * scale, '#ff164f');
-            crispRect(ctx, bodyX - 5 * scale, y - 10 * scale, 4 * scale, scale, '#ff164f');
-        }
-        crispRect(ctx, bodyX + 2 * scale, y - scale, 3 * scale, (3 + stride) * scale, '#171a17');
-        crispRect(ctx, bodyX + 9 * scale, y - scale, 3 * scale, (3 - stride) * scale, '#171a17');
+        const { scale, isBull, x, y } = unit;
+        const stride = Math.sin(time * 0.014 + unit.phase) > 0 ? 1 : -1;
+        const attack = unit.engaged ? Math.max(0, Math.sin(time * 0.009 + unit.phase)) : 0;
+        const lunge = attack * 1.5 * (isBull ? 1 : -1);
+        const left = Math.round(x + lunge - unit.width * 0.5);
+
         if (unit.isWhale) {
-            const aura = isBull ? '#00a85f' : '#9b1739';
-            crispRect(ctx, bodyX - 2, y + 5, 18 * scale, 2, aura);
+            ctx.globalAlpha = 0.25 + attack * 0.12;
+            crispRect(ctx, left - 3, y - unit.height - 3, unit.width + 6, unit.height + 8, isBull ? '#00ff88' : '#ff164f');
+            ctx.globalAlpha = 1;
         }
-        if (direction < 0) ctx.direction = 'ltr';
+        if (isBull) this.drawBull(left, y, scale, stride, attack);
+        else this.drawBear(left, y, scale, stride, attack);
     }
 
-    drawPressureBar(w, h, buyShare, bullCount, bearCount) {
+    drawBull(left, y, scale, stride, attack) {
+        const ctx = this.ctx;
+        crispRect(ctx, left + scale, y - 10 * scale, 12 * scale, 7 * scale, '#070a09');
+        crispRect(ctx, left + 4 * scale, y - 12 * scale, 6 * scale, 3 * scale, '#101713');
+        crispRect(ctx, left + 11 * scale, y - 12 * scale, 7 * scale, 6 * scale, '#080d0b');
+        crispRect(ctx, left + 16 * scale, y - 10 * scale, 3 * scale, 3 * scale, '#151c18');
+        crispRect(ctx, left + 12 * scale, y - 15 * scale, 2 * scale, 4 * scale, '#d8fff0');
+        crispRect(ctx, left + 16 * scale, y - 15 * scale, 2 * scale, 4 * scale, '#d8fff0');
+        crispRect(ctx, left + 15 * scale, y - 12 * scale, 2 * scale, 2 * scale, attack > 0.55 ? '#b8ffe0' : '#00ff88');
+        crispRect(ctx, left - scale, y - 11 * scale, 3 * scale, scale, '#07100b');
+        crispRect(ctx, left + 3 * scale, y - 3 * scale, 3 * scale, (3 + stride) * scale, '#050706');
+        crispRect(ctx, left + 10 * scale, y - 3 * scale, 3 * scale, (3 - stride) * scale, '#050706');
+        crispRect(ctx, left + 2 * scale, y + stride * scale, 4 * scale, scale, '#17211c');
+        crispRect(ctx, left + 10 * scale, y - stride * scale, 4 * scale, scale, '#17211c');
+    }
+
+    drawBear(left, y, scale, stride, attack) {
+        const ctx = this.ctx;
+        crispRect(ctx, left + 5 * scale, y - 10 * scale, 12 * scale, 7 * scale, '#a96f46');
+        crispRect(ctx, left + 8 * scale, y - 13 * scale, 6 * scale, 4 * scale, '#bd8050');
+        crispRect(ctx, left + scale, y - 12 * scale, 7 * scale, 6 * scale, '#c68a56');
+        crispRect(ctx, left, y - 9 * scale, 4 * scale, 3 * scale, '#5b3521');
+        crispRect(ctx, left + 2 * scale, y - 14 * scale, 2 * scale, 2 * scale, '#6c4028');
+        crispRect(ctx, left + 6 * scale, y - 14 * scale, 2 * scale, 2 * scale, '#6c4028');
+        crispRect(ctx, left + 2 * scale, y - 12 * scale, 2 * scale, 2 * scale, attack > 0.55 ? '#ffc1ce' : '#ff164f');
+        crispRect(ctx, left - (2 + Math.round(attack * 2)) * scale, y - 12 * scale, 4 * scale, scale, '#ff164f');
+        crispRect(ctx, left + 7 * scale, y - 3 * scale, 3 * scale, (3 + stride) * scale, '#56351f');
+        crispRect(ctx, left + 14 * scale, y - 3 * scale, 3 * scale, (3 - stride) * scale, '#56351f');
+        crispRect(ctx, left + 6 * scale, y + stride * scale, 4 * scale, scale, '#24160f');
+        crispRect(ctx, left + 14 * scale, y - stride * scale, 4 * scale, scale, '#24160f');
+    }
+
+    drawPressureBar(w, buyShare, bullCount, bearCount) {
         const ctx = this.ctx;
         const barWidth = Math.min(280, w * 0.34);
         const x = (w - barWidth) * 0.5;
@@ -217,9 +390,9 @@ export class PixelFrontline {
         ctx.fillText(`${bullCount} BULL${bullCount === 1 ? '' : 'S'}`, x - 62, y - 1);
         ctx.fillStyle = '#ff7696';
         ctx.fillText(`${bearCount} BEAR${bearCount === 1 ? '' : 'S'}`, x + barWidth + 8, y - 1);
-        ctx.fillStyle = '#718078';
+        ctx.fillStyle = '#8c9b92';
         ctx.textAlign = 'center';
-        ctx.fillText(this.snapshot.online ? 'VERIFIED 30S FRONTLINE' : 'RECONNECTING', w * 0.5, y + 10);
+        ctx.fillText(this.snapshot.online ? 'VERIFIED SWAPS · ROLLING 30S' : 'RECONNECTING', w * 0.5, y + 10);
         ctx.textAlign = 'left';
     }
 }

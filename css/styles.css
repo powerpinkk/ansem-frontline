@@ -154,11 +154,24 @@ body {
     color: #b8ffdd;
 }
 
-.pixel-mode-btn.popup-blocked::after {
-    content: 'ALLOW POP-UPS';
+.pixel-mode-btn.pip-unavailable::after {
+    content: 'PIP UNAVAILABLE';
     margin-left: 7px;
     color: var(--bear-red);
 }
+
+.pixel-pip-source,
+.pixel-pip-video {
+    position: fixed;
+    left: -12000px;
+    top: 0;
+    z-index: -1;
+    pointer-events: none;
+    opacity: 0.001;
+}
+
+.pixel-pip-source { image-rendering: pixelated; }
+.pixel-pip-video { width: 2px; height: 2px; }
 
 #companion-dock-screen {
     position: fixed;

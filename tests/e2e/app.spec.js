@@ -143,27 +143,73 @@ test('pauses 3D work while hidden and resumes from a clean frame', async ({ page
     expect(resumed.render.contextLost).toBe(false);
 });
 
-test('opens the verified 30-second pixel companion and pauses the 3D renderer', async ({ page }, testInfo) => {
+test('opens the verified 30-second battlefield as native video Picture-in-Picture', async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== 'desktop-chromium', 'Desktop companion behavior only');
     await page.addInitScript(() => {
         Object.defineProperty(window, 'documentPictureInPicture', { configurable: true, value: undefined });
+        Object.defineProperty(document, 'pictureInPictureEnabled', { configurable: true, value: true });
+        HTMLMediaElement.prototype.play = async function play() {};
+        HTMLVideoElement.prototype.requestPictureInPicture = async function requestPictureInPicture() {
+            this.dispatchEvent(new Event('enterpictureinpicture'));
+            return { width: 960, height: 170 };
+        };
     });
     await page.goto('/');
     await page.waitForFunction(() => typeof window.__ansemSceneDiagnostics === 'function');
-    const popupPromise = page.waitForEvent('popup');
+    let popupCount = 0;
+    page.on('popup', () => { popupCount += 1; });
     await page.locator('#pixel-mode-btn').click();
-    const popup = await popupPromise;
-    await popup.waitForLoadState('domcontentloaded');
     await expect(page.locator('#companion-dock-screen')).toBeVisible();
-    await expect(popup.locator('#pixel-frontline-canvas')).toBeVisible();
-    await popup.waitForTimeout(550);
-    await captureLocalScreenshot(popup, '.artifacts/pixel-companion.png');
+    const companion = await page.evaluate(() => window.__ansemCompanionDiagnostics());
+    expect(companion.mode).toBe('video');
+    expect(companion.pipRequested).toBe(true);
+    expect(companion.pixel.overlaps).toEqual([]);
+    expect(companion.pixel.pricePoints).toBeGreaterThan(0);
+    expect(popupCount).toBe(0);
     const paused = await page.evaluate(() => window.__ansemSceneDiagnostics().bullKing);
     await page.waitForTimeout(450);
     const stillPaused = await page.evaluate(() => window.__ansemSceneDiagnostics().bullKing);
     expect(Math.hypot(stillPaused.x - paused.x, stillPaused.y - paused.y, stillPaused.z - paused.z)).toBeLessThan(0.001);
     await page.locator('#companion-return').click();
     await expect(page.locator('#companion-dock-screen')).toBeHidden();
+});
+
+test('renders a collision-free pixel battle over a rolling 30-second price trace', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== 'desktop-chromium', 'One pixel-art rendering check is sufficient');
+    await page.setViewportSize({ width: 960, height: 170 });
+    await page.goto('/pixel-frontline.html?diagnostics=1');
+    await page.waitForFunction(() => Boolean(window.__ansemPixelEngine));
+    await page.evaluate(() => {
+        const now = Date.now();
+        const channel = new BroadcastChannel('ansem-frontline-pixel');
+        channel.postMessage({
+            now,
+            windowMs: 30_000,
+            buySol: 78,
+            sellSol: 52,
+            price: 0.284091,
+            online: true,
+            priceTicks: Array.from({ length: 16 }, (_, index) => ({
+                timestamp: now - (15 - index) * 1_900,
+                price: 0.278 + Math.sin(index * 0.72) * 0.002 + index * 0.00035,
+            })),
+            trades: Array.from({ length: 24 }, (_, index) => ({
+                id: `pixel-${index}`,
+                isBuy: index % 3 !== 0,
+                isWhale: index === 4 || index === 15,
+                solValue: index === 4 || index === 15 ? 28 : 1 + index * 0.1,
+                timestamp: now - 8_000 - index * 20,
+            })),
+        });
+        window.setTimeout(() => channel.close(), 100);
+    });
+    await page.waitForTimeout(350);
+    const diagnostics = await page.evaluate(() => window.__ansemPixelEngine.getDiagnostics());
+    expect(diagnostics.overlaps).toEqual([]);
+    expect(diagnostics.bullCount).toBeGreaterThan(0);
+    expect(diagnostics.bearCount).toBeGreaterThan(0);
+    expect(diagnostics.pricePoints).toBe(16);
+    await captureLocalScreenshot(page, '.artifacts/pixel-companion.png');
 });
 
 test('boots from the Helius market fallback when DexScreener is unavailable', async ({ page }) => {
@@ -371,7 +417,11 @@ test('scales a high-volume market into hundreds of moving forces with a wider au
     }).toEqual({ total: 0, sameLane: 0, crossLane: 0 });
     expect(before.forces.championBypasses).toBe(0);
     expect(before.forces.missingEyeInstances).toBe(0);
+    expect(before.forces.missingDetailInstances).toBe(0);
     expect(before.forces.missingLegInstances).toBe(0);
+    expect(before.forces.assisting).toBeGreaterThan(20);
+    expect(new Set([...before.ranks.bull, ...before.ranks.bear].map((rank) => rank.file))).toEqual(new Set([0, 1]));
+    expect(new Set([...before.ranks.bull, ...before.ranks.bear].map((rank) => rank.role)).size).toBeGreaterThanOrEqual(4);
     expect(before.camera.fov).toBeGreaterThan(47);
     expect(before.camera.y).toBeGreaterThan(28);
     expect(before.bullKing.mode).toBe('marshal');
@@ -410,6 +460,8 @@ test('scales a high-volume market into hundreds of moving forces with a wider au
     }).toEqual({ total: 0, sameLane: 0, crossLane: 0, samples: [] });
     expect(contactEnd.forces.crossedPairs).toBeLessThanOrEqual(2);
     expect(contactEnd.forces.championBypasses).toBe(0);
+    expect(contactEnd.forces.assisting).toBeGreaterThan(20);
+    expect(contactEnd.bullKing.commandGestures).toBeGreaterThan(0);
     expect(backwardSteps).toEqual([]);
     expect(Math.hypot(
         contactEnd.bullKing.x - contactStart.bullKing.x,

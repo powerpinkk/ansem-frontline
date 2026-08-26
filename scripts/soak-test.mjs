@@ -1,10 +1,12 @@
 /* global process, console, window, document */
 import { chromium } from '@playwright/test';
+import { URL } from 'node:url';
 
 const url = process.env.SOAK_URL || 'http://127.0.0.1:4174/';
 const durationMs = Number(process.env.SOAK_DURATION_MS || 300_000);
 const sampleMs = 5_000;
 const stressScenario = process.env.SOAK_SCENARIO === 'stress';
+const stressPhaseMs = Number(process.env.SOAK_PHASE_MS || 45_000);
 const browser = await chromium.launch({ headless: true });
 const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
 const pageErrors = [];
@@ -23,15 +25,20 @@ const summary = {
     maxCrowdTurnRate: 0,
     maxCrowdOverlaps: 0,
     maxSameSideOverlaps: 0,
+    worstOverlapSamples: [],
     maxCrossedPairs: 0,
     maxChampionBypasses: 0,
     maxMissingEyeInstances: 0,
+    maxMissingDetailInstances: 0,
     maxMissingLegInstances: 0,
+    maxAssisting: 0,
+    maxLaneChanges: 0,
     minContactGap: Number.POSITIVE_INFINITY,
     crowdDirectionChanges: 0,
     maxKingSpeed: 0,
     maxKingTurnRate: 0,
     kingModeChanges: 0,
+    maxKingCommandGestures: 0,
     kingTravel: 0,
     kingOutOfViewSamples: 0,
     maxKingOutOfViewStreak: 0,
@@ -61,12 +68,19 @@ page.on('response', (response) => {
 });
 
 try {
-    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30_000 });
-    await page.waitForFunction(
-        () => typeof window.__ansemSceneDiagnostics === 'function',
-        undefined,
-        { timeout: 20_000 },
-    );
+    const diagnosticsUrl = new URL(url);
+    diagnosticsUrl.searchParams.set('diagnostics', '1');
+    await page.goto(diagnosticsUrl.href, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+    try {
+        await page.waitForFunction(
+            () => typeof window.__ansemSceneDiagnostics === 'function',
+            undefined,
+            { timeout: 20_000 },
+        );
+    } catch (error) {
+        console.error('[soak:init]', { url: diagnosticsUrl.href, pageErrors, requestFailures, httpErrors });
+        throw error;
+    }
     const stressPhases = [
         { buySol: 1.2, sellSol: 0.8, buyCount: 4, sellCount: 3, buyCount1h: 90, sellCount1h: 70, verifiedBuyCount: 2, verifiedSellCount: 2 },
         { buySol: 85, sellSol: 12, buyCount: 95, sellCount: 28, buyCount1h: 820, sellCount1h: 260, verifiedBuyCount: 12, verifiedSellCount: 4 },
@@ -101,7 +115,7 @@ try {
     while (Date.now() - startedAt < durationMs) {
         await page.waitForTimeout(sampleMs);
         if (stressScenario) {
-            const nextPhase = Math.floor((Date.now() - startedAt) / 45_000) % stressPhases.length;
+            const nextPhase = Math.floor((Date.now() - startedAt) / stressPhaseMs) % stressPhases.length;
             if (nextPhase !== activeStressPhase) {
                 activeStressPhase = nextPhase;
                 await page.evaluate((pressure) => window.__ansemSetBattlePressure(pressure), stressPhases[activeStressPhase]);
@@ -123,11 +137,18 @@ try {
         summary.maxCrowdSpeed = Math.max(summary.maxCrowdSpeed, diagnostics.forces?.maxSpeed || 0);
         summary.maxCrowdTurnRate = Math.max(summary.maxCrowdTurnRate, diagnostics.forces?.maxTurnRate || 0);
         summary.maxCrowdOverlaps = Math.max(summary.maxCrowdOverlaps, diagnostics.forces?.overlaps || 0);
-        summary.maxSameSideOverlaps = Math.max(summary.maxSameSideOverlaps, diagnostics.forces?.sameSideOverlaps || 0);
+        const sameSideOverlaps = diagnostics.forces?.sameSideOverlaps || 0;
+        if (sameSideOverlaps > summary.maxSameSideOverlaps) {
+            summary.maxSameSideOverlaps = sameSideOverlaps;
+            summary.worstOverlapSamples = diagnostics.forces?.overlapSamples || [];
+        }
         summary.maxCrossedPairs = Math.max(summary.maxCrossedPairs, diagnostics.forces?.crossedPairs || 0);
         summary.maxChampionBypasses = Math.max(summary.maxChampionBypasses, diagnostics.forces?.championBypasses || 0);
         summary.maxMissingEyeInstances = Math.max(summary.maxMissingEyeInstances, diagnostics.forces?.missingEyeInstances || 0);
+        summary.maxMissingDetailInstances = Math.max(summary.maxMissingDetailInstances, diagnostics.forces?.missingDetailInstances || 0);
         summary.maxMissingLegInstances = Math.max(summary.maxMissingLegInstances, diagnostics.forces?.missingLegInstances || 0);
+        summary.maxAssisting = Math.max(summary.maxAssisting, diagnostics.forces?.assisting || 0);
+        summary.maxLaneChanges = Math.max(summary.maxLaneChanges, diagnostics.forces?.laneChanges || 0);
         summary.minContactGap = Math.min(summary.minContactGap, diagnostics.forces?.contactGap ?? Number.POSITIVE_INFINITY);
         summary.crowdDirectionChanges = Math.max(summary.crowdDirectionChanges, diagnostics.forces?.directionChanges || 0);
         summary.maxKingSpeed = Math.max(summary.maxKingSpeed, diagnostics.bullKing?.speed || 0);
@@ -142,6 +163,7 @@ try {
             }
         }
         summary.kingModeChanges = Math.max(summary.kingModeChanges, diagnostics.bullKing?.modeChanges || 0);
+        summary.maxKingCommandGestures = Math.max(summary.maxKingCommandGestures, diagnostics.bullKing?.commandGestures || 0);
         if (previousKingPosition && diagnostics.bullKing) {
             summary.kingTravel += Math.hypot(
                 diagnostics.bullKing.x - previousKingPosition.x,
@@ -225,12 +247,14 @@ try {
         || summary.stalledPatrols.size || summary.lineDwells.size
         || summary.maxCrowdTurnRate > 3.25 || summary.maxCrowdSpeed > 10
         || summary.maxKingTurnRate > 3.25 || summary.maxKingSpeed > 19.5
-        || summary.maxCrowdOverlaps > 2 || summary.maxSameSideOverlaps > 2
-        || summary.maxCrossedPairs > 2 || summary.maxChampionBypasses > 0
-        || summary.maxMissingEyeInstances > 0 || summary.maxMissingLegInstances > 0
+        || summary.maxCrowdOverlaps > 0 || summary.maxSameSideOverlaps > 0
+        || summary.maxCrossedPairs > 0 || summary.maxChampionBypasses > 0
+        || summary.maxMissingEyeInstances > 0 || summary.maxMissingDetailInstances > 0 || summary.maxMissingLegInstances > 0
         || summary.minContactGap < -12 || (summary.samples >= 4 && summary.kingTravel < 0.5)
         || summary.maxKingOutOfViewStreak > 2 || summary.maxKingAheadOfFront > 12
-        || (stressScenario && (summary.maxLateralSpread < 48 || summary.maxWoodlandEngagements < 2))) {
+        || summary.maxLaneChanges > Math.ceil(durationMs / 3_000) + 8
+        || (stressScenario && (summary.maxLateralSpread < 48 || summary.maxWoodlandEngagements < 2
+            || summary.maxAssisting < 2 || summary.maxKingCommandGestures < 1))) {
         process.exitCode = 1;
     }
 } finally {

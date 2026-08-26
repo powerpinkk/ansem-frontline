@@ -98,12 +98,12 @@ export function deriveKingDirective({ tactics = {}, defending = false, supportin
         guard: 28,
     };
     const altitudeByMode = {
-        defend: 10.8,
-        rally: 10,
-        lead: 9.2,
-        marshal: 9.8,
-        overwatch: 10.2,
-        guard: 11.4,
+        defend: 13.2,
+        rally: 12.8,
+        lead: 11.7,
+        marshal: 13.1,
+        overwatch: 13.6,
+        guard: 14.6,
     };
     return {
         mode,
