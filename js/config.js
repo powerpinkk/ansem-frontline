@@ -7,6 +7,7 @@ export const CONFIG = {
         ? ''
         : configuredStreamUrl || 'wss://ansem-frontline-stream.ansem-frontline.workers.dev/stream',
     RELAY_MARKET_URL: 'https://ansem-frontline-stream.ansem-frontline.workers.dev/market',
+    RELAY_RECENT_URL: 'https://ansem-frontline-stream.ansem-frontline.workers.dev/recent',
     WHALE_TRADE_THRESHOLD_SOL: 20,
 
     FETCH_MIN_DELAY_MS: 5000,

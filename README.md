@@ -46,7 +46,7 @@ When the page is hidden, the WebGL loop pauses instead of wasting battery on fra
 
 ## Data methodology
 
-DexScreener's official token-pairs endpoint is used in the browser to discover active Solana pools, calculate a liquidity-weighted token price and obtain five-minute and one-hour directional transaction counts. If that discovery request is unavailable, the Cloudflare Worker derives a conservative fallback price from Helius DAS metadata and returns five explicitly identified high-activity SOL/USDC pools; the interface labels this reduced coverage as `FALLBACK` instead of implying full market coverage. The browser sends the selected public pool addresses and current market prices to a Cloudflare Durable Object, which validates them before opening the preferred Helius WebSocket path. The Worker parses confirmed balance changes and broadcasts normalized trades without exposing the Helius key. A rate-limited GeckoTerminal warm-up loads recent verified swaps even when Helius connects immediately; if Helius does not explicitly confirm `live`, the browser restores conservative GeckoTerminal polling. The Worker exposes only validated Solana pool trade and minute-OHLCV paths through a short-lived cache, avoiding browser CORS failures without becoming an open proxy. GeckoTerminal supplies the historical swaps and candles, whose failure remains isolated from the live trade feed.
+DexScreener's official token-pairs endpoint is used in the browser to discover active Solana pools, calculate a liquidity-weighted token price and obtain five-minute and one-hour directional transaction counts. If that discovery request is unavailable, the Cloudflare Worker derives a conservative fallback price from Helius DAS metadata and returns five explicitly identified high-activity SOL/USDC pools; the interface labels this reduced coverage as `FALLBACK` instead of implying full market coverage. The browser sends the selected public pool addresses and current market prices to a Cloudflare Durable Object, which validates them before opening the preferred Helius WebSocket path. The Worker parses confirmed balance changes and broadcasts normalized trades without exposing the Helius key. For a cold start, a separate cached Worker endpoint queries the two highest-priority pools with the free-plan-compatible Helius `getSignaturesForAddress` method, resolves the small result set in one `getTransaction` batch and returns up to five minutes of verified history. GeckoTerminal starts concurrently as an independent enrichment and fallback path; if Helius does not explicitly confirm `live`, the browser restores conservative GeckoTerminal polling. The Worker exposes only validated Solana pool trade and minute-OHLCV paths through a short-lived cache, avoiding browser CORS failures without becoming an open proxy. Optional candle or fallback failures remain isolated from the live trade feed.
 
 Trade value is normalized to SOL:
 
@@ -69,7 +69,8 @@ Helius WSS ── confirmed pool transactions
       │
 Cloudflare Durable Object ── secure parsing and WebSocket broadcast
       │
-      ├── automatic fallback: GeckoTerminal verified swaps
+      ├── cached Helius recent-swap snapshot (standard free-plan RPCs)
+      ├── automatic fallback/enrichment: GeckoTerminal verified swaps
       ├── GeckoTerminal OHLCV
       │
       ├── parsing, SOL normalization, deduplication
@@ -92,7 +93,9 @@ Browser companion ── verified rolling 30-second swaps
 
 The code deliberately separates external data (`api.js`), pure market calculations (`market.js`), volume/strategy rules (`battlefield.js`), navigation rules (`navigation.js`), UI (`ui.js`) and rendering/simulation (`scene.js`).
 
-The production build places Three.js in its own content-hashed chunk so repeat visitors can retain the engine while simulation code changes. Vercel serves hashed assets with a one-year immutable cache policy. Dynamic army transforms use eight `InstancedMesh` buffers per side—body, accent, anatomical detail, eyes and four independently animated legs—so hundreds of ranks remain practical without sacrificing readable gait, silhouettes or eye colour.
+The production build places Three.js and the battlefield scene in separate content-hashed chunks. Market discovery, the sidebar and the verified feed start before the heavier 3D scene is evaluated, so token information is not blocked by geometry construction. Vercel serves hashed assets with a one-year immutable cache policy. Dynamic army transforms use eight `InstancedMesh` buffers per side—body, accent, anatomical detail, eyes and four independently animated legs—so hundreds of ranks remain practical without sacrificing readable gait, silhouettes or eye colour.
+
+Startup is progressive and truthful. DexScreener and the Helius relay race only on the first cold request, market values render before optional OHLCV history, and recent Helius history plus GeckoTerminal fallbacks bootstrap concurrently. Five-minute historical swaps can populate the inspectable feed immediately, but only swaps no older than 75 seconds enter the battlefield or its rolling pressure calculation. A five-minute browser snapshot of public market values and verified feed rows makes repeat visits immediate; its timestamp remains visible and the connection stays labelled as connecting until a live source confirms availability. No cached trade is relabelled as a new swap. The shared Helius snapshot is cached at the Worker edge for 45 seconds to keep the free plan sustainable without delaying the WebSocket path.
 
 ## Local development
 
@@ -136,6 +139,7 @@ worker/src/index.js        Cloudflare/Helius real-time relay
 worker/src/configuration.js Validated public pool configuration
 worker/src/market-fallback.js Helius market fallback normalization
 worker/src/parser.js       Generic Solana balance-change parser
+worker/src/recent-trades.js Free-plan Helius startup history
 tests/market.test.js       Market semantics and parsing tests
 tests/battlefield.test.js  Force scale, doctrines and King modes
 tests/navigation.test.js   Deterministic movement and lifecycle tests

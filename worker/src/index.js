@@ -3,6 +3,7 @@ import { parseTransaction } from './parser.js';
 import { parseClientConfiguration } from './configuration.js';
 import { normalizeHeliusMarket, SOL_MINT } from './market-fallback.js';
 import { fetchGeckoProxy } from './gecko-proxy.js';
+import { fetchRecentTrades } from './recent-trades.js';
 
 export default {
     async fetch(request, env) {
@@ -14,6 +15,7 @@ export default {
             return Response.json({ ok: true, service: 'ansem-frontline-stream' });
         }
         if (url.pathname === '/market') return fetchFallbackMarket(env, origin);
+        if (url.pathname === '/recent') return fetchRecentSnapshot(request, env, origin);
         if (url.pathname.startsWith('/gecko/')) return fetchGeckoProxy(request, origin, env.ALLOWED_ORIGIN);
         if (url.pathname !== '/stream') return new Response('Not found', { status: 404 });
         const id = env.STREAM_HUB.idFromName('ansem-mainnet');
@@ -28,10 +30,56 @@ function isAllowedOrigin(origin, allowedOrigin) {
 function corsHeaders(origin, allowedOrigin) {
     return {
         'access-control-allow-origin': origin && isAllowedOrigin(origin, allowedOrigin) ? origin : allowedOrigin,
-        'access-control-allow-methods': 'GET, OPTIONS',
+        'access-control-allow-methods': 'GET, POST, OPTIONS',
+        'access-control-allow-headers': 'content-type',
         vary: 'Origin',
         'cache-control': 'public, max-age=15',
     };
+}
+
+async function fetchRecentSnapshot(request, env, origin) {
+    if (request.method !== 'POST') {
+        return Response.json({ error: 'Method not allowed' }, {
+            status: 405,
+            headers: corsHeaders(origin, env.ALLOWED_ORIGIN),
+        });
+    }
+    try {
+        const raw = await request.text();
+        if (raw.length > 8_000) throw new Error('Configuration too large');
+        const configuration = parseClientConfiguration(raw);
+        if (!configuration) {
+            return Response.json({ error: 'Invalid configuration' }, {
+                status: 400,
+                headers: corsHeaders(origin, env.ALLOWED_ORIGIN),
+            });
+        }
+        const cacheKey = recentCacheKey(configuration);
+        const cache = caches.default;
+        const cached = await cache.match(cacheKey);
+        let payload;
+        if (cached) {
+            payload = await cached.json();
+        } else {
+            payload = await fetchRecentTrades(env, configuration);
+            const cachedResponse = Response.json(payload, {
+                headers: { 'cache-control': 'public, max-age=45' },
+            });
+            await cache.put(cacheKey, cachedResponse);
+        }
+        return Response.json(payload, { headers: corsHeaders(origin, env.ALLOWED_ORIGIN) });
+    } catch (error) {
+        console.error('[recent-trades] request failed', error instanceof Error ? error.name : 'UnknownError');
+        return Response.json({ error: 'Recent swaps unavailable' }, {
+            status: 503,
+            headers: corsHeaders(origin, env.ALLOWED_ORIGIN),
+        });
+    }
+}
+
+function recentCacheKey(configuration) {
+    const pools = configuration.pools.map((pool) => pool.address).sort().join(',');
+    return new Request(`https://ansem-frontline-cache.invalid/recent?pools=${encodeURIComponent(pools)}`);
 }
 
 async function fetchFallbackMarket(env, origin) {

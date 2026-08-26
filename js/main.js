@@ -21,21 +21,15 @@ import {
     showUnitInspector,
     showAwaySummary,
     setRendererStatus,
+    showBattleLogSyncing,
+    updateBattleLogSnapshot,
+    showTradesReady,
 } from './ui.js';
-import {
-    initScene,
-    startGameLoop,
-    setCameraMode,
-    spawnUnit,
-    setFrontlineColor,
-    applyTradeImpulse,
-    triggerBullKingSupport,
-    handleTerritoryShift,
-    setSceneActive,
-} from './scene.js';
-
 let lastBullSwarmAt = 0;
 let awaySession = null;
+let sceneReady = false;
+let sceneModule = null;
+const pendingSceneTrades = [];
 
 function handleTrade(trade, meta) {
     if (awaySession && !meta.bootstrap && trade.timestamp >= awaySession.startedAt) {
@@ -50,55 +44,84 @@ function handleTrade(trade, meta) {
     addOnChainTrade(trade);
     if (!meta.bootstrap) showFieldTradeSignal(trade);
     const type = trade.isBuy ? 'bull' : 'bear';
-    spawnUnit(type, meta.bootstrap, trade.isWhale, trade);
     if (trade.isWhale) addWhaleSpawnEvent(type, trade.solValue, trade.usdValue);
-    applyTradeImpulse(trade.isBuy, trade.solValue, trade.isWhale);
-    handleTerritoryShift(trade, meta);
+    if (!sceneReady) {
+        pendingSceneTrades.push({ trade, meta });
+        return;
+    }
+    applyTradeToScene(trade, meta);
+}
+
+function applyTradeToScene(trade, meta) {
+    const type = trade.isBuy ? 'bull' : 'bear';
+    sceneModule.spawnUnit(type, meta.bootstrap, trade.isWhale, trade);
+    sceneModule.applyTradeImpulse(trade.isBuy, trade.solValue, trade.isWhale);
+    sceneModule.handleTerritoryShift(trade, meta);
     const now = Date.now();
     const swarm = evaluateBuySwarm(state.liveTrades, now, lastBullSwarmAt);
     if (!meta.bootstrap && swarm.triggered) {
         lastBullSwarmAt = now;
-        triggerBullKingSupport(swarm);
+        sceneModule.triggerBullKingSupport(swarm);
         addBullSwarmEvent(swarm);
     }
     updateDashboardUI();
+}
+
+function flushPendingSceneTrades() {
+    sceneReady = true;
+    pendingSceneTrades.splice(0).forEach(({ trade, meta }) => applyTradeToScene(trade, meta));
 }
 
 function handleActivity(activity) {
     updateActivityUI(activity);
 }
 
+function handleMarket(market) {
+    updateMarketUI(market);
+    updateBattleLogSnapshot(market);
+}
+
 function boot() {
-    initUI({ setFrontlineColor });
-    bindCameraControls(setCameraMode);
+    initUI({ setFrontlineColor: (color) => sceneModule?.setFrontlineColor(color) });
+    bindCameraControls((mode) => sceneModule?.setCameraMode(mode));
+    showBattleLogSyncing();
     showTradesWaiting();
 
     window.__ansemToggleAudioUI = setAudioButton;
 
-    initScene({
-        onKillEvent: addRealKillEvent,
-        onReclaimEvent: addKingReclaimEvent,
-        onInspectUnit: showUnitInspector,
-        onVisibleUnitsChange: updateVisibleCoverage,
-        onRendererStatus: setRendererStatus,
-    });
-    startGameLoop();
-    initPixelCompanion({ setSceneActive });
-
     const api = initAPI({
-        onMarketUpdate: updateMarketUI,
+        onMarketUpdate: handleMarket,
         onTrade: handleTrade,
+        onHistoricalTrade: addOnChainTrade,
         onPressureUpdate: updateDashboardUI,
         onConnectionChange: setConnectionStatus,
         onActivityUpdate: handleActivity,
+        onBootstrapComplete: showTradesReady,
     });
-    bindPageLifecycle(api);
+
+    void import('./scene.js').then((loadedScene) => {
+        sceneModule = loadedScene;
+        sceneModule.initScene({
+            onKillEvent: addRealKillEvent,
+            onReclaimEvent: addKingReclaimEvent,
+            onInspectUnit: showUnitInspector,
+            onVisibleUnitsChange: updateVisibleCoverage,
+            onRendererStatus: setRendererStatus,
+        });
+        flushPendingSceneTrades();
+        sceneModule.startGameLoop();
+        initPixelCompanion({ setSceneActive: (active) => sceneModule?.setSceneActive(active) });
+        bindPageLifecycle(api);
+    }).catch((error) => {
+        console.error('[scene] Failed to initialize', error);
+        setRendererStatus('lost');
+    });
 }
 
 function bindPageLifecycle(api) {
     const handleVisibility = () => {
         if (window.__ansemCompanionActive) {
-            setSceneActive(false);
+            sceneModule?.setSceneActive(false);
             return;
         }
         if (document.hidden) {
@@ -111,11 +134,11 @@ function bindPageLifecycle(api) {
                     sellSol: 0,
                 };
             }
-            setSceneActive(false);
+            sceneModule?.setSceneActive(false);
             return;
         }
 
-        setSceneActive(true);
+        sceneModule?.setSceneActive(true);
         const session = awaySession;
         if (!session) {
             void api.refresh();
@@ -128,9 +151,9 @@ function bindPageLifecycle(api) {
         });
     };
     document.addEventListener('visibilitychange', handleVisibility);
-    window.addEventListener('pagehide', () => setSceneActive(false));
+    window.addEventListener('pagehide', () => sceneModule?.setSceneActive(false));
     window.addEventListener('pageshow', () => {
-        setSceneActive(true);
+        sceneModule?.setSceneActive(true);
         void api.refresh();
     });
     if (import.meta.env.DEV) window.__ansemHandleVisibility = handleVisibility;

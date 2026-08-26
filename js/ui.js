@@ -219,6 +219,7 @@ export function addOnChainTrade(trade) {
     row.target = '_blank';
     row.rel = 'noopener noreferrer';
     row.title = `Verify on Solscan · ${trade.dexId}`;
+    row.dataset.timestamp = String(trade.timestamp);
     const time = document.createElement('span');
     time.className = 'trade-time';
     time.textContent = new Date(trade.timestamp).toLocaleTimeString();
@@ -233,7 +234,39 @@ export function addOnChainTrade(trade) {
     value.textContent = ` · $${trade.usdValue.toLocaleString(undefined, { maximumFractionDigits: 0 })} · ${trade.dexId}`;
     row.append(time, side, amount, value);
     DOM.tradesfeed.prepend(row);
+    [...DOM.tradesfeed.querySelectorAll('.trade-item')]
+        .sort((first, second) => Number(second.dataset.timestamp) - Number(first.dataset.timestamp))
+        .forEach((item) => DOM.tradesfeed.append(item));
     trimFeed(DOM.tradesfeed, CONFIG.MAX_TRADES_FEED);
+}
+
+export function showBattleLogSyncing() {
+    if (!DOM.killfeed || DOM.killfeed.querySelector('.battle-sync-status')) return;
+    const row = document.createElement('div');
+    row.className = 'kill-item battle-sync-status';
+    row.textContent = 'SYNCING VERIFIED MARKET…';
+    DOM.killfeed.append(row);
+}
+
+export function updateBattleLogSnapshot(market = {}) {
+    if (!DOM.killfeed) return;
+    let row = DOM.killfeed.querySelector('.battle-sync-status');
+    if (!row) {
+        row = document.createElement('div');
+        row.className = 'kill-item battle-sync-status';
+        DOM.killfeed.append(row);
+    }
+    const snapshotTime = state.lastMarketAt ? new Date(state.lastMarketAt).toLocaleTimeString() : new Date().toLocaleTimeString();
+    if (market.cached) {
+        row.textContent = `${snapshotTime} · CACHED MARKET SNAPSHOT · REFRESHING LIVE DATA`;
+        row.classList.add('cached');
+        return;
+    }
+    row.classList.remove('cached');
+    const buys = Number(state.activity5m.buyCount || 0);
+    const sells = Number(state.activity5m.sellCount || 0);
+    const activity = buys + sells > 0 ? ` · 5M ${buys} BUYS / ${sells} SELLS` : ' · LIVE FLOW ARMED';
+    row.textContent = `${snapshotTime} · FRONTLINE SYNCED · ${Number(market.pools || 0)} POOLS${activity}`;
 }
 
 export function showFieldTradeSignal(trade) {
@@ -361,8 +394,17 @@ export function setAudioButton(enabled) {
 export function showTradesWaiting() {
     if (!DOM.tradesfeed) return;
     if (!DOM.tradesfeed.querySelector('.trades-empty')) {
-        DOM.tradesfeed.innerHTML = '<div class="trades-empty">Waiting for on-chain swaps…</div>';
+        DOM.tradesfeed.innerHTML = '<div class="trades-empty">Syncing latest verified swaps…</div>';
     }
+}
+
+export function showTradesReady({ pools = 0 } = {}) {
+    if (!DOM.tradesfeed || DOM.tradesfeed.querySelector('.trade-item')) return;
+    const empty = DOM.tradesfeed.querySelector('.trades-empty');
+    if (!empty) return;
+    empty.textContent = pools > 0
+        ? 'No verified swaps in the latest 5m · live stream armed'
+        : 'Historical swaps unavailable · live stream retrying';
 }
 
 export function addBullSwarmEvent({ buyCount, buySol, dominance }) {

@@ -494,6 +494,13 @@ canvas { width: 100%; height: 100%; display: block; outline: none; }
 }
 
 .kill-item:last-child, .trade-item:last-child { border-bottom: none; }
+.battle-sync-status {
+    color: #8effc5;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 9px;
+    letter-spacing: 0.045em;
+}
+.battle-sync-status.cached { color: #d7a934; }
 .kill-time, .trade-time {
     color: #666;
     font-size: 10px;
