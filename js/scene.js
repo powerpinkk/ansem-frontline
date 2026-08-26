@@ -230,6 +230,7 @@ const matKingGold = new THREE.MeshPhysicalMaterial({ color: 0xffc928, emissive: 
 const matBullEye = new THREE.MeshStandardMaterial({ color: 0x021008, emissive: 0x00ff88, emissiveIntensity: 3, metalness: 0.85, roughness: 0.08 });
 const matBullWhaleEye = matBullEye.clone();
 matBullWhaleEye.emissiveIntensity = 8;
+const matKingEyeBeam = new THREE.MeshBasicMaterial({ color: 0x00ff88, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false });
 const matBearEye = new THREE.MeshPhysicalMaterial({ color: 0x2c000d, emissive: 0x8f002c, emissiveIntensity: 7, metalness: 0.92, roughness: 0.04, clearcoat: 1 });
 const matBearWhaleEye = matBearEye.clone();
 matBearWhaleEye.emissiveIntensity = 13;
@@ -1376,7 +1377,11 @@ function addKingBullFace(head) {
     eyeLeft.position.set(1.15, 0.3, 0.62);
     const eyeRight = createMesh(geoSphere, matBullWhaleEye, 0.17, 0.13, 0.17);
     eyeRight.position.set(1.15, 0.3, -0.62);
-    head.add(hornLeft, hornRight, eyeLeft, eyeRight);
+    const beamLeft = createMesh(geoEyeLaser, matKingEyeBeam, 0.48, 0.42, 0.48);
+    beamLeft.position.set(1.55, 0.3, 0.62);
+    const beamRight = createMesh(geoEyeLaser, matKingEyeBeam, 0.48, 0.42, 0.48);
+    beamRight.position.set(1.55, 0.3, -0.62);
+    head.add(hornLeft, hornRight, eyeLeft, eyeRight, beamLeft, beamRight);
 }
 
 function createKingWing(side) {
@@ -1897,7 +1902,9 @@ function updateCrowdForces(delta) {
     crowdBattle.bearStance = bearDoctrine.stance;
     updateCrowdSide('bull', bullDoctrine, crowdAgents.bear.length, delta);
     updateCrowdSide('bear', bearDoctrine, crowdAgents.bull.length, delta);
+    separateCrowdRanks();
     preventCrowdSideOverlap();
+    refreshCrowdMeshes();
     updateCrowdSnapshot(tactics, delta);
     updateCrowdClashEffects(delta);
     publishVisibleUnitCount();
@@ -2198,6 +2205,66 @@ function preventCrowdSideOverlap() {
         if (bear.x >= bearLimit) continue;
         bear.x = bearLimit;
         bear.vx = 0;
+    }
+}
+
+function separateCrowdRanks() {
+    // Instanced models still need individual physical spacing. Resolve local
+    // crowd-crowd penetrations after steering so minis never occupy the same
+    // space or look like a single malformed model.
+    for (const type of ['bull', 'bear']) {
+        const agents = crowdAgents[type].filter((agent) => !agent.retiring);
+        for (let index = 0; index < agents.length; index++) {
+            const first = agents[index];
+            for (let otherIndex = index + 1; otherIndex < agents.length; otherIndex++) {
+                const second = agents[otherIndex];
+                const dx = second.x - first.x;
+                const dz = second.z - first.z;
+                const distanceSq = dx * dx + dz * dz;
+                const clearance = (first.size + second.size) * 1.08;
+                if (distanceSq >= clearance * clearance) continue;
+                const distance = Math.max(0.001, Math.sqrt(distanceSq));
+                const overlap = (clearance - distance) * 0.5;
+                const normalX = distanceSq < 0.001 ? first.avoidanceSide : dx / distance;
+                const normalZ = distanceSq < 0.001 ? first.flankSide * 0.45 : dz / distance;
+                // Favor lateral resolution to preserve the no-retreat rule.
+                const lateralScale = Math.abs(normalZ) < 0.35 ? 0.32 : 1;
+                first.x = clamp(first.x - normalX * overlap * lateralScale, ARENA.minX + 0.7, ARENA.maxX - 0.7);
+                second.x = clamp(second.x + normalX * overlap * lateralScale, ARENA.minX + 0.7, ARENA.maxX - 0.7);
+                first.z = clamp(first.z - normalZ * overlap, ARENA.minZ + 0.7, ARENA.maxZ - 0.7);
+                second.z = clamp(second.z + normalZ * overlap, ARENA.minZ + 0.7, ARENA.maxZ - 0.7);
+            }
+        }
+    }
+}
+
+function refreshCrowdMeshes() {
+    for (const type of ['bull', 'bear']) {
+        const direction = type === 'bull' ? 1 : -1;
+        const agents = crowdAgents[type];
+        const meshes = crowdMeshes[type];
+        for (let index = 0; index < agents.length; index++) {
+            const agent = agents[index];
+            const speed = Math.hypot(agent.vx, agent.vz);
+            const attackPulse = agent.engaged ? Math.max(0, Math.sin(kingTime * 6.6 + agent.phase)) : 0;
+            const stride = prefersReducedMotion ? 0 : Math.sin(kingTime * (8 + speed * 0.5) + agent.phase);
+            const scale = agent.size * smoothstep(0, 0.82, agent.life) * (1 + attackPulse * 0.13);
+            const lunge = attackPulse * 0.34 + Math.max(0, stride) * Math.min(0.12, speed * 0.018);
+            _crowdTransform.position.set(
+                agent.x + Math.cos(agent.heading) * lunge,
+                getTrenchHeight(agent.x, agent.z) + Math.abs(stride) * 0.15 + attackPulse * 0.06,
+                agent.z - Math.sin(agent.heading) * lunge,
+            );
+            _crowdTransform.rotation.set(0, agent.heading + stride * 0.045, (agent.vx * direction > 0 ? -1 : 1) * (attackPulse * 0.13 + stride * 0.045));
+            _crowdTransform.scale.set(scale * (1 + attackPulse * 0.16), scale * (1 - attackPulse * 0.06), scale);
+            _crowdTransform.updateMatrix();
+            meshes.body.setMatrixAt(index, _crowdTransform.matrix);
+            meshes.accent.setMatrixAt(index, _crowdTransform.matrix);
+            meshes.eyes.setMatrixAt(index, _crowdTransform.matrix);
+        }
+        meshes.body.instanceMatrix.needsUpdate = true;
+        meshes.accent.instanceMatrix.needsUpdate = true;
+        meshes.eyes.instanceMatrix.needsUpdate = true;
     }
 }
 
@@ -2583,8 +2650,12 @@ function makeCrowdYieldToChampion(entity) {
     // The detailed combatant also yields a little. Applying correction to both
     // simulation layers guarantees that a large bull/bear cannot be rendered on
     // top of mini ranks during a single high-speed frame.
-    entity.mesh.position.x += clamp(correctionX, -1.1, 1.1);
-    entity.mesh.position.z += clamp(correctionZ, -1.1, 1.1);
+    // A warded intruder is already being pushed by the King's attack; do not
+    // counteract that deliberate retreat with a crowd correction.
+    if (entity.forcedRetreatUntil <= Date.now()) {
+        entity.mesh.position.x += clamp(correctionX, -1.1, 1.1);
+        entity.mesh.position.z += clamp(correctionZ, -1.1, 1.1);
+    }
 }
 
 function enforceArenaBounds(entity) {
@@ -2649,14 +2720,20 @@ function updateBullKing(delta) {
         ? Math.min(state.frontlineX, crowdBattle.bullFrontX)
         : state.frontlineX;
     const guardBuffer = kingMode === 'guard' ? Math.max(0, -tactics.balance) * 5 : 0;
-    const targetX = clamp(
+    let targetX = clamp(
         defending
             ? Math.min(kingThreat.mesh.position.x - 9, bullFrontReference - 5)
             : bullFrontReference - directive.trailingDistance - guardBuffer,
         ARENA.minX + 8,
         ARENA.maxX - 14,
     );
-    const targetZ = kingCommandZ;
+    let targetZ = kingCommandZ;
+    // During quiet/command states the king performs a deliberate air patrol
+    // behind the army. It keeps him alive on screen without random movement.
+    if (!defending) {
+        targetX = clamp(targetX + Math.sin(kingTime * 0.32) * 3.4, ARENA.minX + 8, ARENA.maxX - 14);
+        targetZ = clamp(targetZ + Math.cos(kingTime * 0.27) * 2.6, ARENA.minZ + 5, ARENA.maxZ - 5);
+    }
     const hover = Math.sin(kingTime * (1.25 + tactics.flowIntensity * 0.35)) * (prefersReducedMotion ? 0.18 : 0.62)
         + reaction * 0.22;
     _kingTarget.set(targetX, getTrenchHeight(targetX, targetZ) + directive.altitude + hover, targetZ);
