@@ -2138,6 +2138,7 @@ function createCrowdAgent(type) {
         flankSide: lane >= 0 ? 1 : -1,
         avoidanceSide: sequence % 2 === 0 ? 1 : -1,
         depthJitter: (random() - 0.5) * 2.4,
+        queueGap: 1.55 + random() * 0.9,
         phase: random() * Math.PI * 2,
         size: 0.66 + random() * 0.16,
         speedBias: 0.9 + random() * 0.2,
@@ -2153,7 +2154,7 @@ function createCrowdAgent(type) {
         stuckTime: 0,
         opponentDistance: Number.POSITIVE_INFINITY,
         engagementPartner: null,
-        laneBias: (random() - 0.5) * 1.7,
+        laneBias: (random() - 0.5) * 2.1,
         formationTargetX: spawnX,
         formationTargetZ: lane,
         life: 0,
@@ -2203,7 +2204,10 @@ function updateCrowdSide(type, doctrine, delta) {
         const rankDepth = agent.rank * (0.9 + doctrine.cohesion * 0.22) + agent.depthJitter;
         const wave = Math.sin(kingTime * (0.28 + crowdBattle.intensity * 0.16) + agent.phase);
         let targetX;
-        let targetZ = agent.lane + agent.laneBias + wave * (agent.role === 'skirmisher' ? 0.72 : 0.34);
+        const rankCurve = Math.sin(agent.rank * 1.37 + agent.phase * 0.73) * 0.58;
+        const roleDrift = agent.role === 'flank' ? agent.flankSide * 0.72 : 0;
+        let targetZ = agent.lane + agent.laneBias + rankCurve + roleDrift
+            + wave * (agent.role === 'skirmisher' ? 0.82 : 0.46);
         const order = crowdOrders[type].get(agent);
         let opponent = null;
 
@@ -2239,15 +2243,16 @@ function updateCrowdSide(type, doctrine, delta) {
             // spacing below keeps the two sides distinct instead of blended.
             targetX = partner.x - direction * preferredDistance + direction * attackCycle * 0.22;
             const sharedLane = (agent.lane + partner.lane) * 0.5;
-            targetZ = sharedLane + agent.laneBias * 0.72
+            targetZ = sharedLane + agent.laneBias * 0.88 + rankCurve * 0.45
                 + direction * Math.sin(agent.phase + kingTime * 1.9) * (agent.engaged ? 0.34 : 0.15);
         } else if (!agent.retiring && order?.leader) {
             // Reinforcements advance as a queue behind their own vanguard. They
             // inherit the open ground when the leader falls instead of trying to
             // occupy the same enemy contact point.
-            const queueSpacing = 1.65 + agent.size * 0.5;
+            const queueSpacing = agent.queueGap + agent.size * 0.48 + Math.abs(agent.depthJitter) * 0.16;
             targetX = order.leader.x - direction * queueSpacing;
-            targetZ = agent.lane + agent.laneBias + Math.sin(agent.phase + kingTime * 0.55) * 0.06;
+            targetZ = agent.lane + agent.laneBias + rankCurve + roleDrift
+                + Math.sin(agent.phase + kingTime * 0.55) * 0.16;
         }
 
         const dx = targetX - agent.x;
@@ -2281,7 +2286,9 @@ function updateCrowdSide(type, doctrine, delta) {
         if (!agent.retiring) {
             if (direction * (agent.x - previousX) < 0) agent.x = previousX;
             if (order?.leader && !order.leader.retiring) {
-                const queueSpacing = 1.35 + (order.leader.size + agent.size) * 0.42;
+                const queueSpacing = agent.queueGap
+                    + (order.leader.size + agent.size) * 0.3
+                    + Math.abs(agent.depthJitter) * 0.12;
                 const limit = order.leader.x - direction * queueSpacing;
                 if (direction * (agent.x - limit) > 0) {
                     agent.x = direction > 0
@@ -2382,7 +2389,9 @@ function enforceCrowdLaneOrder() {
             for (let index = 1; index < lane.length; index++) {
                 const leader = lane[index - 1];
                 const follower = lane[index];
-                const spacing = 1.35 + (leader.size + follower.size) * 0.42;
+                const spacing = follower.queueGap
+                    + (leader.size + follower.size) * 0.3
+                    + Math.abs(follower.depthJitter) * 0.12;
                 const longitudinalGap = direction * (leader.x - follower.x);
                 if (longitudinalGap >= spacing) continue;
                 const orderedX = clamp(
@@ -3005,13 +3014,13 @@ function updateCamera(delta) {
 
         _camTarget.set(
             focusX + 24 + massScale * 4 + spread * 0.05,
-            24.5 + massScale * 10 + spread * 0.08 + eventWeight * 1.6,
-            focusZ + 39 + massScale * 22 + spread * 0.17 + eventWeight * 3.2,
+            24.5 + massScale * 12 + spread * 0.09 + eventWeight * 1.6,
+            focusZ + 39 + massScale * 28 + spread * 0.19 + eventWeight * 3.2,
         );
         _lookDesired.set(focusX, -1.35, focusZ * 0.72);
         dampVector(camera.position, _camTarget, 1.5, 16, delta, _cameraMove);
         dampVector(_lookTarget, _lookDesired, 1.75, 19, delta, _lookMove);
-        const desiredFov = 45 + massScale * 6 + clamp(spread - 18, 0, 20) * 0.08;
+        const desiredFov = 45 + massScale * 7 + clamp(spread - 18, 0, 20) * 0.09;
         const nextFov = THREE.MathUtils.damp(camera.fov, desiredFov, 1.2, delta);
         if (Math.abs(nextFov - camera.fov) > 0.001) {
             camera.fov = nextFov;
