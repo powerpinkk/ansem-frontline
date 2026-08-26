@@ -3531,19 +3531,25 @@ function gameLoop(timestamp) {
     if (!loopActive || contextLost) return;
     animationFrameId = requestAnimationFrame(gameLoop);
     frameTimer.update(timestamp);
-    const delta = Math.min(frameTimer.getDelta(), 0.1);
-    updateProjectiles(delta);
-    updateEntities(delta);
-    updateCrowdForces(delta);
+    const elapsed = frameTimer.getDelta();
+    // Keep physics close to wall-clock time on software WebGL. A 100ms global
+    // cap made a 2fps renderer advance at only one fifth speed; contact guards
+    // keep the larger physics step collision-safe. Camera/environment retain a
+    // tighter presentation step so a slow frame cannot become a visible cut.
+    const simulationDelta = Math.min(elapsed, 0.25);
+    const presentationDelta = Math.min(elapsed, 0.1);
+    updateProjectiles(simulationDelta);
+    updateEntities(simulationDelta);
+    updateCrowdForces(simulationDelta);
     updateTerritorialControl();
-    updateBullKing(delta);
-    updateSupportWaves(delta);
-    updateKingStrikes(delta);
-    updateParticles(delta);
-    updateEnvironment(delta);
-    updateCamera(delta);
+    updateBullKing(simulationDelta);
+    updateSupportWaves(simulationDelta);
+    updateKingStrikes(simulationDelta);
+    updateParticles(simulationDelta);
+    updateEnvironment(presentationDelta);
+    updateCamera(presentationDelta);
     renderer.render(scene, camera);
-    updateAdaptiveQuality(delta);
+    updateAdaptiveQuality(simulationDelta);
 }
 
 window.__ansemToggleAudio = () => {
