@@ -175,10 +175,6 @@ const geoCrowdBullBody = mergeParts([
     { geometry: geoBox, position: [-0.05, 1.02, 0], scale: [1.42, 0.76, 0.72] },
     { geometry: geoBox, position: [0.9, 1.23, 0], scale: [0.72, 0.66, 0.62] },
     { geometry: geoBox, position: [1.38, 1.08, 0], scale: [0.42, 0.3, 0.46] },
-    { geometry: geoLegBull, position: [0.5, 0.72, 0.38], scale: [0.85, 0.82, 0.85] },
-    { geometry: geoLegBull, position: [0.5, 0.72, -0.38], scale: [0.85, 0.82, 0.85] },
-    { geometry: geoLegBull, position: [-0.52, 0.72, 0.38], scale: [0.85, 0.82, 0.85] },
-    { geometry: geoLegBull, position: [-0.52, 0.72, -0.38], scale: [0.85, 0.82, 0.85] },
 ]);
 const geoCrowdBullAccent = mergeParts([
     { geometry: geoCone, position: [0.82, 1.7, 0.42], rotation: [Math.PI / 6, 0, -Math.PI / 2.7], scale: [0.18, 0.62, 0.18] },
@@ -194,10 +190,6 @@ const geoCrowdBearBody = mergeParts([
     { geometry: geoBearBody, position: [-0.1, 1.05, 0], scale: [1.24, 0.8, 0.78] },
     { geometry: geoBearHead, position: [0.92, 1.32, 0], scale: [0.58, 0.62, 0.56] },
     { geometry: geoBearMuzzle, position: [1.38, 1.16, 0], scale: [0.34, 0.24, 0.32] },
-    { geometry: geoBearLeg, position: [0.48, 0.72, 0.4], scale: [0.82, 0.78, 0.82] },
-    { geometry: geoBearLeg, position: [0.48, 0.72, -0.4], scale: [0.82, 0.78, 0.82] },
-    { geometry: geoBearLeg, position: [-0.48, 0.72, 0.4], scale: [0.82, 0.78, 0.82] },
-    { geometry: geoBearLeg, position: [-0.48, 0.72, -0.4], scale: [0.82, 0.78, 0.82] },
 ]);
 const geoCrowdBearAccent = mergeParts([
     { geometry: geoSphere, position: [0.72, 1.82, 0.34], scale: [0.18, 0.18, 0.18] },
@@ -267,6 +259,8 @@ const _cameraFramingMove = new THREE.Vector3();
 const _kingMove = new THREE.Vector3();
 const _kingPreviousPosition = new THREE.Vector3(-26, 10, -7);
 const _crowdTransform = new THREE.Object3D();
+const _crowdLegTransform = new THREE.Object3D();
+const _crowdLegMatrix = new THREE.Matrix4();
 const _crowdImpact = new THREE.Vector3();
 let cameraShakeOffsetX = 0;
 let cameraShakeOffsetY = 0;
@@ -1275,16 +1269,18 @@ function createGrassTufts() {
 
 function createCrowdArmies() {
     const definitions = {
-        bull: [geoCrowdBullBody, matCrowdBull, geoCrowdBullAccent, matCrowdBullAccent, geoCrowdBullEyes, matCrowdBullEyes],
-        bear: [geoCrowdBearBody, matCrowdBear, geoCrowdBearAccent, matCrowdBearAccent, geoCrowdBearEyes, matCrowdBearEyes],
+        bull: [geoCrowdBullBody, matCrowdBull, geoCrowdBullAccent, matCrowdBullAccent, geoCrowdBullEyes, matCrowdBullEyes, geoLegBull],
+        bear: [geoCrowdBearBody, matCrowdBear, geoCrowdBearAccent, matCrowdBearAccent, geoCrowdBearEyes, matCrowdBearEyes, geoBearLeg],
     };
-    for (const [type, [bodyGeometry, bodyMaterial, accentGeometry, accentMaterial, eyeGeometry, eyeMaterial]] of Object.entries(definitions)) {
+    for (const [type, [bodyGeometry, bodyMaterial, accentGeometry, accentMaterial, eyeGeometry, eyeMaterial, legGeometry]] of Object.entries(definitions)) {
         const body = new THREE.InstancedMesh(bodyGeometry, bodyMaterial, MAX_CROWD_PER_SIDE);
         const accent = new THREE.InstancedMesh(accentGeometry, accentMaterial, MAX_CROWD_PER_SIDE);
         const eyes = new THREE.InstancedMesh(eyeGeometry, eyeMaterial, MAX_CROWD_PER_SIDE);
+        const legs = Array.from({ length: 4 }, () => new THREE.InstancedMesh(legGeometry, bodyMaterial, MAX_CROWD_PER_SIDE));
         body.count = 0;
         accent.count = 0;
         eyes.count = 0;
+        legs.forEach((leg) => { leg.count = 0; leg.instanceMatrix.setUsage(THREE.DynamicDrawUsage); leg.frustumCulled = false; leg.castShadow = false; leg.receiveShadow = false; });
         body.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
         accent.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
         eyes.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
@@ -1297,8 +1293,8 @@ function createCrowdArmies() {
         accent.receiveShadow = false;
         eyes.castShadow = false;
         eyes.receiveShadow = false;
-        crowdMeshes[type] = { body, accent, eyes };
-        scene.add(body, accent, eyes);
+        crowdMeshes[type] = { body, accent, eyes, legs };
+        scene.add(body, accent, eyes, ...legs);
     }
 }
 
@@ -1817,6 +1813,7 @@ function updateEntities(delta) {
 
         applySeparation(e, delta);
         makeCrowdYieldToChampion(e, delta);
+        keepChampionBehindEnemyRanks(e);
         enforceArenaBounds(e);
         e.mesh.position.y = getTrenchHeight(e.mesh.position.x, e.mesh.position.z);
 
@@ -2261,10 +2258,26 @@ function refreshCrowdMeshes() {
             meshes.body.setMatrixAt(index, _crowdTransform.matrix);
             meshes.accent.setMatrixAt(index, _crowdTransform.matrix);
             meshes.eyes.setMatrixAt(index, _crowdTransform.matrix);
+            const legLayout = type === 'bull'
+                ? [[0.5, 0.72, 0.38], [0.5, 0.72, -0.38], [-0.52, 0.72, 0.38], [-0.52, 0.72, -0.38]]
+                : [[0.48, 0.72, 0.4], [0.48, 0.72, -0.4], [-0.48, 0.72, 0.4], [-0.48, 0.72, -0.4]];
+            legLayout.forEach(([x, y, z], legIndex) => {
+                const gait = Math.sin(kingTime * (9 + speed * 0.48) + agent.phase + (legIndex % 2) * Math.PI);
+                _crowdLegTransform.position.set(x, y, z);
+                _crowdLegTransform.rotation.set(0, 0, gait * (agent.engaged ? 0.48 : 0.68));
+                _crowdLegTransform.scale.set(type === 'bull' ? 0.85 : 0.82, type === 'bull' ? 0.82 : 0.78, type === 'bull' ? 0.85 : 0.82);
+                _crowdLegTransform.updateMatrix();
+                _crowdLegMatrix.multiplyMatrices(_crowdTransform.matrix, _crowdLegTransform.matrix);
+                meshes.legs[legIndex].setMatrixAt(index, _crowdLegMatrix);
+            });
         }
         meshes.body.instanceMatrix.needsUpdate = true;
         meshes.accent.instanceMatrix.needsUpdate = true;
         meshes.eyes.instanceMatrix.needsUpdate = true;
+        meshes.legs.forEach((leg) => {
+            leg.count = agents.length;
+            leg.instanceMatrix.needsUpdate = true;
+        });
     }
 }
 
@@ -2658,6 +2671,26 @@ function makeCrowdYieldToChampion(entity) {
     }
 }
 
+function keepChampionBehindEnemyRanks(entity) {
+    if (entity.forcedRetreatUntil > Date.now()) return;
+    const enemyRanks = crowdAgents[entity.type === 'bull' ? 'bear' : 'bull'].filter((agent) => !agent.retiring);
+    if (!enemyRanks.length) return;
+    const radius = entity.isWhale ? 4.8 : 2.8;
+    if (entity.type === 'bull') {
+        const forwardEnemy = Math.min(...enemyRanks.map((agent) => agent.x));
+        if (entity.mesh.position.x > forwardEnemy - radius) {
+            entity.mesh.position.x = forwardEnemy - radius;
+            entity.vx = Math.min(0, entity.vx);
+        }
+    } else {
+        const forwardEnemy = Math.max(...enemyRanks.map((agent) => agent.x));
+        if (entity.mesh.position.x < forwardEnemy + radius) {
+            entity.mesh.position.x = forwardEnemy + radius;
+            entity.vx = Math.max(0, entity.vx);
+        }
+    }
+}
+
 function enforceArenaBounds(entity) {
     if (!isFinitePosition(entity.mesh.position)) {
         entity.mesh.position.x = entity.type === 'bull' ? ARENA.spawnBullX : ARENA.spawnBearX;
@@ -2722,17 +2755,19 @@ function updateBullKing(delta) {
     const guardBuffer = kingMode === 'guard' ? Math.max(0, -tactics.balance) * 5 : 0;
     let targetX = clamp(
         defending
-            ? Math.min(kingThreat.mesh.position.x - 9, bullFrontReference - 5)
+            ? Math.min(kingThreat.mesh.position.x - 3.5, bullFrontReference + 3)
             : bullFrontReference - directive.trailingDistance - guardBuffer,
         ARENA.minX + 8,
         ARENA.maxX - 14,
     );
     let targetZ = kingCommandZ;
+    if (defending) targetX = Math.max(targetX, bullKingRig.position.x + 3.8);
     // During quiet/command states the king performs a deliberate air patrol
     // behind the army. It keeps him alive on screen without random movement.
     if (!defending) {
-        targetX = clamp(targetX + Math.sin(kingTime * 0.32) * 3.4, ARENA.minX + 8, ARENA.maxX - 14);
-        targetZ = clamp(targetZ + Math.cos(kingTime * 0.27) * 2.6, ARENA.minZ + 5, ARENA.maxZ - 5);
+        const patrolRate = supporting ? 0.52 : kingMode === 'lead' ? 0.42 : 0.34;
+        targetX = clamp(targetX + Math.sin(kingTime * patrolRate) * 6.2, ARENA.minX + 8, ARENA.maxX - 14);
+        targetZ = clamp(targetZ + Math.cos(kingTime * patrolRate * 0.83) * 4.6, ARENA.minZ + 5, ARENA.maxZ - 5);
     }
     const hover = Math.sin(kingTime * (1.25 + tactics.flowIntensity * 0.35)) * (prefersReducedMotion ? 0.18 : 0.62)
         + reaction * 0.22;
@@ -2766,9 +2801,12 @@ function updateBullKing(delta) {
         const base = index < 2 ? -0.58 : 0.58;
         leg.rotation.z = base + Math.sin(kingTime * 3.2 + index * Math.PI) * (0.08 + reaction * 0.05);
     });
-    if (kingMount) kingMount.position.y = Math.sin(kingTime * 1.7) * 0.12;
-    if (kingRider) kingRider.rotation.z = Math.sin(kingTime * 1.15) * 0.025 - reaction * 0.035;
-    if (kingStaff) kingStaff.rotation.z = -0.58 - reaction * 0.16 - (defending ? 0.18 : 0) + Math.sin(kingTime * 1.8) * 0.025;
+    if (kingMount) {
+        kingMount.position.y = Math.sin(kingTime * 1.7) * 0.16;
+        kingMount.rotation.z = Math.sin(kingTime * 0.92) * 0.035 - reaction * 0.02;
+    }
+    if (kingRider) kingRider.rotation.z = Math.sin(kingTime * 1.15) * 0.045 - reaction * 0.035;
+    if (kingStaff) kingStaff.rotation.z = -0.58 - reaction * 0.16 - (defending ? 0.18 : 0) + Math.sin(kingTime * 1.8) * 0.065;
     if (kingStaffGlow) kingStaffGlow.intensity = supporting
         ? 11 + Math.sin(kingTime * 11) * 3
         : 4.5 + Math.sin(kingTime * 2) * 1.2 + reaction * 4;
