@@ -1,8 +1,8 @@
 export const ARENA = Object.freeze({
     minX: -68,
     maxX: 68,
-    minZ: -15,
-    maxZ: 15,
+    minZ: -32,
+    maxZ: 32,
     spawnBullX: -62,
     spawnBearX: 62,
 });
@@ -29,7 +29,8 @@ export function tradeLane(trade, sequence = 0) {
         hash = Math.imul(hash, 16777619);
     }
     const normalized = (hash >>> 0) / 4294967295;
-    return -11.5 + normalized * 23;
+    const lanePadding = 4;
+    return ARENA.minZ + lanePadding + normalized * (ARENA.maxZ - ARENA.minZ - lanePadding * 2);
 }
 
 export function formationTarget(type, frontlineX, lane, formationIndex = 0, isWhale = false) {

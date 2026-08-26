@@ -7,17 +7,22 @@ function clamp(value, min, max) {
     return Math.max(min, Math.min(max, value));
 }
 
-function sideForce(sol, activityCount, verifiedCount, cap) {
+function sideForce(sol, activityCount, hourlyCount, verifiedCount, cap) {
     const activity = finiteNumber(activityCount);
+    const hourly = finiteNumber(hourlyCount);
     const verified = finiteNumber(verifiedCount);
     const volume = finiteNumber(sol);
-    if (activity === 0 && verified === 0 && volume < 0.001) return 0;
+    if (activity === 0 && hourly === 0 && verified === 0 && volume < 0.001) return 0;
 
-    // One rank for each reported 5m market transaction, reinforced non-linearly
-    // by verified 60s SOL flow so a single whale does not imply hundreds of swaps.
+    // The one-hour count supplies strategic army depth; five-minute activity
+    // and verified 60-second SOL supply the active wave. All volume terms are
+    // deliberately sub-linear so one whale never masquerades as hundreds of
+    // independent swaps.
+    const hourlyRanks = Math.sqrt(hourly) * 3.8;
+    const activityRanks = activity * 0.75;
     const volumeRanks = Math.sqrt(volume) * 8.5;
     const recentRanks = verified * 1.5;
-    return Math.round(clamp(activity + volumeRanks + recentRanks, Math.max(1, verified), cap));
+    return Math.round(clamp(hourlyRanks + activityRanks + volumeRanks + recentRanks, Math.max(1, verified), cap));
 }
 
 export function deriveVisualForces({
@@ -25,13 +30,15 @@ export function deriveVisualForces({
     sellSol = 0,
     buyCount = 0,
     sellCount = 0,
+    buyCount1h = 0,
+    sellCount1h = 0,
     verifiedBuyCount = 0,
     verifiedSellCount = 0,
     maxPerSide = 260,
 } = {}) {
     const cap = Math.max(1, Math.round(finiteNumber(maxPerSide) || 260));
-    const bull = sideForce(buySol, buyCount, verifiedBuyCount, cap);
-    const bear = sideForce(sellSol, sellCount, verifiedSellCount, cap);
+    const bull = sideForce(buySol, buyCount, buyCount1h, verifiedBuyCount, cap);
+    const bear = sideForce(sellSol, sellCount, sellCount1h, verifiedSellCount, cap);
     const totalSol = finiteNumber(buySol) + finiteNumber(sellSol);
     const totalActivity = finiteNumber(buyCount) + finiteNumber(sellCount);
     const intensity = clamp(
@@ -39,7 +46,11 @@ export function deriveVisualForces({
         0,
         1,
     );
-    return { bull, bear, total: bull + bear, intensity, cap };
+    const hourTotal = finiteNumber(buyCount1h) + finiteNumber(sellCount1h);
+    const hourBalance = hourTotal > 0
+        ? (finiteNumber(buyCount1h) - finiteNumber(sellCount1h)) / hourTotal
+        : 0;
+    return { bull, bear, total: bull + bear, intensity, cap, hourBalance, hourTotal };
 }
 
 export function deriveForceDoctrine(type, tactics = {}) {

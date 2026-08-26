@@ -1,0 +1,3 @@
+* { box-sizing: border-box; }
+html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: #020403; }
+#pixel-frontline-canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; }

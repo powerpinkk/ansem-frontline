@@ -1,6 +1,7 @@
 import { initAPI } from './api.js';
 import { evaluateBuySwarm } from './market.js';
 import { state } from './state.js';
+import { initPixelCompanion } from './companion.js';
 import {
     initUI,
     bindCameraControls,
@@ -82,6 +83,7 @@ function boot() {
         onRendererStatus: setRendererStatus,
     });
     startGameLoop();
+    initPixelCompanion({ setSceneActive });
 
     const api = initAPI({
         onMarketUpdate: updateMarketUI,
@@ -95,6 +97,10 @@ function boot() {
 
 function bindPageLifecycle(api) {
     const handleVisibility = () => {
+        if (window.__ansemCompanionActive) {
+            setSceneActive(false);
+            return;
+        }
         if (document.hidden) {
             if (!awaySession) {
                 awaySession = {

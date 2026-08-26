@@ -49,6 +49,7 @@
             </div>
 
             <button id="sound-btn" class="control-btn" type="button" aria-label="Toggle sound">🔇 SOUND</button>
+            <button id="pixel-mode-btn" class="control-btn pixel-mode-btn" type="button" aria-label="Open the 30-second pixel companion" aria-pressed="false">▦ PIXEL 30S</button>
 
             <div class="info-box" id="mcap-box">
                 <div class="info-label">MCAP</div>
@@ -103,7 +104,7 @@
             <div id="data-legend">
                 <span><i class="legend-dot buy"></i>bull = verified buy</span>
                 <span><i class="legend-dot sell"></i>grizzly = verified sell</span>
-                <span>ranks = 5m tx + 60s SOL</span>
+                <span>ranks = 1H depth + 5m pulse + 60s SOL</span>
                 <span>marker = 60s balance · traversable</span>
                 <span>GIANT = ≥20 SOL</span>
             </div>
@@ -125,13 +126,18 @@
                     </div>
                     <div class="bar"><div id="bear-bar" class="dom-bar"></div></div>
                 </div>
-                <div id="market-pulse" aria-label="Five minute verified market activity">
-                    <div class="pulse-heading"><span>5M MARKET FORCE</span><span>TRACKED POOLS</span></div>
+                <div id="market-pulse" aria-label="One hour market depth and five minute activity pulse">
+                    <div class="pulse-heading"><span>1H MARKET DEPTH</span><span>TRACKED POOLS</span></div>
+                    <div class="pulse-values pulse-values-primary">
+                        <span class="pulse-buy">▲ <b id="buy-flow-1h">0</b> buys</span>
+                        <span class="pulse-sell">▼ <b id="sell-flow-1h">0</b> sells</span>
+                    </div>
+                    <div class="pulse-heading pulse-secondary-heading"><span>5M ACTIVITY PULSE</span><span>NOW</span></div>
                     <div class="pulse-values">
                         <span class="pulse-buy">▲ <b id="buy-flow-count">0</b> buys</span>
                         <span class="pulse-sell">▼ <b id="sell-flow-count">0</b> sells</span>
                     </div>
-                    <div class="pulse-note">Counts set army depth · verified 60s SOL flow adds reinforcements and moves the front.</div>
+                    <div class="pulse-note">1H counts set army depth · 5m activity and verified 60s SOL drive the live wave.</div>
                 </div>
             </div>
             <div class="section-title">BATTLE LOG</div>
@@ -146,6 +152,15 @@
 <div id="floating-socials">
     <a href="https://x.com/PowerPixelKK" target="_blank" rel="noopener noreferrer" class="social-btn" title="Follow on X">𝕏</a>
     <a href="https://github.com/powerpinkk/ansem-frontline" target="_blank" rel="noopener noreferrer" class="social-btn" title="View source on GitHub" aria-label="View source on GitHub">⌘</a>
+</div>
+
+<div id="companion-dock-screen" hidden>
+    <div class="companion-dock-content">
+        <span>▦ $ANSEM PIXEL FRONTLINE</span>
+        <strong>30S VERIFIED BATTLE RUNNING</strong>
+        <p>The 3D renderer is paused while the compact companion stays live.</p>
+        <button id="companion-return" class="control-btn active-blue" type="button">RETURN TO 3D FRONTLINE</button>
+    </div>
 </div>
 
 <script type="module" src="js/main.js"></script>

@@ -34,6 +34,7 @@ export const state = {
     priceFailures: 0,
     tradesFailures: 0,
     activity5m: { buyCount: 0, sellCount: 0, windowMs: 300_000, source: 'waiting' },
+    activity1h: { buyCount: 0, sellCount: 0, windowMs: 3_600_000, source: 'waiting' },
 };
 
 export const seenTradeIds = new Set();

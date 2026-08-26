@@ -38,6 +38,8 @@ export function initUI(sceneHooks = {}) {
     DOM.camFree = document.getElementById('cam-free');
     DOM.buyFlowCount = document.getElementById('buy-flow-count');
     DOM.sellFlowCount = document.getElementById('sell-flow-count');
+    DOM.buyFlow1h = document.getElementById('buy-flow-1h');
+    DOM.sellFlow1h = document.getElementById('sell-flow-1h');
     DOM.pressureVolume = document.getElementById('pressure-volume');
     DOM.battleState = document.getElementById('battle-state');
     DOM.battleStateLabel = document.getElementById('battle-state-label');
@@ -254,7 +256,7 @@ export function updateVisibleCoverage(counts = state.visibleCombatants) {
     const bull = Number(counts?.bull || 0);
     const bear = Number(counts?.bear || 0);
     DOM.visibleCoverage.textContent = `BULL FORCE ${bull} · BEAR FORCE ${bear} · ${recentVerified} VERIFIED SWAP${recentVerified === 1 ? '' : 'S'} / 60S`;
-    DOM.visibleCoverage.title = `Solid champions represent up to ${CONFIG.MAX_VISIBLE_UNITS_PER_SIDE} individually verifiable swaps per side. Instanced army ranks scale from tracked 5-minute transaction counts plus verified 60-second SOL volume; ${total} total visual forces are currently rendered.`;
+    DOM.visibleCoverage.title = `Solid champions represent up to ${CONFIG.MAX_VISIBLE_UNITS_PER_SIDE} individually verifiable swaps per side. Instanced army depth scales from tracked one-hour transactions; the five-minute pulse and verified 60-second SOL drive immediate reinforcements. ${total} total visual forces are currently rendered.`;
 }
 
 export function showUnitInspector(entity) {
@@ -320,6 +322,8 @@ function formatAge(ageMs) {
 export function updateActivityUI(activity) {
     if (DOM.buyFlowCount) DOM.buyFlowCount.textContent = String(activity?.buyCount || 0);
     if (DOM.sellFlowCount) DOM.sellFlowCount.textContent = String(activity?.sellCount || 0);
+    if (DOM.buyFlow1h) DOM.buyFlow1h.textContent = String(state.activity1h.buyCount || 0);
+    if (DOM.sellFlow1h) DOM.sellFlow1h.textContent = String(state.activity1h.sellCount || 0);
     updateBattleState();
 }
 

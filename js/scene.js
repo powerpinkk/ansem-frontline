@@ -25,7 +25,13 @@ const crowdAgents = { bull: [], bear: [] };
 const crowdMeshes = { bull: null, bear: null };
 const crowdSpawnBudget = { bull: 0, bear: 0 };
 const crowdSequence = { bull: 0, bear: 0 };
-const CROWD_LANE_COUNT = 12;
+const CROWD_LANE_COUNT = 26;
+const CROWD_LANE_PRIORITY = Array.from({ length: CROWD_LANE_COUNT }, (_, index) => {
+    const centerLeft = Math.floor((CROWD_LANE_COUNT - 1) / 2);
+    if (index === 0) return centerLeft;
+    const offset = Math.ceil(index / 2);
+    return index % 2 ? centerLeft + offset : centerLeft - offset;
+});
 const crowdOrders = { bull: new Map(), bear: new Map() };
 let crowdClashAccumulator = 0;
 let crowdCasualtyAccumulator = 0;
@@ -57,6 +63,7 @@ const crowdBattle = {
     maxTurnRate: 0,
     directionChanges: 0,
     intensity: 0,
+    hourBalance: 0,
     bullStance: 'muster',
     bearStance: 'muster',
 };
@@ -88,6 +95,8 @@ let kingFocusX = 0;
 let kingFocusZ = 0;
 let kingDefenseUntil = 0;
 let kingThreat = null;
+let kingDefenseTargetX = null;
+let kingDefenseTargetZ = null;
 let kingReactionAt = 0;
 let kingReactionStrength = 0;
 let kingCommandZ = -7;
@@ -302,6 +311,8 @@ export function initScene(callbacks = {}) {
                 retired: entity.retired,
                 hasTarget: Boolean(entity.target),
                 behavior: entity.behavior,
+                frontContact: Boolean(entity.frontContact && entity.frontContactUntil > Date.now()),
+                stuckTime: entity.stuckTime,
                 forcedRetreat: entity.forcedRetreatUntil > Date.now(),
             })),
             projectiles: projectiles.length,
@@ -328,6 +339,7 @@ export function initScene(callbacks = {}) {
                 formationX: crowdFormationX,
                 spread: crowdBattle.spread,
                 intensity: crowdBattle.intensity,
+                hourBalance: crowdBattle.hourBalance,
                 overlaps: crowdBattle.overlaps,
                 crossedPairs: crowdBattle.crossedPairs,
                 pairedFighters: crowdBattle.pairedFighters,
@@ -361,6 +373,7 @@ export function initScene(callbacks = {}) {
                 commandZ: kingCommandZ,
                 speed: kingSpeed,
                 turnRate: kingTurnRate,
+                ...getKingViewDiagnostics(),
             } : null,
             render: renderer ? {
                 calls: renderer.info.render.calls,
@@ -402,6 +415,8 @@ export function initScene(callbacks = {}) {
                 sellSol: Math.max(0, Number(pressure?.sellSol) || 0),
                 buyCount: Math.max(0, Number(pressure?.buyCount) || 0),
                 sellCount: Math.max(0, Number(pressure?.sellCount) || 0),
+                buyCount1h: Math.max(0, Number(pressure?.buyCount1h) || 0),
+                sellCount1h: Math.max(0, Number(pressure?.sellCount1h) || 0),
                 verifiedBuyCount: Math.max(0, Number(pressure?.verifiedBuyCount) || 0),
                 verifiedSellCount: Math.max(0, Number(pressure?.verifiedSellCount) || 0),
             };
@@ -410,6 +425,33 @@ export function initScene(callbacks = {}) {
             state.momentum = bullPercent;
             state.frontlineX = clamp((bullPercent - 50) * 0.9, -45, 45);
             state.targetFrontlineX = state.frontlineX;
+        };
+        window.__ansemSpawnStressBattle = (perSide = 8) => {
+            const count = clamp(Math.floor(Number(perSide) || 8), 1, MAX_ENTITIES_PER_SIDE);
+            for (let index = 0; index < count; index++) {
+                const isWhale = index === 0 || index === count - 1;
+                const timestamp = Date.now() - index * 420;
+                spawnUnit('bull', false, isWhale, {
+                    id: `stress-bull-${timestamp}-${index}`,
+                    txHash: `stress-bull-${timestamp}-${index}`,
+                    isBuy: true,
+                    isWhale,
+                    solValue: isWhale ? 24 + index : 1 + index * 0.4,
+                    usdValue: 100 + index * 40,
+                    timestamp,
+                    dexId: 'stress',
+                });
+                spawnUnit('bear', false, isWhale, {
+                    id: `stress-bear-${timestamp}-${index}`,
+                    txHash: `stress-bear-${timestamp}-${index}`,
+                    isBuy: false,
+                    isWhale,
+                    solValue: isWhale ? 26 + index : 1.2 + index * 0.45,
+                    usdValue: 120 + index * 42,
+                    timestamp,
+                    dexId: 'stress',
+                });
+            }
         };
         window.__ansemTriggerReclamation = () => {
             const bear = entities.find((entity) => entity.type === 'bear');
@@ -640,7 +682,7 @@ export function spawnUnit(type, initial = false, isWhale = false, trade = null) 
         trade,
         power: Math.max(0.75, Math.min(3, Math.log10((trade?.solValue || 0.1) + 1) + 0.8)),
         laneTarget: spawnZ,
-        patrolPhase: ((spawnZ + 11.5) / 23) * Math.PI * 2 + sequence * 0.73,
+        patrolPhase: ((spawnZ - ARENA.minZ) / (ARENA.maxZ - ARENA.minZ)) * Math.PI * 2 + sequence * 0.73,
         patrolSide: sequence % 2 === 0 ? 1 : -1,
         forcedRetreatUntil: 0,
         forcedRetreatX: null,
@@ -650,6 +692,8 @@ export function spawnUnit(type, initial = false, isWhale = false, trade = null) 
         retired: false,
         stuckTime: 0,
         lineProximityAt: 0,
+        frontContact: null,
+        frontContactUntil: 0,
         lastPosition: new THREE.Vector2(spawnX, spawnZ),
     };
     group.userData.entity = entity;
@@ -790,6 +834,17 @@ function castKingWard(intruders, tactics) {
     intruders.forEach((entity) => _rayTarget.add(entity.mesh.position));
     _rayTarget.multiplyScalar(1 / intruders.length);
     _rayTarget.y = getTrenchHeight(_rayTarget.x, _rayTarget.z) + 0.55;
+    // Freeze the intercept once. Deriving it from the King's current position
+    // every frame used to create a moving goal that could drive him forever.
+    kingDefenseTargetX = clamp(
+        Math.max(
+            Math.min(_rayTarget.x - 5.5, crowdBattle.bullFrontX + 5),
+            bullKingRig.position.x + 2.5,
+        ),
+        ARENA.minX + 10,
+        ARENA.maxX - 18,
+    );
+    kingDefenseTargetZ = clamp(_rayTarget.z, ARENA.minZ + 5, ARENA.maxZ - 5);
     spawnKingStrike(_rayTarget);
     kingThreat = intruders.reduce((closest, entity) => {
         if (!closest) return entity;
@@ -828,6 +883,12 @@ function castKingReclamation(stranded, solValue, previous, next, reason = 'trade
     stranded.forEach((entity) => _rayTarget.add(entity.mesh.position));
     _rayTarget.multiplyScalar(1 / stranded.length);
     _rayTarget.y = getTrenchHeight(_rayTarget.x, _rayTarget.z) + 0.55;
+    kingDefenseTargetX = clamp(
+        Math.min(_rayTarget.x - 6, crowdBattle.bullFrontX + 4),
+        ARENA.minX + 10,
+        ARENA.maxX - 18,
+    );
+    kingDefenseTargetZ = clamp(_rayTarget.z, ARENA.minZ + 5, ARENA.maxZ - 5);
     spawnKingStrike(_rayTarget);
     kingThreat = stranded[0] || null;
     kingDefenseUntil = Date.now() + 2_400;
@@ -1175,7 +1236,8 @@ function createLandscapeProps() {
         const x = (landscapeRandom() - 0.5) * 230;
         const z = signedOuterPosition(18, 62);
         const rawScale = 0.7 + landscapeRandom() * 2.2;
-        const scale = z > 16 && z < 54 ? Math.min(rawScale, 1.15) : rawScale;
+        const absZ = Math.abs(z);
+        const scale = absZ > 16 && absZ < 54 ? Math.min(rawScale, 1.15) : rawScale;
         rockTransforms.push({
             x,
             y: getTrenchHeight(x, z) + scale * 0.25,
@@ -1211,7 +1273,8 @@ function createLandscapeProps() {
     for (let i = 0; i < 38; i++) {
         const x = (landscapeRandom() - 0.5) * 235;
         const z = signedOuterPosition(25, 67);
-        const scale = z > 20 && z < 55 ? 0.72 + landscapeRandom() * 0.2 : 0.75 + landscapeRandom() * 0.7;
+        const absZ = Math.abs(z);
+        const scale = absZ > 20 && absZ < 55 ? 0.72 + landscapeRandom() * 0.2 : 0.75 + landscapeRandom() * 0.7;
         const groundY = getTrenchHeight(x, z);
         treeDummy.position.set(x, groundY + 2.5 * scale, z);
         treeDummy.rotation.set(0, landscapeRandom() * Math.PI, 0);
@@ -1221,6 +1284,7 @@ function createLandscapeProps() {
         treeDummy.position.y = groundY + 7 * scale;
         treeDummy.updateMatrix();
         crowns.setMatrixAt(i, treeDummy.matrix);
+        if (absZ < ARENA.maxZ + 2) obstacles.push({ x, z, radius: Math.max(0.9, scale * 1.15) });
     }
     trunks.instanceMatrix.needsUpdate = true;
     crowns.instanceMatrix.needsUpdate = true;
@@ -1232,7 +1296,7 @@ function createLandscapeProps() {
 function createBattleEdgeRocks(rockTransforms) {
     for (let i = 0; i < 12; i++) {
         const x = -52 + landscapeRandom() * 104;
-        const z = (i % 2 ? 1 : -1) * (12.3 + landscapeRandom() * 1.3);
+        const z = (i % 2 ? 1 : -1) * (28.5 + landscapeRandom() * 1.8);
         const scale = 0.45 + landscapeRandom() * 0.5;
         rockTransforms.push({
             x,
@@ -1678,9 +1742,11 @@ function updateEntities(delta) {
 
         e.mesh.position.y = getTrenchHeight(e.mesh.position.x, e.mesh.position.z);
         const forcedRetreat = e.forcedRetreatUntil > now;
+        const activeFrontContact = getActiveChampionCrowdContact(e, now);
         if (forcedRetreat || e.target?.hp <= 0 || e.target?.retired) e.target = null;
+        if (activeFrontContact) e.target = null;
 
-        if (!e.target && !forcedRetreat) {
+        if (!e.target && !forcedRetreat && !activeFrontContact) {
             let closest = null;
             const sight = e.isWhale ? 52 : 40;
             let minDist = sight * sight;
@@ -1714,6 +1780,8 @@ function updateEntities(delta) {
             e.mesh.rotation.y = e.type === 'bull' ? 0 : Math.PI;
             e.body.position.y = 1.3 + Math.abs(Math.sin(e.animTime * 14)) * 0.14;
             isMoving = true;
+        } else if (activeFrontContact) {
+            animateChampionCrowdCombat(e, activeFrontContact);
         } else if (e.target) {
             e.behavior = 'engage';
             e.lineProximityAt = 0;
@@ -1818,18 +1886,28 @@ function updateEntities(delta) {
         }
 
         applySeparation(e, delta);
-        makeCrowdYieldToChampion(e, delta);
-        keepChampionBehindEnemyRanks(e);
+        makeFriendlyCrowdYieldToChampion(e);
+        const crowdContact = resolveChampionCrowdContact(e);
+        if (crowdContact) {
+            e.frontContact = crowdContact;
+            e.frontContactUntil = now + 420;
+            e.target = null;
+            isMoving = false;
+            animateChampionCrowdCombat(e, crowdContact);
+        } else if (!activeFrontContact) {
+            e.frontContact = null;
+        }
         enforceArenaBounds(e);
         e.mesh.position.y = getTrenchHeight(e.mesh.position.x, e.mesh.position.z);
 
-        if (isMoving) {
-            recoverIfStuck(e, delta);
+        if (isMoving || e.behavior === 'frontline') {
+            if (isMoving) recoverIfStuck(e, delta);
             const walkSpeed = e.isWhale ? 10 : 15;
-            e.legs[0].rotation.z = Math.sin(e.animTime * walkSpeed) * 0.6;
-            e.legs[3].rotation.z = Math.sin(e.animTime * walkSpeed) * 0.6;
-            e.legs[1].rotation.z = Math.sin(e.animTime * walkSpeed + Math.PI) * 0.6;
-            e.legs[2].rotation.z = Math.sin(e.animTime * walkSpeed + Math.PI) * 0.6;
+            const legAmplitude = e.behavior === 'frontline' ? 0.32 : 0.6;
+            e.legs[0].rotation.z = Math.sin(e.animTime * walkSpeed) * legAmplitude;
+            e.legs[3].rotation.z = Math.sin(e.animTime * walkSpeed) * legAmplitude;
+            e.legs[1].rotation.z = Math.sin(e.animTime * walkSpeed + Math.PI) * legAmplitude;
+            e.legs[2].rotation.z = Math.sin(e.animTime * walkSpeed + Math.PI) * legAmplitude;
         } else {
             e.legs.forEach((leg) => {
                 leg.rotation.z = THREE.MathUtils.lerp(leg.rotation.z, 0, 0.2);
@@ -1858,6 +1936,8 @@ function getBattleInputs(now = Date.now()) {
         sellSol: state.sellSol60s,
         buyCount: state.activity5m.buyCount,
         sellCount: state.activity5m.sellCount,
+        buyCount1h: state.activity1h.buyCount,
+        sellCount1h: state.activity1h.sellCount,
         verifiedBuyCount,
         verifiedSellCount,
     };
@@ -1902,8 +1982,11 @@ function getCrowdHealth() {
         if (entity.retired || entity.hp <= 0 || entity.forcedRetreatUntil > Date.now()) continue;
         const enemies = crowdAgents[entity.type === 'bull' ? 'bear' : 'bull'].filter((agent) => !agent.retiring);
         if (!enemies.length) continue;
-        if (entity.type === 'bull' && entity.mesh.position.x > Math.min(...enemies.map((agent) => agent.x)) - 2.5) championBypasses += 1;
-        if (entity.type === 'bear' && entity.mesh.position.x < Math.max(...enemies.map((agent) => agent.x)) + 2.5) championBypasses += 1;
+        const physicalClearance = entity.isWhale ? 4.2 : 2.45;
+        if (enemies.some((agent) => Math.hypot(
+            agent.x - entity.mesh.position.x,
+            agent.z - entity.mesh.position.z,
+        ) < physicalClearance + agent.size * 0.45)) championBypasses += 1;
     }
     const missingEyeInstances = ['bull', 'bear'].reduce((total, type) => (
         total + Math.abs((crowdMeshes[type]?.eyes?.count || 0) - crowdAgents[type].length)
@@ -1939,6 +2022,7 @@ function updateCrowdForces(delta) {
     crowdBattle.targetBull = targets.bull;
     crowdBattle.targetBear = targets.bear;
     crowdBattle.intensity = targets.intensity;
+    crowdBattle.hourBalance = targets.hourBalance;
 
     syncCrowdPopulation('bull', Math.max(0, targets.bull - verifiedBull), delta);
     syncCrowdPopulation('bear', Math.max(0, targets.bear - verifiedBear), delta);
@@ -2022,7 +2106,9 @@ function createCrowdAgent(type) {
         activeAgents.filter((agent) => agent.laneSlot === laneIndex).length
     ));
     const smallestLane = Math.min(...laneCounts);
-    const laneSlot = laneCounts.indexOf(smallestLane);
+    // Populate the readable central lanes first, then progressively open flank
+    // fights into the woodland as one-hour volume adds depth.
+    const laneSlot = CROWD_LANE_PRIORITY.find((candidate) => laneCounts[candidate] === smallestLane) ?? 0;
     const roles = ['vanguard', 'skirmisher', 'vanguard', 'flank', 'support', 'vanguard', 'flank', 'reserve'];
     const role = roles[sequence % roles.length];
     const rank = laneCounts[laneSlot];
@@ -2051,7 +2137,7 @@ function createCrowdAgent(type) {
         lane,
         flankSide: lane >= 0 ? 1 : -1,
         avoidanceSide: sequence % 2 === 0 ? 1 : -1,
-        depthJitter: (random() - 0.5) * 0.72,
+        depthJitter: (random() - 0.5) * 2.4,
         phase: random() * Math.PI * 2,
         size: 0.66 + random() * 0.16,
         speedBias: 0.9 + random() * 0.2,
@@ -2067,7 +2153,7 @@ function createCrowdAgent(type) {
         stuckTime: 0,
         opponentDistance: Number.POSITIVE_INFINITY,
         engagementPartner: null,
-        laneBias: (random() - 0.5) * 0.46,
+        laneBias: (random() - 0.5) * 1.7,
         formationTargetX: spawnX,
         formationTargetZ: lane,
         life: 0,
@@ -2117,7 +2203,7 @@ function updateCrowdSide(type, doctrine, delta) {
         const rankDepth = agent.rank * (0.9 + doctrine.cohesion * 0.22) + agent.depthJitter;
         const wave = Math.sin(kingTime * (0.28 + crowdBattle.intensity * 0.16) + agent.phase);
         let targetX;
-        let targetZ = agent.lane + agent.laneBias + wave * (agent.role === 'skirmisher' ? 0.38 : 0.18);
+        let targetZ = agent.lane + agent.laneBias + wave * (agent.role === 'skirmisher' ? 0.72 : 0.34);
         const order = crowdOrders[type].get(agent);
         let opponent = null;
 
@@ -2147,14 +2233,14 @@ function updateCrowdSide(type, doctrine, delta) {
             && opponent.distance <= engagementRadius;
         if (opponent) {
             const attackCycle = Math.max(0, Math.sin(kingTime * (2.4 + doctrine.aggression * 1.4) + agent.phase));
-            const preferredDistance = 2.15 + (agent.role === 'support' ? 0.45 : 0);
+            const preferredDistance = 3.5 + (agent.role === 'support' ? 0.45 : 0);
             const partner = opponent.agent;
             // A rank advances into a concrete opposing rank. Collision-safe
             // spacing below keeps the two sides distinct instead of blended.
             targetX = partner.x - direction * preferredDistance + direction * attackCycle * 0.22;
             const sharedLane = (agent.lane + partner.lane) * 0.5;
-            targetZ = sharedLane + agent.laneBias * 0.35
-                + direction * Math.sin(agent.phase + kingTime * 1.9) * (agent.engaged ? 0.2 : 0.08);
+            targetZ = sharedLane + agent.laneBias * 0.72
+                + direction * Math.sin(agent.phase + kingTime * 1.9) * (agent.engaged ? 0.34 : 0.15);
         } else if (!agent.retiring && order?.leader) {
             // Reinforcements advance as a queue behind their own vanguard. They
             // inherit the open ground when the leader falls instead of trying to
@@ -2180,7 +2266,7 @@ function updateCrowdSide(type, doctrine, delta) {
         agent.z = clamp(agent.z + agent.vz * delta, ARENA.minZ + 0.7, ARENA.maxZ - 0.7);
         const contactPartner = agent.engagementPartner;
         if (contactPartner && !contactPartner.retiring && Math.abs(contactPartner.z - agent.z) < 5.5) {
-            const contactSpacing = 1.15;
+            const contactSpacing = 3.25;
             if (type === 'bull' && agent.x > contactPartner.x - contactSpacing) {
                 agent.x = contactPartner.x - contactSpacing;
                 agent.vx = Math.min(agent.vx, contactPartner.vx || 0);
@@ -2326,7 +2412,7 @@ function separateCrowdRanks() {
         const agents = crowdAgents[type].filter((agent) => !agent.retiring);
         // A few inexpensive local solver passes prevent one resolved contact
         // from creating a new penetration with the rank in the next lane.
-        for (let pass = 0; pass < 3; pass++) {
+        for (let pass = 0; pass < 4; pass++) {
             const grid = new Map();
             for (const second of agents) {
                 const cellX = Math.floor((second.x - ARENA.minX) / cellSize);
@@ -2631,7 +2717,7 @@ function applySeparation(entity, delta) {
     entity.mesh.position.z += pushZ * delta * 2.8;
 }
 
-function makeCrowdYieldToChampion(entity) {
+function makeFriendlyCrowdYieldToChampion(entity) {
     // Detailed on-chain units are champions in the same physical battlefield,
     // not ghosts. Nearby aggregate ranks step aside with a small lateral bias;
     // this prevents either layer visibly travelling through the other while
@@ -2640,27 +2726,25 @@ function makeCrowdYieldToChampion(entity) {
     const championZ = entity.mesh.position.z;
     const clearance = entity.isWhale ? 5.6 : 3.45;
     let correctionZ = 0;
-    for (const type of ['bull', 'bear']) {
-        for (const agent of crowdAgents[type]) {
-            if (agent.retiring) continue;
-            const dx = agent.x - championX;
-            const dz = agent.z - championZ;
-            const distanceSq = dx * dx + dz * dz;
-            const radius = clearance + agent.size;
-            if (distanceSq >= radius * radius) continue;
-            const distance = Math.max(0.001, Math.sqrt(distanceSq));
-            const penetration = radius - distance;
-            const force = penetration / radius;
-            const lateralDirection = Math.sign(dz)
-                || agent.avoidanceSide
-                || (agent.laneSlot % 2 === 0 ? 1 : -1);
-            // Open a lateral corridor. Never compress the queue along X: that
-            // axis is owned exclusively by lane order and market casualties.
-            const lateralShift = lateralDirection * penetration * (0.78 + force * 0.18);
-            agent.z = clamp(agent.z + lateralShift, ARENA.minZ + 0.7, ARENA.maxZ - 0.7);
-            agent.vz += lateralDirection * force * 1.15;
-            correctionZ -= lateralShift * 0.22;
-        }
+    // Friendly ranks make room for their verified champion. Enemy ranks do not:
+    // they form a local combat contact handled by resolveChampionCrowdContact.
+    for (const agent of crowdAgents[entity.type]) {
+        if (agent.retiring) continue;
+        const dx = agent.x - championX;
+        const dz = agent.z - championZ;
+        const distanceSq = dx * dx + dz * dz;
+        const radius = clearance + agent.size;
+        if (distanceSq >= radius * radius) continue;
+        const distance = Math.max(0.001, Math.sqrt(distanceSq));
+        const penetration = radius - distance;
+        const force = penetration / radius;
+        const lateralDirection = Math.sign(dz)
+            || agent.avoidanceSide
+            || (agent.laneSlot % 2 === 0 ? 1 : -1);
+        const lateralShift = lateralDirection * penetration * (0.78 + force * 0.18);
+        agent.z = clamp(agent.z + lateralShift, ARENA.minZ + 0.7, ARENA.maxZ - 0.7);
+        agent.vz += lateralDirection * force * 1.15;
+        correctionZ -= lateralShift * 0.22;
     }
     // The detailed combatant also yields a little. Applying correction to both
     // simulation layers guarantees that a large bull/bear cannot be rendered on
@@ -2672,23 +2756,54 @@ function makeCrowdYieldToChampion(entity) {
     }
 }
 
-function keepChampionBehindEnemyRanks(entity) {
-    if (entity.forcedRetreatUntil > Date.now()) return;
-    const enemyRanks = crowdAgents[entity.type === 'bull' ? 'bear' : 'bull'].filter((agent) => !agent.retiring);
-    if (!enemyRanks.length) return;
-    const radius = entity.isWhale ? 4.8 : 2.8;
-    if (entity.type === 'bull') {
-        const forwardEnemy = Math.min(...enemyRanks.map((agent) => agent.x));
-        if (entity.mesh.position.x > forwardEnemy - radius) {
-            entity.mesh.position.x = forwardEnemy - radius;
-            entity.vx = Math.min(0, entity.vx);
-        }
-    } else {
-        const forwardEnemy = Math.max(...enemyRanks.map((agent) => agent.x));
-        if (entity.mesh.position.x < forwardEnemy + radius) {
-            entity.mesh.position.x = forwardEnemy + radius;
-            entity.vx = Math.max(0, entity.vx);
-        }
+function resolveChampionCrowdContact(entity) {
+    if (entity.forcedRetreatUntil > Date.now()) return null;
+    const direction = entity.type === 'bull' ? 1 : -1;
+    const enemyType = entity.type === 'bull' ? 'bear' : 'bull';
+    const radius = entity.isWhale ? 5.1 : 3.05;
+    const laneRadius = entity.isWhale ? 7.2 : 4.5;
+    const candidates = crowdAgents[enemyType].filter((agent) => (
+        !agent.retiring
+        && Math.abs(agent.z - entity.mesh.position.z) <= laneRadius + agent.size
+        && direction * (agent.x - entity.mesh.position.x) >= -radius - 0.8
+    ));
+    if (!candidates.length) return null;
+    const blocker = candidates.reduce((front, agent) => (
+        !front || direction * agent.x < direction * front.x ? agent : front
+    ), null);
+    const limit = blocker.x - direction * (radius + blocker.size * 0.42);
+    const distanceToLimit = direction * (limit - entity.mesh.position.x);
+    if (distanceToLimit > 0.7) return null;
+    if (direction > 0) entity.mesh.position.x = Math.min(entity.mesh.position.x, limit);
+    else entity.mesh.position.x = Math.max(entity.mesh.position.x, limit);
+    entity.vx = 0;
+    return blocker;
+}
+
+function getActiveChampionCrowdContact(entity, now) {
+    const contact = entity.frontContact;
+    if (!contact || entity.frontContactUntil <= now || contact.retiring) return null;
+    const enemyType = entity.type === 'bull' ? 'bear' : 'bull';
+    if (!crowdAgents[enemyType].includes(contact)) return null;
+    const maxLateral = entity.isWhale ? 8.5 : 5.6;
+    const maxLongitudinal = entity.isWhale ? 8 : 5.4;
+    if (Math.abs(contact.z - entity.mesh.position.z) > maxLateral) return null;
+    if (Math.abs(contact.x - entity.mesh.position.x) > maxLongitudinal) return null;
+    return contact;
+}
+
+function animateChampionCrowdCombat(entity, contact) {
+    entity.behavior = 'frontline';
+    entity.lineProximityAt = 0;
+    const dx = contact.x - entity.mesh.position.x;
+    const dz = contact.z - entity.mesh.position.z;
+    entity.mesh.rotation.y = Math.atan2(-dz, dx);
+    const strike = Math.max(0, Math.sin(entity.animTime * (entity.isWhale ? 6.8 : 9.2)));
+    entity.body.position.y = 1.3 + strike * 0.16;
+    entity.body.rotation.z = THREE.MathUtils.lerp(entity.body.rotation.z, -0.32 * strike, 0.34);
+    if (strike > 0.94 && entity.cooldown <= 0) {
+        entity.cooldown = entity.isWhale ? 1.25 : 0.82;
+        entity.body.scale.setScalar(entity.isWhale ? 1.22 : 1.14);
     }
 }
 
@@ -2733,7 +2848,11 @@ function updateBullKing(delta) {
         ? Math.sin((reactionAge / 2.2) * Math.PI) * kingReactionStrength
         : 0;
     const defending = now < kingDefenseUntil && Boolean(kingThreat);
-    if (!defending && now >= kingDefenseUntil) kingThreat = null;
+    if (!defending && now >= kingDefenseUntil) {
+        kingThreat = null;
+        kingDefenseTargetX = null;
+        kingDefenseTargetZ = null;
+    }
     const supporting = bullSupportUntil > now;
     const requestedDirective = deriveKingDirective({ tactics, defending, supporting });
     const urgentModeChange = defending || supporting || kingMode === 'defend' || kingMode === 'rally';
@@ -2742,7 +2861,7 @@ function updateBullKing(delta) {
     }
     const directive = deriveKingDirective({ tactics, mode: kingMode });
     const desiredBattleZ = clamp(crowdBattle.hotspotZ * 0.72, ARENA.minZ + 5, ARENA.maxZ - 5);
-    const urgentCommand = defending ? kingThreat.mesh.position.z : null;
+    const urgentCommand = defending ? kingDefenseTargetZ : null;
     if (Number.isFinite(urgentCommand)) {
         kingCommandZ = clamp(urgentCommand, ARENA.minZ + 5, ARENA.maxZ - 5);
         kingCommandZUntil = now + 3_200;
@@ -2754,21 +2873,25 @@ function updateBullKing(delta) {
         ? Math.min(state.frontlineX, crowdBattle.bullFrontX)
         : state.frontlineX;
     const guardBuffer = kingMode === 'guard' ? Math.max(0, -tactics.balance) * 5 : 0;
+    const commandBaseX = bullFrontReference - directive.trailingDistance - guardBuffer;
     let targetX = clamp(
-        defending
-            ? Math.min(kingThreat.mesh.position.x - 3.5, bullFrontReference + 3)
-            : bullFrontReference - directive.trailingDistance - guardBuffer,
+        defending && Number.isFinite(kingDefenseTargetX)
+            ? kingDefenseTargetX
+            : commandBaseX,
         ARENA.minX + 8,
         ARENA.maxX - 14,
     );
     let targetZ = kingCommandZ;
-    if (defending) targetX = Math.max(targetX, bullKingRig.position.x + 3.8);
     // During quiet/command states the king performs a deliberate air patrol
     // behind the army. It keeps him alive on screen without random movement.
     if (!defending) {
         const patrolRate = supporting ? 0.52 : kingMode === 'lead' ? 0.42 : 0.34;
-        targetX = clamp(targetX + Math.sin(kingTime * patrolRate) * 6.2, ARENA.minX + 8, ARENA.maxX - 14);
-        targetZ = clamp(targetZ + Math.cos(kingTime * patrolRate * 0.83) * 4.6, ARENA.minZ + 5, ARENA.maxZ - 5);
+        targetX = clamp(
+            Math.min(commandBaseX + Math.sin(kingTime * patrolRate) * 8.5, bullFrontReference - 5.5),
+            ARENA.minX + 8,
+            ARENA.maxX - 16,
+        );
+        targetZ = clamp(targetZ + Math.cos(kingTime * patrolRate * 0.83) * 7.2, ARENA.minZ + 5, ARENA.maxZ - 5);
     }
     const hover = Math.sin(kingTime * (1.25 + tactics.flowIntensity * 0.35)) * (prefersReducedMotion ? 0.18 : 0.62)
         + reaction * 0.22;
@@ -2778,8 +2901,8 @@ function updateBullKing(delta) {
     const previousYaw = bullKingRig.rotation.y;
     _kingPreviousPosition.copy(bullKingRig.position);
     dampVector(bullKingRig.position, _kingTarget, directive.response, directive.maxSpeed, delta, _kingMove);
-    const watchX = defending ? kingThreat.mesh.position.x : crowdBattle.hotspotX;
-    const watchZ = defending ? kingThreat.mesh.position.z : kingCommandZ;
+    const watchX = defending ? kingDefenseTargetX : crowdBattle.hotspotX;
+    const watchZ = defending ? kingDefenseTargetZ : kingCommandZ;
     const desiredYaw = Math.atan2(-(watchZ - bullKingRig.position.z), watchX - bullKingRig.position.x);
     const yawDelta = Math.atan2(Math.sin(desiredYaw - bullKingRig.rotation.y), Math.cos(desiredYaw - bullKingRig.rotation.y));
     const maxYawSpeed = defending ? 3.2 : 1.45;
@@ -2940,6 +3063,15 @@ function calculateCameraFraming(now) {
         totalWeight += crowdWeight;
     }
 
+    // Keep the commander inside the wider establishing shot even outside a
+    // scripted ward. His weight is intentionally smaller than the two armies.
+    if (bullKingRig) {
+        const kingWeight = 6.5;
+        weightedX += bullKingRig.position.x * kingWeight;
+        weightedZ += bullKingRig.position.z * kingWeight;
+        totalWeight += kingWeight;
+    }
+
     const x = clamp(weightedX / totalWeight, -46, 46);
     const z = clamp(weightedZ / totalWeight, ARENA.minZ + 3, ARENA.maxZ - 3);
     let variance = 0;
@@ -2958,6 +3090,18 @@ function calculateCameraFraming(now) {
     }
     lastCameraActionSpread = clamp(Math.sqrt(variance / Math.max(1, varianceWeight)), 0, 42);
     return { x, z, spread: lastCameraActionSpread };
+}
+
+function getKingViewDiagnostics() {
+    if (!bullKingRig || !camera) return { inView: false, screenX: null, screenY: null, screenDepth: null };
+    const projected = bullKingRig.position.clone().project(camera);
+    return {
+        inView: projected.z >= -1 && projected.z <= 1 && Math.abs(projected.x) <= 0.96 && Math.abs(projected.y) <= 0.94,
+        screenX: projected.x,
+        screenY: projected.y,
+        screenDepth: projected.z,
+        aheadOfBullFront: bullKingRig.position.x - crowdBattle.bullFrontX,
+    };
 }
 
 function clearCameraShakeOffset() {

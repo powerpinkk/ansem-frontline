@@ -9,8 +9,17 @@ describe('battlefield navigation', () => {
     it('creates stable lanes from the real transaction signature', () => {
         const trade = { txHash: 'real-solana-signature' };
         expect(tradeLane(trade)).toBe(tradeLane(trade));
-        expect(tradeLane(trade)).toBeGreaterThanOrEqual(-11.5);
-        expect(tradeLane(trade)).toBeLessThanOrEqual(11.5);
+        expect(tradeLane(trade)).toBeGreaterThanOrEqual(ARENA.minZ + 4);
+        expect(tradeLane(trade)).toBeLessThanOrEqual(ARENA.maxZ - 4);
+    });
+
+    it('opens woodland flank lanes without letting troops leave the arena', () => {
+        const lanes = Array.from({ length: 500 }, (_, index) => tradeLane({
+            txHash: `signature-${index.toString(36)}-${(index * 2_654_435_761).toString(16)}`,
+        }));
+        expect(Math.min(...lanes)).toBeLessThan(-20);
+        expect(Math.max(...lanes)).toBeGreaterThan(20);
+        expect(lanes.every((lane) => lane >= ARENA.minZ + 4 && lane <= ARENA.maxZ - 4)).toBe(true);
     });
 
     it('holds bulls and bears on their respective side of the pressure frontline', () => {

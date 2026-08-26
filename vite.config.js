@@ -5,6 +5,10 @@ export default defineConfig({
         // Three is intentionally isolated as one long-lived engine chunk.
         chunkSizeWarningLimit: 600,
         rollupOptions: {
+            input: {
+                main: 'index.html',
+                pixel: 'pixel-frontline.html',
+            },
             output: {
                 // The engine changes far less often than the simulation. Keeping
                 // it separate lets repeat visitors retain the large cached chunk.

@@ -194,8 +194,10 @@ async function fetchDexMarketData() {
     const trackedVolume = state.trackedPools.reduce((sum, pool) => sum + pool.volumeH24Usd, 0);
     state.marketCoverage = totalVolume > 0 ? (trackedVolume / totalVolume) * 100 : 0;
     const selectedPairs = pairs.filter((pair) => state.trackedPools.some((pool) => pool.address === pair.pairAddress));
-    const activity = summarizePoolActivity(selectedPairs);
+    const activity = summarizePoolActivity(selectedPairs, 'm5');
+    const activity1h = summarizePoolActivity(selectedPairs, 'h1');
     state.activity5m = activity;
+    state.activity1h = activity1h;
     callbacks.onActivityUpdate?.(activity);
     const liquidity = selectedPairs.reduce((sum, pair) => sum + Number(pair.liquidity?.usd || 0), 0);
     const price = liquidity > 0
@@ -203,7 +205,17 @@ async function fetchDexMarketData() {
         : Number(pairs[0].priceUsd || 0);
     const mcap = Number(pairs[0].marketCap || pairs[0].fdv || 0);
     const chg = Number(pairs[0].priceChange?.h1 || 0);
-    return { price, mcap, chg, pools: state.trackedPools.length, coverage: state.marketCoverage, referencePool: state.referencePool, activity, source: 'dexscreener' };
+    return {
+        price,
+        mcap,
+        chg,
+        pools: state.trackedPools.length,
+        coverage: state.marketCoverage,
+        referencePool: state.referencePool,
+        activity,
+        activity1h,
+        source: 'dexscreener',
+    };
 }
 
 async function fetchRelayMarketData() {

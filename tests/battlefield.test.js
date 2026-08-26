@@ -18,6 +18,15 @@ describe('volume-weighted battlefield forces', () => {
         expect(deriveVisualForces({ buySol: 10_000, sellSol: 10_000, buyCount: 5_000, sellCount: 5_000, maxPerSide: 120 }))
             .toMatchObject({ bull: 120, bear: 120, cap: 120 });
     });
+
+    it('uses one-hour transactions as strategic army depth while preserving the live wave', () => {
+        const buyersLead = deriveVisualForces({ buyCount1h: 900, sellCount1h: 100, buyCount: 20, sellCount: 20 });
+        const sellersLead = deriveVisualForces({ buyCount1h: 100, sellCount1h: 900, buyCount: 20, sellCount: 20 });
+        expect(buyersLead.bull).toBeGreaterThan(buyersLead.bear);
+        expect(buyersLead.hourBalance).toBeCloseTo(0.8);
+        expect(sellersLead.bear).toBeGreaterThan(sellersLead.bull);
+        expect(sellersLead.hourBalance).toBeCloseTo(-0.8);
+    });
 });
 
 describe('battle doctrines', () => {

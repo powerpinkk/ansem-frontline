@@ -2,6 +2,26 @@
 
 All notable changes are documented here. The project follows [Semantic Versioning](https://semver.org/) from version 2.1.0 onward.
 
+## [Unreleased]
+
+### Added
+
+- One-hour buy/sell market depth as the strategic input for aggregate army size.
+- A verified 30-second Pixel Frontline companion with Document Picture-in-Picture and popup fallback.
+- Long-soak diagnostics for King visibility, woodland engagements, champion contacts and lateral spread.
+
+### Changed
+
+- Widened the playable arena to 26 organic combat corridors with tree and rock avoidance on both flanks.
+- Replaced the Bull King's moving defense goal with a fixed, bounded intercept and persistent camera framing.
+- Replaced global champion clamping with local rank contact and combat animation.
+
+### Fixed
+
+- Prevented the King from following an endlessly advancing defense target or leaving the automatic shot.
+- Prevented verified troops from vibrating behind aggregate ranks or visually occupying the same body space.
+- Corrected asymmetric landscape obstacle sizing on negative-Z terrain.
+
 ## [2.1.0] - 2026-08-25
 
 ### Added
