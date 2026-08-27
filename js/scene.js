@@ -3,6 +3,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { CONFIG } from './config.js';
 import { deriveForceDoctrine, deriveKingDirective, deriveVisualForces, shouldKingWard } from './battlefield.js';
+import { deriveBullChargeProfile, pointToSegmentDistanceSquared, sweptCircleIntersects } from './combat.js';
 import { state } from './state.js';
 import { ARENA, clamp, clampArenaPosition, isFinitePosition, isUnitStranded, tacticalPatrolTarget, tradeLane, unitHasExpired } from './navigation.js';
 import { deriveBattleTactics } from './market.js';
@@ -18,7 +19,11 @@ let particles = [];
 let projectiles = [];
 let supportWaves = [];
 let kingStrikes = [];
+let chargeImpacts = [];
 let kingStrikeEvents = 0;
+let bullChargeStarts = 0;
+let bullChargeHits = 0;
+let lastBullChargeAt = 0;
 const MAX_ENTITIES_PER_SIDE = CONFIG.MAX_VISIBLE_UNITS_PER_SIDE;
 const MAX_ACTIVE_PARTICLES = 36;
 const obstacles = [];
@@ -139,6 +144,7 @@ geoEyeLaser.rotateZ(Math.PI / 2);
 const geoStaff = new THREE.CylinderGeometry(0.11, 0.16, 5.2, 8);
 const supportWaveGeometry = new THREE.RingGeometry(1, 1.35, 40);
 const unitAuraGeometry = new THREE.RingGeometry(1.2, 1.8, 24);
+const chargeImpactGeometry = new THREE.RingGeometry(0.82, 1.28, 28);
 const projectileGeometry = new THREE.CylinderGeometry(0.15, 0.15, 2.0, 8);
 projectileGeometry.rotateZ(Math.PI / 2);
 const projectileGlowGeometry = new THREE.CylinderGeometry(0.35, 0.35, 2.0, 8);
@@ -240,6 +246,7 @@ const matBearDarkFur = new THREE.MeshStandardMaterial({ color: 0x55351f, roughne
 const matSnout = new THREE.MeshPhysicalMaterial({ color: 0x050505, metalness: 0.9, roughness: 0.1 });
 const matParticleBull = new THREE.MeshBasicMaterial({ color: 0x00ff88 });
 const matParticleBear = new THREE.MeshBasicMaterial({ color: 0xff3366 });
+const matParticleDust = new THREE.MeshBasicMaterial({ color: 0x9b7653 });
 const matKingBlack = new THREE.MeshPhysicalMaterial({ color: 0x111b18, metalness: 0.42, roughness: 0.34, clearcoat: 0.45 });
 const matKingWing = new THREE.MeshPhysicalMaterial({ color: 0x183c30, emissive: 0x052a1c, emissiveIntensity: 0.55, metalness: 0.2, roughness: 0.48, side: THREE.DoubleSide });
 const matKingSkin = new THREE.MeshStandardMaterial({ color: 0x75452f, roughness: 0.72 });
@@ -303,6 +310,7 @@ const _rayTarget = new THREE.Vector3();
 const _projectileTarget = new THREE.Vector3();
 const _projectileDirection = new THREE.Vector3();
 const _meleeDirection = new THREE.Vector3();
+const _chargeImpactPosition = new THREE.Vector3();
 const _screenVector = new THREE.Vector3();
 const _frontlineTransform = new THREE.Object3D();
 const pointerStart = new THREE.Vector2();
@@ -333,21 +341,41 @@ export function initScene(callbacks = {}) {
                 id: entity.trade?.txHash || entity.trade?.id || `${entity.type}-${entity.bornAt}`,
                 type: entity.type,
                 isWhale: entity.isWhale,
+                hp: entity.hp,
                 x: entity.mesh.position.x,
                 z: entity.mesh.position.z,
                 retired: entity.retired,
                 hasTarget: Boolean(entity.target),
+                targetId: entity.target?.trade?.txHash || entity.target?.trade?.id || null,
                 behavior: entity.behavior,
+                laneTarget: entity.laneTarget,
+                avoidanceSide: entity.avoidanceSide,
+                avoidanceMs: Math.max(0, entity.avoidanceUntil - Date.now()),
+                edgeEscapeZ: entity.edgeEscapeZ,
+                edgeEscapeMs: Math.max(0, entity.edgeEscapeUntil - Date.now()),
+                separationX: entity.separationX,
+                separationZ: entity.separationZ,
                 frontContact: Boolean(entity.frontContact && entity.frontContactUntil > Date.now()),
                 stuckTime: entity.stuckTime,
                 frameTravel: entity.lastFrameTravel || 0,
                 crowdStrikes: entity.crowdStrikes || 0,
                 forcedRetreat: entity.forcedRetreatUntil > Date.now(),
+                chargePhase: entity.chargePhase,
+                chargeStarts: entity.chargeStarts,
+                chargeHits: entity.chargeHits,
+                chargeDistance: entity.chargeDistance,
             })),
             projectiles: projectiles.length,
             supportWaves: supportWaves.length,
             kingStrikes: kingStrikes.length,
             kingStrikeEvents,
+            chargeImpacts: chargeImpacts.length,
+            bullCharges: {
+                active: entities.filter((entity) => entity.chargePhase && entity.chargePhase !== 'idle').length,
+                rushing: entities.filter((entity) => entity.chargePhase === 'rush').length,
+                starts: bullChargeStarts,
+                hits: bullChargeHits,
+            },
             supportedBulls: entities.filter((entity) => entity.type === 'bull' && entity.supportUntil > Date.now()).length,
             battle: getSceneTactics(),
             forces: {
@@ -513,9 +541,37 @@ export function initScene(callbacks = {}) {
                     entity.crowdStrikeProgress = 0;
                     entity.stuckTime = 0;
                     entity.lastPosition.set(entity.mesh.position.x, entity.mesh.position.z);
+                    resetBullCharge(entity, 0);
                 }
             }
             return pairs;
+        };
+        window.__ansemStageBullCharge = () => {
+            const bull = entities.find((entity) => entity.type === 'bull' && entity.isWhale && !entity.retired);
+            const bear = entities.find((entity) => entity.type === 'bear' && !entity.isWhale && !entity.retired && entity.hp > 0)
+                || entities.find((entity) => entity.type === 'bear' && !entity.retired && entity.hp > 0);
+            if (!bull || !bear) return null;
+            const z = [-28, -24, -20, -16, -12, -8, 0, 8, 12, 16, 20, 24, 28]
+                .find((candidateZ) => isChargePathClear(-22, candidateZ, 13, candidateZ, 3.8)) ?? 0;
+            bull.mesh.position.set(-22, getTrenchHeight(-22, z), z);
+            bear.mesh.position.set(8, getTrenchHeight(8, z), z);
+            bull.laneTarget = z;
+            bear.laneTarget = z;
+            bull.target = bear;
+            bear.target = bull;
+            bull.frontContact = null;
+            bull.frontContactUntil = 0;
+            bull.frontContactHoldX = null;
+            bull.crowdStrikeProgress = 0;
+            bull.stuckTime = 0;
+            bull.lastPosition.set(bull.mesh.position.x, bull.mesh.position.z);
+            resetBullCharge(bull, 0);
+            lastBullChargeAt = 0;
+            return {
+                bull: bull.trade?.txHash || bull.trade?.id || `bull-${bull.bornAt}`,
+                bear: bear.trade?.txHash || bear.trade?.id || `bear-${bear.bornAt}`,
+                bearHp: bear.hp,
+            };
         };
         window.__ansemTriggerReclamation = () => {
             const bear = entities.find((entity) => entity.type === 'bear');
@@ -721,11 +777,21 @@ export function spawnUnit(type, initial = false, isWhale = false, trade = null) 
     });
     if (bodyGroup.children[0]?.isMesh) bodyGroup.children[0].castShadow = true;
     const sequence = entities.length;
-    const spawnZ = tradeLane(trade, sequence);
+    const rawSpawnZ = tradeLane(trade, sequence);
+    // A 2.8x giant needs enough lateral room to choose one route around trees
+    // without alternating between obstacle avoidance and the arena clamp.
+    const spawnZ = isWhale
+        ? clamp(rawSpawnZ, ARENA.minZ + 8, ARENA.maxZ - 8)
+        : rawSpawnZ;
     const entranceOffset = initial ? (isBull ? -6 : 6) : 0;
     const spawnX = (isBull ? ARENA.spawnBullX : ARENA.spawnBearX) + entranceOffset;
+    const spawnPosition = findOpenEntitySpawn(type, spawnX, spawnZ, isWhale);
 
-    group.position.set(spawnX, getTrenchHeight(spawnX, spawnZ), spawnZ);
+    group.position.set(
+        spawnPosition.x,
+        getTrenchHeight(spawnPosition.x, spawnPosition.z),
+        spawnPosition.z,
+    );
     scene.add(group);
 
     const entity = {
@@ -745,11 +811,14 @@ export function spawnUnit(type, initial = false, isWhale = false, trade = null) 
         baseScale: new THREE.Vector3(1, 1, 1),
         trade,
         power: Math.max(0.75, Math.min(3, Math.log10((trade?.solValue || 0.1) + 1) + 0.8)),
-        laneTarget: spawnZ,
-        patrolPhase: ((spawnZ - ARENA.minZ) / (ARENA.maxZ - ARENA.minZ)) * Math.PI * 2 + sequence * 0.73,
+        laneTarget: spawnPosition.z,
+        patrolPhase: ((spawnPosition.z - ARENA.minZ) / (ARENA.maxZ - ARENA.minZ)) * Math.PI * 2 + sequence * 0.73,
         patrolSide: sequence % 2 === 0 ? 1 : -1,
         avoidanceSide: sequence % 2 === 0 ? 1 : -1,
         avoidanceUntil: 0,
+        edgeEscapeUntil: 0,
+        edgeEscapeZ: 0,
+        contactSides: new Map(),
         separationX: 0,
         separationZ: 0,
         forcedRetreatUntil: 0,
@@ -766,11 +835,78 @@ export function spawnUnit(type, initial = false, isWhale = false, trade = null) 
         crowdStrikeProgress: 0,
         crowdStrikes: 0,
         lastFrameTravel: 0,
-        lastPosition: new THREE.Vector2(spawnX, spawnZ),
+        lastPosition: new THREE.Vector2(spawnPosition.x, spawnPosition.z),
+        chargePhase: 'idle',
+        chargePhaseStartedAt: 0,
+        chargeCooldownUntil: Date.now() + 1_800 + (sequence % 5) * 420,
+        chargeDirectionX: 1,
+        chargeDirectionZ: 0,
+        chargeEndX: spawnX,
+        chargeEndZ: spawnZ,
+        chargeProfile: null,
+        chargeTarget: null,
+        chargeHitEntities: new Set(),
+        chargeHitRanks: new Set(),
+        chargeStarts: 0,
+        chargeHits: 0,
+        chargeRunHits: 0,
+        chargeDistance: 0,
+        chargeDustDistance: 0,
+        chargeStopRequested: false,
     };
     group.userData.entity = entity;
     entities.push(entity);
     publishVisibleUnitCount();
+}
+
+function findOpenEntitySpawn(type, baseX, preferredZ, isWhale) {
+    const direction = type === 'bull' ? 1 : -1;
+    const padding = isWhale ? 4 : 1.5;
+    const minZ = ARENA.minZ + (isWhale ? 7.5 : 2);
+    const maxZ = ARENA.maxZ - (isWhale ? 7.5 : 2);
+    const lateralStep = isWhale ? 8.2 : 3.15;
+    const lateralOffsets = [0];
+    for (let index = 1; index <= 10; index++) {
+        const distance = Math.ceil(index / 2) * lateralStep;
+        lateralOffsets.push(index % 2 ? distance : -distance);
+    }
+    const candidates = [];
+    for (const depth of [0, 6.5, 13, 19.5]) {
+        for (const offset of lateralOffsets) {
+            const x = clamp(baseX + direction * depth, ARENA.minX + padding, ARENA.maxX - padding);
+            const z = clamp(preferredZ + offset, minZ, maxZ);
+            if (candidates.some((candidate) => Math.abs(candidate.x - x) < 0.01 && Math.abs(candidate.z - z) < 0.01)) continue;
+            candidates.push({ x, z });
+        }
+    }
+    let best = candidates[0] || { x: baseX, z: preferredZ };
+    let bestClearance = Number.NEGATIVE_INFINITY;
+    for (const candidate of candidates) {
+        let minimumClearance = Number.POSITIVE_INFINITY;
+        for (const other of entities) {
+            if (other.retired || other.hp <= 0 || other.type !== type) continue;
+            const bothGiants = isWhale && other.isWhale;
+            const eitherGiant = isWhale || other.isWhale;
+            const required = bothGiants ? 7.4 : eitherGiant ? 4.9 : 2.5;
+            minimumClearance = Math.min(
+                minimumClearance,
+                Math.hypot(candidate.x - other.mesh.position.x, candidate.z - other.mesh.position.z) - required,
+            );
+        }
+        for (const obstacle of obstacles) {
+            const required = obstacle.radius + (isWhale ? 4.35 : 1.9);
+            minimumClearance = Math.min(
+                minimumClearance,
+                Math.hypot(candidate.x - obstacle.x, candidate.z - obstacle.z) - required,
+            );
+        }
+        if (minimumClearance > bestClearance) {
+            bestClearance = minimumClearance;
+            best = candidate;
+        }
+        if (minimumClearance >= 0) return candidate;
+    }
+    return best;
 }
 
 function retireEntity(entity) {
@@ -782,7 +918,10 @@ function retireEntity(entity) {
         onInspectUnit(null);
     }
     entity.target = null;
-    entities.forEach((other) => { if (other.target === entity) other.target = null; });
+    entities.forEach((other) => {
+        if (other.target === entity) other.target = null;
+        other.contactSides?.delete(entity);
+    });
     for (let i = projectiles.length - 1; i >= 0; i--) {
         if (projectiles[i].target === entity || projectiles[i].attacker === entity) removeProjectile(i);
     }
@@ -1748,7 +1887,9 @@ function applyDamage(attacker, target, dmg, isCrit, direction) {
     if (isCrit) soundCrit();
     else soundHit();
 
-    const force = isCrit ? (attacker.isWhale ? 25 : 12) : (attacker.isWhale ? 15 : 6);
+    const baseForce = isCrit ? (attacker.isWhale ? 25 : 12) : (attacker.isWhale ? 15 : 6);
+    const massScale = target.isWhale ? (attacker.isWhale ? 0.28 : 0.1) : 1;
+    const force = baseForce * massScale;
     target.vx = direction.x * force;
     target.vz = direction.z * force;
 
@@ -1814,9 +1955,358 @@ function removeProjectile(index) {
     projectiles.splice(index, 1);
 }
 
+function resetBullCharge(entity, cooldownMs = entity.chargeProfile?.cooldownMs || 0) {
+    entity.chargePhase = 'idle';
+    entity.chargePhaseStartedAt = 0;
+    entity.chargeCooldownUntil = Date.now() + Math.max(0, cooldownMs);
+    entity.chargeProfile = null;
+    entity.chargeTarget = null;
+    entity.chargeHitEntities.clear();
+    entity.chargeHitRanks.clear();
+    entity.chargeDistance = 0;
+    entity.chargeDustDistance = 0;
+    entity.chargeRunHits = 0;
+    entity.chargeStopRequested = false;
+    entity.aura?.scale.setScalar(1);
+}
+
+function isBullChargeActive(entity) {
+    return entity.type === 'bull' && entity.isWhale && entity.chargePhase !== 'idle';
+}
+
+function isChargePathClear(startX, startZ, endX, endZ, clearance = 3.8) {
+    return obstacles.every((obstacle) => {
+        const { distanceSquared, projection } = pointToSegmentDistanceSquared(
+            obstacle.x,
+            obstacle.z,
+            startX,
+            startZ,
+            endX,
+            endZ,
+        );
+        // Obstacles just behind the starting pose must not veto a forward rush.
+        if (projection <= 0.001) {
+            const forwardX = endX - startX;
+            const forwardZ = endZ - startZ;
+            if ((obstacle.x - startX) * forwardX + (obstacle.z - startZ) * forwardZ < 0) return true;
+        }
+        const safeRadius = obstacle.radius + clearance;
+        return distanceSquared >= safeRadius * safeRadius;
+    });
+}
+
+function findBullChargeTarget(entity, profile) {
+    const startX = entity.mesh.position.x;
+    const startZ = entity.mesh.position.z;
+    const detailed = entities
+        .filter((other) => other !== entity && other.type === 'bear' && !other.retired && other.hp > 0)
+        .map((other) => ({ kind: 'entity', ref: other, x: other.mesh.position.x, z: other.mesh.position.z }))
+        .sort((first, second) => Math.hypot(first.x - startX, first.z - startZ) - Math.hypot(second.x - startX, second.z - startZ));
+    const ranks = crowdAgents.bear
+        .filter((agent) => !agent.retiring)
+        .map((agent) => ({ kind: 'rank', ref: agent, x: agent.x, z: agent.z }))
+        .sort((first, second) => Math.hypot(first.x - startX, first.z - startZ) - Math.hypot(second.x - startX, second.z - startZ));
+
+    for (const candidate of [...detailed, ...ranks]) {
+        const dx = candidate.x - startX;
+        const dz = candidate.z - startZ;
+        const distance = Math.hypot(dx, dz);
+        if (dx < 9 || distance < 12 || distance > profile.maxDistance + 4 || Math.abs(dz) > 17) continue;
+        const directionX = dx / distance;
+        const directionZ = dz / distance;
+        const travel = Math.min(profile.maxDistance, distance + 5.2);
+        const endX = clamp(startX + directionX * travel, ARENA.minX + 4, ARENA.maxX - 4);
+        const endZ = clamp(startZ + directionZ * travel, ARENA.minZ + 4, ARENA.maxZ - 4);
+        if (!isChargePathClear(startX, startZ, endX, endZ, profile.corridorRadius + 0.45)) continue;
+        return { ...candidate, directionX, directionZ, endX, endZ };
+    }
+    return null;
+}
+
+function tryStartBullCharge(entity, tactics, now) {
+    if (entity.type !== 'bull' || !entity.isWhale || entity.chargePhase !== 'idle'
+        || entity.forcedRetreatUntil > now || now < entity.chargeCooldownUntil) return false;
+    const profile = deriveBullChargeProfile({
+        balance: tactics.balance,
+        flowIntensity: tactics.flowIntensity,
+        solValue: entity.trade?.solValue,
+        power: entity.power,
+    });
+    if (!profile.enabled) return false;
+    const activeCharges = entities.filter((other) => isBullChargeActive(other)).length;
+    if (activeCharges >= profile.maxConcurrent) return false;
+    const spacingMs = 900 - tactics.flowIntensity * 520;
+    if (now - lastBullChargeAt < spacingMs) return false;
+    const target = findBullChargeTarget(entity, profile);
+    if (!target) return false;
+
+    entity.chargePhase = 'windup';
+    entity.chargePhaseStartedAt = now;
+    entity.chargeDirectionX = target.directionX;
+    entity.chargeDirectionZ = target.directionZ;
+    entity.chargeEndX = target.endX;
+    entity.chargeEndZ = target.endZ;
+    entity.chargeProfile = profile;
+    entity.chargeTarget = target.ref;
+    entity.chargeHitEntities.clear();
+    entity.chargeHitRanks.clear();
+    entity.chargeDistance = 0;
+    entity.chargeDustDistance = 0;
+    entity.chargeRunHits = 0;
+    entity.chargeStopRequested = false;
+    entity.frontContact = null;
+    entity.frontContactUntil = 0;
+    entity.frontContactHoldX = null;
+    entity.crowdStrikeProgress = 0;
+    entity.vx = 0;
+    entity.vz = 0;
+    entity.mesh.rotation.y = Math.atan2(-target.directionZ, target.directionX);
+    entity.chargeStarts += 1;
+    bullChargeStarts += 1;
+    lastBullChargeAt = now;
+    return true;
+}
+
+function transitionBullChargeToRecovery(entity, now) {
+    if (entity.chargePhase === 'recover') return;
+    entity.chargePhase = 'recover';
+    entity.chargePhaseStartedAt = now;
+    entity.chargeStopRequested = false;
+    entity.vx = 0;
+    entity.vz = 0;
+}
+
+function animateBullChargeLegs(entity, phase, progress) {
+    if (phase === 'windup') {
+        const scrape = Math.sin(progress * Math.PI * 5);
+        entity.legs[0].rotation.z = -0.5 + scrape * 0.22;
+        entity.legs[1].rotation.z = 0.34 - scrape * 0.18;
+        entity.legs[2].rotation.z = 0.18;
+        entity.legs[3].rotation.z = -0.18;
+        return;
+    }
+    if (phase === 'rush') {
+        const stride = Math.sin(entity.animTime * 25);
+        const opposite = Math.sin(entity.animTime * 25 + Math.PI);
+        entity.legs[0].rotation.z = stride * 0.94;
+        entity.legs[3].rotation.z = stride * 0.94;
+        entity.legs[1].rotation.z = opposite * 0.94;
+        entity.legs[2].rotation.z = opposite * 0.94;
+        return;
+    }
+    const settle = (1 - progress) * Math.sin(progress * Math.PI * 4) * 0.42;
+    entity.legs[0].rotation.z = settle;
+    entity.legs[3].rotation.z = settle;
+    entity.legs[1].rotation.z = -settle;
+    entity.legs[2].rotation.z = -settle;
+}
+
+function spawnChargeImpact(x, z, strength = 1) {
+    while (chargeImpacts.length >= 10) {
+        const oldest = chargeImpacts.shift();
+        scene.remove(oldest.mesh);
+        oldest.mesh.material.dispose();
+    }
+    const material = new THREE.MeshBasicMaterial({
+        color: 0x00ff88,
+        transparent: true,
+        opacity: 0.72,
+        side: THREE.DoubleSide,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        toneMapped: false,
+    });
+    const mesh = new THREE.Mesh(chargeImpactGeometry, material);
+    mesh.rotation.x = -Math.PI / 2;
+    mesh.position.set(x, getTrenchHeight(x, z) + 0.22, z);
+    mesh.scale.setScalar(1.2 + strength * 0.32);
+    scene.add(mesh);
+    chargeImpacts.push({ mesh, age: 0, strength });
+}
+
+function retireRankFromBullCharge(entity, rank) {
+    if (rank.retiring || entity.chargeHitRanks.has(rank.id)) return false;
+    rank.retiring = true;
+    rank.life = Math.min(rank.life, 0.72);
+    const partner = rank.engagementPartner;
+    rank.engagementPartner = null;
+    if (partner?.engagementPartner === rank) partner.engagementPartner = null;
+    entity.chargeHitRanks.add(rank.id);
+    entity.chargeHits += 1;
+    entity.chargeRunHits += 1;
+    bullChargeHits += 1;
+    return true;
+}
+
+function applyBullChargeCollisions(entity, startX, startZ, endX, endZ, now) {
+    const profile = entity.chargeProfile;
+    if (!profile) return;
+    const remaining = Math.max(0, profile.rankCapacity - entity.chargeRunHits);
+    if (remaining <= 0) {
+        entity.chargeStopRequested = true;
+        return;
+    }
+    const detailedHits = entities
+        .filter((other) => other !== entity && other.type === 'bear' && !other.retired && other.hp > 0 && !entity.chargeHitEntities.has(other))
+        .map((other) => {
+            const radius = profile.corridorRadius + (other.isWhale ? 6.15 : 1.45);
+            const collision = sweptCircleIntersects({
+                pointX: other.mesh.position.x,
+                pointZ: other.mesh.position.z,
+                startX,
+                startZ,
+                endX,
+                endZ,
+                radius,
+            });
+            return { other, ...collision };
+        })
+        .filter((collision) => collision.hit)
+        .sort((first, second) => first.entryProjection - second.entryProjection);
+
+    let collisionEndX = endX;
+    let collisionEndZ = endZ;
+    for (const { other, entryProjection } of detailedHits) {
+        if (entity.chargeRunHits >= profile.rankCapacity) break;
+        entity.chargeHitEntities.add(other);
+        _meleeDirection.set(entity.chargeDirectionX, 0, entity.chargeDirectionZ).normalize();
+        const critical = other.isWhale || profile.pressureScale >= 1.12;
+        applyDamage(entity, other, profile.damage, critical, _meleeDirection);
+        other.vx += entity.chargeDirectionX * (other.isWhale ? 9 : 17);
+        other.vz += entity.chargeDirectionZ * (other.isWhale ? 9 : 17);
+        entity.chargeHits += 1;
+        entity.chargeRunHits += 1;
+        bullChargeHits += 1;
+        spawnChargeImpact(other.mesh.position.x, other.mesh.position.z, other.isWhale ? 1.5 : 1);
+        if (other.isWhale) {
+            // Stop at the first time of impact, not at this frame's requested
+            // end position. This is the key difference between detecting a
+            // low-FPS collision and actually preventing two giant meshes from
+            // ending the frame inside one another.
+            const safeProjection = Math.max(0, entryProjection - 0.012);
+            collisionEndX = startX + (endX - startX) * safeProjection;
+            collisionEndZ = startZ + (endZ - startZ) * safeProjection;
+            entity.chargeDistance = Math.max(0, entity.chargeDistance - Math.hypot(endX - collisionEndX, endZ - collisionEndZ));
+            entity.mesh.position.x = collisionEndX;
+            entity.mesh.position.z = collisionEndZ;
+            entity.chargeStopRequested = true;
+            break;
+        }
+    }
+
+    const rankHits = crowdAgents.bear
+        .filter((rank) => !rank.retiring && !entity.chargeHitRanks.has(rank.id))
+        .map((rank) => {
+            const collision = sweptCircleIntersects({
+                pointX: rank.x,
+                pointZ: rank.z,
+                startX,
+                startZ,
+                endX: collisionEndX,
+                endZ: collisionEndZ,
+                radius: profile.corridorRadius + rank.size * 0.72,
+            });
+            return { rank, ...collision };
+        })
+        .filter((collision) => collision.hit)
+        .sort((first, second) => first.entryProjection - second.entryProjection);
+    let firstRankImpact = null;
+    for (const { rank } of rankHits) {
+        if (entity.chargeRunHits >= profile.rankCapacity) break;
+        if (!retireRankFromBullCharge(entity, rank)) continue;
+        if (!firstRankImpact) firstRankImpact = rank;
+        _chargeImpactPosition.set(rank.x, getTrenchHeight(rank.x, rank.z), rank.z);
+        spawnParticles(_chargeImpactPosition, matParticleBull, false, false, 0.68);
+    }
+    if (firstRankImpact) spawnChargeImpact(firstRankImpact.x, firstRankImpact.z, 0.82);
+    if (entity.chargeRunHits > 0) {
+        state.screenShake = Math.max(state.screenShake, prefersReducedMotion ? 0 : 0.055);
+    }
+    if (entity.chargeRunHits >= profile.rankCapacity) entity.chargeStopRequested = true;
+    if (entity.chargeStopRequested) transitionBullChargeToRecovery(entity, now);
+}
+
+function updateBullCharge(entity, delta, now) {
+    const profile = entity.chargeProfile;
+    if (!profile) {
+        resetBullCharge(entity, 1_500);
+        return { handled: true, moving: false };
+    }
+    entity.behavior = `charge-${entity.chargePhase}`;
+    entity.lineProximityAt = 0;
+    entity.vx = 0;
+    entity.vz = 0;
+    const elapsed = now - entity.chargePhaseStartedAt;
+
+    if (entity.chargePhase === 'windup') {
+        const progress = clamp(elapsed / profile.windupMs, 0, 1);
+        const eased = progress * progress * (3 - 2 * progress);
+        entity.body.position.y = 1.3 - Math.sin(eased * Math.PI) * 0.22;
+        entity.body.rotation.z = 0.18 * eased;
+        entity.body.scale.set(1 - eased * 0.04, 0.94 + eased * 0.04, 1 + eased * 0.05);
+        entity.aura.scale.setScalar(1 + eased * 0.42);
+        entity.aura.material.opacity = 0.25 + eased * 0.28;
+        animateBullChargeLegs(entity, 'windup', progress);
+        if (elapsed >= profile.windupMs) {
+            entity.chargePhase = 'rush';
+            entity.chargePhaseStartedAt = now;
+            entity.chargeDistance = 0;
+            entity.chargeDustDistance = 0;
+        }
+        return { handled: true, moving: false };
+    }
+
+    if (entity.chargePhase === 'rush') {
+        const startX = entity.mesh.position.x;
+        const startZ = entity.mesh.position.z;
+        const remainingDistance = Math.hypot(entity.chargeEndX - startX, entity.chargeEndZ - startZ);
+        const step = Math.min(remainingDistance, profile.speed * delta);
+        entity.mesh.position.x += entity.chargeDirectionX * step;
+        entity.mesh.position.z += entity.chargeDirectionZ * step;
+        entity.chargeDistance += step;
+        entity.chargeDustDistance += step;
+        entity.mesh.rotation.y = Math.atan2(-entity.chargeDirectionZ, entity.chargeDirectionX);
+        entity.body.position.y = 1.17 + Math.abs(Math.sin(entity.animTime * 25)) * 0.11;
+        entity.body.rotation.z = -0.29;
+        entity.body.scale.set(1.12, 0.94, 0.98);
+        entity.aura.scale.setScalar(1.52 + Math.sin(entity.animTime * 12) * 0.08);
+        entity.aura.material.opacity = 0.48;
+        animateBullChargeLegs(entity, 'rush', 0);
+        if (entity.chargeDustDistance >= 4.2) {
+            entity.chargeDustDistance %= 4.2;
+            _chargeImpactPosition.set(startX - entity.chargeDirectionX * 1.2, getTrenchHeight(startX, startZ), startZ - entity.chargeDirectionZ * 1.2);
+            spawnParticles(_chargeImpactPosition, matParticleDust, false, false, 0.7);
+        }
+        applyBullChargeCollisions(entity, startX, startZ, entity.mesh.position.x, entity.mesh.position.z, now);
+        // End on simulated distance, not wall-clock time. Software WebGL can
+        // render at 2fps; a real-time timeout previously cancelled the rush
+        // halfway across the field even though swept collision was correct.
+        if (entity.chargePhase === 'rush' && remainingDistance <= step + 0.05) {
+            transitionBullChargeToRecovery(entity, now);
+        }
+        return { handled: true, moving: true };
+    }
+
+    const progress = clamp(elapsed / profile.recoverMs, 0, 1);
+    const recoil = (1 - progress) * Math.sin(progress * Math.PI * 3);
+    entity.body.position.y = 1.3 + Math.abs(recoil) * 0.2;
+    entity.body.rotation.z = -0.29 * (1 - progress) + recoil * 0.12;
+    entity.body.scale.set(1 + (1 - progress) * 0.08, 1 - (1 - progress) * 0.04, 1);
+    entity.aura.scale.setScalar(1 + (1 - progress) * 0.48);
+    animateBullChargeLegs(entity, 'recover', progress);
+    if (elapsed >= profile.recoverMs) {
+        const cooldown = profile.cooldownMs + (entity.chargeStarts % 4) * 370;
+        resetBullCharge(entity, cooldown);
+        entity.lastPosition.set(entity.mesh.position.x, entity.mesh.position.z);
+        entity.stuckTime = 0;
+    }
+    return { handled: true, moving: false };
+}
+
 function updateEntities(delta) {
     const finished = [];
     const now = Date.now();
+    const { tactics } = getSceneTactics(now);
     state.frontlineX += (state.targetFrontlineX - state.frontlineX) * 2 * delta;
 
     frontlineLaser.position.x = state.frontlineX;
@@ -1850,20 +2340,29 @@ function updateEntities(delta) {
 
         e.animTime += delta;
         e.cooldown -= delta;
-        e.mesh.position.x += e.vx * delta;
-        e.mesh.position.z += e.vz * delta;
-        e.vx *= 0.85;
-        e.vz *= 0.85;
+        if (!isBullChargeActive(e)) {
+            e.mesh.position.x += e.vx * delta;
+            e.mesh.position.z += e.vz * delta;
+            // Time-based damping behaves identically at 2fps and 120fps. The
+            // previous per-frame multiplier left large knockback active much
+            // longer on slow renderers and made giants oscillate after impact.
+            e.vx = THREE.MathUtils.damp(e.vx, 0, 8, delta);
+            e.vz = THREE.MathUtils.damp(e.vz, 0, 8, delta);
+        } else {
+            e.vx = 0;
+            e.vz = 0;
+        }
 
         enforceArenaBounds(e);
 
         e.mesh.position.y = getTrenchHeight(e.mesh.position.x, e.mesh.position.z);
         const forcedRetreat = e.forcedRetreatUntil > now;
-        const activeFrontContact = getActiveChampionCrowdContact(e, now);
+        if (forcedRetreat && isBullChargeActive(e)) resetBullCharge(e, 2_500);
+        const activeFrontContact = isBullChargeActive(e) ? null : getActiveChampionCrowdContact(e, now);
         if (forcedRetreat || e.target?.hp <= 0 || e.target?.retired) e.target = null;
         if (activeFrontContact) e.target = null;
 
-        if (!e.target && !forcedRetreat && !activeFrontContact) {
+        if (!e.target && !forcedRetreat && !activeFrontContact && !isBullChargeActive(e)) {
             let closest = null;
             const sight = e.isWhale ? 52 : 40;
             let minDist = sight * sight;
@@ -1885,8 +2384,17 @@ function updateEntities(delta) {
         const dmgBase = (e.isWhale ? 150 : 35) * e.power * supportMultiplier;
         let isMoving = false;
         let animatedFrontContact = false;
+        let chargeAnimated = false;
 
-        if (forcedRetreat) {
+        if (!forcedRetreat && !activeFrontContact && !isBullChargeActive(e)) {
+            tryStartBullCharge(e, tactics, now);
+        }
+
+        if (isBullChargeActive(e)) {
+            const chargeUpdate = updateBullCharge(e, delta, now);
+            isMoving = chargeUpdate.moving;
+            chargeAnimated = chargeUpdate.handled;
+        } else if (forcedRetreat) {
             e.behavior = 'retreat';
             e.lineProximityAt = 0;
             const dx = e.forcedRetreatX - e.mesh.position.x;
@@ -1907,7 +2415,8 @@ function updateEntities(delta) {
             const dx = e.target.mesh.position.x - e.mesh.position.x;
             const dz = e.target.mesh.position.z - e.mesh.position.z;
             const distSq = dx * dx + dz * dz;
-            const attackDistSq = e.isWhale ? 100.0 : 10.0;
+            const attackDistance = getDetailedCombatSpacing(e, e.target);
+            const attackDistSq = attackDistance * attackDistance;
 
             if (distSq > attackDistSq) {
                 if (Math.abs(e.vx) < 1) {
@@ -2004,26 +2513,67 @@ function updateEntities(delta) {
             isMoving = true;
         }
 
-        applySeparation(e, delta);
-        makeFriendlyCrowdYieldToChampion(e);
-        const crowdContact = resolveChampionCrowdContact(e);
-        if (crowdContact) {
-            e.frontContact = crowdContact;
-            e.frontContactUntil = now + 950;
-            e.target = null;
-            isMoving = false;
-            if (!animatedFrontContact || crowdContact !== activeFrontContact) {
-                animateChampionCrowdCombat(e, crowdContact, delta);
+        if (!chargeAnimated) {
+            applySeparation(e, delta);
+            makeFriendlyCrowdYieldToChampion(e);
+            const crowdContact = resolveChampionCrowdContact(e);
+            if (crowdContact) {
+                e.frontContact = crowdContact;
+                e.frontContactUntil = now + 950;
+                e.target = null;
+                isMoving = false;
+                if (!animatedFrontContact || crowdContact !== activeFrontContact) {
+                    animateChampionCrowdCombat(e, crowdContact, delta);
+                }
+            } else if (!activeFrontContact) {
+                e.frontContact = null;
+                e.frontContactHoldX = null;
+                e.crowdStrikeProgress = 0;
             }
-        } else if (!activeFrontContact) {
-            e.frontContact = null;
-            e.frontContactHoldX = null;
-            e.crowdStrikeProgress = 0;
+        } else {
+            // Friendly ranks open a corridor; enemy ranks are handled by the
+            // swept collision pass and never by the rigid frontline lock.
+            makeFriendlyCrowdYieldToChampion(e);
+        }
+        if (e.behavior === 'patrol') {
+            const forwardDirection = e.type === 'bull' ? 1 : -1;
+            // Obstacle avoidance and friendly separation may choose either
+            // lateral side, but an idle patrol must never be pushed back into
+            // its own spawn. This removes the boundary bounce that made large
+            // models vibrate while preserving free Z movement around terrain.
+            if (forwardDirection * (e.mesh.position.x - frameStartX) < 0) {
+                const attemptedLateral = Math.abs(e.mesh.position.z - frameStartZ);
+                const committedSide = e.edgeEscapeUntil > now && e.edgeEscapeZ
+                    ? e.edgeEscapeZ
+                    : e.avoidanceSide || 1;
+                // If terrain avoidance asks a patrol to step backwards, keep
+                // its strategic advance but commit to one lateral route around
+                // the obstacle. Retaining the raw Z component here used to
+                // make a giant bounce from one side of a tree to the other.
+                const lateralStep = Math.max(attemptedLateral, speed * delta * 0.28);
+                e.mesh.position.x = frameStartX;
+                e.mesh.position.z = clamp(
+                    frameStartZ + committedSide * lateralStep,
+                    ARENA.minZ + (e.isWhale ? 4 : 1),
+                    ARENA.maxZ - (e.isWhale ? 4 : 1),
+                );
+                if (forwardDirection * e.vx < 0) e.vx = 0;
+                e.separationX = Math.max(0, forwardDirection * e.separationX) * forwardDirection;
+            }
+            if (e.lineProximityAt && now - e.lineProximityAt > 1_500) {
+                const committedX = frameStartX + forwardDirection * speed * 0.58 * delta;
+                e.mesh.position.x = forwardDirection > 0
+                    ? Math.max(e.mesh.position.x, committedX)
+                    : Math.min(e.mesh.position.x, committedX);
+            }
         }
         enforceArenaBounds(e);
         e.mesh.position.y = getTrenchHeight(e.mesh.position.x, e.mesh.position.z);
 
-        if (isMoving || e.behavior === 'frontline') {
+        if (chargeAnimated) {
+            e.stuckTime = 0;
+            e.lastPosition.set(e.mesh.position.x, e.mesh.position.z);
+        } else if (isMoving || e.behavior === 'frontline') {
             if (isMoving) recoverIfStuck(e, delta);
             const walkSpeed = e.isWhale ? 10 : 15;
             const legAmplitude = e.behavior === 'frontline' ? 0.32 : 0.6;
@@ -2038,6 +2588,8 @@ function updateEntities(delta) {
         }
         e.lastFrameTravel = Math.hypot(e.mesh.position.x - frameStartX, e.mesh.position.z - frameStartZ);
     }
+
+    resolveDetailedEntityContacts(now);
 
     for (const { entity, defeated } of finished) {
         if (defeated) spawnParticles(entity.mesh.position, entity.type === 'bull' ? matParticleBull : matParticleBear, true, entity.isWhale);
@@ -2075,6 +2627,8 @@ function getCrowdHealth() {
     let crossLaneOverlaps = 0;
     const overlapSamples = [];
     const championBypassSamples = [];
+    let detailedOverlaps = 0;
+    const detailedOverlapSamples = [];
     for (const type of ['bull', 'bear']) {
         const agents = crowdAgents[type].filter((agent) => !agent.retiring);
         for (let index = 0; index < agents.length; index++) {
@@ -2106,7 +2660,7 @@ function getCrowdHealth() {
     }
     let championBypasses = 0;
     for (const entity of entities) {
-        if (entity.retired || entity.hp <= 0 || entity.forcedRetreatUntil > Date.now()) continue;
+        if (entity.retired || entity.hp <= 0 || entity.forcedRetreatUntil > Date.now() || isBullChargeActive(entity)) continue;
         const enemies = crowdAgents[entity.type === 'bull' ? 'bear' : 'bull'].filter((agent) => !agent.retiring);
         if (!enemies.length) continue;
         const physicalClearance = entity.isWhale ? 4.2 : 2.45;
@@ -2124,6 +2678,36 @@ function getCrowdHealth() {
                 agentId: bypass.id,
                 agentX: bypass.x,
                 agentZ: bypass.z,
+            });
+        }
+    }
+    const activeEntities = entities.filter((entity) => !entity.retired && entity.hp > 0);
+    for (let firstIndex = 0; firstIndex < activeEntities.length; firstIndex++) {
+        const first = activeEntities[firstIndex];
+        for (let secondIndex = firstIndex + 1; secondIndex < activeEntities.length; secondIndex++) {
+            const second = activeEntities[secondIndex];
+            const minimum = getDetailedPhysicalSpacing(first, second);
+            const chargingThroughRegular = (
+                isBullChargeActive(first) && first.chargeHitEntities.has(second) && !second.isWhale
+            ) || (
+                isBullChargeActive(second) && second.chargeHitEntities.has(first) && !first.isWhale
+            );
+            if (chargingThroughRegular) continue;
+            const distance = Math.hypot(
+                first.mesh.position.x - second.mesh.position.x,
+                first.mesh.position.z - second.mesh.position.z,
+            );
+            if (distance >= minimum) continue;
+            detailedOverlaps += 1;
+            if (detailedOverlapSamples.length < 6) detailedOverlapSamples.push({
+                first: first.trade?.txHash || `${first.type}-${first.bornAt}`,
+                second: second.trade?.txHash || `${second.type}-${second.bornAt}`,
+                firstType: first.type,
+                secondType: second.type,
+                firstGiant: first.isWhale,
+                secondGiant: second.isWhale,
+                distance,
+                minimum,
             });
         }
     }
@@ -2145,6 +2729,8 @@ function getCrowdHealth() {
         overlapSamples,
         championBypasses,
         championBypassSamples,
+        detailedOverlaps,
+        detailedOverlapSamples,
         missingEyeInstances,
         missingDetailInstances,
         missingLegInstances,
@@ -2184,6 +2770,8 @@ function updateCrowdForces(delta) {
     updateCrowdSide('bull', bullDoctrine, delta);
     updateCrowdSide('bear', bearDoctrine, delta);
     enforceCrowdLaneOrder();
+    enforceCrowdOpponentContacts();
+    clampCrowdVelocities();
     // Ordering can change longitudinal positions after steering. Resolve the
     // final local spacing afterwards so a file correction cannot create a new
     // penetration against its neighbour during high-volume transitions.
@@ -2566,6 +3154,11 @@ function updateCrowdSide(type, doctrine, delta) {
         // longitudinal movement is never allowed to reverse. Market pressure
         // resolves through eliminations and new reinforcements, not retreats.
         if (!agent.retiring) agent.vx = direction * Math.max(0, direction * agent.vx);
+        const velocity = Math.hypot(agent.vx, agent.vz);
+        if (velocity > 9.4) {
+            agent.vx = agent.vx / velocity * 9.4;
+            agent.vz = agent.vz / velocity * 9.4;
+        }
         agent.x = clamp(agent.x + agent.vx * delta, ARENA.minX + 0.7, ARENA.maxX - 0.7);
         agent.z = clamp(agent.z + agent.vz * delta, ARENA.minZ + 0.7, ARENA.maxZ - 0.7);
         const contactPartner = agent.engagementPartner;
@@ -2717,6 +3310,37 @@ function enforceCrowdLaneOrder() {
     }
 }
 
+function enforceCrowdOpponentContacts() {
+    const contactSpacing = 3.25;
+    for (const bull of crowdAgents.bull) {
+        const bear = bull.engagementPartner;
+        if (bull.retiring || !bear || bear.retiring || bear.engagementPartner !== bull) continue;
+        const gap = bear.x - bull.x;
+        if (gap >= contactSpacing) continue;
+        // Continuous contact resolution for a low-FPS step. Both armies may
+        // advance several metres between rendered frames; placing them at the
+        // midpoint of that step prevents tunnelling without changing which
+        // side market pressure says is advancing.
+        const midpoint = (bull.x + bear.x) * 0.5;
+        bull.x = clamp(midpoint - contactSpacing * 0.5, ARENA.minX + 0.7, ARENA.maxX - 0.7);
+        bear.x = clamp(midpoint + contactSpacing * 0.5, ARENA.minX + 0.7, ARENA.maxX - 0.7);
+        const contactSpeed = Math.min(Math.max(0, bull.vx), Math.max(0, -bear.vx));
+        bull.vx = Math.min(bull.vx, contactSpeed);
+        bear.vx = Math.max(bear.vx, -contactSpeed);
+        bull.lastX = bull.x;
+        bear.lastX = bear.x;
+    }
+}
+
+function clampCrowdVelocities() {
+    for (const agent of [...crowdAgents.bull, ...crowdAgents.bear]) {
+        const speed = Math.hypot(agent.vx, agent.vz);
+        if (speed <= 9.4) continue;
+        agent.vx = agent.vx / speed * 9.4;
+        agent.vz = agent.vz / speed * 9.4;
+    }
+}
+
 function separateCrowdRanks() {
     // Solve friendly and opposing penetrations in the same spatial pass. Two
     // sequential solvers could undo each other's lateral correction in a dense
@@ -2769,6 +3393,22 @@ function refreshChampionCrowdContactsAfterCrowd(now) {
     // fixed, so this does not reintroduce the old snap/vibration cycle.
     for (const entity of entities) {
         if (entity.retired || entity.hp <= 0 || entity.forcedRetreatUntil > now) continue;
+        if (isBullChargeActive(entity)) {
+            // Crowd ranks update after champions. A zero-length swept check
+            // catches a rank that entered the moving bull's footprint during
+            // this half of the frame without re-enabling the rigid contact lock.
+            if (entity.chargePhase === 'rush') {
+                applyBullChargeCollisions(
+                    entity,
+                    entity.mesh.position.x,
+                    entity.mesh.position.z,
+                    entity.mesh.position.x,
+                    entity.mesh.position.z,
+                    now,
+                );
+            }
+            continue;
+        }
         const contact = resolveChampionCrowdContact(entity);
         if (contact) {
             entity.frontContact = contact;
@@ -3084,6 +3724,35 @@ function getSteering(entity, desiredX, desiredZ) {
         steerZ += radialZ * force * 2.25 + tangentZ * force * 1.45;
     }
     if (entity.avoidanceUntil > Date.now()) steerZ += entity.avoidanceSide * (entity.isWhale ? 0.72 : 0.42);
+    const padding = entity.isWhale ? 4 : 1.5;
+    const edgeBuffer = entity.isWhale ? 5.5 : 3.2;
+    const minX = ARENA.minX + padding;
+    const maxX = ARENA.maxX - padding;
+    const minZ = ARENA.minZ + padding;
+    const maxZ = ARENA.maxZ - padding;
+    // Steer away before clamping. Clamping an outward vector to the boundary
+    // and then accepting an inward vector on the next frame creates a perfect
+    // two-frame vibration, especially for giants near woodland at the corners.
+    if (entity.mesh.position.x < minX + edgeBuffer) steerX += ((minX + edgeBuffer - entity.mesh.position.x) / edgeBuffer) * 2.8;
+    if (entity.mesh.position.x > maxX - edgeBuffer) steerX -= ((entity.mesh.position.x - (maxX - edgeBuffer)) / edgeBuffer) * 2.8;
+    if (entity.mesh.position.z < minZ + edgeBuffer) steerZ += ((minZ + edgeBuffer - entity.mesh.position.z) / edgeBuffer) * 3.4;
+    if (entity.mesh.position.z > maxZ - edgeBuffer) steerZ -= ((entity.mesh.position.z - (maxZ - edgeBuffer)) / edgeBuffer) * 3.4;
+    const now = Date.now();
+    if (entity.mesh.position.z <= minZ + 1.1) {
+        entity.edgeEscapeZ = 1;
+        entity.edgeEscapeUntil = now + 2_800;
+    } else if (entity.mesh.position.z >= maxZ - 1.1) {
+        entity.edgeEscapeZ = -1;
+        entity.edgeEscapeUntil = now + 2_800;
+    }
+    if (entity.edgeEscapeUntil > now && entity.edgeEscapeZ) {
+        steerZ = entity.edgeEscapeZ > 0
+            ? Math.max(0.58, steerZ)
+            : Math.min(-0.58, steerZ);
+    } else if (entity.edgeEscapeUntil && entity.edgeEscapeUntil <= now) {
+        entity.edgeEscapeUntil = 0;
+        entity.edgeEscapeZ = 0;
+    }
     const length = Math.hypot(steerX, steerZ) || 1;
     return { x: steerX / length, z: steerZ / length };
 }
@@ -3094,14 +3763,23 @@ function applySeparation(entity, delta) {
     const selfRadius = entity.isWhale ? 3.9 : 1.35;
     for (const other of entities) {
         if (other === entity || other.retired || other.hp <= 0) continue;
-        // Opponents deliberately in combat are held apart by their attack
-        // distance. A second repulsion force here made whales oscillate.
-        if (entity.type !== other.type && (entity.target === other || other.target === entity)) continue;
+        // A regular ally yields to its champion. Letting both layers push the
+        // giant meant several small neighbours could alternate its avoidance
+        // side every frame even though the positional solver moved only them.
+        if (entity.isWhale && !other.isWhale) continue;
         const otherRadius = other.isWhale ? 3.9 : 1.35;
         const clearance = selfRadius + otherRadius;
         let dx = entity.mesh.position.x - other.mesh.position.x;
         let dz = entity.mesh.position.z - other.mesh.position.z;
         let distanceSq = dx * dx + dz * dz;
+        // Only one mutual duel may rely on its attack spacing. Previously any
+        // bear targeting a giant disabled separation, so an entire group could
+        // stand inside the same model. Even a mutual pair is separated if an
+        // impact has pushed it materially inside its physical contact radius.
+        const mutualCombat = entity.type !== other.type
+            && entity.target === other
+            && other.target === entity;
+        if (mutualCombat && distanceSq >= clearance * clearance * 0.94) continue;
         if (distanceSq >= clearance * clearance) continue;
         if (distanceSq < 0.001) {
             dx = 0;
@@ -3123,6 +3801,122 @@ function applySeparation(entity, delta) {
     entity.separationZ = THREE.MathUtils.damp(entity.separationZ, pushZ, 10, delta);
     entity.mesh.position.x += entity.separationX * delta * 3.2;
     entity.mesh.position.z += entity.separationZ * delta * 3.2;
+}
+
+function getDetailedPhysicalSpacing(first, second) {
+    const sameSide = first.type === second.type;
+    const bothGiants = first.isWhale && second.isWhale;
+    const eitherGiant = first.isWhale || second.isWhale;
+    if (sameSide) return bothGiants ? 7.2 : eitherGiant ? 4.7 : 2.15;
+    return bothGiants ? 9.2 : eitherGiant ? 5.05 : 2.45;
+}
+
+function resolveDetailedEntityContacts(now) {
+    const active = entities.filter((entity) => !entity.retired && entity.hp > 0);
+    const pairs = [];
+    for (let firstIndex = 0; firstIndex < active.length; firstIndex++) {
+        for (let secondIndex = firstIndex + 1; secondIndex < active.length; secondIndex++) {
+            pairs.push([active[firstIndex], active[secondIndex]]);
+        }
+    }
+    // Resolve regular clusters first and giant clearances last. Otherwise a
+    // later regular/regular correction can push the smaller unit back inside
+    // a giant after that giant's pair was already considered for this pass.
+    pairs.sort((firstPair, secondPair) => (
+        Number(firstPair[0].isWhale || firstPair[1].isWhale)
+        - Number(secondPair[0].isWhale || secondPair[1].isWhale)
+    ));
+    // Alternate sweep direction so a dense row cannot keep transferring the
+    // last correction into the pair that was resolved first. The small safety
+    // skin absorbs the movement generated by the following simulation frame
+    // and keeps large models visibly separated instead of vibrating at exact
+    // contact distance.
+    for (let pass = 0; pass < 64; pass++) {
+        let corrections = 0;
+        for (let pairOffset = 0; pairOffset < pairs.length; pairOffset++) {
+            const pairIndex = pass % 2 === 0 ? pairOffset : pairs.length - 1 - pairOffset;
+            const [first, second] = pairs[pairIndex];
+            const minimum = getDetailedPhysicalSpacing(first, second);
+            let dx = first.mesh.position.x - second.mesh.position.x;
+            let dz = first.mesh.position.z - second.mesh.position.z;
+            let distance = Math.hypot(dx, dz);
+            if (distance >= minimum) continue;
+            if (distance < 0.0001) {
+                const side = first.contactSides.get(second)
+                    || ((first.bornAt + second.bornAt) % 2 === 0 ? 1 : -1);
+                first.contactSides.set(second, side);
+                second.contactSides.set(first, -side);
+                dx = 0;
+                dz = side;
+                distance = 1;
+            }
+            const sameSideGiantContact = first.type === second.type
+                && first.isWhale && second.isWhale;
+            let normalX = dx / distance;
+            let normalZ = dz / distance;
+            // Regular champions travel slightly faster and form denser packs,
+            // so they need a larger contact skin to absorb the next frame's
+            // approach without briefly intersecting at peak population.
+            const contactSkin = first.isWhale && second.isWhale
+                ? 0.16
+                : first.isWhale || second.isWhale ? 0.68 : 0.25;
+            let penetration = minimum - distance + contactSkin;
+            if (sameSideGiantContact) {
+                // Allied champions never shove one another backwards. Preserve
+                // their forward progress and open only the lateral clearance
+                // still required by their current longitudinal separation.
+                // Remembering the side prevents two close giants from swapping
+                // avoidance directions on successive frames (visible jitter).
+                const lateralDirection = first.contactSides.get(second)
+                    || Math.sign(dz)
+                    || first.avoidanceSide;
+                const safeMinimum = minimum + 0.08;
+                const requiredLateral = Math.sqrt(Math.max(0, safeMinimum * safeMinimum - dx * dx));
+                normalX = 0;
+                normalZ = lateralDirection;
+                penetration = Math.max(0, requiredLateral - Math.abs(dz));
+                first.contactSides.set(second, lateralDirection);
+                second.contactSides.set(first, -lateralDirection);
+            }
+            const firstShare = first.isWhale && !second.isWhale
+                ? 0
+                : !first.isWhale && second.isWhale ? 1 : 0.5;
+            const secondShare = 1 - firstShare;
+            first.mesh.position.x += normalX * penetration * firstShare;
+            first.mesh.position.z += normalZ * penetration * firstShare;
+            second.mesh.position.x -= normalX * penetration * secondShare;
+            second.mesh.position.z -= normalZ * penetration * secondShare;
+            enforceArenaBounds(first);
+            enforceArenaBounds(second);
+            const lateralDirection = Math.sign(normalZ)
+                || first.contactSides.get(second)
+                || first.avoidanceSide;
+            first.contactSides.set(second, lateralDirection);
+            second.contactSides.set(first, -lateralDirection);
+            // When sizes differ the smaller unit owns the avoidance decision;
+            // do not let it rewrite a giant's persistent route. Equal-sized
+            // contacts still assign complementary sides to both participants.
+            if (first.isWhale === second.isWhale || !first.isWhale) {
+                first.avoidanceSide = lateralDirection;
+                first.avoidanceUntil = Math.max(first.avoidanceUntil, now + 700);
+            }
+            if (first.isWhale === second.isWhale || !second.isWhale) {
+                second.avoidanceSide = -lateralDirection;
+                second.avoidanceUntil = Math.max(second.avoidanceUntil, now + 700);
+            }
+            first.mesh.position.y = getTrenchHeight(first.mesh.position.x, first.mesh.position.z);
+            second.mesh.position.y = getTrenchHeight(second.mesh.position.x, second.mesh.position.z);
+            corrections += 1;
+        }
+        if (!corrections) break;
+    }
+}
+
+function getDetailedCombatSpacing(first, second) {
+    if (!first || !second) return 2.8;
+    if (first.isWhale && second.isWhale) return 10.1;
+    if (first.isWhale || second.isWhale) return 5.45;
+    return 2.8;
 }
 
 function makeFriendlyCrowdYieldToChampion(entity) {
@@ -3179,9 +3973,11 @@ function resolveChampionCrowdContact(entity) {
     const distanceToLimit = direction * (limit - entity.mesh.position.x);
     if (distanceToLimit > 0.7) return null;
     if (entity.frontContact !== blocker || !Number.isFinite(entity.frontContactHoldX)) {
-        entity.frontContactHoldX = direction > 0
-            ? Math.min(entity.mesh.position.x, limit)
-            : Math.max(entity.mesh.position.x, limit);
+        // Contact begins where the verified champion already is. Snapping it
+        // backwards to the aggregate rank's theoretical radius created a
+        // visible reversal; any pre-existing penetration is resolved as a
+        // combat impact by retireCrowdPenetrations instead.
+        entity.frontContactHoldX = entity.mesh.position.x;
         entity.crowdStrikeProgress = 0;
     }
     // Keep one stable contact point for the whole exchange. Following the
@@ -3448,6 +4244,21 @@ function updateKingStrikes(delta) {
     }
 }
 
+function updateChargeImpacts(delta) {
+    for (let index = chargeImpacts.length - 1; index >= 0; index--) {
+        const impact = chargeImpacts[index];
+        impact.age += delta;
+        const progress = clamp(impact.age / 0.62, 0, 1);
+        impact.mesh.scale.setScalar((1.2 + impact.strength * 0.32) + progress * (4.6 + impact.strength));
+        impact.mesh.material.opacity = (1 - progress) * 0.72;
+        impact.mesh.rotation.z += delta * 1.35;
+        if (progress < 1) continue;
+        scene.remove(impact.mesh);
+        impact.mesh.material.dispose();
+        chargeImpacts.splice(index, 1);
+    }
+}
+
 function updateCamera(delta) {
     clearCameraShakeOffset();
     if (state.cameraMode === 'auto') {
@@ -3472,6 +4283,7 @@ function updateCamera(delta) {
             focusZ + 39 + massScale * 28 + spread * 0.19 + eventWeight * 3.2,
         );
         _lookDesired.set(focusX, -1.35, focusZ * 0.72);
+        liftCameraAboveGiantOccluders(_camTarget, _lookDesired);
         dampVector(camera.position, _camTarget, 1.5, 16, delta, _cameraMove);
         dampVector(_lookTarget, _lookDesired, 1.75, 19, delta, _lookMove);
         const desiredFov = 45 + massScale * 7 + clamp(spread - 18, 0, 20) * 0.09;
@@ -3495,6 +4307,36 @@ function updateCamera(delta) {
     } else if (orbitControls) {
         orbitControls.update();
     }
+}
+
+function liftCameraAboveGiantOccluders(cameraTarget, lookTarget) {
+    const rayX = cameraTarget.x - lookTarget.x;
+    const rayY = cameraTarget.y - lookTarget.y;
+    const rayZ = cameraTarget.z - lookTarget.z;
+    const rayLengthSquared = rayX * rayX + rayY * rayY + rayZ * rayZ;
+    if (rayLengthSquared < 0.001) return;
+    let requiredLift = 0;
+    for (const entity of entities) {
+        if (!entity.isWhale || entity.retired || entity.hp <= 0) continue;
+        const centerX = entity.mesh.position.x;
+        const centerY = entity.mesh.position.y + 4.8;
+        const centerZ = entity.mesh.position.z;
+        const relativeX = centerX - lookTarget.x;
+        const relativeY = centerY - lookTarget.y;
+        const relativeZ = centerZ - lookTarget.z;
+        const projection = (relativeX * rayX + relativeY * rayY + relativeZ * rayZ) / rayLengthSquared;
+        // A giant at the focal point is the subject. Only clear models sitting
+        // between the action and the camera, where they can fill the screen.
+        if (projection < 0.28 || projection > 0.94) continue;
+        const closestX = lookTarget.x + rayX * projection;
+        const closestY = lookTarget.y + rayY * projection;
+        const closestZ = lookTarget.z + rayZ * projection;
+        const distance = Math.hypot(centerX - closestX, centerY - closestY, centerZ - closestZ);
+        const visualRadius = 7.4;
+        if (distance >= visualRadius) continue;
+        requiredLift = Math.max(requiredLift, 3.5 + (visualRadius - distance) * 1.8);
+    }
+    cameraTarget.y += Math.min(13, requiredLift);
 }
 
 function calculateCameraFraming(now) {
@@ -3529,7 +4371,7 @@ function calculateCameraFraming(now) {
     // Keep the commander inside the wider establishing shot even outside a
     // scripted ward. His weight is intentionally smaller than the two armies.
     if (bullKingRig) {
-        const kingWeight = 6.5;
+        const kingWeight = 9.5;
         weightedX += bullKingRig.position.x * kingWeight;
         weightedZ += bullKingRig.position.z * kingWeight;
         totalWeight += kingWeight;
@@ -3550,6 +4392,12 @@ function calculateCameraFraming(now) {
     if (crowdWeight > 0) {
         variance += crowdBattle.spread * crowdBattle.spread * crowdWeight;
         varianceWeight += crowdWeight;
+    }
+    if (bullKingRig) {
+        const dx = bullKingRig.position.x - x;
+        const dz = bullKingRig.position.z - z;
+        variance += (dx * dx + dz * dz * 0.45) * 3.2;
+        varianceWeight += 3.2;
     }
     lastCameraActionSpread = clamp(Math.sqrt(variance / Math.max(1, varianceWeight)), 0, 42);
     return { x, z, spread: lastCameraActionSpread };
@@ -3692,6 +4540,7 @@ function gameLoop(timestamp) {
     updateBullKing(simulationDelta);
     updateSupportWaves(simulationDelta);
     updateKingStrikes(simulationDelta);
+    updateChargeImpacts(simulationDelta);
     updateParticles(simulationDelta);
     updateEnvironment(presentationDelta);
     updateCamera(presentationDelta);

@@ -29,6 +29,8 @@ const summary = {
     worstOverlapSamples: [],
     maxCrossedPairs: 0,
     maxChampionBypasses: 0,
+    maxDetailedOverlaps: 0,
+    worstDetailedOverlapSamples: [],
     maxMissingEyeInstances: 0,
     maxMissingDetailInstances: 0,
     maxMissingLegInstances: 0,
@@ -46,6 +48,10 @@ const summary = {
     maxKingAheadOfFront: Number.NEGATIVE_INFINITY,
     maxEntityStuckTime: 0,
     maxFrontContacts: 0,
+    maxActiveBullCharges: 0,
+    bullChargeStarts: 0,
+    bullChargeHits: 0,
+    maxChargeImpacts: 0,
     maxWoodlandEngagements: 0,
     maxLateralSpread: 0,
     bullCrossings: 0,
@@ -99,6 +105,7 @@ try {
                 await page.evaluate((pressure) => {
                     window.__ansemSetBattlePressure(pressure);
                     window.__ansemSpawnStressBattle(8);
+                    window.__ansemStageBullCharge?.();
                 }, stressPhases[0]);
                 break;
             } catch (error) {
@@ -150,6 +157,11 @@ try {
         }
         summary.maxCrossedPairs = Math.max(summary.maxCrossedPairs, diagnostics.forces?.crossedPairs || 0);
         summary.maxChampionBypasses = Math.max(summary.maxChampionBypasses, diagnostics.forces?.championBypasses || 0);
+        const detailedOverlaps = diagnostics.forces?.detailedOverlaps || 0;
+        if (detailedOverlaps > summary.maxDetailedOverlaps) {
+            summary.maxDetailedOverlaps = detailedOverlaps;
+            summary.worstDetailedOverlapSamples = diagnostics.forces?.detailedOverlapSamples || [];
+        }
         summary.maxMissingEyeInstances = Math.max(summary.maxMissingEyeInstances, diagnostics.forces?.missingEyeInstances || 0);
         summary.maxMissingDetailInstances = Math.max(summary.maxMissingDetailInstances, diagnostics.forces?.missingDetailInstances || 0);
         summary.maxMissingLegInstances = Math.max(summary.maxMissingLegInstances, diagnostics.forces?.missingLegInstances || 0);
@@ -184,6 +196,10 @@ try {
         summary.crowdInvalidPositions += diagnostics.forces?.invalidPositions || 0;
         summary.crowdOutOfBounds += diagnostics.forces?.outOfBounds || 0;
         summary.maxFrontContacts = Math.max(summary.maxFrontContacts, diagnostics.entities.filter((entity) => entity.frontContact).length);
+        summary.maxActiveBullCharges = Math.max(summary.maxActiveBullCharges, diagnostics.bullCharges?.active || 0);
+        summary.bullChargeStarts = Math.max(summary.bullChargeStarts, diagnostics.bullCharges?.starts || 0);
+        summary.bullChargeHits = Math.max(summary.bullChargeHits, diagnostics.bullCharges?.hits || 0);
+        summary.maxChargeImpacts = Math.max(summary.maxChargeImpacts, diagnostics.chargeImpacts || 0);
         summary.maxEntityStuckTime = Math.max(summary.maxEntityStuckTime, ...diagnostics.entities.map((entity) => entity.stuckTime || 0), 0);
         const activeRanks = [...(diagnostics.ranks?.bull || []), ...(diagnostics.ranks?.bear || [])];
         summary.maxWoodlandEngagements = Math.max(
@@ -255,12 +271,14 @@ try {
         || summary.maxKingTurnRate > 3.25 || summary.maxKingSpeed > 19.5
         || summary.maxCrowdOverlaps > 0 || summary.maxSameSideOverlaps > 0
         || summary.maxCrossedPairs > 0 || summary.maxChampionBypasses > 0
+        || summary.maxDetailedOverlaps > 0
         || summary.maxMissingEyeInstances > 0 || summary.maxMissingDetailInstances > 0 || summary.maxMissingLegInstances > 0
         || summary.minContactGap < -12 || (summary.samples >= 4 && summary.kingTravel < 0.5)
         || summary.maxKingOutOfViewStreak > 2 || summary.maxKingAheadOfFront > 12
         || summary.maxLaneChanges > Math.ceil(durationMs / 3_000) + 8
         || (stressScenario && (summary.maxLateralSpread < 48 || summary.maxWoodlandEngagements < 2
-            || summary.maxAssisting < 2 || summary.maxKingCommandGestures < 1))) {
+            || summary.maxAssisting < 2 || summary.maxKingCommandGestures < 1
+            || summary.bullChargeStarts < 1 || summary.bullChargeHits < 1 || summary.maxActiveBullCharges > 3))) {
         process.exitCode = 1;
     }
 } finally {

@@ -507,6 +507,7 @@ test('scales a high-volume market into hundreds of moving forces with a wider au
         crossLane: before.forces.crossLaneOverlaps,
     }).toEqual({ total: 0, sameLane: 0, crossLane: 0 });
     expect(before.forces.championBypasses).toBe(0);
+    expect(before.forces.detailedOverlaps).toBe(0);
     expect(before.forces.missingEyeInstances).toBe(0);
     expect(before.forces.missingDetailInstances).toBe(0);
     expect(before.forces.missingLegInstances).toBe(0);
@@ -551,6 +552,7 @@ test('scales a high-volume market into hundreds of moving forces with a wider au
     }).toEqual({ total: 0, sameLane: 0, crossLane: 0, samples: [] });
     expect(contactEnd.forces.crossedPairs).toBeLessThanOrEqual(2);
     expect(contactEnd.forces.championBypasses).toBe(0);
+    expect(contactEnd.forces.detailedOverlaps).toBe(0);
     expect(contactEnd.forces.assisting).toBeGreaterThan(20);
     expect(contactEnd.bullKing.commandGestures).toBeGreaterThan(0);
     expect(backwardSteps).toEqual([]);
@@ -633,7 +635,10 @@ test('keeps giant combatants stable while navigating dense ranks', async ({ page
                 if (magnitude > 0.012 && previousMagnitude > 0.012
                     && dot / (magnitude * previousMagnitude) < -0.72) reversals += 1;
             }
-            if (magnitude > 0.012) previousStep = step;
+            // A genuine vibration reverses on consecutive movement samples.
+            // After a stationary combat hold, resuming toward a new target is
+            // a state transition rather than a back-and-forth oscillation.
+            previousStep = magnitude > 0.012 ? step : null;
         }
         if (travel > 0.8 || track.at(-1).crowdStrikes > 0) movingWhales += 1;
         worstReversals = Math.max(worstReversals, reversals);
@@ -641,6 +646,88 @@ test('keeps giant combatants stable while navigating dense ranks', async ({ page
     expect(maximumStuckTime).toBeLessThan(1.7);
     expect(worstReversals).toBeLessThanOrEqual(4);
     expect(movingWhales).toBeGreaterThanOrEqual(stagedPairs * 2);
+});
+
+test('gives verified giant bull buys a swept, market-aware collision charge', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== 'desktop-chromium', 'One WebGL charge simulation is sufficient');
+    test.setTimeout(90_000);
+    await page.goto('/');
+    await page.waitForFunction(() => (
+        typeof window.__ansemSpawnStressBattle === 'function'
+        && typeof window.__ansemStageBullCharge === 'function'
+    ));
+    const staged = await page.evaluate(() => {
+        window.__ansemSetBattlePressure({
+            buySol: 48,
+            sellSol: 8,
+            buyCount: 46,
+            sellCount: 15,
+            buyCount1h: 240,
+            sellCount1h: 90,
+            verifiedBuyCount: 8,
+            verifiedSellCount: 4,
+        });
+        window.__ansemSpawnStressBattle(3);
+        return window.__ansemStageBullCharge();
+    });
+    expect(staged).not.toBeNull();
+
+    const samples = await page.evaluate(async (bullId) => {
+        const frames = [];
+        const startedAt = Date.now();
+        // Software WebGL can render near 1fps under CI contention. The charge
+        // is distance-based, so allow enough wall time for its five simulated
+        // movement steps without weakening any physics assertion.
+        while (Date.now() - startedAt < 12_000) {
+            const diagnostics = window.__ansemSceneDiagnostics();
+            const bull = diagnostics.entities.find((entity) => entity.id === bullId);
+            frames.push({
+                phase: bull?.chargePhase,
+                x: bull?.x,
+                z: bull?.z,
+                stuckTime: bull?.stuckTime || 0,
+                starts: diagnostics.bullCharges.starts,
+                hits: diagnostics.bullCharges.hits,
+                active: diagnostics.bullCharges.active,
+                bypasses: diagnostics.forces.championBypasses,
+                detailedOverlaps: diagnostics.forces.detailedOverlaps,
+                detailedOverlapSamples: diagnostics.forces.detailedOverlapSamples,
+            });
+            if (diagnostics.bullCharges.hits > 0 && bull?.chargePhase === 'recover') break;
+            await new Promise((resolve) => window.setTimeout(resolve, 80));
+        }
+        return frames;
+    }, staged.bull);
+    const phases = new Set(samples.map((sample) => sample.phase));
+    const bullPositions = samples.filter((sample) => Number.isFinite(sample.x));
+    const final = samples.at(-1);
+
+    expect(phases.has('windup')).toBe(true);
+    expect(phases.has('rush') || final.hits > 0).toBe(true);
+    expect(final.starts).toBeGreaterThanOrEqual(1);
+    expect(final.hits).toBeGreaterThanOrEqual(1);
+    expect(Math.max(...bullPositions.map((sample) => sample.x)) - Math.min(...bullPositions.map((sample) => sample.x))).toBeGreaterThan(8);
+    expect(Math.max(...samples.map((sample) => sample.stuckTime))).toBe(0);
+    expect(Math.max(...samples.map((sample) => sample.active))).toBeLessThanOrEqual(3);
+    expect(Math.max(...samples.map((sample) => sample.bypasses))).toBe(0);
+    expect(samples
+        .filter((sample) => sample.detailedOverlaps > 0)
+        .map((sample) => sample.detailedOverlapSamples)).toEqual([]);
+
+    const secondStage = await page.evaluate(() => window.__ansemStageBullCharge());
+    expect(secondStage).not.toBeNull();
+    await page.waitForFunction(({ priorStarts, priorHits }) => {
+        const diagnostics = window.__ansemSceneDiagnostics();
+        return diagnostics.bullCharges.starts > priorStarts && diagnostics.bullCharges.hits > priorHits;
+    }, { priorStarts: final.starts, priorHits: final.hits }, { polling: 100, timeout: 20_000 });
+    const repeated = await page.evaluate(() => window.__ansemSceneDiagnostics());
+    expect(repeated.bullCharges.starts).toBeGreaterThan(final.starts);
+    expect(repeated.bullCharges.hits).toBeGreaterThan(final.hits);
+    expect(repeated.forces.championBypasses).toBe(0);
+    expect({
+        count: repeated.forces.detailedOverlaps,
+        samples: repeated.forces.detailedOverlapSamples,
+    }).toEqual({ count: 0, samples: [] });
 });
 
 test('covers an ultrawide battlefield without layout gaps', async ({ page }, testInfo) => {
