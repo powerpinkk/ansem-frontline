@@ -1,5 +1,6 @@
 export const state = {
     price: 0,
+    mcap: 0,
     prevPrice: 0,
     momentum: 50,
     frontlineX: 0,

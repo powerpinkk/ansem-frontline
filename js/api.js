@@ -232,6 +232,7 @@ function applyMarketData(market) {
     if (market.activity) state.activity5m = market.activity;
     if (market.activity1h) state.activity1h = market.activity1h;
     state.price = market.price;
+    if (Number(market.mcap) > 0) state.mcap = Number(market.mcap);
     state.lastMarketAt = Date.now();
     latestMarket = {
         ...market,
@@ -598,6 +599,7 @@ function hydrateStartupSnapshot() {
         state.activity1h = snapshot.activity1h || state.activity1h;
         state.priceHistory = Array.isArray(snapshot.priceHistory) ? snapshot.priceHistory.slice(-60) : [];
         state.price = Number(snapshot.market.price);
+        state.mcap = Math.max(0, Number(snapshot.market.mcap) || 0);
         state.lastMarketAt = Number(snapshot.marketAt || snapshot.savedAt);
         latestMarket = {
             ...snapshot.market,

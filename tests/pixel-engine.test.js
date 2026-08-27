@@ -7,6 +7,7 @@ describe('30-second pixel companion data', () => {
         const snapshot = createPixelSnapshot({
             connection: 'online',
             price: 0.25,
+            mcap: 250_000_000,
             priceTicks30s: [
                 { timestamp: now - 25_000, price: 0.24 },
                 { timestamp: now - 1_000, price: 0.25 },
@@ -22,6 +23,7 @@ describe('30-second pixel companion data', () => {
         expect(snapshot.buySol).toBe(3);
         expect(snapshot.sellSol).toBe(24);
         expect(snapshot.online).toBe(true);
+        expect(snapshot.mcap).toBe(250_000_000);
         expect(snapshot.priceTicks).toEqual([
             { timestamp: now - 25_000, price: 0.24 },
             { timestamp: now - 1_000, price: 0.25 },
@@ -39,10 +41,28 @@ describe('30-second pixel companion data', () => {
             timestamp: now - 8_000 - index * 10,
         }));
         const snapshot = createPixelSnapshot({ connection: 'online', price: 0.25, liveTrades }, now);
-        const layout = layoutPixelBattle(snapshot, 960, 170, now);
-        expect(layout.bulls).toHaveLength(12);
-        expect(layout.bears).toHaveLength(12);
+        const layout = layoutPixelBattle(snapshot, 640, 160, now);
+        expect(layout.bulls).toHaveLength(6);
+        expect(layout.bears).toHaveLength(6);
+        expect(layout.bullTotal).toBe(16);
+        expect(layout.bearTotal).toBe(16);
         expect(findPixelOverlaps(layout)).toEqual([]);
-        expect(new Set(layout.units.map((unit) => unit.lane))).toEqual(new Set([0, 1, 2]));
+        expect(new Set(layout.units.map((unit) => unit.lane))).toEqual(new Set([0, 1]));
+        expect(Math.min(...layout.units.map((unit) => unit.width))).toBeGreaterThanOrEqual(29);
+    });
+
+    it('remains collision-free and readable at the minimum compact surface', () => {
+        const now = 100_000;
+        const liveTrades = Array.from({ length: 28 }, (_, index) => ({
+            txHash: `compact-${index}`,
+            isBuy: index % 2 === 0,
+            isWhale: index % 9 === 0,
+            solValue: index % 9 === 0 ? 30 : 0.8,
+            timestamp: now - 5_000 - index * 20,
+        }));
+        const snapshot = createPixelSnapshot({ connection: 'online', price: 0.25, mcap: 250_000_000, liveTrades }, now);
+        const layout = layoutPixelBattle(snapshot, 320, 96, now);
+        expect(findPixelOverlaps(layout)).toEqual([]);
+        expect(Math.min(...layout.units.map((unit) => unit.width))).toBeGreaterThanOrEqual(23);
     });
 });

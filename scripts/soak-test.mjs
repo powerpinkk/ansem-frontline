@@ -21,6 +21,7 @@ const summary = {
     maxEntities: 0,
     maxVisualForces: 0,
     maxRenderCalls: 0,
+    maxRenderBudgetExcess: 0,
     maxCrowdSpeed: 0,
     maxCrowdTurnRate: 0,
     maxCrowdOverlaps: 0,
@@ -134,6 +135,11 @@ try {
         summary.maxEntities = Math.max(summary.maxEntities, diagnostics.entities.length);
         summary.maxVisualForces = Math.max(summary.maxVisualForces, (diagnostics.forces?.bull || 0) + (diagnostics.forces?.bear || 0));
         summary.maxRenderCalls = Math.max(summary.maxRenderCalls, diagnostics.render?.calls || 0);
+        const renderBudget = 230 + Math.max(0, diagnostics.entities.length - 2) * 10;
+        summary.maxRenderBudgetExcess = Math.max(
+            summary.maxRenderBudgetExcess,
+            Math.max(0, (diagnostics.render?.calls || 0) - renderBudget),
+        );
         summary.maxCrowdSpeed = Math.max(summary.maxCrowdSpeed, diagnostics.forces?.maxSpeed || 0);
         summary.maxCrowdTurnRate = Math.max(summary.maxCrowdTurnRate, diagnostics.forces?.maxTurnRate || 0);
         summary.maxCrowdOverlaps = Math.max(summary.maxCrowdOverlaps, diagnostics.forces?.overlaps || 0);
@@ -243,7 +249,7 @@ try {
     console.log(JSON.stringify(report, null, 2));
 
     if (pageErrors.length || summary.invalidPositions || summary.outOfBounds || summary.crowdInvalidPositions
-        || summary.crowdOutOfBounds || summary.viewportMismatches
+        || summary.crowdOutOfBounds || summary.viewportMismatches || summary.maxRenderBudgetExcess > 0
         || summary.stalledPatrols.size || summary.lineDwells.size
         || summary.maxCrowdTurnRate > 3.25 || summary.maxCrowdSpeed > 10
         || summary.maxKingTurnRate > 3.25 || summary.maxKingSpeed > 19.5

@@ -1,9 +1,14 @@
-import { PixelFrontline, createPixelSnapshot } from './pixel-engine.js';
+import {
+    PIXEL_SOURCE_HEIGHT,
+    PIXEL_SOURCE_WIDTH,
+    PixelFrontline,
+    createPixelSnapshot,
+} from './pixel-engine.js';
 import { state } from './state.js';
 
 const CHANNEL_NAME = 'ansem-frontline-pixel';
-const PIP_WIDTH = 960;
-const PIP_HEIGHT = 170;
+const PIP_WIDTH = PIXEL_SOURCE_WIDTH;
+const PIP_HEIGHT = PIXEL_SOURCE_HEIGHT;
 
 export function initPixelCompanion({ setSceneActive }) {
     const button = document.getElementById('pixel-mode-btn');

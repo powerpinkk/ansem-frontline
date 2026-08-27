@@ -177,7 +177,7 @@ test('opens the verified 30-second battlefield as native video Picture-in-Pictur
         HTMLMediaElement.prototype.play = async function play() {};
         HTMLVideoElement.prototype.requestPictureInPicture = async function requestPictureInPicture() {
             this.dispatchEvent(new Event('enterpictureinpicture'));
-            return { width: 960, height: 170 };
+            return { width: 640, height: 160 };
         };
     });
     await page.goto('/');
@@ -191,6 +191,9 @@ test('opens the verified 30-second battlefield as native video Picture-in-Pictur
     expect(companion.pipRequested).toBe(true);
     expect(companion.pixel.overlaps).toEqual([]);
     expect(companion.pixel.pricePoints).toBeGreaterThan(0);
+    expect(companion.pixel.mcap).toBe(250_000_000);
+    expect(companion.pixel.width).toBe(640);
+    expect(companion.pixel.height).toBe(160);
     expect(popupCount).toBe(0);
     const paused = await page.evaluate(() => window.__ansemSceneDiagnostics().bullKing);
     await page.waitForTimeout(450);
@@ -202,7 +205,7 @@ test('opens the verified 30-second battlefield as native video Picture-in-Pictur
 
 test('renders a collision-free pixel battle over a rolling 30-second price trace', async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== 'desktop-chromium', 'One pixel-art rendering check is sufficient');
-    await page.setViewportSize({ width: 960, height: 170 });
+    await page.setViewportSize({ width: 640, height: 160 });
     await page.goto('/pixel-frontline.html?diagnostics=1');
     await page.waitForFunction(() => Boolean(window.__ansemPixelEngine));
     await page.evaluate(() => {
@@ -214,6 +217,7 @@ test('renders a collision-free pixel battle over a rolling 30-second price trace
             buySol: 78,
             sellSol: 52,
             price: 0.284091,
+            mcap: 284_091_000,
             online: true,
             priceTicks: Array.from({ length: 16 }, (_, index) => ({
                 timestamp: now - (15 - index) * 1_900,
@@ -235,7 +239,19 @@ test('renders a collision-free pixel battle over a rolling 30-second price trace
     expect(diagnostics.bullCount).toBeGreaterThan(0);
     expect(diagnostics.bearCount).toBeGreaterThan(0);
     expect(diagnostics.pricePoints).toBe(16);
+    expect(diagnostics.mcap).toBe(284_091_000);
+    expect(diagnostics.minimumSpriteWidth).toBeGreaterThanOrEqual(29);
+    expect(diagnostics.hiddenUnits).toBeGreaterThan(0);
     await captureLocalScreenshot(page, '.artifacts/pixel-companion.png');
+    await page.setViewportSize({ width: 320, height: 96 });
+    await page.waitForTimeout(200);
+    const compactDiagnostics = await page.evaluate(() => window.__ansemPixelEngine.getDiagnostics());
+    expect(compactDiagnostics.width).toBe(320);
+    expect(compactDiagnostics.height).toBe(96);
+    expect(compactDiagnostics.overlaps).toEqual([]);
+    expect(compactDiagnostics.minimumSpriteWidth).toBeGreaterThanOrEqual(23);
+    expect(compactDiagnostics.mcap).toBe(284_091_000);
+    await captureLocalScreenshot(page, '.artifacts/pixel-companion-compact.png');
 });
 
 test('paints market and verified swaps progressively without waiting for the chart or slow pools', async ({ page }, testInfo) => {
@@ -545,6 +561,86 @@ test('scales a high-volume market into hundreds of moving forces with a wider au
     )).toBeGreaterThan(0.05);
     await expect(page.locator('#visible-coverage')).toContainText(/BULL FORCE 2\d\d · BEAR FORCE 2\d\d/);
     await captureLocalScreenshot(page, '.artifacts/high-volume.png');
+});
+
+test('keeps giant combatants stable while navigating dense ranks', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== 'desktop-chromium', 'One high-frequency motion sample is sufficient');
+    test.setTimeout(90_000);
+    await page.goto('/');
+    await page.waitForFunction(() => (
+        typeof window.__ansemSpawnStressBattle === 'function'
+        && typeof window.__ansemStageWhaleStability === 'function'
+    ));
+    const stagedPairs = await page.evaluate(() => {
+        window.__ansemSetBattlePressure({
+            buySol: 30,
+            sellSol: 26,
+            buyCount: 14,
+            sellCount: 13,
+            buyCount1h: 60,
+            sellCount1h: 55,
+            verifiedBuyCount: 6,
+            verifiedSellCount: 6,
+        });
+        window.__ansemSpawnStressBattle(4);
+        return window.__ansemStageWhaleStability();
+    });
+    expect(stagedPairs).toBeGreaterThanOrEqual(2);
+
+    const samples = await page.evaluate(async () => {
+        const frames = [];
+        for (let index = 0; index < 36; index++) {
+            frames.push(window.__ansemSceneDiagnostics().entities
+                .filter((entity) => entity.isWhale)
+                .map((entity) => ({
+                    id: entity.id,
+                    x: entity.x,
+                    z: entity.z,
+                    stuckTime: entity.stuckTime,
+                    frameTravel: entity.frameTravel,
+                    crowdStrikes: entity.crowdStrikes,
+                })));
+            await new Promise((resolve) => window.setTimeout(resolve, 100));
+        }
+        return frames;
+    });
+
+    const tracks = new Map();
+    for (const frame of samples) {
+        for (const whale of frame) {
+            if (!tracks.has(whale.id)) tracks.set(whale.id, []);
+            tracks.get(whale.id).push(whale);
+        }
+    }
+    let worstReversals = 0;
+    let maximumStuckTime = 0;
+    let movingWhales = 0;
+    for (const track of tracks.values()) {
+        let reversals = 0;
+        let previousStep = null;
+        let travel = 0;
+        for (let index = 1; index < track.length; index++) {
+            const step = {
+                x: track[index].x - track[index - 1].x,
+                z: track[index].z - track[index - 1].z,
+            };
+            const magnitude = Math.hypot(step.x, step.z);
+            travel += magnitude;
+            maximumStuckTime = Math.max(maximumStuckTime, track[index].stuckTime);
+            if (previousStep) {
+                const previousMagnitude = Math.hypot(previousStep.x, previousStep.z);
+                const dot = step.x * previousStep.x + step.z * previousStep.z;
+                if (magnitude > 0.012 && previousMagnitude > 0.012
+                    && dot / (magnitude * previousMagnitude) < -0.72) reversals += 1;
+            }
+            if (magnitude > 0.012) previousStep = step;
+        }
+        if (travel > 0.8 || track.at(-1).crowdStrikes > 0) movingWhales += 1;
+        worstReversals = Math.max(worstReversals, reversals);
+    }
+    expect(maximumStuckTime).toBeLessThan(1.7);
+    expect(worstReversals).toBeLessThanOrEqual(4);
+    expect(movingWhales).toBeGreaterThanOrEqual(stagedPairs * 2);
 });
 
 test('covers an ultrawide battlefield without layout gaps', async ({ page }, testInfo) => {

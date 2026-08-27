@@ -20,6 +20,7 @@ let supportWaves = [];
 let kingStrikes = [];
 let kingStrikeEvents = 0;
 const MAX_ENTITIES_PER_SIDE = CONFIG.MAX_VISIBLE_UNITS_PER_SIDE;
+const MAX_ACTIVE_PARTICLES = 36;
 const obstacles = [];
 const crowdAgents = { bull: [], bear: [] };
 const crowdMeshes = { bull: null, bear: null };
@@ -331,6 +332,7 @@ export function initScene(callbacks = {}) {
             entities: entities.map((entity) => ({
                 id: entity.trade?.txHash || entity.trade?.id || `${entity.type}-${entity.bornAt}`,
                 type: entity.type,
+                isWhale: entity.isWhale,
                 x: entity.mesh.position.x,
                 z: entity.mesh.position.z,
                 retired: entity.retired,
@@ -338,6 +340,8 @@ export function initScene(callbacks = {}) {
                 behavior: entity.behavior,
                 frontContact: Boolean(entity.frontContact && entity.frontContactUntil > Date.now()),
                 stuckTime: entity.stuckTime,
+                frameTravel: entity.lastFrameTravel || 0,
+                crowdStrikes: entity.crowdStrikes || 0,
                 forcedRetreat: entity.forcedRetreatUntil > Date.now(),
             })),
             projectiles: projectiles.length,
@@ -487,6 +491,31 @@ export function initScene(callbacks = {}) {
                     dexId: 'stress',
                 });
             }
+        };
+        window.__ansemStageWhaleStability = () => {
+            const whales = {
+                bull: entities.filter((entity) => entity.type === 'bull' && entity.isWhale && !entity.retired),
+                bear: entities.filter((entity) => entity.type === 'bear' && entity.isWhale && !entity.retired),
+            };
+            const pairs = Math.min(whales.bull.length, whales.bear.length);
+            for (let index = 0; index < pairs; index++) {
+                const z = pairs === 1 ? 0 : -14 + index * (28 / Math.max(1, pairs - 1));
+                const bull = whales.bull[index];
+                const bear = whales.bear[index];
+                bull.mesh.position.set(-15, getTrenchHeight(-15, z), z);
+                bear.mesh.position.set(15, getTrenchHeight(15, z), z);
+                for (const [entity, target] of [[bull, bear], [bear, bull]]) {
+                    entity.laneTarget = z;
+                    entity.target = target;
+                    entity.frontContact = null;
+                    entity.frontContactUntil = 0;
+                    entity.frontContactHoldX = null;
+                    entity.crowdStrikeProgress = 0;
+                    entity.stuckTime = 0;
+                    entity.lastPosition.set(entity.mesh.position.x, entity.mesh.position.z);
+                }
+            }
+            return pairs;
         };
         window.__ansemTriggerReclamation = () => {
             const bear = entities.find((entity) => entity.type === 'bear');
@@ -719,6 +748,10 @@ export function spawnUnit(type, initial = false, isWhale = false, trade = null) 
         laneTarget: spawnZ,
         patrolPhase: ((spawnZ - ARENA.minZ) / (ARENA.maxZ - ARENA.minZ)) * Math.PI * 2 + sequence * 0.73,
         patrolSide: sequence % 2 === 0 ? 1 : -1,
+        avoidanceSide: sequence % 2 === 0 ? 1 : -1,
+        avoidanceUntil: 0,
+        separationX: 0,
+        separationZ: 0,
         forcedRetreatUntil: 0,
         forcedRetreatX: null,
         behavior: 'patrol',
@@ -729,6 +762,10 @@ export function spawnUnit(type, initial = false, isWhale = false, trade = null) 
         lineProximityAt: 0,
         frontContact: null,
         frontContactUntil: 0,
+        frontContactHoldX: null,
+        crowdStrikeProgress: 0,
+        crowdStrikes: 0,
+        lastFrameTravel: 0,
         lastPosition: new THREE.Vector2(spawnX, spawnZ),
     };
     group.userData.entity = entity;
@@ -1799,6 +1836,8 @@ function updateEntities(delta) {
             finished.push({ entity: e, defeated: e.hp <= 0 });
             continue;
         }
+        const frameStartX = e.mesh.position.x;
+        const frameStartZ = e.mesh.position.z;
 
         e.body.scale.lerp(e.baseScale, 10 * delta);
         const isSupported = e.type === 'bull' && e.supportUntil > now;
@@ -1845,6 +1884,7 @@ function updateEntities(delta) {
         const supportMultiplier = isSupported ? 1.18 : 1;
         const dmgBase = (e.isWhale ? 150 : 35) * e.power * supportMultiplier;
         let isMoving = false;
+        let animatedFrontContact = false;
 
         if (forcedRetreat) {
             e.behavior = 'retreat';
@@ -1859,7 +1899,8 @@ function updateEntities(delta) {
             e.body.position.y = 1.3 + Math.abs(Math.sin(e.animTime * 14)) * 0.14;
             isMoving = true;
         } else if (activeFrontContact) {
-            animateChampionCrowdCombat(e, activeFrontContact);
+            animateChampionCrowdCombat(e, activeFrontContact, delta);
+            animatedFrontContact = true;
         } else if (e.target) {
             e.behavior = 'engage';
             e.lineProximityAt = 0;
@@ -1968,12 +2009,16 @@ function updateEntities(delta) {
         const crowdContact = resolveChampionCrowdContact(e);
         if (crowdContact) {
             e.frontContact = crowdContact;
-            e.frontContactUntil = now + 420;
+            e.frontContactUntil = now + 950;
             e.target = null;
             isMoving = false;
-            animateChampionCrowdCombat(e, crowdContact);
+            if (!animatedFrontContact || crowdContact !== activeFrontContact) {
+                animateChampionCrowdCombat(e, crowdContact, delta);
+            }
         } else if (!activeFrontContact) {
             e.frontContact = null;
+            e.frontContactHoldX = null;
+            e.crowdStrikeProgress = 0;
         }
         enforceArenaBounds(e);
         e.mesh.position.y = getTrenchHeight(e.mesh.position.x, e.mesh.position.z);
@@ -1991,6 +2036,7 @@ function updateEntities(delta) {
                 leg.rotation.z = THREE.MathUtils.lerp(leg.rotation.z, 0, 0.2);
             });
         }
+        e.lastFrameTravel = Math.hypot(e.mesh.position.x - frameStartX, e.mesh.position.z - frameStartZ);
     }
 
     for (const { entity, defeated } of finished) {
@@ -2028,6 +2074,7 @@ function getCrowdHealth() {
     let sameLaneOverlaps = 0;
     let crossLaneOverlaps = 0;
     const overlapSamples = [];
+    const championBypassSamples = [];
     for (const type of ['bull', 'bear']) {
         const agents = crowdAgents[type].filter((agent) => !agent.retiring);
         for (let index = 0; index < agents.length; index++) {
@@ -2063,10 +2110,22 @@ function getCrowdHealth() {
         const enemies = crowdAgents[entity.type === 'bull' ? 'bear' : 'bull'].filter((agent) => !agent.retiring);
         if (!enemies.length) continue;
         const physicalClearance = entity.isWhale ? 4.2 : 2.45;
-        if (enemies.some((agent) => Math.hypot(
+        const bypass = enemies.find((agent) => Math.hypot(
             agent.x - entity.mesh.position.x,
             agent.z - entity.mesh.position.z,
-        ) < physicalClearance + agent.size * 0.45)) championBypasses += 1;
+        ) < physicalClearance + agent.size * 0.45);
+        if (bypass) {
+            championBypasses += 1;
+            if (championBypassSamples.length < 6) championBypassSamples.push({
+                entityType: entity.type,
+                isWhale: entity.isWhale,
+                entityX: entity.mesh.position.x,
+                entityZ: entity.mesh.position.z,
+                agentId: bypass.id,
+                agentX: bypass.x,
+                agentZ: bypass.z,
+            });
+        }
     }
     const missingEyeInstances = ['bull', 'bear'].reduce((total, type) => (
         total + Math.abs((crowdMeshes[type]?.eyes?.count || 0) - crowdAgents[type].length)
@@ -2085,6 +2144,7 @@ function getCrowdHealth() {
         crossLaneOverlaps,
         overlapSamples,
         championBypasses,
+        championBypassSamples,
         missingEyeInstances,
         missingDetailInstances,
         missingLegInstances,
@@ -2128,7 +2188,7 @@ function updateCrowdForces(delta) {
     // final local spacing afterwards so a file correction cannot create a new
     // penetration against its neighbour during high-volume transitions.
     separateCrowdRanks();
-    separateOpposingCrowdRanks();
+    refreshChampionCrowdContactsAfterCrowd(now);
     refreshCrowdMeshes();
     updateCrowdSnapshot(tactics, delta);
     updateCrowdClashEffects(delta);
@@ -2658,61 +2718,91 @@ function enforceCrowdLaneOrder() {
 }
 
 function separateCrowdRanks() {
-    // Instanced models still need individual physical spacing. Resolve local
-    // crowd-crowd penetrations through a spatial grid. Same-lane spacing is
-    // handled by `enforceCrowdLaneOrder`; adjacent lanes separate laterally so
-    // collision correction cannot make either army appear to retreat.
-    const cellSize = 2.2;
-    for (const type of ['bull', 'bear']) {
-        const agents = crowdAgents[type].filter((agent) => !agent.retiring);
-        // A few inexpensive local solver passes prevent one resolved contact
-        // from creating a new penetration with the rank in the next lane.
-        for (let pass = 0; pass < 10; pass++) {
-            const grid = new Map();
-            for (const second of agents) {
-                const cellX = Math.floor((second.x - ARENA.minX) / cellSize);
-                const cellZ = Math.floor((second.z - ARENA.minZ) / cellSize);
-                for (let offsetX = -1; offsetX <= 1; offsetX++) {
-                    for (let offsetZ = -1; offsetZ <= 1; offsetZ++) {
-                        const neighbors = grid.get(`${cellX + offsetX}:${cellZ + offsetZ}`);
-                        if (!neighbors) continue;
-                        for (const first of neighbors) {
-                            const dx = second.x - first.x;
-                            const dz = second.z - first.z;
-                            const distanceSq = dx * dx + dz * dz;
-                            const clearance = (first.size + second.size) * 1.08;
-                            if (distanceSq >= clearance * clearance) continue;
-                            const distance = Math.max(0.001, Math.sqrt(distanceSq));
-                            const overlap = (clearance - distance) * 0.5;
-                            const laneDirection = Math.sign(second.laneSlot - first.laneSlot)
-                                || Math.sign(dz)
-                                || first.flankSide;
-                            first.z = clamp(first.z - laneDirection * overlap, ARENA.minZ + 0.7, ARENA.maxZ - 0.7);
-                            second.z = clamp(second.z + laneDirection * overlap, ARENA.minZ + 0.7, ARENA.maxZ - 0.7);
-                        }
+    // Solve friendly and opposing penetrations in the same spatial pass. Two
+    // sequential solvers could undo each other's lateral correction in a dense
+    // lane, producing a one-frame overlap even though each pass was valid by
+    // itself. This unified constraint converges both relationships together.
+    const agents = [...crowdAgents.bull, ...crowdAgents.bear].filter((agent) => !agent.retiring);
+    const cellSize = 2.8;
+    for (let pass = 0; pass < 12; pass++) {
+        const grid = new Map();
+        for (const second of agents) {
+            const cellX = Math.floor((second.x - ARENA.minX) / cellSize);
+            const cellZ = Math.floor((second.z - ARENA.minZ) / cellSize);
+            for (let offsetX = -1; offsetX <= 1; offsetX++) {
+                for (let offsetZ = -1; offsetZ <= 1; offsetZ++) {
+                    const neighbors = grid.get(`${cellX + offsetX}:${cellZ + offsetZ}`);
+                    if (!neighbors) continue;
+                    for (const first of neighbors) {
+                        const dx = second.x - first.x;
+                        const dz = second.z - first.z;
+                        const sameSide = first.type === second.type;
+                        const clearance = sameSide
+                            ? (first.size + second.size) * 1.08
+                            : Math.max(1.02, (first.size + second.size) * 0.72);
+                        const distanceSq = dx * dx + dz * dz;
+                        if (distanceSq >= clearance * clearance) continue;
+                        const requiredLateral = Math.sqrt(Math.max(0, clearance * clearance - dx * dx));
+                        const lateralOverlap = requiredLateral - Math.abs(dz);
+                        if (lateralOverlap <= 0) continue;
+                        const laneDirection = Math.sign(dz)
+                            || (sameSide ? Math.sign(second.laneSlot - first.laneSlot) : 0)
+                            || first.avoidanceSide
+                            || 1;
+                        const shift = lateralOverlap * 0.5 + 0.018;
+                        first.z = clamp(first.z - laneDirection * shift, ARENA.minZ + 0.7, ARENA.maxZ - 0.7);
+                        second.z = clamp(second.z + laneDirection * shift, ARENA.minZ + 0.7, ARENA.maxZ - 0.7);
                     }
                 }
-                const key = `${Math.floor((second.x - ARENA.minX) / cellSize)}:${Math.floor((second.z - ARENA.minZ) / cellSize)}`;
-                if (!grid.has(key)) grid.set(key, []);
-                grid.get(key).push(second);
             }
+            const key = `${Math.floor((second.x - ARENA.minX) / cellSize)}:${Math.floor((second.z - ARENA.minZ) / cellSize)}`;
+            if (!grid.has(key)) grid.set(key, []);
+            grid.get(key).push(second);
         }
     }
 }
 
-function separateOpposingCrowdRanks() {
-    for (const bull of crowdAgents.bull) {
-        const bear = bull.engagementPartner;
-        if (bull.retiring || !bear || bear.retiring) continue;
-        const dx = bear.x - bull.x;
-        const dz = bear.z - bull.z;
-        const distance = Math.hypot(dx, dz);
-        const clearance = (bull.size + bear.size) * 1.02;
-        if (distance >= clearance) continue;
-        const lateralDirection = Math.sign(dz) || bull.avoidanceSide || 1;
-        const lateralShift = (clearance - distance) * 0.55 + 0.04;
-        bull.z = clamp(bull.z - lateralDirection * lateralShift, ARENA.minZ + 0.7, ARENA.maxZ - 0.7);
-        bear.z = clamp(bear.z + lateralDirection * lateralShift, ARENA.minZ + 0.7, ARENA.maxZ - 0.7);
+function refreshChampionCrowdContactsAfterCrowd(now) {
+    // Aggregate ranks move after verified champions in the frame. Re-run only
+    // the contact constraint here so a fast rank cannot enter a giant between
+    // its navigation update and rendering. The held contact point remains
+    // fixed, so this does not reintroduce the old snap/vibration cycle.
+    for (const entity of entities) {
+        if (entity.retired || entity.hp <= 0 || entity.forcedRetreatUntil > now) continue;
+        const contact = resolveChampionCrowdContact(entity);
+        if (contact) {
+            entity.frontContact = contact;
+            entity.frontContactUntil = now + 950;
+            entity.target = null;
+            entity.behavior = 'frontline';
+            entity.mesh.position.y = getTrenchHeight(entity.mesh.position.x, entity.mesh.position.z);
+        }
+        retireCrowdPenetrations(entity, contact);
+    }
+}
+
+function retireCrowdPenetrations(entity, primaryContact) {
+    const enemyType = entity.type === 'bull' ? 'bear' : 'bull';
+    const physicalClearance = entity.isWhale ? 4.35 : 2.55;
+    for (const agent of crowdAgents[enemyType]) {
+        if (agent.retiring) continue;
+        const distance = Math.hypot(agent.x - entity.mesh.position.x, agent.z - entity.mesh.position.z);
+        if (distance >= physicalClearance + agent.size * 0.45) continue;
+        // Only one aggregate rank can occupy a verified champion's combat
+        // contact. A second rank entering the model is a failed flank, not a
+        // reason to push the champion backwards or let geometry pass through.
+        // It fades out and population sync reinforces its camp normally.
+        agent.retiring = true;
+        agent.life = Math.min(agent.life, entity.isWhale ? 0.68 : 0.82);
+        const partner = agent.engagementPartner;
+        agent.engagementPartner = null;
+        if (partner?.engagementPartner === agent) partner.engagementPartner = null;
+        if (agent === primaryContact) {
+            entity.frontContact = null;
+            entity.frontContactUntil = 0;
+            entity.frontContactHoldX = null;
+            entity.crowdStrikeProgress = 0;
+        }
     }
 }
 
@@ -2965,18 +3055,35 @@ function fitFrontlineToTerrain(force = false) {
 function getSteering(entity, desiredX, desiredZ) {
     let steerX = desiredX;
     let steerZ = desiredZ + (entity.laneTarget - entity.mesh.position.z) * 0.015;
-    const clearance = entity.isWhale ? 5 : 2.6;
-    obstacles.forEach((obstacle) => {
-        const dx = entity.mesh.position.x - obstacle.x;
-        const dz = entity.mesh.position.z - obstacle.z;
-        const distanceSq = dx * dx + dz * dz;
+    const clearance = entity.isWhale ? 6.2 : 2.8;
+    const lookAhead = entity.isWhale ? 8.5 : 4.2;
+    const probeX = entity.mesh.position.x + desiredX * lookAhead;
+    const probeZ = entity.mesh.position.z + desiredZ * lookAhead;
+    for (const obstacle of obstacles) {
+        const currentDx = entity.mesh.position.x - obstacle.x;
+        const currentDz = entity.mesh.position.z - obstacle.z;
+        const probeDx = probeX - obstacle.x;
+        const probeDz = probeZ - obstacle.z;
+        const currentDistanceSq = currentDx * currentDx + currentDz * currentDz;
+        const probeDistanceSq = probeDx * probeDx + probeDz * probeDz;
         const safeRadius = obstacle.radius + clearance;
-        if (distanceSq > 0.001 && distanceSq < safeRadius * safeRadius) {
-            const force = (safeRadius - Math.sqrt(distanceSq)) / safeRadius;
-            steerX += (dx / Math.sqrt(distanceSq)) * force * 2.2;
-            steerZ += (dz / Math.sqrt(distanceSq)) * force * 2.2;
-        }
-    });
+        if (currentDistanceSq >= safeRadius * safeRadius && probeDistanceSq >= safeRadius * safeRadius) continue;
+
+        const useProbe = probeDistanceSq < currentDistanceSq;
+        const dx = useProbe ? probeDx : currentDx;
+        const dz = useProbe ? probeDz : currentDz;
+        const distance = Math.max(0.001, Math.hypot(dx, dz));
+        const radialX = distance > 0.001 ? dx / distance : -desiredZ * entity.avoidanceSide;
+        const radialZ = distance > 0.001 ? dz / distance : desiredX * entity.avoidanceSide;
+        const tangentX = -radialZ * entity.avoidanceSide;
+        const tangentZ = radialX * entity.avoidanceSide;
+        const force = clamp((safeRadius + lookAhead * 0.32 - distance) / safeRadius, 0.18, 1.45);
+        // A persistent side choice makes a large model commit to one route
+        // around an obstacle instead of alternating left/right every frame.
+        steerX += radialX * force * 2.25 + tangentX * force * 1.45;
+        steerZ += radialZ * force * 2.25 + tangentZ * force * 1.45;
+    }
+    if (entity.avoidanceUntil > Date.now()) steerZ += entity.avoidanceSide * (entity.isWhale ? 0.72 : 0.42);
     const length = Math.hypot(steerX, steerZ) || 1;
     return { x: steerX / length, z: steerZ / length };
 }
@@ -2984,20 +3091,38 @@ function getSteering(entity, desiredX, desiredZ) {
 function applySeparation(entity, delta) {
     let pushX = 0;
     let pushZ = 0;
-    const clearance = entity.isWhale ? 5.5 : 2.2;
+    const selfRadius = entity.isWhale ? 3.9 : 1.35;
     for (const other of entities) {
         if (other === entity || other.retired || other.hp <= 0) continue;
-        const dx = entity.mesh.position.x - other.mesh.position.x;
-        const dz = entity.mesh.position.z - other.mesh.position.z;
-        const distanceSq = dx * dx + dz * dz;
-        if (distanceSq < 0.001 || distanceSq >= clearance * clearance) continue;
+        // Opponents deliberately in combat are held apart by their attack
+        // distance. A second repulsion force here made whales oscillate.
+        if (entity.type !== other.type && (entity.target === other || other.target === entity)) continue;
+        const otherRadius = other.isWhale ? 3.9 : 1.35;
+        const clearance = selfRadius + otherRadius;
+        let dx = entity.mesh.position.x - other.mesh.position.x;
+        let dz = entity.mesh.position.z - other.mesh.position.z;
+        let distanceSq = dx * dx + dz * dz;
+        if (distanceSq >= clearance * clearance) continue;
+        if (distanceSq < 0.001) {
+            dx = 0;
+            dz = entity.avoidanceSide || 1;
+            distanceSq = 1;
+        }
         const distance = Math.sqrt(distanceSq);
         const strength = (clearance - distance) / clearance;
-        pushX += (dx / distance) * strength;
+        const longitudinalWeight = entity.type === other.type ? 0.22 : 0.72;
+        pushX += (dx / distance) * strength * longitudinalWeight;
         pushZ += (dz / distance) * strength;
     }
-    entity.mesh.position.x += pushX * delta * 2.8;
-    entity.mesh.position.z += pushZ * delta * 2.8;
+    const magnitude = Math.hypot(pushX, pushZ);
+    if (magnitude > 1.6) {
+        pushX = pushX / magnitude * 1.6;
+        pushZ = pushZ / magnitude * 1.6;
+    }
+    entity.separationX = THREE.MathUtils.damp(entity.separationX, pushX, 10, delta);
+    entity.separationZ = THREE.MathUtils.damp(entity.separationZ, pushZ, 10, delta);
+    entity.mesh.position.x += entity.separationX * delta * 3.2;
+    entity.mesh.position.z += entity.separationZ * delta * 3.2;
 }
 
 function makeFriendlyCrowdYieldToChampion(entity) {
@@ -3008,7 +3133,6 @@ function makeFriendlyCrowdYieldToChampion(entity) {
     const championX = entity.mesh.position.x;
     const championZ = entity.mesh.position.z;
     const clearance = entity.isWhale ? 5.6 : 3.45;
-    let correctionZ = 0;
     // Friendly ranks make room for their verified champion. Enemy ranks do not:
     // they form a local combat contact handled by resolveChampionCrowdContact.
     for (const agent of crowdAgents[entity.type]) {
@@ -3027,16 +3151,10 @@ function makeFriendlyCrowdYieldToChampion(entity) {
         const lateralShift = lateralDirection * penetration * (0.78 + force * 0.18);
         agent.z = clamp(agent.z + lateralShift, ARENA.minZ + 0.7, ARENA.maxZ - 0.7);
         agent.vz += lateralDirection * force * 1.15;
-        correctionZ -= lateralShift * 0.22;
     }
-    // The detailed combatant also yields a little. Applying correction to both
-    // simulation layers guarantees that a large bull/bear cannot be rendered on
-    // top of mini ranks during a single high-speed frame.
-    // A warded intruder is already being pushed by the King's attack; do not
-    // counteract that deliberate retreat with a crowd correction.
-    if (entity.forcedRetreatUntil <= Date.now()) {
-        entity.mesh.position.z += clamp(correctionZ, -1.1, 1.1);
-    }
+    // Only the aggregate formation yields. Reciprocal per-frame corrections on
+    // the much larger champion changed sign as ranks passed on either side and
+    // were the main source of visible whale vibration.
 }
 
 function resolveChampionCrowdContact(entity) {
@@ -3051,14 +3169,26 @@ function resolveChampionCrowdContact(entity) {
         && direction * (agent.x - entity.mesh.position.x) >= -radius - 0.8
     ));
     if (!candidates.length) return null;
-    const blocker = candidates.reduce((front, agent) => (
+    const lockedContact = entity.frontContactUntil > Date.now() && candidates.includes(entity.frontContact)
+        ? entity.frontContact
+        : null;
+    const blocker = lockedContact || candidates.reduce((front, agent) => (
         !front || direction * agent.x < direction * front.x ? agent : front
     ), null);
     const limit = blocker.x - direction * (radius + blocker.size * 0.42);
     const distanceToLimit = direction * (limit - entity.mesh.position.x);
     if (distanceToLimit > 0.7) return null;
-    if (direction > 0) entity.mesh.position.x = Math.min(entity.mesh.position.x, limit);
-    else entity.mesh.position.x = Math.max(entity.mesh.position.x, limit);
+    if (entity.frontContact !== blocker || !Number.isFinite(entity.frontContactHoldX)) {
+        entity.frontContactHoldX = direction > 0
+            ? Math.min(entity.mesh.position.x, limit)
+            : Math.max(entity.mesh.position.x, limit);
+        entity.crowdStrikeProgress = 0;
+    }
+    // Keep one stable contact point for the whole exchange. Following the
+    // aggregate rank's moving x-coordinate caused a giant to be snapped back
+    // and forth while both simulations were updating.
+    if (direction > 0) entity.mesh.position.x = Math.min(entity.mesh.position.x, entity.frontContactHoldX);
+    else entity.mesh.position.x = Math.max(entity.mesh.position.x, entity.frontContactHoldX);
     entity.vx = 0;
     return blocker;
 }
@@ -3069,13 +3199,13 @@ function getActiveChampionCrowdContact(entity, now) {
     const enemyType = entity.type === 'bull' ? 'bear' : 'bull';
     if (!crowdAgents[enemyType].includes(contact)) return null;
     const maxLateral = entity.isWhale ? 8.5 : 5.6;
-    const maxLongitudinal = entity.isWhale ? 8 : 5.4;
+    const maxLongitudinal = entity.isWhale ? 11 : 7;
     if (Math.abs(contact.z - entity.mesh.position.z) > maxLateral) return null;
     if (Math.abs(contact.x - entity.mesh.position.x) > maxLongitudinal) return null;
     return contact;
 }
 
-function animateChampionCrowdCombat(entity, contact) {
+function animateChampionCrowdCombat(entity, contact, delta) {
     entity.behavior = 'frontline';
     entity.lineProximityAt = 0;
     const dx = contact.x - entity.mesh.position.x;
@@ -3088,6 +3218,20 @@ function animateChampionCrowdCombat(entity, contact) {
         entity.cooldown = entity.isWhale ? 1.25 : 0.82;
         entity.body.scale.setScalar(entity.isWhale ? 1.22 : 1.14);
     }
+    entity.crowdStrikeProgress += delta * (0.9 + entity.power * 0.12);
+    const defeatAfter = entity.isWhale ? 1.35 : 2.35;
+    if (entity.crowdStrikeProgress < defeatAfter || contact.retiring) return;
+    contact.retiring = true;
+    contact.life = Math.min(contact.life, 0.82);
+    const partner = contact.engagementPartner;
+    contact.engagementPartner = null;
+    if (partner?.engagementPartner === contact) partner.engagementPartner = null;
+    _crowdImpact.set(contact.x, getTrenchHeight(contact.x, contact.z) + 0.75, contact.z);
+    spawnParticles(_crowdImpact, entity.type === 'bull' ? matParticleBull : matParticleBear, false, false, entity.isWhale ? 0.8 : 0.55);
+    entity.crowdStrikeProgress = 0;
+    entity.crowdStrikes += 1;
+    entity.frontContactUntil = 0;
+    entity.frontContactHoldX = null;
 }
 
 function enforceArenaBounds(entity) {
@@ -3112,10 +3256,12 @@ function recoverIfStuck(entity, delta) {
     );
     entity.stuckTime = moved < 0.008 ? entity.stuckTime + delta : 0;
     entity.lastPosition.set(entity.mesh.position.x, entity.mesh.position.z);
-    if (entity.stuckTime < 1.2) return;
-    const laneShift = entity.mesh.position.z >= 0 ? -4.5 : 4.5;
-    entity.laneTarget = clamp(entity.laneTarget + laneShift, ARENA.minZ + 2, ARENA.maxZ - 2);
-    entity.mesh.position.z += Math.sign(entity.laneTarget - entity.mesh.position.z) * 1.25;
+    if (entity.stuckTime < (entity.isWhale ? 1.65 : 1.2)) return;
+    entity.avoidanceSide *= -1;
+    const laneShift = entity.avoidanceSide * (entity.isWhale ? 8 : 5.5);
+    entity.laneTarget = clamp(entity.mesh.position.z + laneShift, ARENA.minZ + 2, ARENA.maxZ - 2);
+    entity.avoidanceUntil = Date.now() + (entity.isWhale ? 2_400 : 1_600);
+    entity.mesh.position.z += entity.avoidanceSide * (entity.isWhale ? 0.38 : 0.24);
     entity.vx = 0;
     entity.vz = 0;
     entity.stuckTime = 0;
@@ -3464,7 +3610,8 @@ function spawnParticles(pos, material, isExplosion, isWhale = false, sizeScale =
     let count = isExplosion ? 8 : 2;
     if (isWhale) count *= 2;
     if (prefersReducedMotion) count = Math.min(2, count);
-    if (particles.length > 100) return;
+    count = Math.min(count, Math.max(0, MAX_ACTIVE_PARTICLES - particles.length));
+    if (count <= 0) return;
 
     for (let i = 0; i < count; i++) {
         const size = (isExplosion ? 0.6 : 0.3) * sizeScale;
