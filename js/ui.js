@@ -5,6 +5,7 @@ import { state } from './state.js';
 const DOM = {};
 let miniChartCtx = null;
 let lastRenderedBullPct = -1;
+let dashboardFrameId = 0;
 let signalTimer = null;
 let selectedTrade = null;
 let sceneCallbacks = {
@@ -159,7 +160,9 @@ export function renderMiniChart() {
 }
 
 export function updateDashboardUI() {
-    requestAnimationFrame(() => {
+    if (dashboardFrameId) return;
+    dashboardFrameId = requestAnimationFrame(() => {
+        dashboardFrameId = 0;
         const bullPct = Math.round(state.momentum);
 
         if (bullPct !== lastRenderedBullPct) {
@@ -173,7 +176,7 @@ export function updateDashboardUI() {
         const colorHex = state.marketTrend === 1 ? 0x00ff88 : (state.marketTrend === -1 ? 0xff3366 : 0xffffff);
         sceneCallbacks.setFrontlineColor(colorHex);
         if (DOM.pressureVolume) {
-            DOM.pressureVolume.textContent = `${formatSol(state.buySol60s)} / ${formatSol(state.sellSol60s)} SOL`;
+            setText(DOM.pressureVolume, `${formatSol(state.buySol60s)} / ${formatSol(state.sellSol60s)} SOL`);
             DOM.pressureVolume.title = 'Verified buy SOL / sell SOL in the rolling 60-second window';
         }
         updateBattleState();
@@ -188,18 +191,22 @@ function updateBattleState() {
         buyCount: state.activity5m.buyCount,
         sellCount: state.activity5m.sellCount,
     });
-    DOM.battleState.className = tactics.state;
-    DOM.battleStateLabel.textContent = tactics.label;
+    if (DOM.battleState.className !== tactics.state) DOM.battleState.className = tactics.state;
+    setText(DOM.battleStateLabel, tactics.label);
     const netSol = state.buySol60s - state.sellSol60s;
     if (DOM.battleStateFlow) {
-        DOM.battleStateFlow.textContent = Math.abs(netSol) < 0.005
+        setText(DOM.battleStateFlow, Math.abs(netSol) < 0.005
             ? 'NO VERIFIED FLOW · 60S'
-            : `${netSol > 0 ? 'BUYERS' : 'SELLERS'} ${netSol > 0 ? '+' : '−'}${formatSol(Math.abs(netSol))} SOL · 60S`;
+            : `${netSol > 0 ? 'BUYERS' : 'SELLERS'} ${netSol > 0 ? '+' : '−'}${formatSol(Math.abs(netSol))} SOL · 60S`);
     }
-    if (tactics.state === 'bull') DOM.battleStateDetail.textContent = 'Bulls break grizzly ranks · fresh sellers reinforce from their camp';
-    else if (tactics.state === 'bear') DOM.battleStateDetail.textContent = 'Grizzlies break bull ranks · fresh buyers reinforce from the King’s camp';
-    else if (tactics.state === 'contested') DOM.battleStateDetail.textContent = 'Both sides cross contested ground while 60s SOL flow moves the marker';
-    else DOM.battleStateDetail.textContent = 'No verified SOL flow in 60s · tracked 5m market ranks muster behind the front';
+    const detail = tactics.state === 'bull'
+        ? 'Bulls break grizzly ranks · fresh sellers reinforce from their camp'
+        : tactics.state === 'bear'
+            ? 'Grizzlies break bull ranks · fresh buyers reinforce from the King’s camp'
+            : tactics.state === 'contested'
+                ? 'Both sides cross contested ground while 60s SOL flow moves the marker'
+                : 'No verified SOL flow in 60s · tracked 5m market ranks muster behind the front';
+    setText(DOM.battleStateDetail, detail);
     updateVisibleCoverage(state.visibleCombatants);
 }
 
@@ -233,10 +240,15 @@ export function addOnChainTrade(trade) {
     value.className = 'trade-usd';
     value.textContent = ` · $${trade.usdValue.toLocaleString(undefined, { maximumFractionDigits: 0 })} · ${trade.dexId}`;
     row.append(time, side, amount, value);
-    DOM.tradesfeed.prepend(row);
-    [...DOM.tradesfeed.querySelectorAll('.trade-item')]
-        .sort((first, second) => Number(second.dataset.timestamp) - Number(first.dataset.timestamp))
-        .forEach((item) => DOM.tradesfeed.append(item));
+    const rows = DOM.tradesfeed.querySelectorAll('.trade-item');
+    let insertionPoint = null;
+    for (const item of rows) {
+        if (Number(item.dataset.timestamp) <= trade.timestamp) {
+            insertionPoint = item;
+            break;
+        }
+    }
+    DOM.tradesfeed.insertBefore(row, insertionPoint);
     trimFeed(DOM.tradesfeed, CONFIG.MAX_TRADES_FEED);
 }
 
@@ -288,7 +300,7 @@ export function updateVisibleCoverage(counts = state.visibleCombatants) {
     const total = Number(counts?.total || 0);
     const bull = Number(counts?.bull || 0);
     const bear = Number(counts?.bear || 0);
-    DOM.visibleCoverage.textContent = `BULL FORCE ${bull} · BEAR FORCE ${bear} · ${recentVerified} VERIFIED SWAP${recentVerified === 1 ? '' : 'S'} / 60S`;
+    setText(DOM.visibleCoverage, `BULL FORCE ${bull} · BEAR FORCE ${bear} · ${recentVerified} VERIFIED SWAP${recentVerified === 1 ? '' : 'S'} / 60S`);
     DOM.visibleCoverage.title = `Solid champions represent up to ${CONFIG.MAX_VISIBLE_UNITS_PER_SIDE} individually verifiable swaps per side. Instanced army depth scales from tracked one-hour transactions; the five-minute pulse and verified 60-second SOL drive immediate reinforcements. ${total} total visual forces are currently rendered.`;
 }
 
@@ -396,6 +408,10 @@ export function showTradesWaiting() {
     if (!DOM.tradesfeed.querySelector('.trades-empty')) {
         DOM.tradesfeed.innerHTML = '<div class="trades-empty">Syncing latest verified swaps…</div>';
     }
+}
+
+function setText(element, value) {
+    if (element && element.textContent !== value) element.textContent = value;
 }
 
 export function showTradesReady({ pools = 0 } = {}) {

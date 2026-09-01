@@ -39,6 +39,18 @@ const CROWD_LANE_PRIORITY = Array.from({ length: CROWD_LANE_COUNT }, (_, index) 
     return index % 2 ? centerLeft + offset : centerLeft - offset;
 });
 const crowdOrders = { bull: new Map(), bear: new Map() };
+const CROWD_SEPARATION_CELL_SIZE = 2.8;
+const CROWD_SEPARATION_COLUMNS = Math.ceil((ARENA.maxX - ARENA.minX) / CROWD_SEPARATION_CELL_SIZE) + 1;
+const CROWD_SEPARATION_ROWS = Math.ceil((ARENA.maxZ - ARENA.minZ) / CROWD_SEPARATION_CELL_SIZE) + 1;
+const crowdSeparationBuckets = Array.from(
+    { length: CROWD_SEPARATION_COLUMNS * CROWD_SEPARATION_ROWS },
+    () => [],
+);
+const crowdSeparationUsedBuckets = [];
+const crowdSeparationAgents = [];
+const detailedContactActive = [];
+const detailedContactPairs = [];
+const championCrowdMovedEntities = [];
 let crowdClashAccumulator = 0;
 let crowdCasualtyAccumulator = 0;
 let lastCrowdPlanAt = 0;
@@ -300,6 +312,19 @@ const _crowdTransform = new THREE.Object3D();
 const _crowdLegTransform = new THREE.Object3D();
 const _crowdLegMatrix = new THREE.Matrix4();
 const _crowdImpact = new THREE.Vector3();
+const _crowdSteering = { x: 0, z: 0 };
+const CROWD_BULL_LEG_OFFSETS = new Float32Array([
+    0.5, 0.72, 0.38,
+    0.5, 0.72, -0.38,
+    -0.52, 0.72, 0.38,
+    -0.52, 0.72, -0.38,
+]);
+const CROWD_BEAR_LEG_OFFSETS = new Float32Array([
+    0.48, 0.72, 0.4,
+    0.48, 0.72, -0.4,
+    -0.48, 0.72, 0.4,
+    -0.48, 0.72, -0.4,
+]);
 let cameraShakeOffsetX = 0;
 let cameraShakeOffsetY = 0;
 const _kingTarget = new THREE.Vector3();
@@ -853,6 +878,10 @@ export function spawnUnit(type, initial = false, isWhale = false, trade = null) 
         chargeDistance: 0,
         chargeDustDistance: 0,
         chargeStopRequested: false,
+        // A unit added by an async swap is not visible until the next render,
+        // which always follows updateEntities. Diagnostics must not classify
+        // that pre-physics task boundary as a rendered collision regression.
+        physicsReady: false,
     };
     group.userData.entity = entity;
     entities.push(entity);
@@ -2586,6 +2615,7 @@ function updateEntities(delta) {
                 leg.rotation.z = THREE.MathUtils.lerp(leg.rotation.z, 0, 0.2);
             });
         }
+        if (!e.physicsReady) e.physicsReady = true;
         e.lastFrameTravel = Math.hypot(e.mesh.position.x - frameStartX, e.mesh.position.z - frameStartZ);
     }
 
@@ -2660,7 +2690,8 @@ function getCrowdHealth() {
     }
     let championBypasses = 0;
     for (const entity of entities) {
-        if (entity.retired || entity.hp <= 0 || entity.forcedRetreatUntil > Date.now() || isBullChargeActive(entity)) continue;
+        if (!entity.physicsReady || entity.retired || entity.hp <= 0
+            || entity.forcedRetreatUntil > Date.now() || isBullChargeActive(entity)) continue;
         const enemies = crowdAgents[entity.type === 'bull' ? 'bear' : 'bull'].filter((agent) => !agent.retiring);
         if (!enemies.length) continue;
         const physicalClearance = entity.isWhale ? 4.2 : 2.45;
@@ -2681,7 +2712,7 @@ function getCrowdHealth() {
             });
         }
     }
-    const activeEntities = entities.filter((entity) => !entity.retired && entity.hp > 0);
+    const activeEntities = entities.filter((entity) => entity.physicsReady && !entity.retired && entity.hp > 0);
     for (let firstIndex = 0; firstIndex < activeEntities.length; firstIndex++) {
         const first = activeEntities[firstIndex];
         for (let secondIndex = firstIndex + 1; secondIndex < activeEntities.length; secondIndex++) {
@@ -2776,7 +2807,8 @@ function updateCrowdForces(delta) {
     // final local spacing afterwards so a file correction cannot create a new
     // penetration against its neighbour during high-volume transitions.
     separateCrowdRanks();
-    refreshChampionCrowdContactsAfterCrowd(now);
+    const movedChampions = refreshChampionCrowdContactsAfterCrowd(now);
+    if (movedChampions.length) resolveDetailedEntityContacts(now, movedChampions);
     refreshCrowdMeshes();
     updateCrowdSnapshot(tactics, delta);
     updateCrowdClashEffects(delta);
@@ -3086,6 +3118,7 @@ function updateCrowdSide(type, doctrine, delta) {
         let targetZ = agent.lane + (order?.fileOffset || 0) + agent.laneBias + rankCurve + roleDrift
             + wave * (agent.role === 'skirmisher' ? 0.82 : 0.46);
         let opponent = null;
+        let opponentDistance = Number.POSITIVE_INFINITY;
 
         if (agent.retiring) {
             targetX = agent.x;
@@ -3102,20 +3135,18 @@ function updateCrowdSide(type, doctrine, delta) {
                 - direction * Math.min(3.2, 2.2 + rankDepth * 0.08);
         }
         if (!agent.retiring && order?.opponent) {
-            opponent = {
-                agent: order.opponent,
-                distance: Math.hypot(order.opponent.x - agent.x, order.opponent.z - agent.z),
-            };
+            opponent = order.opponent;
+            opponentDistance = Math.hypot(opponent.x - agent.x, opponent.z - agent.z);
         }
         const engagementRadius = 5.5 + crowdBattle.intensity * 1.25;
-        agent.opponentDistance = opponent?.distance ?? Number.POSITIVE_INFINITY;
+        agent.opponentDistance = opponentDistance;
         agent.engaged = !agent.retiring
             && opponent
-            && opponent.distance <= engagementRadius;
+            && opponentDistance <= engagementRadius;
         if (opponent) {
             const attackCycle = Math.max(0, Math.sin(kingTime * (2.4 + doctrine.aggression * 1.4) + agent.phase));
             const preferredDistance = 3.5 + (agent.role === 'support' ? 0.45 : 0);
-            const partner = opponent.agent;
+            const partner = opponent;
             // A rank advances into a concrete opposing rank. Collision-safe
             // spacing below keeps the two sides distinct instead of blended.
             const sectorContactX = crowdSectorOffset(agent.laneSlot) + direction * doctrine.penetration;
@@ -3214,7 +3245,7 @@ function updateCrowdSide(type, doctrine, delta) {
         if (travelSign && agent.travelSign && travelSign !== agent.travelSign) crowdBattle.directionChanges += 1;
         if (travelSign) agent.travelSign = travelSign;
         const desiredHeading = agent.engaged
-            ? Math.atan2(-(opponent.agent.z - agent.z), opponent.agent.x - agent.x)
+            ? Math.atan2(-(opponent.z - agent.z), opponent.x - agent.x)
             : Math.hypot(agent.vx, agent.vz) > 0.12
                 ? Math.atan2(-agent.vz, agent.vx)
                 : agent.heading;
@@ -3269,7 +3300,9 @@ function getCrowdSteering(agent, desiredX, desiredZ) {
         steerZ += radialZ * force * 2.4 + radialX * agent.avoidanceSide * force * 0.65;
     }
     const length = Math.hypot(steerX, steerZ) || 1;
-    return { x: steerX / length, z: steerZ / length };
+    _crowdSteering.x = steerX / length;
+    _crowdSteering.z = steerZ / length;
+    return _crowdSteering;
 }
 
 function enforceCrowdLaneOrder() {
@@ -3346,17 +3379,42 @@ function separateCrowdRanks() {
     // sequential solvers could undo each other's lateral correction in a dense
     // lane, producing a one-frame overlap even though each pass was valid by
     // itself. This unified constraint converges both relationships together.
-    const agents = [...crowdAgents.bull, ...crowdAgents.bear].filter((agent) => !agent.retiring);
-    const cellSize = 2.8;
+    crowdSeparationAgents.length = 0;
+    for (const agent of crowdAgents.bull) {
+        if (!agent.retiring) crowdSeparationAgents.push(agent);
+    }
+    for (const agent of crowdAgents.bear) {
+        if (!agent.retiring) crowdSeparationAgents.push(agent);
+    }
+    // Dense two-file transitions can transfer one final lateral correction
+    // through several neighbours. Twelve is the validated convergence ceiling;
+    // quiet formations still exit on the first clean pass.
     for (let pass = 0; pass < 12; pass++) {
-        const grid = new Map();
-        for (const second of agents) {
-            const cellX = Math.floor((second.x - ARENA.minX) / cellSize);
-            const cellZ = Math.floor((second.z - ARENA.minZ) / cellSize);
+        let corrected = false;
+        for (const bucketIndex of crowdSeparationUsedBuckets) {
+            crowdSeparationBuckets[bucketIndex].length = 0;
+        }
+        crowdSeparationUsedBuckets.length = 0;
+        for (const second of crowdSeparationAgents) {
+            const cellX = clamp(
+                Math.floor((second.x - ARENA.minX) / CROWD_SEPARATION_CELL_SIZE),
+                0,
+                CROWD_SEPARATION_COLUMNS - 1,
+            );
+            const cellZ = clamp(
+                Math.floor((second.z - ARENA.minZ) / CROWD_SEPARATION_CELL_SIZE),
+                0,
+                CROWD_SEPARATION_ROWS - 1,
+            );
             for (let offsetX = -1; offsetX <= 1; offsetX++) {
+                const neighborX = cellX + offsetX;
+                if (neighborX < 0 || neighborX >= CROWD_SEPARATION_COLUMNS) continue;
                 for (let offsetZ = -1; offsetZ <= 1; offsetZ++) {
-                    const neighbors = grid.get(`${cellX + offsetX}:${cellZ + offsetZ}`);
-                    if (!neighbors) continue;
+                    const neighborZ = cellZ + offsetZ;
+                    if (neighborZ < 0 || neighborZ >= CROWD_SEPARATION_ROWS) continue;
+                    const neighbors = crowdSeparationBuckets[
+                        neighborZ * CROWD_SEPARATION_COLUMNS + neighborX
+                    ];
                     for (const first of neighbors) {
                         const dx = second.x - first.x;
                         const dz = second.z - first.z;
@@ -3376,14 +3434,31 @@ function separateCrowdRanks() {
                         const shift = lateralOverlap * 0.5 + 0.018;
                         first.z = clamp(first.z - laneDirection * shift, ARENA.minZ + 0.7, ARENA.maxZ - 0.7);
                         second.z = clamp(second.z + laneDirection * shift, ARENA.minZ + 0.7, ARENA.maxZ - 0.7);
+                        corrected = true;
                     }
                 }
             }
-            const key = `${Math.floor((second.x - ARENA.minX) / cellSize)}:${Math.floor((second.z - ARENA.minZ) / cellSize)}`;
-            if (!grid.has(key)) grid.set(key, []);
-            grid.get(key).push(second);
+            const updatedCellX = clamp(
+                Math.floor((second.x - ARENA.minX) / CROWD_SEPARATION_CELL_SIZE),
+                0,
+                CROWD_SEPARATION_COLUMNS - 1,
+            );
+            const updatedCellZ = clamp(
+                Math.floor((second.z - ARENA.minZ) / CROWD_SEPARATION_CELL_SIZE),
+                0,
+                CROWD_SEPARATION_ROWS - 1,
+            );
+            const bucketIndex = updatedCellZ * CROWD_SEPARATION_COLUMNS + updatedCellX;
+            const bucket = crowdSeparationBuckets[bucketIndex];
+            if (bucket.length === 0) crowdSeparationUsedBuckets.push(bucketIndex);
+            bucket.push(second);
         }
+        if (!corrected) break;
     }
+    for (const bucketIndex of crowdSeparationUsedBuckets) {
+        crowdSeparationBuckets[bucketIndex].length = 0;
+    }
+    crowdSeparationUsedBuckets.length = 0;
 }
 
 function refreshChampionCrowdContactsAfterCrowd(now) {
@@ -3391,6 +3466,7 @@ function refreshChampionCrowdContactsAfterCrowd(now) {
     // the contact constraint here so a fast rank cannot enter a giant between
     // its navigation update and rendering. The held contact point remains
     // fixed, so this does not reintroduce the old snap/vibration cycle.
+    championCrowdMovedEntities.length = 0;
     for (const entity of entities) {
         if (entity.retired || entity.hp <= 0 || entity.forcedRetreatUntil > now) continue;
         if (isBullChargeActive(entity)) {
@@ -3409,6 +3485,8 @@ function refreshChampionCrowdContactsAfterCrowd(now) {
             }
             continue;
         }
+        const previousX = entity.mesh.position.x;
+        const previousZ = entity.mesh.position.z;
         const contact = resolveChampionCrowdContact(entity);
         if (contact) {
             entity.frontContact = contact;
@@ -3418,7 +3496,12 @@ function refreshChampionCrowdContactsAfterCrowd(now) {
             entity.mesh.position.y = getTrenchHeight(entity.mesh.position.x, entity.mesh.position.z);
         }
         retireCrowdPenetrations(entity, contact);
+        if (Math.abs(entity.mesh.position.x - previousX) > 0.001
+            || Math.abs(entity.mesh.position.z - previousZ) > 0.001) {
+            championCrowdMovedEntities.push(entity);
+        }
     }
+    return championCrowdMovedEntities;
 }
 
 function retireCrowdPenetrations(entity, primaryContact) {
@@ -3451,6 +3534,7 @@ function refreshCrowdMeshes() {
         const direction = type === 'bull' ? 1 : -1;
         const agents = crowdAgents[type];
         const meshes = crowdMeshes[type];
+        const legOffsets = type === 'bull' ? CROWD_BULL_LEG_OFFSETS : CROWD_BEAR_LEG_OFFSETS;
         for (let index = 0; index < agents.length; index++) {
             const agent = agents[index];
             const speed = Math.hypot(agent.vx, agent.vz);
@@ -3476,19 +3560,21 @@ function refreshCrowdMeshes() {
             meshes.accent.setMatrixAt(index, _crowdTransform.matrix);
             meshes.detail.setMatrixAt(index, _crowdTransform.matrix);
             meshes.eyes.setMatrixAt(index, _crowdTransform.matrix);
-            const legLayout = type === 'bull'
-                ? [[0.5, 0.72, 0.38], [0.5, 0.72, -0.38], [-0.52, 0.72, 0.38], [-0.52, 0.72, -0.38]]
-                : [[0.48, 0.72, 0.4], [0.48, 0.72, -0.4], [-0.48, 0.72, 0.4], [-0.48, 0.72, -0.4]];
-            legLayout.forEach(([x, y, z], legIndex) => {
+            for (let legIndex = 0; legIndex < 4; legIndex++) {
+                const offsetIndex = legIndex * 3;
                 const gait = Math.sin(kingTime * (8.5 + speed * 0.52) + agent.phase + (legIndex % 2) * Math.PI) * gaitAmount
                     + attackPulse * (legIndex < 2 ? -0.24 : 0.16);
-                _crowdLegTransform.position.set(x, y, z);
+                _crowdLegTransform.position.set(
+                    legOffsets[offsetIndex],
+                    legOffsets[offsetIndex + 1],
+                    legOffsets[offsetIndex + 2],
+                );
                 _crowdLegTransform.rotation.set(0, 0, gait * (agent.engaged ? 0.48 : 0.68));
                 _crowdLegTransform.scale.set(type === 'bull' ? 0.85 : 0.82, type === 'bull' ? 0.82 : 0.78, type === 'bull' ? 0.85 : 0.82);
                 _crowdLegTransform.updateMatrix();
                 _crowdLegMatrix.multiplyMatrices(_crowdTransform.matrix, _crowdLegTransform.matrix);
                 meshes.legs[legIndex].setMatrixAt(index, _crowdLegMatrix);
-            });
+            }
         }
         meshes.body.count = agents.length;
         meshes.accent.count = agents.length;
@@ -3811,21 +3897,30 @@ function getDetailedPhysicalSpacing(first, second) {
     return bothGiants ? 9.2 : eitherGiant ? 5.05 : 2.45;
 }
 
-function resolveDetailedEntityContacts(now) {
-    const active = entities.filter((entity) => !entity.retired && entity.hp > 0);
-    const pairs = [];
-    for (let firstIndex = 0; firstIndex < active.length; firstIndex++) {
-        for (let secondIndex = firstIndex + 1; secondIndex < active.length; secondIndex++) {
-            pairs.push([active[firstIndex], active[secondIndex]]);
-        }
+function resolveDetailedEntityContacts(now, affectedEntities = null) {
+    detailedContactActive.length = 0;
+    detailedContactPairs.length = 0;
+    for (const entity of entities) {
+        if (!entity.retired && entity.hp > 0) detailedContactActive.push(entity);
     }
+    const activeCount = detailedContactActive.length;
     // Resolve regular clusters first and giant clearances last. Otherwise a
     // later regular/regular correction can push the smaller unit back inside
     // a giant after that giant's pair was already considered for this pass.
-    pairs.sort((firstPair, secondPair) => (
-        Number(firstPair[0].isWhale || firstPair[1].isWhale)
-        - Number(secondPair[0].isWhale || secondPair[1].isWhale)
-    ));
+    // Numeric pair indices reuse one buffer and avoid allocating/sorting up to
+    // 105 tiny arrays every animation frame.
+    for (let giantPassIndex = 0; giantPassIndex < 2; giantPassIndex++) {
+        const giantPass = giantPassIndex === 1;
+        for (let firstIndex = 0; firstIndex < activeCount; firstIndex++) {
+            for (let secondIndex = firstIndex + 1; secondIndex < activeCount; secondIndex++) {
+                const involvesGiant = detailedContactActive[firstIndex].isWhale
+                    || detailedContactActive[secondIndex].isWhale;
+                if (involvesGiant === giantPass) {
+                    detailedContactPairs.push(firstIndex * activeCount + secondIndex);
+                }
+            }
+        }
+    }
     // Alternate sweep direction so a dense row cannot keep transferring the
     // last correction into the pair that was resolved first. The small safety
     // skin absorbs the movement generated by the following simulation frame
@@ -3833,9 +3928,16 @@ function resolveDetailedEntityContacts(now) {
     // contact distance.
     for (let pass = 0; pass < 64; pass++) {
         let corrections = 0;
-        for (let pairOffset = 0; pairOffset < pairs.length; pairOffset++) {
-            const pairIndex = pass % 2 === 0 ? pairOffset : pairs.length - 1 - pairOffset;
-            const [first, second] = pairs[pairIndex];
+        for (let pairOffset = 0; pairOffset < detailedContactPairs.length; pairOffset++) {
+            const pairIndex = pass % 2 === 0
+                ? pairOffset
+                : detailedContactPairs.length - 1 - pairOffset;
+            const encodedPair = detailedContactPairs[pairIndex];
+            const first = detailedContactActive[Math.floor(encodedPair / activeCount)];
+            const second = detailedContactActive[encodedPair % activeCount];
+            if (affectedEntities
+                && !affectedEntities.includes(first)
+                && !affectedEntities.includes(second)) continue;
             const minimum = getDetailedPhysicalSpacing(first, second);
             let dx = first.mesh.position.x - second.mesh.position.x;
             let dz = first.mesh.position.z - second.mesh.position.z;
@@ -3906,6 +4008,13 @@ function resolveDetailedEntityContacts(now) {
             }
             first.mesh.position.y = getTrenchHeight(first.mesh.position.x, first.mesh.position.z);
             second.mesh.position.y = getTrenchHeight(second.mesh.position.x, second.mesh.position.z);
+            if (affectedEntities) {
+                // A local correction may transfer pressure to the next
+                // neighbour. Expanding the affected set keeps that short chain
+                // correct without repeating every unrelated pair in the scene.
+                if (!affectedEntities.includes(first)) affectedEntities.push(first);
+                if (!affectedEntities.includes(second)) affectedEntities.push(second);
+            }
             corrections += 1;
         }
         if (!corrections) break;
@@ -4104,8 +4213,12 @@ function updateBullKing(delta) {
         kingCommandZ = desiredBattleZ;
         kingCommandZUntil = now + 6_500;
     }
+    // The market marker is deliberately traversable and can move much faster
+    // than either army. Anchor the commander to the physical bull vanguard so
+    // an extreme 60s imbalance changes his doctrine without pulling him away
+    // from the battle or outside the camera.
     const bullFrontReference = crowdAgents.bull.length
-        ? Math.min(state.frontlineX, crowdBattle.bullFrontX)
+        ? crowdBattle.bullFrontX
         : state.frontlineX;
     const guardBuffer = kingMode === 'guard' ? Math.max(0, -tactics.balance) * 5 : 0;
     const commandBaseX = bullFrontReference - directive.trailingDistance - guardBuffer;
