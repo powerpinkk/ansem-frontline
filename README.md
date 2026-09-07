@@ -46,7 +46,7 @@ When the page is hidden, the WebGL loop pauses instead of wasting battery on fra
 
 ## Data methodology
 
-DexScreener's official token-pairs endpoint is used in the browser to discover active Solana pools, calculate a liquidity-weighted token price and obtain five-minute and one-hour directional transaction counts. If that discovery request is unavailable, the Cloudflare Worker derives a conservative fallback price from Helius DAS metadata and returns five explicitly identified high-activity SOL/USDC pools; the interface labels this reduced coverage as `FALLBACK` instead of implying full market coverage. The browser sends the selected public pool addresses and current market prices to a Cloudflare Durable Object, which validates them before opening the preferred Helius WebSocket path. The Worker parses confirmed balance changes and broadcasts normalized trades without exposing the Helius key. For a cold start, a separate cached Worker endpoint queries the two highest-priority pools with the free-plan-compatible Helius `getSignaturesForAddress` method, resolves the small result set in one `getTransaction` batch and returns up to five minutes of verified history. GeckoTerminal starts concurrently as an independent enrichment and fallback path; if Helius does not explicitly confirm `live`, the browser restores conservative GeckoTerminal polling. The Worker exposes only validated Solana pool trade and minute-OHLCV paths through a short-lived cache, avoiding browser CORS failures without becoming an open proxy. Optional candle or fallback failures remain isolated from the live trade feed.
+DexScreener's official token-pairs endpoint is used in the browser to resolve the active token context, discover compatible Solana pools, calculate a liquidity-weighted token price and obtain five-minute and one-hour directional transaction counts. If that discovery request is unavailable for the default ANSEM preset, the Cloudflare Worker derives a conservative fallback price from Helius DAS metadata and returns five explicitly identified high-activity SOL/USDC pools; the interface labels this reduced coverage as `FALLBACK` instead of implying full market coverage. Those known pools are data attached only to the ANSEM preset: another mint without safely discovered pools receives an explicit unsupported result and never inherits ANSEM data. The browser sends the validated mint, selected public pool addresses and current market prices to a mint-specific Cloudflare Durable Object before opening the preferred Helius WebSocket path. The Worker parses confirmed balance changes and broadcasts normalized trades without exposing the Helius key. For a cold start, a separate mint-namespaced cached Worker endpoint queries the two highest-priority pools with the free-plan-compatible Helius `getSignaturesForAddress` method, resolves the small result set in one `getTransaction` batch and returns up to five minutes of verified history. GeckoTerminal starts concurrently as an independent enrichment and fallback path; if Helius does not explicitly confirm `live`, the browser restores conservative GeckoTerminal polling. The Worker exposes only validated Solana pool trade and minute-OHLCV paths through a short-lived cache, avoiding browser CORS failures without becoming an open proxy. Optional candle or fallback failures remain isolated from the live trade feed.
 
 Trade value is normalized to SOL:
 
@@ -59,7 +59,9 @@ The UI displays the number of monitored pools and their share of DexScreener-rep
 ## Architecture
 
 ```text
-DexScreener ── primary pool discovery, price, liquidity, market cap
+Validated TokenContext (mint + identity + discovery provenance)
+      │
+DexScreener ── token-agnostic pool discovery, price, liquidity, market cap
       │
       ├── pool ranking and coverage calculation
       │
@@ -67,7 +69,7 @@ Helius DAS ── fallback price and known SOL pools
       │
 Helius WSS ── confirmed pool transactions
       │
-Cloudflare Durable Object ── secure parsing and WebSocket broadcast
+mint → isolated Cloudflare Durable Object ── secure parsing and WebSocket broadcast
       │
       ├── cached Helius recent-swap snapshot (standard free-plan RPCs)
       ├── automatic fallback/enrichment: GeckoTerminal verified swaps
@@ -91,7 +93,15 @@ Browser companion ── verified rolling 30-second swaps
       └── canvas capture stream → native video Picture-in-Picture
 ```
 
-The code deliberately separates external data (`api.js`), pure market calculations (`market.js`), volume/strategy rules (`battlefield.js`), navigation rules (`navigation.js`), UI (`ui.js`) and rendering/simulation (`scene.js`).
+The code deliberately separates token identity/resolution (`token-context.js`, `token-discovery.js`), transient per-token runtime state (`state.js`), external data (`api.js`), pure market calculations (`market.js`), volume/strategy rules (`battlefield.js`), navigation rules (`navigation.js`), UI (`ui.js`) and rendering/simulation (`scene.js`). Theme and presentation remain the existing ANSEM experience and are not stored in `TokenContext`.
+
+### Multi-token foundation (M4)
+
+`TokenContext` is the canonical immutable token identity and resolved-data envelope. It carries only the validated Solana mint, identity metadata actually available to the application, supply when known, resolved pool resources and explicit discovery provenance/status. Timers, live trades, price history, deduplication sets and bootstrap state live in a separate runtime created per context. A runtime cannot be reassigned to another mint.
+
+Every token-bearing boundary validates the base58 value as a 32-byte Solana public key. Browser startup storage, pixel-companion channels, recent-snapshot edge caches, stream configuration keys and Durable Object routing are namespaced by mint. Stream and cached trades also carry their mint and are rejected when it differs from the receiving runtime. Discovery distinguishes resolved, invalid, unavailable, temporary, unsupported and upstream-failure outcomes; fallback pools are never borrowed from another token.
+
+ANSEM remains the default configuration, so the current URL, visual theme, battlefield and realtime startup behavior are unchanged. M4 intentionally does not expose token selection in the UI, add token URLs/navigation or build token-specific UX states. Those are reserved for M5.
 
 The production build places Three.js and the battlefield scene in separate content-hashed chunks. Market discovery, the sidebar and the verified feed start before the heavier 3D scene is evaluated, so token information is not blocked by geometry construction. Vercel serves hashed assets with a one-year immutable cache policy. Dynamic army transforms use eight `InstancedMesh` buffers per side—body, accent, anatomical detail, eyes and four independently animated legs—so hundreds of ranks remain practical without sacrificing readable gait, silhouettes or eye colour.
 
@@ -111,9 +121,12 @@ Production checks:
 ```bash
 npm run lint
 npm test
+npm run test:tokens:smoke
 npm run build
 npm run test:e2e
 ```
+
+The token smoke check is the intentionally upstream-dependent layer: it confirms that ANSEM, USDC and JUP still resolve to compatible live DexScreener pools. The deterministic unit suite uses fixtures for the same three mints, including metadata, error classification, concurrency and state/cache isolation, so ordinary CI does not become dependent on third-party availability.
 
 For a five-minute production-build movement and stability soak, run `npm run build && npm run preview -- --port 4174` in one terminal and `npm run test:soak` in another. Set `SOAK_SCENARIO=stress` to cycle through quiet, buyer surge, balanced high volume, seller surge and buy reversal. The monitor enables read-only diagnostics through a query flag and checks line crossings, stalled patrols, army/champion overlaps, missing model instances, support behaviour, woodland engagements, King activity/camera containment, arena bounds, viewport coverage, render load and browser/network errors.
 
@@ -124,12 +137,15 @@ index.html                 Application shell
 pixel-frontline.html       Compact pixel companion shell
 css/styles.css             Responsive interface
 css/pixel.css              Pixel companion surface
-js/config.js               Public token and polling configuration
+js/config.js               Public endpoint and polling configuration
+js/token-context.js        Validated canonical token identity/data model
+js/token-presets.js        ANSEM default data preset (separate from theme)
+js/token-discovery.js      Structured token/pool resolution and failure states
 js/market.js               Pure pool/trade/pressure calculations
 js/battlefield.js          Pure force-scaling and tactical doctrine
 js/navigation.js           Arena bounds, lanes, patrols and lifetime rules
 js/api.js                  Resilient multi-pool data ingestion
-js/state.js                Runtime state
+js/state.js                Isolated per-token runtime state factory
 js/ui.js                   Safe DOM rendering and controls
 js/scene.js                Three.js world and combat simulation
 js/companion.js            Native video/Document Picture-in-Picture lifecycle and live sync
@@ -138,6 +154,7 @@ js/stream.js               WebSocket client and reconnection
 worker/src/index.js        Cloudflare/Helius real-time relay
 worker/src/configuration.js Validated public pool configuration
 worker/src/market-fallback.js Helius market fallback normalization
+worker/src/token-routing.js Mint-namespaced Worker cache and stream routing
 worker/src/parser.js       Generic Solana balance-change parser
 worker/src/recent-trades.js Free-plan Helius startup history
 tests/market.test.js       Market semantics and parsing tests
@@ -173,7 +190,7 @@ Never add the Helius key to `.env`, Vercel client variables or source control.
 ## Limitations and roadmap
 
 - Without the relay, or while its streaming path is unavailable, public polling is near-real-time and the five-pool cap plus 8-second global cadence protects GeckoTerminal's public rate limit. A `429` pauses all fallback trade polling for 60 seconds instead of creating a retry storm.
-- DexScreener outages reduce discovery to five known SOL/USDC pools and Helius metadata; the application marks that state as fallback coverage and does not invent an hourly change value.
+- For the default ANSEM preset, DexScreener outages reduce discovery to five known SOL/USDC pools and Helius metadata; the application marks that state as fallback coverage and does not invent an hourly change value. Other mints fail explicitly when no safe pools have been resolved.
 - With the relay, the five highest-scoring pools discovered by DexScreener are subscribed over Helius standard WebSockets; unsupported or unusual transactions can still fall back to the polling source.
 - Free-service quotas are suitable for a portfolio demo, not an SLA-backed trading product.
 - Combat outcomes are illustrative and do not predict price movement.

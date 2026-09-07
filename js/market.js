@@ -1,4 +1,5 @@
 import { CONFIG } from './config.js';
+import { validateSolanaMint } from './token-context.js';
 
 const SUPPORTED_QUOTES = new Set(['SOL', 'WSOL', 'USDC', 'USDT']);
 
@@ -9,29 +10,40 @@ function number(value) {
 
 export function deriveSolPrice(pairs) {
     const solPair = pairs.find((pair) =>
-        ['SOL', 'WSOL'].includes(pair?.quoteToken?.symbol?.toUpperCase())
+        ['SOL', 'WSOL'].includes(String(pair?.quoteToken?.symbol || '').toUpperCase())
         && number(pair.priceUsd) > 0
         && number(pair.priceNative) > 0
     );
     return solPair ? number(solPair.priceUsd) / number(solPair.priceNative) : 0;
 }
 
-export function selectTrackedPools(pairs, limit = CONFIG.MAX_TRACKED_POOLS) {
+export function selectTrackedPools(pairs, tokenContext, limit = CONFIG.MAX_TRACKED_POOLS) {
+    const tokenMint = tokenContext?.identity?.mint;
     return pairs
         .filter((pair) => pair?.chainId === 'solana')
-        .filter((pair) => pair?.baseToken?.address === CONFIG.TOKEN_MINT)
-        .filter((pair) => SUPPORTED_QUOTES.has(pair?.quoteToken?.symbol?.toUpperCase()))
+        .filter((pair) => pair?.baseToken?.address === tokenMint)
+        .filter((pair) => validateSolanaMint(pair?.pairAddress).ok)
+        .filter((pair) => SUPPORTED_QUOTES.has(String(pair?.quoteToken?.symbol || '').toUpperCase()))
         .sort((a, b) => poolScore(b) - poolScore(a))
         .slice(0, limit)
         .map((pair) => ({
             address: pair.pairAddress,
-            dexId: pair.dexId,
-            quoteSymbol: pair.quoteToken.symbol.toUpperCase(),
+            dexId: String(pair.dexId || 'solana').slice(0, 40),
+            quoteSymbol: String(pair.quoteToken.symbol).toUpperCase().slice(0, 12),
             liquidityUsd: number(pair.liquidity?.usd),
             volumeH24Usd: number(pair.volume?.h24),
             volumeH1Usd: number(pair.volume?.h1),
-            url: pair.url,
+            url: safeHttpsUrl(pair.url),
         }));
+}
+
+function safeHttpsUrl(value) {
+    try {
+        const url = new URL(String(value));
+        return url.protocol === 'https:' ? url.toString() : null;
+    } catch {
+        return null;
+    }
 }
 
 function poolScore(pair) {
@@ -40,14 +52,16 @@ function poolScore(pair) {
         + number(pair.liquidity?.usd) * 0.25;
 }
 
-export function parseGeckoTrade(entry, pool, solPriceUsd) {
+export function parseGeckoTrade(entry, pool, solPriceUsd, tokenContext) {
     const attrs = entry?.attributes;
     if (!attrs?.tx_hash || !attrs?.kind) return null;
 
     const fromAddress = attrs.from_token_address;
     const toAddress = attrs.to_token_address;
     const isBuy = attrs.kind === 'buy';
-    const tokenAmount = fromAddress === CONFIG.TOKEN_MINT
+    const tokenMint = tokenContext?.identity?.mint;
+    if (!tokenMint || (fromAddress !== tokenMint && toAddress !== tokenMint)) return null;
+    const tokenAmount = fromAddress === tokenMint
         ? number(attrs.from_token_amount)
         : number(attrs.to_token_amount);
     const exactSolAmount = fromAddress === CONFIG.SOL_MINT
@@ -74,6 +88,7 @@ export function parseGeckoTrade(entry, pool, solPriceUsd) {
         poolAddress: pool.address,
         dexId: pool.dexId,
         quoteSymbol: pool.quoteSymbol,
+        tokenMint,
     };
 }
 

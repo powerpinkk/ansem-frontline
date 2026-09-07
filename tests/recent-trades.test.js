@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { fetchRecentTrades, normalizeRecentTransactions } from '../worker/src/recent-trades.js';
-import { CONFIG } from '../js/config.js';
+import { DEFAULT_TOKEN_CONTEXT } from '../js/token-presets.js';
 
 describe('Helius recent transaction snapshot', () => {
     it('normalizes full history entries and ignores malformed transactions', () => {
         const transaction = fixtureTransaction();
         const result = normalizeRecentTransactions({
             data: [transaction, { transaction: fixtureTransaction('nested-signature') }, { slot: 1 }],
-        }, pool(), CONFIG.TOKEN_MINT, { tokenPriceUsd: 0.25, solPriceUsd: 100 });
+        }, pool(), DEFAULT_TOKEN_CONTEXT.identity.mint, { tokenPriceUsd: 0.25, solPriceUsd: 100 });
 
         expect(result).toHaveLength(2);
         expect(result[0]).toMatchObject({
@@ -46,8 +46,8 @@ describe('Helius recent transaction snapshot', () => {
 
         const result = await fetchRecentTrades({
             HELIUS_API_KEY: 'test-key',
-            TOKEN_MINT: CONFIG.TOKEN_MINT,
         }, {
+            token: { mint: DEFAULT_TOKEN_CONTEXT.identity.mint, chain: 'solana' },
             pools,
             market: { tokenPriceUsd: 0.25, solPriceUsd: 100 },
         }, fetchImpl);
@@ -69,7 +69,7 @@ function jsonResponse(payload) {
 
 function fixtureTransaction(signature = 'direct-signature') {
     const tokenBalance = (amount) => ({
-        mint: CONFIG.TOKEN_MINT,
+        mint: DEFAULT_TOKEN_CONTEXT.identity.mint,
         owner: 'wallet',
         uiTokenAmount: { uiAmountString: String(amount) },
     });

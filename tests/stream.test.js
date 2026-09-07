@@ -60,14 +60,14 @@ describe('trade stream lifecycle', () => {
         const controller = connectTradeStream('wss://example.test/stream', {
             onTrade,
             onStatus,
-            getConfiguration: () => ({ pools: [{ address: 'pool' }] }),
+            getConfiguration: () => ({ token: { mint: 'mint' }, pools: [{ address: 'pool' }] }),
         });
         const socket = FakeWebSocket.instances[0];
         socket.open();
         socket.emit('message', { data: JSON.stringify({ type: 'trade', data: { txHash: 'tx' } }) });
         socket.emit('message', { data: JSON.stringify({ type: 'status', status: 'live' }) });
 
-        expect(JSON.parse(socket.sent[0])).toEqual({ type: 'configure', pools: [{ address: 'pool' }] });
+        expect(JSON.parse(socket.sent[0])).toEqual({ type: 'configure', token: { mint: 'mint' }, pools: [{ address: 'pool' }] });
         expect(onTrade).toHaveBeenCalledWith({ txHash: 'tx' });
         expect(onStatus).toHaveBeenLastCalledWith('online');
         controller.stop();

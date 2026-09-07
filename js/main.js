@@ -1,6 +1,6 @@
 import { initAPI } from './api.js';
 import { evaluateBuySwarm } from './market.js';
-import { state } from './state.js';
+import { defaultTokenRuntime, state } from './state.js';
 import { initPixelCompanion } from './companion.js';
 import {
     initUI,
@@ -97,7 +97,7 @@ function boot() {
         onConnectionChange: setConnectionStatus,
         onActivityUpdate: handleActivity,
         onBootstrapComplete: showTradesReady,
-    });
+    }, { runtime: defaultTokenRuntime });
 
     void import('./scene.js').then((loadedScene) => {
         sceneModule = loadedScene;
@@ -110,7 +110,10 @@ function boot() {
         });
         flushPendingSceneTrades();
         sceneModule.startGameLoop();
-        initPixelCompanion({ setSceneActive: (active) => sceneModule?.setSceneActive(active) });
+        initPixelCompanion({
+            setSceneActive: (active) => sceneModule?.setSceneActive(active),
+            tokenContext: defaultTokenRuntime.context,
+        });
         bindPageLifecycle(api);
     }).catch((error) => {
         console.error('[scene] Failed to initialize', error);

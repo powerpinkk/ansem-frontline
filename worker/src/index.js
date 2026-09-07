@@ -4,6 +4,7 @@ import { parseClientConfiguration } from './configuration.js';
 import { normalizeHeliusMarket, SOL_MINT } from './market-fallback.js';
 import { fetchGeckoProxy } from './gecko-proxy.js';
 import { fetchRecentTrades } from './recent-trades.js';
+import { recentCacheUrl, resolveRequestMint, streamObjectName } from './token-routing.js';
 
 export default {
     async fetch(request, env) {
@@ -14,11 +15,17 @@ export default {
         if (url.pathname === '/health') {
             return Response.json({ ok: true, service: 'ansem-frontline-stream' });
         }
-        if (url.pathname === '/market') return fetchFallbackMarket(env, origin);
+        if (url.pathname === '/market') {
+            const token = resolveRequestMint(url, env.DEFAULT_TOKEN_MINT);
+            if (!token.ok) return invalidMintResponse(token, origin, env.ALLOWED_ORIGIN);
+            return fetchFallbackMarket(env, origin, token.mint);
+        }
         if (url.pathname === '/recent') return fetchRecentSnapshot(request, env, origin);
         if (url.pathname.startsWith('/gecko/')) return fetchGeckoProxy(request, origin, env.ALLOWED_ORIGIN);
         if (url.pathname !== '/stream') return new Response('Not found', { status: 404 });
-        const id = env.STREAM_HUB.idFromName('ansem-mainnet');
+        const token = resolveRequestMint(url, env.DEFAULT_TOKEN_MINT);
+        if (!token.ok) return invalidMintResponse(token, origin, env.ALLOWED_ORIGIN);
+        const id = env.STREAM_HUB.idFromName(streamObjectName(token.mint));
         return env.STREAM_HUB.get(id).fetch(request);
     },
 };
@@ -47,7 +54,7 @@ async function fetchRecentSnapshot(request, env, origin) {
     try {
         const raw = await request.text();
         if (raw.length > 8_000) throw new Error('Configuration too large');
-        const configuration = parseClientConfiguration(raw);
+        const configuration = parseClientConfiguration(raw, { defaultMint: env.DEFAULT_TOKEN_MINT });
         if (!configuration) {
             return Response.json({ error: 'Invalid configuration' }, {
                 status: 400,
@@ -78,18 +85,24 @@ async function fetchRecentSnapshot(request, env, origin) {
 }
 
 function recentCacheKey(configuration) {
-    const pools = configuration.pools.map((pool) => pool.address).sort().join(',');
-    return new Request(`https://ansem-frontline-cache.invalid/recent?pools=${encodeURIComponent(pools)}`);
+    return new Request(recentCacheUrl(configuration));
 }
 
-async function fetchFallbackMarket(env, origin) {
+async function fetchFallbackMarket(env, origin, mint) {
     try {
         const [token, sol] = await Promise.all([
-            fetchHeliusAsset(env, env.TOKEN_MINT),
+            fetchHeliusAsset(env, mint),
             fetchHeliusAsset(env, SOL_MINT),
         ]);
-        const market = normalizeHeliusMarket(token, sol);
+        const market = normalizeHeliusMarket(token, sol, { mint });
         if (!market) throw new Error('Helius price data unavailable');
+        if (!market.pools.length) {
+            return Response.json({
+                status: market.status,
+                error: { code: 'NO_SAFE_FALLBACK_POOLS', message: 'No verified fallback pools are configured for this mint' },
+                token: market.token,
+            }, { status: 422, headers: corsHeaders(origin, env.ALLOWED_ORIGIN) });
+        }
         return Response.json(market, { headers: corsHeaders(origin, env.ALLOWED_ORIGIN) });
     } catch (error) {
         console.error('[market-fallback] request failed', error instanceof Error ? error.name : 'UnknownError');
@@ -125,10 +138,15 @@ export class StreamHub extends DurableObject {
         this.market = { tokenPriceUsd: 0, solPriceUsd: 0, updatedAt: 0 };
         this.pools = [];
         this.activePoolKey = '';
+        this.tokenMint = '';
     }
 
     async fetch(request) {
         if (request.headers.get('Upgrade') !== 'websocket') return new Response('Expected websocket', { status: 426 });
+        const token = resolveRequestMint(new URL(request.url), this.env.DEFAULT_TOKEN_MINT);
+        if (!token.ok) return invalidMintResponse(token, request.headers.get('Origin'), this.env.ALLOWED_ORIGIN);
+        if (this.tokenMint && this.tokenMint !== token.mint) return new Response('Token runtime mismatch', { status: 409 });
+        this.tokenMint = token.mint;
         const pair = new WebSocketPair();
         const [client, server] = Object.values(pair);
         this.ctx.acceptWebSocket(server);
@@ -137,12 +155,15 @@ export class StreamHub extends DurableObject {
     }
 
     async webSocketMessage(_socket, raw) {
-        const configuration = parseClientConfiguration(typeof raw === 'string' ? raw : new TextDecoder().decode(raw));
+        const configuration = parseClientConfiguration(
+            typeof raw === 'string' ? raw : new TextDecoder().decode(raw),
+            { expectedMint: this.tokenMint },
+        );
         if (!configuration) {
             this.broadcast({ type: 'status', status: 'invalid-configuration' });
             return;
         }
-        const nextPoolKey = configuration.pools.map((pool) => pool.address).sort().join(':');
+        const nextPoolKey = `${this.tokenMint}:${configuration.pools.map((pool) => pool.address).sort().join(':')}`;
         if (this.activePoolKey && nextPoolKey !== this.activePoolKey) this.closeUpstream('Pool configuration changed');
         this.pools = configuration.pools;
         this.activePoolKey = nextPoolKey;
@@ -225,7 +246,7 @@ export class StreamHub extends DurableObject {
     async parseAndBroadcast(signature, pool) {
         const transaction = await this.rpc('getTransaction', [signature, { encoding: 'jsonParsed', commitment: 'confirmed', maxSupportedTransactionVersion: 0 }]);
         if (!transaction?.meta || transaction.meta.err) return;
-        const trade = parseTransaction(transaction, signature, pool, this.env.TOKEN_MINT, this.market);
+        const trade = parseTransaction(transaction, signature, pool, this.tokenMint, this.market);
         if (trade) this.broadcast({ type: 'trade', data: trade });
     }
 
@@ -265,4 +286,11 @@ export class StreamHub extends DurableObject {
         this.broadcast({ type: 'status', status: 'degraded' });
         if (reconnect && this.ctx.getWebSockets().length) this.ctx.storage.setAlarm(Date.now() + 5_000);
     }
+}
+
+function invalidMintResponse(result, origin, allowedOrigin) {
+    return Response.json({ status: 'invalid-mint', error: result.error }, {
+        status: result.status || 400,
+        headers: corsHeaders(origin, allowedOrigin),
+    });
 }

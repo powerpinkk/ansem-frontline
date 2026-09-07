@@ -28,6 +28,7 @@ export function parseTransaction(transaction, signature, pool, tokenMint, market
         id: signature, txHash: signature, isBuy, tokenAmount, usdValue, solValue,
         isWhale: solValue >= 20, timestamp: (transaction.blockTime || Math.floor(Date.now() / 1000)) * 1000,
         wallet, poolAddress: pool?.address || '', dexId: pool?.dexId || 'solana', quoteSymbol: pool?.quoteSymbol || '', provider: 'helius',
+        tokenMint,
     };
 }
 

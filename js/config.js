@@ -1,7 +1,7 @@
-const configuredStreamUrl = import.meta.env.MODE === 'e2e' ? 'disabled' : import.meta.env.VITE_STREAM_URL;
+const environment = import.meta.env || {};
+const configuredStreamUrl = environment.MODE === 'e2e' ? 'disabled' : environment.VITE_STREAM_URL;
 
 export const CONFIG = {
-    TOKEN_MINT: '9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump',
     SOL_MINT: 'So11111111111111111111111111111111111111112',
     STREAM_URL: configuredStreamUrl === 'disabled'
         ? ''

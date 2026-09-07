@@ -5,18 +5,19 @@ import {
     createPixelSnapshot,
 } from './pixel-engine.js';
 import { state } from './state.js';
+import { tokenCacheKey } from './token-context.js';
+import { DEFAULT_TOKEN_CONTEXT } from './token-presets.js';
 
-const CHANNEL_NAME = 'ansem-frontline-pixel';
 const PIP_WIDTH = PIXEL_SOURCE_WIDTH;
 const PIP_HEIGHT = PIXEL_SOURCE_HEIGHT;
 
-export function initPixelCompanion({ setSceneActive }) {
+export function initPixelCompanion({ setSceneActive, tokenContext = DEFAULT_TOKEN_CONTEXT }) {
     const button = document.getElementById('pixel-mode-btn');
     const returnButton = document.getElementById('companion-return');
     const dockScreen = document.getElementById('companion-dock-screen');
     if (!button || !dockScreen) return;
 
-    const channel = new BroadcastChannel(CHANNEL_NAME);
+    const channel = new BroadcastChannel(tokenCacheKey('ansem-frontline:pixel', tokenContext, 'v1'));
     const canvas = document.createElement('canvas');
     const video = document.createElement('video');
     let videoEngine = null;

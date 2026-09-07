@@ -2,6 +2,10 @@ import { expect, test } from '@playwright/test';
 
 const token = '9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump';
 const sol = 'So11111111111111111111111111111111111111112';
+const buyPool = '6e7V9eegCHw997T72MxgwwJipZ6GJyZF8NvjkzT1rvpN';
+const sellPool = 'FnzKY6x7entQ1eR3D225dQyT7ybfka4PskBMQhb8L3CC';
+const relayMarketPattern = 'https://ansem-frontline-stream.ansem-frontline.workers.dev/market**';
+const pixelChannel = `ansem-frontline:pixel:v1:solana:${token}`;
 
 async function captureLocalScreenshot(page, path) {
     if (!process.env.CI) await page.screenshot({ path, fullPage: true });
@@ -9,7 +13,7 @@ async function captureLocalScreenshot(page, path) {
 
 test.beforeEach(async ({ page }) => {
     await page.route('https://api.dexscreener.com/**', async (route) => {
-        await route.fulfill({ json: { pairs: [pair('pool-buy', 'pumpswap', 1_000_000), pair('pool-sell', 'meteora', 800_000)] } });
+        await route.fulfill({ json: { pairs: [pair(buyPool, 'pumpswap', 1_000_000), pair(sellPool, 'meteora', 800_000)] } });
     });
     await page.route('https://ansem-frontline-stream.ansem-frontline.workers.dev/gecko/**', async (route) => {
         const url = route.request().url();
@@ -19,10 +23,10 @@ test.beforeEach(async ({ page }) => {
             await route.fulfill({ json: { data: { attributes: { ohlcv_list: candles.reverse() } } } });
             return;
         }
-        const isBuyPool = url.includes('pool-buy') || url.includes('6e7V9eegCHw997T72MxgwwJipZ6GJyZF8NvjkzT1rvpN');
+        const isBuyPool = url.includes(buyPool);
         await route.fulfill({ json: { data: [geckoTrade(isBuyPool)] } });
     });
-    await page.route('https://ansem-frontline-stream.ansem-frontline.workers.dev/market', async (route) => {
+    await page.route(relayMarketPattern, async (route) => {
         await new Promise((resolve) => setTimeout(resolve, 75));
         await route.fulfill({
             json: {
@@ -31,8 +35,8 @@ test.beforeEach(async ({ page }) => {
                 mcap: 250_000_000,
                 chg: null,
                 pools: [
-                    { address: 'pool-buy', dexId: 'pumpswap', quoteSymbol: 'SOL' },
-                    { address: 'pool-sell', dexId: 'meteora', quoteSymbol: 'SOL' },
+                    { address: buyPool, dexId: 'pumpswap', quoteSymbol: 'SOL' },
+                    { address: sellPool, dexId: 'meteora', quoteSymbol: 'SOL' },
                 ],
                 source: 'helius-fallback',
             },
@@ -208,9 +212,9 @@ test('renders a collision-free pixel battle over a rolling 30-second price trace
     await page.setViewportSize({ width: 640, height: 160 });
     await page.goto('/pixel-frontline.html?diagnostics=1');
     await page.waitForFunction(() => Boolean(window.__ansemPixelEngine));
-    await page.evaluate(() => {
+    await page.evaluate((channelName) => {
         const now = Date.now();
-        const channel = new BroadcastChannel('ansem-frontline-pixel');
+        const channel = new BroadcastChannel(channelName);
         channel.postMessage({
             now,
             windowMs: 30_000,
@@ -232,7 +236,7 @@ test('renders a collision-free pixel battle over a rolling 30-second price trace
             })),
         });
         window.setTimeout(() => channel.close(), 100);
-    });
+    }, pixelChannel);
     await page.waitForTimeout(350);
     const diagnostics = await page.evaluate(() => window.__ansemPixelEngine.getDiagnostics());
     expect(diagnostics.overlaps).toEqual([]);
@@ -264,8 +268,8 @@ test('paints market and verified swaps progressively without waiting for the cha
             await route.fulfill({ json: { data: { attributes: { ohlcv_list: [] } } } });
             return;
         }
-        await new Promise((resolve) => setTimeout(resolve, url.includes('pool-buy') ? 120 : 1_800));
-        await route.fulfill({ json: { data: [geckoTrade(url.includes('pool-buy'))] } });
+        await new Promise((resolve) => setTimeout(resolve, url.includes(buyPool) ? 120 : 1_800));
+        await route.fulfill({ json: { data: [geckoTrade(url.includes(buyPool))] } });
     });
 
     await page.goto('/');
@@ -279,10 +283,10 @@ test('paints market and verified swaps progressively without waiting for the cha
     await page.unroute('https://api.dexscreener.com/**');
     await page.route('https://api.dexscreener.com/**', async (route) => {
         await new Promise((resolve) => setTimeout(resolve, 2_500));
-        await route.fulfill({ json: { pairs: [pair('pool-buy', 'pumpswap', 1_000_000), pair('pool-sell', 'meteora', 800_000)] } });
+        await route.fulfill({ json: { pairs: [pair(buyPool, 'pumpswap', 1_000_000), pair(sellPool, 'meteora', 800_000)] } });
     });
-    await page.unroute('https://ansem-frontline-stream.ansem-frontline.workers.dev/market');
-    await page.route('https://ansem-frontline-stream.ansem-frontline.workers.dev/market', async (route) => {
+    await page.unroute(relayMarketPattern);
+    await page.route(relayMarketPattern, async (route) => {
         await new Promise((resolve) => setTimeout(resolve, 2_500));
         await route.fulfill({ status: 503, json: { error: 'delayed' } });
     });
@@ -305,7 +309,7 @@ test('paints market and verified swaps progressively without waiting for the cha
 test('boots from the Helius market fallback when DexScreener is unavailable', async ({ page }) => {
     await page.unroute('https://api.dexscreener.com/**');
     await page.route('https://api.dexscreener.com/**', (route) => route.fulfill({ status: 503, json: { error: 'unavailable' } }));
-    await page.route('https://ansem-frontline-stream.ansem-frontline.workers.dev/market', (route) => route.fulfill({
+    await page.route(relayMarketPattern, (route) => route.fulfill({
         json: {
             price: 0.259,
             solPriceUsd: 95.4,
@@ -750,8 +754,8 @@ function pair(address, dexId, volume) {
         priceUsd: '0.25', priceNative: '0.0025', marketCap: 250_000_000,
         priceChange: { h1: 2.5 }, liquidity: { usd: volume }, volume: { h1: volume / 24, h24: volume },
         txns: {
-            m5: address === 'pool-buy' ? { buys: 36, sells: 8 } : { buys: 4, sells: 22 },
-            h1: address === 'pool-buy' ? { buys: 360, sells: 80 } : { buys: 50, sells: 230 },
+            m5: address === buyPool ? { buys: 36, sells: 8 } : { buys: 4, sells: 22 },
+            h1: address === buyPool ? { buys: 360, sells: 80 } : { buys: 50, sells: 230 },
         },
     };
 }
@@ -780,7 +784,7 @@ function relayTrade(isBuy) {
         isWhale: isBuy,
         timestamp: Date.now() - (isBuy ? 500 : 250),
         wallet: 'wallet',
-        poolAddress: isBuy ? 'pool-buy' : 'pool-sell',
+        poolAddress: isBuy ? buyPool : sellPool,
         dexId: isBuy ? 'pumpswap' : 'meteora',
         quoteSymbol: 'SOL',
         provider: 'helius',

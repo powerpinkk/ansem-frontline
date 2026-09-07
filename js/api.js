@@ -1,57 +1,59 @@
 import { CONFIG } from './config.js';
-import { calculatePressure, deriveSolPrice, parseGeckoTrade, selectTrackedPools, summarizePoolActivity } from './market.js';
+import { calculatePressure, parseGeckoTrade } from './market.js';
 import { connectTradeStream } from './stream.js';
-import { bootstrappedPools, seenTradeHashes, seenTradeIds, state } from './state.js';
+import { discoverToken } from './token-discovery.js';
+import { tokenCacheKey, urlWithMint, validateSolanaMint, withTokenResolution } from './token-context.js';
+import { defaultTokenRuntime } from './state.js';
 
-let callbacks = {};
-let priceDelay = CONFIG.FETCH_MIN_DELAY_MS;
-let tradesDelay = CONFIG.TRADES_POLL_MIN_DELAY_MS;
-let lastPoolDiscovery = 0;
-let pollingFallback = true;
-let fallbackTimer = null;
-let streamStarted = false;
-let streamController = null;
-let streamConfigurationKey = '';
-let visibilityRefreshPromise = null;
-let marketRequestPromise = null;
-let bootstrapPromise = null;
-let lastChartAttempt = 0;
-let geckoRateLimitedUntil = 0;
-let initialMarketRacePending = true;
-let latestMarket = null;
-let restoringStartupCache = false;
-const bootstrapAttemptedAt = new Map();
-const bootstrapTradesByPool = new Map();
-const renderedBootstrapTrades = new Set();
-const spawnedBootstrapTrades = new Set();
-let recentFeedTrades = [];
-const STARTUP_CACHE_KEY = 'ansem-frontline:startup:v1';
-const STARTUP_MARKET_TTL_MS = 5 * 60_000;
-const STARTUP_TRADE_TTL_MS = 75_000;
-const startupDiagnostics = {
-    startedAt: performance.now(),
-    cacheMs: null,
-    marketMs: null,
-    firstTradeMs: null,
-    firstFeedMs: null,
-    bootstrapMs: null,
-    marketSource: null,
-};
+export function initAPI(nextCallbacks, { runtime = defaultTokenRuntime } = {}) {
+    const callbacks = nextCallbacks || {};
+    const { state, bootstrappedPools, seenTradeHashes, seenTradeIds } = runtime;
+    let priceDelay = CONFIG.FETCH_MIN_DELAY_MS;
+    let tradesDelay = CONFIG.TRADES_POLL_MIN_DELAY_MS;
+    let lastPoolDiscovery = 0;
+    let pollingFallback = true;
+    let fallbackTimer = null;
+    let streamStarted = false;
+    let streamController = null;
+    let streamConfigurationKey = '';
+    let visibilityRefreshPromise = null;
+    let marketRequestPromise = null;
+    let bootstrapPromise = null;
+    let lastChartAttempt = 0;
+    let geckoRateLimitedUntil = 0;
+    let initialMarketRacePending = true;
+    let latestMarket = null;
+    let restoringStartupCache = false;
+    const bootstrapAttemptedAt = new Map();
+    const bootstrapTradesByPool = new Map();
+    const renderedBootstrapTrades = new Set();
+    const spawnedBootstrapTrades = new Set();
+    let recentFeedTrades = [];
+    const STARTUP_CACHE_KEY = tokenCacheKey('ansem-frontline:startup', runtime.context, 'v2');
+    const LEGACY_STARTUP_CACHE_KEY = 'ansem-frontline:startup:v1';
+    const STARTUP_MARKET_TTL_MS = 5 * 60_000;
+    const STARTUP_TRADE_TTL_MS = 75_000;
+    const startupDiagnostics = {
+        startedAt: performance.now(),
+        cacheMs: null,
+        marketMs: null,
+        firstTradeMs: null,
+        firstFeedMs: null,
+        bootstrapMs: null,
+        marketSource: null,
+    };
 
-if (import.meta.env.DEV || new URLSearchParams(window.location.search).has('diagnostics')) {
-    window.__ansemStartupDiagnostics = () => ({ ...startupDiagnostics });
-}
+    if (import.meta.env.DEV || new URLSearchParams(window.location.search).has('diagnostics')) {
+        window.__ansemStartupDiagnostics = () => ({ ...startupDiagnostics });
+    }
 
-export function initAPI(nextCallbacks) {
-    callbacks = nextCallbacks;
     setConnection('connecting');
     hydrateStartupSnapshot();
     schedule(runMarketLoop, 0);
     schedule(runTradeLoop, state.trackedPools.length ? 0 : 1_200);
-    return { refresh: refreshAPI };
-}
+    return { refresh: refreshAPI, runtime };
 
-export function refreshAPI({ catchUpTrades = false } = {}) {
+function refreshAPI({ catchUpTrades = false } = {}) {
     streamController?.reconnect();
     if (visibilityRefreshPromise) return visibilityRefreshPromise;
     visibilityRefreshPromise = (async () => {
@@ -151,7 +153,10 @@ function handleStreamStatus(status) {
 }
 
 function receiveStreamTrade(trade) {
-    if (!trade?.txHash || seenTradeHashes.has(trade.txHash)) return;
+    if (!trade?.txHash
+        || (trade.tokenMint && trade.tokenMint !== runtime.context.identity.mint)
+        || (!trade.tokenMint && runtime !== defaultTokenRuntime)
+        || seenTradeHashes.has(trade.txHash)) return;
     seenTradeHashes.add(trade.txHash);
     receiveTrade(trade, false);
 }
@@ -220,11 +225,13 @@ async function fetchMarketData() {
 
 function applyMarketData(market) {
     if (!market || !(Number(market.price) > 0)) return;
+    const { tokenContext, ...marketData } = market;
+    if (tokenContext) runtime.updateContext(tokenContext);
+    market = marketData;
     if (market.trackedPools?.length && (market.source === 'dexscreener' || !state.trackedPools.length)) {
         state.trackedPools = market.trackedPools;
         state.referencePool = market.referencePool || market.trackedPools[0] || null;
         state.poolCursor %= Math.max(1, state.trackedPools.length);
-        if (market.source === 'dexscreener') lastPoolDiscovery = Date.now();
     }
     if (Number(market.solPriceUsd) > 0) state.solPriceUsd = Number(market.solPriceUsd);
     if (market.source === 'dexscreener') state.marketCoverage = market.coverage;
@@ -264,49 +271,54 @@ function fetchMarketDataShared() {
 }
 
 async function fetchDexMarketData() {
-    const data = await fetchJson(`${CONFIG.DEXSCREENER_TOKEN_URL}/${CONFIG.TOKEN_MINT}`, 4_500);
-    const pairs = Array.isArray(data) ? data : data?.pairs || [];
-    if (!pairs.length) throw new Error('No $ANSEM markets returned by DexScreener');
-    const now = Date.now();
-    const trackedPools = !state.trackedPools.length || now - lastPoolDiscovery > CONFIG.POOL_REFRESH_MS
-        ? selectTrackedPools(pairs)
-        : state.trackedPools;
-    const referencePool = trackedPools[0] || null;
-    const solPriceUsd = deriveSolPrice(pairs);
-    const totalVolume = pairs.reduce((sum, pair) => sum + Number(pair.volume?.h24 || 0), 0);
-    const trackedVolume = trackedPools.reduce((sum, pool) => sum + pool.volumeH24Usd, 0);
-    const coverage = totalVolume > 0 ? (trackedVolume / totalVolume) * 100 : 0;
-    const selectedPairs = pairs.filter((pair) => trackedPools.some((pool) => pool.address === pair.pairAddress));
-    const activity = summarizePoolActivity(selectedPairs, 'm5');
-    const activity1h = summarizePoolActivity(selectedPairs, 'h1');
-    const liquidity = selectedPairs.reduce((sum, pair) => sum + Number(pair.liquidity?.usd || 0), 0);
-    const price = liquidity > 0
-        ? selectedPairs.reduce((sum, pair) => sum + Number(pair.priceUsd || 0) * Number(pair.liquidity?.usd || 0), 0) / liquidity
-        : Number(pairs[0].priceUsd || 0);
-    const mcap = Number(pairs[0].marketCap || pairs[0].fdv || 0);
-    const chg = Number(pairs[0].priceChange?.h1 || 0);
-    return {
-        price,
-        mcap,
-        chg,
-        pools: trackedPools.length,
-        coverage,
-        referencePool,
-        trackedPools,
-        solPriceUsd,
-        activity,
-        activity1h,
-        source: 'dexscreener',
-    };
+    const refreshPools = !state.trackedPools.length || Date.now() - lastPoolDiscovery > CONFIG.POOL_REFRESH_MS;
+    const resolution = await discoverToken(runtime.context, {
+        fetchPairs: (mint) => fetchJson(`${CONFIG.DEXSCREENER_TOKEN_URL}/${encodeURIComponent(mint)}`, 4_500),
+        trackedPools: refreshPools ? [] : state.trackedPools,
+    });
+    if (!resolution.ok) {
+        const error = new Error(resolution.error.message);
+        error.code = resolution.error.code;
+        error.discoveryStatus = resolution.status;
+        throw error;
+    }
+    if (refreshPools) lastPoolDiscovery = Date.now();
+    runtime.updateContext(resolution.context);
+    return resolution.market;
 }
 
 async function fetchRelayMarketData() {
-    const data = await fetchJson(CONFIG.RELAY_MARKET_URL, 5_000);
-    if (!(Number(data.price) > 0) || !(Number(data.solPriceUsd) > 0) || !data.pools?.length) {
+    const data = await fetchJson(urlWithMint(CONFIG.RELAY_MARKET_URL, runtime.context), 5_000);
+    if (!Number.isFinite(Number(data.price)) || !(Number(data.price) > 0)
+        || !Number.isFinite(Number(data.solPriceUsd)) || !(Number(data.solPriceUsd) > 0)
+        || !data.pools?.length) {
         throw new Error('Invalid Helius market fallback');
     }
-    const trackedPools = data.pools.map((pool) => ({ ...pool, liquidityUsd: 0, volumeH24Usd: 0, volumeH1Usd: 0 }));
-    const referencePool = trackedPools[0] || null;
+    const candidatePools = data.pools.map((pool) => ({ ...pool, liquidityUsd: 0, volumeH24Usd: 0, volumeH1Usd: 0 }));
+    const candidateReferencePool = candidatePools[0] || null;
+    const tokenContext = data.token
+        ? withTokenResolution(runtime.context, {
+            symbol: data.token.identity?.symbol,
+            name: data.token.identity?.name,
+            decimals: data.token.identity?.decimals,
+            metadata: data.token.metadata,
+            supply: data.token.supply,
+            resources: { pools: candidatePools, referencePool: candidateReferencePool },
+            discovery: data.token.discovery,
+        })
+        : withTokenResolution(runtime.context, {
+            resources: { pools: candidatePools, referencePool: candidateReferencePool },
+            discovery: {
+                status: 'resolved',
+                source: data.source || 'helius-fallback',
+                resolvedAt: Date.now(),
+                fallback: true,
+                provenance: { pools: 'default-preset', market: data.source || 'helius-fallback' },
+            },
+        });
+    const trackedPools = tokenContext.resources.pools;
+    const referencePool = tokenContext.resources.referencePool;
+    if (!trackedPools.length) throw new Error('Invalid Helius fallback pools');
     return {
         price: Number(data.price),
         mcap: Number(data.mcap || 0),
@@ -317,12 +329,13 @@ async function fetchRelayMarketData() {
         trackedPools,
         solPriceUsd: Number(data.solPriceUsd),
         source: data.source || 'helius-fallback',
+        tokenContext,
     };
 }
 
 function startStreamIfReady() {
     if (!CONFIG.STREAM_URL || !state.trackedPools.length || !(state.price > 0) || !(state.solPriceUsd > 0)) return;
-    const configurationKey = state.trackedPools.map((pool) => pool.address).sort().join(':');
+    const configurationKey = `${runtime.namespace}:${state.trackedPools.map((pool) => pool.address).sort().join(':')}`;
     if (streamStarted) {
         if (configurationKey !== streamConfigurationKey) {
             streamConfigurationKey = configurationKey;
@@ -332,10 +345,11 @@ function startStreamIfReady() {
     }
     streamStarted = true;
     streamConfigurationKey = configurationKey;
-    streamController = connectTradeStream(CONFIG.STREAM_URL, {
+    streamController = connectTradeStream(urlWithMint(CONFIG.STREAM_URL, runtime.context), {
         onTrade: receiveStreamTrade,
         onStatus: handleStreamStatus,
         getConfiguration: () => ({
+            token: { mint: runtime.context.identity.mint, chain: runtime.context.identity.chain },
             pools: state.trackedPools.map(({ address, dexId, quoteSymbol }) => ({ address, dexId, quoteSymbol })),
             market: { tokenPriceUsd: state.price, solPriceUsd: state.solPriceUsd },
         }),
@@ -406,7 +420,7 @@ async function fetchPoolTrades(pool) {
 async function fetchRecentPoolTrades(pool, timeoutMs = 8_000) {
     const json = await fetchJson(`${CONFIG.GECKO_BASE}/${pool.address}/trades`, timeoutMs);
     return (json.data || [])
-        .map((entry) => parseGeckoTrade(entry, pool, state.solPriceUsd))
+        .map((entry) => parseGeckoTrade(entry, pool, state.solPriceUsd, runtime.context))
         .filter(Boolean)
         .sort((a, b) => a.timestamp - b.timestamp);
 }
@@ -466,6 +480,7 @@ async function fetchBootstrapTrades(pools) {
 async function fetchRelayRecentTrades(pools) {
     const payload = await postJson(CONFIG.RELAY_RECENT_URL, {
         type: 'configure',
+        token: { mint: runtime.context.identity.mint, chain: runtime.context.identity.chain },
         pools: pools.map(({ address, dexId, quoteSymbol }) => ({ address, dexId, quoteSymbol })),
         market: { tokenPriceUsd: state.price, solPriceUsd: state.solPriceUsd },
     }, 3_200);
@@ -475,7 +490,10 @@ async function fetchRelayRecentTrades(pools) {
 
 function processBootstrapSnapshot(pools, trades) {
     const grouped = new Map(pools.map((pool) => [pool.address, []]));
-    trades.forEach((trade) => grouped.get(trade.poolAddress)?.push(trade));
+    trades
+        .filter((trade) => trade.tokenMint === runtime.context.identity.mint
+            || (!trade.tokenMint && runtime === defaultTokenRuntime))
+        .forEach((trade) => grouped.get(trade.poolAddress)?.push(trade));
     pools.forEach((pool) => {
         bootstrappedPools.add(pool.address);
         const combined = [
@@ -535,6 +553,8 @@ function publishBootstrapTrades() {
 }
 
 function receiveTrade(trade, bootstrap) {
+    if (trade.tokenMint && trade.tokenMint !== runtime.context.identity.mint) return;
+    if (!trade.tokenMint) trade = { ...trade, tokenMint: runtime.context.identity.mint };
     rememberFeedTrade(trade);
     if (startupDiagnostics.firstTradeMs === null) {
         startupDiagnostics.firstTradeMs = performance.now() - startupDiagnostics.startedAt;
@@ -556,6 +576,9 @@ function receiveTrade(trade, bootstrap) {
 }
 
 function publishHistoricalTrade(trade) {
+    if (trade.tokenMint && trade.tokenMint !== runtime.context.identity.mint) return;
+    if (!trade.tokenMint && runtime !== defaultTokenRuntime) return;
+    if (!trade.tokenMint) trade = { ...trade, tokenMint: runtime.context.identity.mint };
     rememberFeedTrade(trade);
     if (startupDiagnostics.firstFeedMs === null) {
         startupDiagnostics.firstFeedMs = performance.now() - startupDiagnostics.startedAt;
@@ -579,27 +602,33 @@ function rememberFeedTrade(trade) {
 
 function hydrateStartupSnapshot() {
     try {
-        const snapshot = JSON.parse(window.localStorage.getItem(STARTUP_CACHE_KEY) || 'null');
+        const serialized = window.localStorage.getItem(STARTUP_CACHE_KEY)
+            || (runtime === defaultTokenRuntime ? window.localStorage.getItem(LEGACY_STARTUP_CACHE_KEY) : null);
+        const snapshot = JSON.parse(serialized || 'null');
         const age = Date.now() - Number(snapshot?.marketAt || snapshot?.savedAt || 0);
-        if (!snapshot || age < 0 || age > STARTUP_MARKET_TTL_MS || !(Number(snapshot.market?.price) > 0)) return false;
+        if (!snapshot || age < 0 || age > STARTUP_MARKET_TTL_MS
+            || !Number.isFinite(Number(snapshot.market?.price)) || !(Number(snapshot.market?.price) > 0)) return false;
+        if (snapshot.token?.mint && snapshot.token.mint !== runtime.context.identity.mint) return false;
+        if (!snapshot.token?.mint && runtime !== defaultTokenRuntime) return false;
         const trackedPools = Array.isArray(snapshot.trackedPools)
             ? snapshot.trackedPools.filter((pool) => (
-                pool && typeof pool.address === 'string' && pool.address.length <= 64
-                && !pool.address.includes('/') && !pool.address.includes('\\')
+                pool && validateSolanaMint(pool.address).ok
                 && typeof pool.dexId === 'string' && pool.dexId.length <= 32
             )).slice(0, CONFIG.MAX_TRACKED_POOLS)
             : [];
-        if (!trackedPools.length || !(Number(snapshot.solPriceUsd) > 0)) return false;
+        if (!trackedPools.length || !Number.isFinite(Number(snapshot.solPriceUsd)) || !(Number(snapshot.solPriceUsd) > 0)) return false;
         restoringStartupCache = true;
         state.trackedPools = trackedPools;
-        state.referencePool = snapshot.referencePool || trackedPools[0];
+        state.referencePool = trackedPools.find((pool) => pool.address === snapshot.referencePool?.address) || trackedPools[0];
         state.marketCoverage = Number.isFinite(snapshot.marketCoverage) ? snapshot.marketCoverage : null;
         state.solPriceUsd = Number(snapshot.solPriceUsd);
         state.activity5m = snapshot.activity5m || state.activity5m;
         state.activity1h = snapshot.activity1h || state.activity1h;
-        state.priceHistory = Array.isArray(snapshot.priceHistory) ? snapshot.priceHistory.slice(-60) : [];
+        state.priceHistory = Array.isArray(snapshot.priceHistory)
+            ? snapshot.priceHistory.map(Number).filter((price) => Number.isFinite(price) && price > 0).slice(-60)
+            : [];
         state.price = Number(snapshot.market.price);
-        state.mcap = Math.max(0, Number(snapshot.market.mcap) || 0);
+        state.mcap = Number.isFinite(Number(snapshot.market.mcap)) ? Math.max(0, Number(snapshot.market.mcap)) : 0;
         state.lastMarketAt = Number(snapshot.marketAt || snapshot.savedAt);
         latestMarket = {
             ...snapshot.market,
@@ -653,6 +682,8 @@ function isValidCachedTrade(trade, maxAge = STARTUP_TRADE_TTL_MS) {
         && Number.isFinite(Number(trade.solValue))
         && Number(trade.solValue) >= 0
         && Number.isFinite(Number(trade.usdValue))
+        && (trade.tokenMint === runtime.context.identity.mint
+            || (!trade.tokenMint && runtime === defaultTokenRuntime))
         && age >= 0
         && age <= maxAge;
 }
@@ -661,6 +692,7 @@ function persistStartupSnapshot() {
     if (restoringStartupCache || !latestMarket || !(state.price > 0) || !state.trackedPools.length) return;
     try {
         window.localStorage.setItem(STARTUP_CACHE_KEY, JSON.stringify({
+            token: { mint: runtime.context.identity.mint, chain: runtime.context.identity.chain },
             savedAt: Date.now(),
             marketAt: state.lastMarketAt,
             market: { ...latestMarket, cached: false },
@@ -692,4 +724,5 @@ async function catchUpTrackedPools() {
             await new Promise((resolve) => window.setTimeout(resolve, 350));
         }
     }
+}
 }

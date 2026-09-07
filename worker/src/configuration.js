@@ -1,13 +1,18 @@
-const SOLANA_ADDRESS = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+import { validateSolanaMint } from '../../js/token-context.js';
 
-export function parseClientConfiguration(raw) {
+export function parseClientConfiguration(raw, { expectedMint = '', defaultMint = '' } = {}) {
     let message;
     try { message = JSON.parse(raw); } catch { return null; }
     if (message?.type !== 'configure' || !Array.isArray(message.pools)) return null;
 
+    const mintValidation = validateSolanaMint(message.token?.mint || message.mint || defaultMint);
+    if (!mintValidation.ok || (expectedMint && mintValidation.value !== expectedMint)) return null;
+    const chain = message.token?.chain || 'solana';
+    if (chain !== 'solana') return null;
+
     const seen = new Set();
     const pools = message.pools.slice(0, 12).filter((pool) => {
-        if (!SOLANA_ADDRESS.test(pool?.address || '') || seen.has(pool.address)) return false;
+        if (!validateSolanaMint(pool?.address).ok || seen.has(pool.address)) return false;
         seen.add(pool.address);
         return true;
     }).map((pool) => ({
@@ -17,6 +22,12 @@ export function parseClientConfiguration(raw) {
     }));
     const tokenPriceUsd = Number(message.market?.tokenPriceUsd);
     const solPriceUsd = Number(message.market?.solPriceUsd);
-    if (!pools.length || !(tokenPriceUsd > 0) || !(solPriceUsd > 0)) return null;
-    return { pools, market: { tokenPriceUsd, solPriceUsd, updatedAt: Date.now() } };
+    if (!pools.length
+        || !Number.isFinite(tokenPriceUsd) || !(tokenPriceUsd > 0) || tokenPriceUsd > 1e15
+        || !Number.isFinite(solPriceUsd) || !(solPriceUsd > 0) || solPriceUsd > 1e9) return null;
+    return {
+        token: { mint: mintValidation.value, chain },
+        pools,
+        market: { tokenPriceUsd, solPriceUsd, updatedAt: Date.now() },
+    };
 }

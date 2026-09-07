@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { calculatePressure, deriveBattleTactics, deriveSolPrice, evaluateBuySwarm, parseGeckoTrade, selectTrackedPools, summarizePoolActivity } from '../js/market.js';
 import { CONFIG } from '../js/config.js';
+import { DEFAULT_TOKEN_CONTEXT } from '../js/token-presets.js';
 
 const pool = { address: 'pool-1', dexId: 'pumpswap', quoteSymbol: 'SOL' };
 
@@ -18,22 +19,22 @@ describe('market parsing', () => {
             kind: 'buy',
             from_token_address: CONFIG.SOL_MINT,
             from_token_amount: '20',
-            to_token_address: CONFIG.TOKEN_MINT,
+            to_token_address: DEFAULT_TOKEN_CONTEXT.identity.mint,
             to_token_amount: '8000',
             volume_in_usd: '2000',
-        }), pool, 100);
+        }), pool, 100, DEFAULT_TOKEN_CONTEXT);
         expect(parsed).toMatchObject({ isBuy: true, tokenAmount: 8000, solValue: 20, isWhale: true });
     });
 
     it('parses a token sell returning SOL', () => {
         const parsed = parseGeckoTrade(trade({
             kind: 'sell',
-            from_token_address: CONFIG.TOKEN_MINT,
+            from_token_address: DEFAULT_TOKEN_CONTEXT.identity.mint,
             from_token_amount: '4000',
             to_token_address: CONFIG.SOL_MINT,
             to_token_amount: '9.5',
             volume_in_usd: '950',
-        }), pool, 100);
+        }), pool, 100, DEFAULT_TOKEN_CONTEXT);
         expect(parsed).toMatchObject({ isBuy: false, tokenAmount: 4000, solValue: 9.5, isWhale: false });
     });
 
@@ -42,10 +43,10 @@ describe('market parsing', () => {
             kind: 'buy',
             from_token_address: 'USDC',
             from_token_amount: '2500',
-            to_token_address: CONFIG.TOKEN_MINT,
+            to_token_address: DEFAULT_TOKEN_CONTEXT.identity.mint,
             to_token_amount: '10000',
             volume_in_usd: '2500',
-        }), { ...pool, quoteSymbol: 'USDC' }, 100);
+        }), { ...pool, quoteSymbol: 'USDC' }, 100, DEFAULT_TOKEN_CONTEXT);
         expect(parsed.solValue).toBe(25);
         expect(parsed.isWhale).toBe(true);
     });
@@ -53,12 +54,14 @@ describe('market parsing', () => {
 
 describe('pool selection and pressure', () => {
     it('selects active supported Solana markets instead of trusting API order', () => {
+        const lowAddress = '4pANrqEvjad4xEghrCbAAJfBm8KyNvYMKk1cuGW8erE4';
+        const highAddress = '6e7V9eegCHw997T72MxgwwJipZ6GJyZF8NvjkzT1rvpN';
         const pairs = [
-            { chainId: 'solana', pairAddress: 'low', dexId: 'a', baseToken: { address: CONFIG.TOKEN_MINT }, quoteToken: { symbol: 'SOL' }, volume: { h1: 1, h24: 10 }, liquidity: { usd: 10 } },
-            { chainId: 'solana', pairAddress: 'high', dexId: 'b', baseToken: { address: CONFIG.TOKEN_MINT }, quoteToken: { symbol: 'USDC' }, volume: { h1: 100, h24: 1000 }, liquidity: { usd: 1000 } },
-            { chainId: 'ethereum', pairAddress: 'wrong-chain', baseToken: { address: CONFIG.TOKEN_MINT }, quoteToken: { symbol: 'USDC' }, volume: { h1: 9999 } },
+            { chainId: 'solana', pairAddress: lowAddress, dexId: 'a', baseToken: { address: DEFAULT_TOKEN_CONTEXT.identity.mint }, quoteToken: { symbol: 'SOL' }, volume: { h1: 1, h24: 10 }, liquidity: { usd: 10 } },
+            { chainId: 'solana', pairAddress: highAddress, dexId: 'b', baseToken: { address: DEFAULT_TOKEN_CONTEXT.identity.mint }, quoteToken: { symbol: 'USDC' }, volume: { h1: 100, h24: 1000 }, liquidity: { usd: 1000 } },
+            { chainId: 'ethereum', pairAddress: 'wrong-chain', baseToken: { address: DEFAULT_TOKEN_CONTEXT.identity.mint }, quoteToken: { symbol: 'USDC' }, volume: { h1: 9999 } },
         ];
-        expect(selectTrackedPools(pairs, 1)[0].address).toBe('high');
+        expect(selectTrackedPools(pairs, DEFAULT_TOKEN_CONTEXT, 1)[0].address).toBe(highAddress);
     });
 
     it('weights dominance by real SOL size, not transaction count', () => {

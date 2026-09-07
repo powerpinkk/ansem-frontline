@@ -12,7 +12,7 @@
     { "tag": "v1", "new_sqlite_classes": ["StreamHub"] }
   ],
   "vars": {
-    "TOKEN_MINT": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+    "DEFAULT_TOKEN_MINT": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
     "ALLOWED_ORIGIN": "https://ansem-frontline.vercel.app"
   }
 }

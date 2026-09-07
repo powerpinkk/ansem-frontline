@@ -58,7 +58,7 @@ export async function fetchRecentTrades(env, configuration, fetchImpl = fetch) {
             const transaction = transactionsById.get(index + 1);
             if (!transaction?.meta || transaction.meta.err) return null;
             try {
-                return parseTransaction(transaction, signature, pool, env.TOKEN_MINT, configuration.market);
+                return parseTransaction(transaction, signature, pool, configuration.token.mint, configuration.market);
             } catch {
                 return null;
             }
