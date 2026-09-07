@@ -89,6 +89,7 @@ const crowdBattle = {
 };
 
 let scene, camera, renderer, frontlineLaser, frontlineMaterial, orbitControls, terrainMaterial;
+let ambientLight, hemisphereLight, sunLight, rimLight;
 let bullKingRig, kingMount, kingRider, kingRiderHead, kingRiderArm, kingWingNear, kingWingFar, kingStaff, kingStaffGlow, kingMountAura, kingTail;
 const kingLegs = [];
 let kingTime = 0;
@@ -349,6 +350,8 @@ const _frontlineColorTarget = new THREE.Color(0xffffff);
 let terrainEmissiveIntensityTarget = 0;
 let lastCameraEventWeight = 0;
 let lastCameraActionSpread = 0;
+let activeScenePresentation = null;
+let sceneThemeApplications = 0;
 
 export function initScene(callbacks = {}) {
     onKillEvent = callbacks.onKillEvent || onKillEvent;
@@ -490,6 +493,19 @@ export function initScene(callbacks = {}) {
                 background: scene.background.getHex(),
                 target: _environmentTarget.getHex(),
             } : null,
+            theme: {
+                id: activeScenePresentation?.themeId || 'ansem',
+                applications: sceneThemeApplications,
+                heroVisible: bullKingRig?.visible ?? false,
+                materials: {
+                    buyBody: matBullBody.color.getHex(),
+                    buyAccent: matBullHorn.color.getHex(),
+                    sellBody: matBearBody.color.getHex(),
+                    sellAccent: matBearLaser.color.getHex(),
+                    heroPrimary: matKingBlack.color.getHex(),
+                    heroBeam: matKingEyeBeam.color.getHex(),
+                },
+            },
             frontlineX: state.frontlineX,
             viewport: renderer && canvasContainer ? {
                 canvasWidth: renderer.domElement.clientWidth,
@@ -676,6 +692,113 @@ export function initScene(callbacks = {}) {
     }
 }
 
+export function applyThemePresentation(presentation) {
+    if (!presentation?.themeId || !presentation?.environment || !presentation?.lighting
+        || !presentation?.materials || !presentation?.hero) {
+        throw new TypeError('Invalid scene theme presentation');
+    }
+    activeScenePresentation = presentation;
+    sceneThemeApplications += 1;
+    if (!scene) return;
+
+    const { environment, lighting, materials } = presentation;
+    scene.background.set(environment.background);
+    scene.fog.color.set(environment.fog);
+    scene.fog.near = environment.fogNear;
+    scene.fog.far = environment.fogFar;
+    _environmentTarget.set(environment.background);
+    _terrainEmissiveTarget.set(0x000000);
+    terrainEmissiveIntensityTarget = 0;
+    _frontlineColorTarget.set(environment.terrainTint);
+    if (terrainMaterial) {
+        terrainMaterial.color.set(environment.terrainTint);
+        terrainMaterial.emissive.set(0x000000);
+        terrainMaterial.emissiveIntensity = 0;
+    }
+    if (frontlineMaterial) frontlineMaterial.color.set(environment.terrainTint);
+
+    applyLight(ambientLight, lighting.ambient);
+    if (hemisphereLight) {
+        hemisphereLight.color.set(lighting.hemisphere.sky);
+        hemisphereLight.groundColor.set(lighting.hemisphere.ground);
+        hemisphereLight.intensity = lighting.hemisphere.intensity;
+    }
+    applyLight(sunLight, lighting.sun);
+    applyLight(rimLight, lighting.rim);
+    applyMaterialPalette(materials);
+
+    if (bullKingRig) bullKingRig.visible = presentation.hero.visible;
+    if (kingMountAura?.material) kingMountAura.material.color.set(materials.heroBeam);
+    if (kingStaffGlow) kingStaffGlow.color.set(materials.heroEnergyEmissive);
+    for (const entity of entities) applyEntityTheme(entity, materials);
+    supportWaves.forEach((wave) => wave.mesh.material.color.set(materials.heroBeam));
+    kingStrikes.forEach((strike) => strike.material.color.set(materials.heroBeam));
+    chargeImpacts.forEach((impact) => impact.mesh.material.color.set(materials.buyAccent));
+    setFrontlineState(state.marketTrend === 1 ? 'buy' : state.marketTrend === -1 ? 'sell' : 'neutral');
+    renderNow();
+}
+
+function applyMaterialPalette(materials) {
+    setMaterial(matBullBody, materials.buyBody);
+    setMaterial(matBullHead, materials.buyHead);
+    setMaterial(matBullHorn, materials.buyAccent, materials.buyAccent);
+    setMaterial(matBearBody, materials.sellBody);
+    setMaterial(matBearHead, materials.sellHead);
+    setMaterial(matBearDarkFur, materials.sellDetail);
+    setMaterial(matSnout, materials.snout);
+    setMaterial(matParticleBull, materials.buyParticle);
+    setMaterial(matParticleBear, materials.sellParticle);
+    setMaterial(matParticleDust, materials.dust);
+    setMaterial(matKingBlack, materials.heroPrimary);
+    setMaterial(matKingWing, materials.heroWing, materials.heroWingEmissive);
+    setMaterial(matKingSkin, materials.heroSkin);
+    setMaterial(matKingCloth, materials.heroCloth);
+    setMaterial(matKingHair, materials.heroHair);
+    setMaterial(matKingEnergy, materials.heroEnergy, materials.heroEnergyEmissive);
+    setMaterial(matKingSaddle, materials.heroSaddle, materials.heroSaddleEmissive);
+    setMaterial(matKingGold, materials.heroOrnament, materials.heroOrnamentEmissive);
+    setMaterial(matBullEye, materials.buyEye, materials.buyEyeEmissive);
+    setMaterial(matBullWhaleEye, materials.buyEye, materials.buyEyeEmissive);
+    setMaterial(matKingEyeBeam, materials.heroBeam);
+    setMaterial(matBearEye, materials.sellEye, materials.sellEyeEmissive);
+    setMaterial(matBearWhaleEye, materials.sellEye, materials.sellEyeEmissive);
+    setMaterial(matBearLaser, materials.sellLaser);
+    setMaterial(matCrowdBull, materials.crowdBuyBody);
+    setMaterial(matCrowdBullAccent, materials.crowdBuyAccent, materials.crowdBuyAccentEmissive);
+    setMaterial(matCrowdBullDetail, materials.crowdBuyDetail);
+    setMaterial(matCrowdBear, materials.crowdSellBody);
+    setMaterial(matCrowdBearAccent, materials.crowdSellAccent);
+    setMaterial(matCrowdBearDetail, materials.crowdSellDetail);
+    setMaterial(matCrowdBullEyes, materials.crowdBuyEyes);
+    setMaterial(matCrowdBearEyes, materials.crowdSellEyes);
+    setMaterial(projectileMaterials.bull, materials.projectileBuy);
+    setMaterial(projectileMaterials.bear, materials.projectileSell);
+    setMaterial(projectileGlowMaterials.bull, materials.projectileBuy);
+    setMaterial(projectileGlowMaterials.bear, materials.projectileSell);
+}
+
+function applyEntityTheme(entity, materials) {
+    const isBuy = entity.type === 'bull';
+    entity.color = isBuy ? materials.buyAccent : materials.sellParticle;
+    if (entity.aura?.material) entity.aura.material.color.set(isBuy ? materials.buyAccent : materials.sellParticle);
+    entity.mesh.traverse((child) => {
+        if (child.isLight && child.userData.themeSide) {
+            child.color.set(child.userData.themeSide === 'bull' ? materials.buyAccent : materials.sellParticle);
+        }
+    });
+}
+
+function setMaterial(material, color, emissive = null) {
+    material?.color?.set(color);
+    if (emissive && material?.emissive) material.emissive.set(emissive);
+}
+
+function applyLight(lightObject, definition) {
+    if (!lightObject) return;
+    lightObject.color.set(definition.color);
+    lightObject.intensity = definition.intensity;
+}
+
 export function startGameLoop() {
     if (loopStarted) return;
     loopStarted = true;
@@ -812,7 +935,7 @@ export function resetTokenPresentation() {
     selectedEntity = null;
     onInspectUnit(null);
     floatContainer?.replaceChildren();
-    setFrontlineColor(0xffffff);
+    setFrontlineState('neutral');
     publishVisibleUnitCount();
 }
 
@@ -853,7 +976,14 @@ export function spawnUnit(type, initial = false, isWhale = false, trade = null) 
 
     if (isWhale) {
         group.scale.set(2.8, 2.8, 2.8);
-        const whaleLight = new THREE.PointLight(isBull ? 0x00ff88 : 0xff224f, 7, 22, 2);
+        const materials = activeScenePresentation?.materials;
+        const whaleLight = new THREE.PointLight(
+            isBull ? (materials?.buyAccent || 0x00ff88) : (materials?.sellParticle || 0xff224f),
+            7,
+            22,
+            2,
+        );
+        whaleLight.userData.themeSide = type;
         whaleLight.position.set(0, 2, 0);
         group.add(whaleLight);
     }
@@ -948,7 +1078,9 @@ export function spawnUnit(type, initial = false, isWhale = false, trade = null) 
         cooldown: 0,
         animTime: Math.random() * 10,
         target: null,
-        color: isBull ? '#00ff88' : '#ff3366',
+        color: isBull
+            ? (activeScenePresentation?.materials?.buyAccent || '#00ff88')
+            : (activeScenePresentation?.materials?.sellParticle || '#ff3366'),
         vx: 0,
         vz: 0,
         baseScale: new THREE.Vector3(1, 1, 1),
@@ -1101,18 +1233,34 @@ function publishVisibleUnitCount() {
     onVisibleUnitsChange(state.visibleCombatants);
 }
 
-export function setFrontlineColor(colorHex) {
-    _frontlineColorTarget.setHex(colorHex);
-    if (scene && colorHex !== 0xffffff) {
-        const tint = colorHex === 0x00ff88 ? 0x091a10 : 0x1a090d;
-        _environmentTarget.setHex(tint);
-        _terrainEmissiveTarget.setHex(colorHex);
+export function setFrontlineState(frontlineState = 'neutral') {
+    const environment = activeScenePresentation?.environment;
+    const materials = activeScenePresentation?.materials;
+    const isBuy = frontlineState === 'buy';
+    const isSell = frontlineState === 'sell';
+    const accent = isBuy
+        ? (materials?.projectileBuy || '#00ff88')
+        : isSell
+            ? (materials?.projectileSell || '#ff3366')
+            : (environment?.terrainTint || '#ffffff');
+    _frontlineColorTarget.set(accent);
+    if (scene && (isBuy || isSell)) {
+        _environmentTarget.set(isBuy
+            ? (environment?.buyTrend || '#091a10')
+            : (environment?.sellTrend || '#1a090d'));
+        _terrainEmissiveTarget.set(accent);
         terrainEmissiveIntensityTarget = 0.018;
     } else if (scene) {
-        _environmentTarget.setHex(0x0a120e);
-        _terrainEmissiveTarget.setHex(0x000000);
+        _environmentTarget.set(environment?.background || '#0a120e');
+        _terrainEmissiveTarget.set(0x000000);
         terrainEmissiveIntensityTarget = 0;
     }
+}
+
+export function setFrontlineColor(colorHex) {
+    if (colorHex === 0x00ff88) setFrontlineState('buy');
+    else if (colorHex === 0xff3366) setFrontlineState('sell');
+    else setFrontlineState('neutral');
 }
 
 export function applyTradeImpulse(isBuy, solValue, isWhale) {
@@ -1284,7 +1432,7 @@ function spawnKingStrike(target) {
     _rayDirection.subVectors(target, _rayStart);
     const length = _rayDirection.length();
     const material = new THREE.MeshBasicMaterial({
-        color: 0x00ff88,
+        color: activeScenePresentation?.materials?.heroBeam || 0x00ff88,
         transparent: true,
         opacity: 0.72,
         blending: THREE.AdditiveBlending,
@@ -1322,7 +1470,7 @@ export function triggerBullKingSupport({ buySol, dominance }) {
 
 function spawnSupportWave(delay, strength) {
     const material = new THREE.MeshBasicMaterial({
-        color: 0x00ff88,
+        color: activeScenePresentation?.materials?.heroBeam || 0x00ff88,
         transparent: true,
         opacity: 0,
         side: THREE.DoubleSide,
@@ -1370,26 +1518,27 @@ function init3D() {
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.12;
 
-    scene.add(new THREE.AmbientLight(0xc8d8c4, 0.55));
-    const hemiLight = new THREE.HemisphereLight(0xb8d7d8, 0x2a2018, 2.2);
-    hemiLight.position.set(0, 50, 0);
-    scene.add(hemiLight);
+    ambientLight = new THREE.AmbientLight(0xc8d8c4, 0.55);
+    scene.add(ambientLight);
+    hemisphereLight = new THREE.HemisphereLight(0xb8d7d8, 0x2a2018, 2.2);
+    hemisphereLight.position.set(0, 50, 0);
+    scene.add(hemisphereLight);
 
-    const sun = new THREE.DirectionalLight(0xffe0ad, 4.6);
-    sun.position.set(-22, 52, 28);
-    sun.castShadow = true;
-    sun.shadow.mapSize.width = 1024;
-    sun.shadow.mapSize.height = 1024;
-    sun.shadow.camera.near = 0.5;
-    sun.shadow.camera.far = 150;
-    sun.shadow.camera.left = -75;
-    sun.shadow.camera.right = 75;
-    sun.shadow.camera.top = 48;
-    sun.shadow.camera.bottom = -48;
-    sun.shadow.bias = -0.001;
-    scene.add(sun);
+    sunLight = new THREE.DirectionalLight(0xffe0ad, 4.6);
+    sunLight.position.set(-22, 52, 28);
+    sunLight.castShadow = true;
+    sunLight.shadow.mapSize.width = 1024;
+    sunLight.shadow.mapSize.height = 1024;
+    sunLight.shadow.camera.near = 0.5;
+    sunLight.shadow.camera.far = 150;
+    sunLight.shadow.camera.left = -75;
+    sunLight.shadow.camera.right = 75;
+    sunLight.shadow.camera.top = 48;
+    sunLight.shadow.camera.bottom = -48;
+    sunLight.shadow.bias = -0.001;
+    scene.add(sunLight);
 
-    const rimLight = new THREE.DirectionalLight(0x00aaff, 1.5);
+    rimLight = new THREE.DirectionalLight(0x00aaff, 1.5);
     rimLight.position.set(-30, 20, -30);
     scene.add(rimLight);
 
@@ -1993,8 +2142,9 @@ function createMesh(geo, mat, sx, sy, sz) {
 }
 
 function createAura(type) {
+    const materials = activeScenePresentation?.materials;
     const mat = new THREE.MeshBasicMaterial({
-        color: type === 'bull' ? 0x00ff88 : 0xff3366,
+        color: type === 'bull' ? (materials?.buyAccent || 0x00ff88) : (materials?.sellParticle || 0xff3366),
         transparent: true,
         opacity: 0.3,
         side: THREE.DoubleSide,
@@ -2255,7 +2405,7 @@ function spawnChargeImpact(x, z, strength = 1) {
         oldest.mesh.material.dispose();
     }
     const material = new THREE.MeshBasicMaterial({
-        color: 0x00ff88,
+        color: activeScenePresentation?.materials?.buyAccent || 0x00ff88,
         transparent: true,
         opacity: 0.72,
         side: THREE.DoubleSide,

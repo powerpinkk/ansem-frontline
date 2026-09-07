@@ -7,6 +7,9 @@ import { resolveTokenInput } from './token-loader.js';
 import { buildTokenUrl, historyPath, readTokenRoute } from './token-navigation.js';
 import { DEFAULT_TOKEN_CONTEXT } from './token-presets.js';
 import { initTokenUI } from './token-ui.js';
+import { createCompanionThemeAdapter, createSceneThemeAdapter, createUIThemeAdapter } from './theme-adapters.js';
+import { createThemePresentationController } from './theme-presentation.js';
+import { GENERIC_THEME, THEME_REGISTRY, THEME_RESOLVER } from './theme-presets.js';
 import {
     initUI,
     bindCameraControls,
@@ -42,6 +45,13 @@ let tokenController = null;
 let tokenUI = null;
 const pendingSceneTrades = [];
 const runtimeSessions = [];
+const sceneThemeAdapter = createSceneThemeAdapter();
+const companionThemeAdapter = createCompanionThemeAdapter();
+const themePresentation = createThemePresentationController({
+    registry: THEME_REGISTRY,
+    resolver: THEME_RESOLVER,
+    adapters: [createUIThemeAdapter(), sceneThemeAdapter, companionThemeAdapter],
+});
 
 function handleTrade(trade, meta) {
     if (awaySession && !meta.bootstrap && trade.timestamp >= awaySession.startedAt) {
@@ -99,6 +109,7 @@ function mountRuntime(resolution) {
         },
     };
     activateTokenRuntime(runtime);
+    themePresentation.applyForToken(runtime.context);
     currentSession = session;
     runtimeSessions.push(session);
     if (runtimeSessions.length > 24) runtimeSessions.shift();
@@ -128,6 +139,7 @@ function mountRuntime(resolution) {
         onBootstrapComplete: active(showTradesReady),
         onTokenContextChange: active((context) => {
             tokenUI?.renderContext(context);
+            themePresentation.applyForToken(context);
             companionController?.setTokenContext(context);
         }),
     }, { runtime, initialMarket: resolution.market });
@@ -162,7 +174,7 @@ function loadRoute() {
 }
 
 function boot() {
-    initUI({ setFrontlineColor: (color) => sceneModule?.setFrontlineColor(color) });
+    initUI({ setFrontlineState: (frontlineState) => sceneModule?.setFrontlineState(frontlineState) });
     bindCameraControls((mode) => sceneModule?.setCameraMode(mode));
     showBattleLogSyncing();
     showTradesWaiting();
@@ -194,6 +206,7 @@ function boot() {
             onVisibleUnitsChange: updateVisibleCoverage,
             onRendererStatus: setRendererStatus,
         });
+        sceneThemeAdapter.connect(sceneModule);
         if (!currentSession) sceneModule.resetTokenPresentation();
         flushPendingSceneTrades();
         sceneModule.startGameLoop();
@@ -201,7 +214,9 @@ function boot() {
         companionController = initPixelCompanion({
             setSceneActive: (active) => sceneModule?.setSceneActive(active),
             tokenContext: currentSession?.context || DEFAULT_TOKEN_CONTEXT,
+            theme: themePresentation.getCurrentTheme(),
         });
+        companionThemeAdapter.connect(companionController);
         if (currentSession) companionController?.setTokenContext(currentSession.context);
     }).catch((error) => {
         console.error('[scene] Failed to initialize', error);
@@ -219,6 +234,13 @@ function boot() {
                 api: session.api?.getDiagnostics() || null,
             })),
         });
+        window.__ansemThemeDiagnostics = () => themePresentation.getDiagnostics();
+        window.__ansemApplyTheme = (themeId) => themePresentation.applyThemeId(String(themeId)).identity.id;
+        window.__ansemApplyMissingAssetTheme = () => themePresentation.applyDefinition({
+            ...GENERIC_THEME,
+            identity: { id: 'missing-asset-fixture', version: '1.0.0', displayName: 'Missing asset fixture' },
+            assets: { emblem: 'themes/missing-emblem.png' },
+        }).identity.id;
     }
 }
 

@@ -1,6 +1,6 @@
 # $ANSEM FRONTLINE
 
-An open-source 3D market visualization that turns verified Solana token swaps into a live bull-versus-bear battlefield. `$ANSEM` remains the default token and visual presentation.
+An open-source 3D market visualization that turns verified Solana token swaps into a live bull-versus-bear battlefield. `$ANSEM` remains the default token and uses the official ANSEM presentation; other compatible tokens use the neutral Generic Frontline theme.
 
 ![The $ANSEM Frontline live battlefield](public/og-card.png)
 
@@ -16,14 +16,14 @@ A successful non-default selection is represented by `?token=<mint>`. Query rout
 
 On every switch, the old API session closes its WebSocket, aborts pending fetches, clears polling/retry timers and stops publishing callbacks before a fresh per-mint runtime becomes active. Startup caches and Pixel Frontline channels remain mint-namespaced. A late response from an older token cannot update the current UI or battlefield.
 
-Token names, symbols and images are untrusted input: display text is bounded and assigned with text-only DOM APIs, while logos accept HTTPS only and fall back to a text avatar. `COPY CA` and `COPY LINK` expose the validated current identity and reproducible URL. Other tokens temporarily use the existing base Frontline battlefield presentation; token-aware themes are intentionally deferred to M6.
+Token names, symbols and images are untrusted input: display text is bounded and assigned with text-only DOM APIs, while logos accept HTTPS only and fall back to a text avatar. `COPY CA` and `COPY LINK` expose the validated current identity and reproducible URL. Theme selection never uses those metadata fields: only the canonical mint can select a registered project theme, and every other compatible token receives the controlled generic fallback.
 
 ## What the visualization means
 
 | Market event | Battlefield representation |
 | --- | --- |
-| Verified buy | One individually inspectable black-bull champion |
-| Verified sell | One individually inspectable grizzly champion |
+| Verified buy | One individually inspectable buy-side champion (a black bull in the ANSEM theme) |
+| Verified sell | One individually inspectable sell-side champion (a grizzly in the ANSEM theme) |
 | Buy worth at least 20 SOL | Giant black bull with luminous green eyes and aura |
 | Sell worth at least 20 SOL | Giant bear with luminous red eyes and aura |
 | Reported buy/sell counts across tracked pools over one hour | Strategic depth of each instanced army |
@@ -36,7 +36,7 @@ Token names, symbols and images are untrusted input: display text is bounded and
 | Reference-pool OHLCV | One-hour mini price chart |
 | Selected battlefield combatant | Verified SOL size, USD value, pool, age and direct Solscan transaction link |
 
-The visualization deliberately separates inspectable swaps from market-scale ranks. Each detailed foreground champion originates from a Helius or GeckoTerminal swap and links to its Solscan transaction. The lower-detail army ranks are an explicit aggregate visualization: strategic depth starts from DexScreener's reported one-hour buy/sell counts, while the five-minute pulse, verified 60-second SOL and recent verified swaps control the immediate wave. The square-root hourly term and other sub-linear weights prevent one busy pool or whale from masquerading as hundreds of independent signatures. Aggregate ranks are not presented as one character per transaction. This allows a quiet market to remain a skirmish and a genuinely high-activity market to grow toward hundreds per side without manufacturing data. Combat motion, damage and the Bull King's actions are visual metaphors and never alter price, dominance or the underlying trade feed.
+The table describes the official ANSEM theme. The generic theme retains the same truthful buy-side/sell-side semantics and battle mechanics while using neutral Frontline branding, terminology and palettes. The visualization deliberately separates inspectable swaps from market-scale ranks. Each detailed foreground champion originates from a Helius or GeckoTerminal swap and links to its Solscan transaction. The lower-detail army ranks are an explicit aggregate visualization: strategic depth starts from DexScreener's reported one-hour buy/sell counts, while the five-minute pulse, verified 60-second SOL and recent verified swaps control the immediate wave. The square-root hourly term and other sub-linear weights prevent one busy pool or whale from masquerading as hundreds of independent signatures. Aggregate ranks are not presented as one character per transaction. This allows a quiet market to remain a skirmish and a genuinely high-activity market to grow toward hundreds per side without manufacturing data. Combat motion, damage and special-entity actions are visual metaphors and never alter price, dominance or the underlying trade feed.
 
 The display deliberately separates time horizons so activity and trend are not conflated: the mini chart shows one-hour price direction, strategic army depth encodes one-hour transaction counts, the sidebar exposes the five-minute activity pulse, and the frontline/pressure bars encode verified SOL flow over the latest 60 seconds. The optional Pixel Frontline is narrower by design and uses only verified swaps from a rolling 30-second window. Its background price line is a rolling trace of live market-price samples, not a claimed 30-second exchange OHLC candle. The segmented pressure marker represents a rolling market balance, not a wall or collision boundary. A visible coverage label discloses both the recent verified-swap count and the volume-weighted visual force per side. Detailed champions are capped at eight recent swaps per side; instanced ranks scale to 260 per side on capable devices and 120 per side on constrained devices.
 
@@ -70,6 +70,9 @@ The UI displays the number of monitored pools and their share of DexScreener-rep
 
 ```text
 Validated TokenContext (mint + identity + discovery provenance)
+      ├── ThemeResolver (canonical mint only)
+      │     └── ThemeRegistry → immutable ANSEM or Generic ThemeDefinition
+      │           └── scene / UI / Pixel + companion presentation adapters
       │
 DexScreener ── token-agnostic pool discovery, price, liquidity, market cap
       │
@@ -103,7 +106,7 @@ Browser companion ── verified rolling 30-second swaps
       └── canvas capture stream → native video Picture-in-Picture
 ```
 
-The code deliberately separates token identity/resolution (`token-context.js`, `token-discovery.js`), transient per-token runtime state (`state.js`), external data (`api.js`), pure market calculations (`market.js`), volume/strategy rules (`battlefield.js`), navigation rules (`navigation.js`), UI (`ui.js`) and rendering/simulation (`scene.js`). Theme and presentation remain the existing ANSEM experience and are not stored in `TokenContext`.
+The code deliberately separates token identity/resolution (`token-context.js`, `token-discovery.js`), transient per-token runtime state (`state.js`), external data (`api.js`), pure market calculations (`market.js`), volume/strategy rules (`battlefield.js`), navigation rules (`navigation.js`), theme selection/presentation (`theme-*.js`), UI (`ui.js`) and rendering/simulation (`scene.js`). Theme state is not stored in `TokenContext`, market data or the Worker.
 
 ### Multi-token foundation (M4)
 
@@ -122,6 +125,14 @@ If an input selection cannot be resolved, the current token remains visibly acti
 The production build places Three.js and the battlefield scene in separate content-hashed chunks. Market discovery, the sidebar and the verified feed start before the heavier 3D scene is evaluated, so token information is not blocked by geometry construction. Vercel serves hashed assets with a one-year immutable cache policy. Dynamic army transforms use eight `InstancedMesh` buffers per side—body, accent, anatomical detail, eyes and four independently animated legs—so hundreds of ranks remain practical without sacrificing readable gait, silhouettes or eye colour.
 
 Startup is progressive and truthful. DexScreener and the Helius relay race only on the first cold request, market values render before optional OHLCV history, and recent Helius history plus GeckoTerminal fallbacks bootstrap concurrently. Five-minute historical swaps can populate the inspectable feed immediately, but only swaps no older than 75 seconds enter the battlefield or its rolling pressure calculation. A five-minute browser snapshot of public market values and verified feed rows makes repeat visits immediate; its timestamp remains visible and the connection stays labelled as connecting until a live source confirms availability. No cached trade is relabelled as a new swap. The shared Helius snapshot is cached at the Worker edge for 45 seconds to keep the free plan sustainable without delaying the WebSocket path.
+
+### Decoupled theme engine (M6)
+
+`ThemeDefinition` is a validated, versioned and deeply immutable product configuration. `ThemeRegistry` accepts only valid built-in definitions, rejects duplicate IDs and owns the generic fallback. `ThemeResolver` maps the canonical ANSEM mint to the ANSEM theme; USDC, JUP and every other supported mint resolve to Generic Frontline. Symbols, names, token images and metadata URIs cannot select themes or executable content.
+
+The presentation controller applies a resolved definition through bounded scene, UI and companion adapters only at startup, token switches or an explicit internal theme-only change. A theme-only change preserves the active `TokenContext`, data runtime, timers, requests, WebSocket and BroadcastChannel namespace. Three.js materials and lights are updated in place; it does not allocate new materials, geometries or textures. Pixel Frontline receives a trusted registered theme ID while its market snapshot remains token-scoped. Missing declared local assets and malformed definitions resolve safely to Generic Frontline.
+
+ANSEM keeps the historical colors, copy, procedural battlefield, special commander and Pixel palette as an explicit compatibility preset. Generic Frontline uses neutral product branding and colors without inventing branding or downloading assets for the selected token. There is no public theme URL parameter or selector. See [Theme Engine architecture](docs/theme-engine.md) for the internal extension contract. Theme Studio, user-generated themes and public personalization are intentionally outside M6.
 
 ## Local development
 
@@ -163,6 +174,13 @@ js/token-loader.js         Abortable public discovery entry point
 js/token-controller.js     Single-runtime selection and race control
 js/token-navigation.js     Base-safe query and History API helpers
 js/token-ui.js             Safe Token Data and copy controls
+js/theme-definition.js     Validated, versioned immutable theme schema
+js/theme-registry.js       Explicit built-in theme registry and fallback
+js/theme-resolver.js       Canonical-mint theme assignment
+js/theme-presets.js        ANSEM and Generic Frontline definitions
+js/theme-adapters.js       Bounded scene, UI and companion adapters
+js/theme-presentation.js   Theme application lifecycle coordinator
+js/theme-assets.js         Safe local asset resolution and fallback
 js/market.js               Pure pool/trade/pressure calculations
 js/battlefield.js          Pure force-scaling and tactical doctrine
 js/navigation.js           Arena bounds, lanes, patrols and lifetime rules
@@ -183,6 +201,7 @@ tests/market.test.js       Market semantics and parsing tests
 tests/battlefield.test.js  Force scale, doctrines and King modes
 tests/navigation.test.js   Deterministic movement and lifecycle tests
 tests/token-*.test.js      Token identity, selection, URL and UI safety tests
+tests/theme-engine.test.js Theme validation, resolution, security and lifecycle tests
 .github/workflows/ci.yml   Automated quality gate
 .github/workflows/codeql.yml Security-extended JavaScript scanning
 .github/dependabot.yml     Weekly npm and Actions updates

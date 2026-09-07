@@ -16,6 +16,8 @@ Use small, descriptive commits following Conventional Commits where practical, f
 
 - Keep market calculations and tactical decisions in pure modules when possible, with Vitest coverage.
 - Keep DOM updates in `ui.js`, external data normalization in `api.js` or `market.js`, and Three.js lifecycle work in `scene.js`.
+- Keep theme identity, registry and mint assignment in the `theme-*.js` boundary. Themes are trusted local data, never executable plugins or values derived from token metadata.
+- Apply theme changes through presentation adapters and reuse/dispose Three.js resources explicitly; do not resolve themes or allocate presentation resources inside an animation loop.
 - Bound positions, speeds and time-based transitions explicitly.
 - Never expose service credentials through `VITE_*`, source files, logs or test fixtures.
 - Prefer deterministic seeded variation over unbounded randomness so visual regressions can be reproduced.

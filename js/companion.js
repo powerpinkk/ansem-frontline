@@ -3,27 +3,31 @@ import {
     PIXEL_SOURCE_WIDTH,
     PixelFrontline,
     createPixelSnapshot,
+    pixelPresentation,
 } from './pixel-engine.js';
 import { state } from './state.js';
 import { tokenCacheKey } from './token-context.js';
 import { DEFAULT_TOKEN_CONTEXT } from './token-presets.js';
+import { ANSEM_THEME } from './theme-presets.js';
 
 const PIP_WIDTH = PIXEL_SOURCE_WIDTH;
 const PIP_HEIGHT = PIXEL_SOURCE_HEIGHT;
 
-export function initPixelCompanion({ setSceneActive, tokenContext = DEFAULT_TOKEN_CONTEXT }) {
+export function initPixelCompanion({ setSceneActive, tokenContext = DEFAULT_TOKEN_CONTEXT, theme = ANSEM_THEME }) {
     const button = document.getElementById('pixel-mode-btn');
     const returnButton = document.getElementById('companion-return');
     const dockScreen = document.getElementById('companion-dock-screen');
     if (!button || !dockScreen) return null;
 
     let currentTokenContext = tokenContext;
+    let currentTheme = theme;
     let channel = new BroadcastChannel(tokenCacheKey('ansem-frontline:pixel', currentTokenContext, 'v1'));
     const canvas = document.createElement('canvas');
     const video = document.createElement('video');
     let videoEngine = null;
     let documentEngine = null;
     let companionWindow = null;
+    let companionStyle = null;
     let stream = null;
     let mode = null;
     let publishTimer = 0;
@@ -47,10 +51,13 @@ export function initPixelCompanion({ setSceneActive, tokenContext = DEFAULT_TOKE
     video.setAttribute('aria-hidden', 'true');
     document.body.append(canvas, video);
 
-    videoEngine = new PixelFrontline(canvas);
+    videoEngine = new PixelFrontline(canvas, pixelPresentation(currentTheme));
     const publish = () => {
         if (destroyed) return;
-        const snapshot = createPixelSnapshot(state);
+        const snapshot = {
+            ...createPixelSnapshot(state),
+            presentation: { themeId: currentTheme.identity.id },
+        };
         channel.postMessage(snapshot);
         videoEngine?.setSnapshot(snapshot);
         documentEngine?.setSnapshot(snapshot);
@@ -96,6 +103,7 @@ export function initPixelCompanion({ setSceneActive, tokenContext = DEFAULT_TOKE
             documentEngine = null;
             if (exitPip && companionWindow && !companionWindow.closed) companionWindow.close();
             companionWindow = null;
+            companionStyle = null;
         }
         if (exitPip && document.pictureInPictureElement === video) {
             try {
@@ -136,7 +144,7 @@ export function initPixelCompanion({ setSceneActive, tokenContext = DEFAULT_TOKE
         const pip = await window.documentPictureInPicture.requestWindow({ width: PIP_WIDTH, height: PIP_HEIGHT });
         pip.document.title = `$${currentTokenContext.identity.symbol || 'TOKEN'} Pixel Frontline · 30S`;
         const style = pip.document.createElement('style');
-        style.textContent = '*{box-sizing:border-box}html,body{width:100%;height:100%;margin:0;overflow:hidden;background:#020403}canvas{display:block;width:100%;height:100%;image-rendering:pixelated}';
+        style.textContent = companionStyles(currentTheme);
         const pipCanvas = pip.document.createElement('canvas');
         pipCanvas.width = PIP_WIDTH;
         pipCanvas.height = PIP_HEIGHT;
@@ -144,7 +152,8 @@ export function initPixelCompanion({ setSceneActive, tokenContext = DEFAULT_TOKE
         pip.document.head.append(style);
         pip.document.body.append(pipCanvas);
         companionWindow = pip;
-        documentEngine = new PixelFrontline(pipCanvas);
+        companionStyle = style;
+        documentEngine = new PixelFrontline(pipCanvas, pixelPresentation(currentTheme));
         documentEngine.start();
         pip.addEventListener('pagehide', () => void restoreMain({ exitPip: false }), { once: true });
         activateMainDock('document');
@@ -185,6 +194,7 @@ export function initPixelCompanion({ setSceneActive, tokenContext = DEFAULT_TOKE
         hasDocumentPip: typeof window.documentPictureInPicture?.requestWindow === 'function',
         pixel: videoEngine?.getDiagnostics() || null,
         mint: currentTokenContext.identity.mint,
+        themeId: currentTheme.identity.id,
         channel: tokenCacheKey('ansem-frontline:pixel', currentTokenContext, 'v1'),
     });
     const destroy = () => {
@@ -207,6 +217,20 @@ export function initPixelCompanion({ setSceneActive, tokenContext = DEFAULT_TOKE
             if (dockLabel) dockLabel.textContent = `▦ $${currentTokenContext.identity.symbol || 'TOKEN'} PIXEL FRONTLINE`;
             publish();
         },
+        setTheme(nextTheme) {
+            if (!nextTheme?.identity?.id || nextTheme.identity.id === currentTheme.identity.id) return false;
+            currentTheme = nextTheme;
+            const presentation = pixelPresentation(currentTheme);
+            videoEngine?.setTheme(presentation);
+            documentEngine?.setTheme(presentation);
+            if (companionStyle) companionStyle.textContent = companionStyles(currentTheme);
+            publish();
+            return true;
+        },
         destroy,
     };
+}
+
+function companionStyles(theme) {
+    return `*{box-sizing:border-box}html,body{width:100%;height:100%;margin:0;overflow:hidden;background:${theme.companion.background}}canvas{display:block;width:100%;height:100%;image-rendering:pixelated}`;
 }
