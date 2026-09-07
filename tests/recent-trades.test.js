@@ -61,6 +61,23 @@ describe('Helius recent transaction snapshot', () => {
         expect(result).toMatchObject({ source: 'helius-history', pools: 2 });
         expect(result.trades).toHaveLength(2);
     });
+
+    it('returns an uncached degraded snapshot when every Helius history request is unavailable', async () => {
+        const result = await fetchRecentTrades({
+            HELIUS_API_KEY: 'test-key',
+        }, {
+            token: { mint: DEFAULT_TOKEN_CONTEXT.identity.mint, chain: 'solana' },
+            pools: [pool()],
+            market: { tokenPriceUsd: 0.25, solPriceUsd: 100 },
+        }, async () => ({ ok: false, status: 429 }));
+
+        expect(result).toEqual({
+            trades: [],
+            pools: 0,
+            source: 'helius-history',
+            status: 'degraded',
+        });
+    });
 });
 
 function jsonResponse(payload) {

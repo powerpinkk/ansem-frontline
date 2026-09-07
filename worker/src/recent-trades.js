@@ -21,10 +21,7 @@ export async function fetchRecentTrades(env, configuration, fetchImpl = fetch) {
             .map((item) => ({ signature: item.signature, pool }));
     }));
     const successful = signatureResults.filter((result) => result.status === 'fulfilled');
-    if (!successful.length) {
-        const firstFailure = signatureResults.find((result) => result.status === 'rejected');
-        throw firstFailure?.reason || new Error('Helius history unavailable');
-    }
+    if (!successful.length) return degradedSnapshot();
 
     const signatureRecords = [...new Map(successful
         .flatMap((result) => result.value)
@@ -42,15 +39,20 @@ export async function fetchRecentTrades(env, configuration, fetchImpl = fetch) {
             maxSupportedTransactionVersion: 0,
         }],
     }));
-    const response = await fetchImpl(heliusRpcUrl(env.HELIUS_API_KEY), {
+    let response;
+    try {
+        response = await fetchImpl(heliusRpcUrl(env.HELIUS_API_KEY), {
             method: 'POST',
             headers: { 'content-type': 'application/json' },
             body: JSON.stringify(batch),
             signal: AbortSignal.timeout(5_000),
         });
-    if (!response.ok) throw new Error(`Helius transactions ${response.status}`);
-    const transactionPayloads = await response.json();
-    if (!Array.isArray(transactionPayloads)) throw new Error('Invalid Helius transaction batch');
+    } catch {
+        return degradedSnapshot();
+    }
+    if (!response.ok) return degradedSnapshot();
+    const transactionPayloads = await response.json().catch(() => null);
+    if (!Array.isArray(transactionPayloads)) return degradedSnapshot();
     const transactionsById = new Map(transactionPayloads.map((item) => [Number(item.id), item.result]));
 
     const trades = [...new Map(signatureRecords
@@ -69,6 +71,10 @@ export async function fetchRecentTrades(env, configuration, fetchImpl = fetch) {
         .sort((a, b) => a.timestamp - b.timestamp)
         .slice(-40);
     return { trades, pools: successful.length, source: 'helius-history' };
+}
+
+function degradedSnapshot() {
+    return { trades: [], pools: 0, source: 'helius-history', status: 'degraded' };
 }
 
 async function rpcRequest(apiKey, body, fetchImpl) {

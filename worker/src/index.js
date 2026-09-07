@@ -57,12 +57,16 @@ async function fetchRecentSnapshot(request, env, origin, allowedOrigins) {
             payload = await cached.json();
         } else {
             payload = await fetchRecentTrades(env, configuration);
-            const cachedResponse = Response.json(payload, {
-                headers: { 'cache-control': 'public, max-age=45' },
-            });
-            await cache.put(cacheKey, cachedResponse);
+            if (payload.status !== 'degraded') {
+                const cachedResponse = Response.json(payload, {
+                    headers: { 'cache-control': 'public, max-age=45' },
+                });
+                await cache.put(cacheKey, cachedResponse);
+            }
         }
-        return Response.json(payload, { headers: corsHeaders(origin, allowedOrigins) });
+        const headers = corsHeaders(origin, allowedOrigins);
+        if (payload.status === 'degraded') headers['cache-control'] = 'no-store';
+        return Response.json(payload, { headers });
     } catch (error) {
         console.error('[recent-trades] request failed', error instanceof Error ? error.name : 'UnknownError');
         return Response.json({ error: 'Recent swaps unavailable' }, {
