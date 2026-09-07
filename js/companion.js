@@ -15,9 +15,10 @@ export function initPixelCompanion({ setSceneActive, tokenContext = DEFAULT_TOKE
     const button = document.getElementById('pixel-mode-btn');
     const returnButton = document.getElementById('companion-return');
     const dockScreen = document.getElementById('companion-dock-screen');
-    if (!button || !dockScreen) return;
+    if (!button || !dockScreen) return null;
 
-    const channel = new BroadcastChannel(tokenCacheKey('ansem-frontline:pixel', tokenContext, 'v1'));
+    let currentTokenContext = tokenContext;
+    let channel = new BroadcastChannel(tokenCacheKey('ansem-frontline:pixel', currentTokenContext, 'v1'));
     const canvas = document.createElement('canvas');
     const video = document.createElement('video');
     let videoEngine = null;
@@ -28,6 +29,9 @@ export function initPixelCompanion({ setSceneActive, tokenContext = DEFAULT_TOKE
     let publishTimer = 0;
     let pipRequested = false;
     let restoring = false;
+    let destroyed = false;
+    const dockLabel = document.getElementById('companion-token-label');
+    if (dockLabel) dockLabel.textContent = `▦ $${currentTokenContext.identity.symbol || 'TOKEN'} PIXEL FRONTLINE`;
 
     canvas.width = PIP_WIDTH;
     canvas.height = PIP_HEIGHT;
@@ -45,6 +49,7 @@ export function initPixelCompanion({ setSceneActive, tokenContext = DEFAULT_TOKE
 
     videoEngine = new PixelFrontline(canvas);
     const publish = () => {
+        if (destroyed) return;
         const snapshot = createPixelSnapshot(state);
         channel.postMessage(snapshot);
         videoEngine?.setSnapshot(snapshot);
@@ -129,7 +134,7 @@ export function initPixelCompanion({ setSceneActive, tokenContext = DEFAULT_TOKE
     const openDocumentPictureInPicture = async () => {
         if (typeof window.documentPictureInPicture?.requestWindow !== 'function') return false;
         const pip = await window.documentPictureInPicture.requestWindow({ width: PIP_WIDTH, height: PIP_HEIGHT });
-        pip.document.title = '$ANSEM Pixel Frontline · 30S';
+        pip.document.title = `$${currentTokenContext.identity.symbol || 'TOKEN'} Pixel Frontline · 30S`;
         const style = pip.document.createElement('style');
         style.textContent = '*{box-sizing:border-box}html,body{width:100%;height:100%;margin:0;overflow:hidden;background:#020403}canvas{display:block;width:100%;height:100%;image-rendering:pixelated}';
         const pipCanvas = pip.document.createElement('canvas');
@@ -179,12 +184,29 @@ export function initPixelCompanion({ setSceneActive, tokenContext = DEFAULT_TOKE
         hasVideoPip: typeof video.requestPictureInPicture === 'function',
         hasDocumentPip: typeof window.documentPictureInPicture?.requestWindow === 'function',
         pixel: videoEngine?.getDiagnostics() || null,
+        mint: currentTokenContext.identity.mint,
+        channel: tokenCacheKey('ansem-frontline:pixel', currentTokenContext, 'v1'),
     });
-    window.addEventListener('pagehide', () => {
+    const destroy = () => {
+        if (destroyed) return;
+        destroyed = true;
         window.clearInterval(publishTimer);
         documentEngine?.destroy();
         videoEngine?.destroy();
         stream?.getTracks().forEach((track) => track.stop());
         channel.close();
-    });
+    };
+    window.addEventListener('pagehide', destroy, { once: true });
+
+    return {
+        setTokenContext(nextContext) {
+            if (!nextContext?.identity?.mint || nextContext.identity.mint === currentTokenContext.identity.mint) return;
+            channel.close();
+            currentTokenContext = nextContext;
+            channel = new BroadcastChannel(tokenCacheKey('ansem-frontline:pixel', currentTokenContext, 'v1'));
+            if (dockLabel) dockLabel.textContent = `▦ $${currentTokenContext.identity.symbol || 'TOKEN'} PIXEL FRONTLINE`;
+            publish();
+        },
+        destroy,
+    };
 }

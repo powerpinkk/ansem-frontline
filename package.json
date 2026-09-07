@@ -3,7 +3,7 @@
   "version": "2.1.0",
   "private": true,
   "type": "module",
-  "description": "Near-real-time 3D visualization of verified $ANSEM swaps on Solana.",
+  "description": "Near-real-time 3D visualization of verified Solana token swaps.",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
@@ -12,6 +12,7 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "test:tokens:smoke": "node scripts/token-smoke.mjs",
+    "test:m5:smoke": "node scripts/m5-live-smoke.mjs",
     "test:soak": "node scripts/soak-test.mjs",
     "lint": "eslint .",
     "check": "npm run lint && npm test && npm run build && npm run test:e2e",

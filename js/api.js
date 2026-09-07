@@ -4,8 +4,9 @@ import { connectTradeStream } from './stream.js';
 import { discoverToken } from './token-discovery.js';
 import { tokenCacheKey, urlWithMint, validateSolanaMint, withTokenResolution } from './token-context.js';
 import { defaultTokenRuntime } from './state.js';
+import { DEFAULT_TOKEN_CONTEXT } from './token-presets.js';
 
-export function initAPI(nextCallbacks, { runtime = defaultTokenRuntime } = {}) {
+export function initAPI(nextCallbacks, { runtime = defaultTokenRuntime, initialMarket = null } = {}) {
     const callbacks = nextCallbacks || {};
     const { state, bootstrappedPools, seenTradeHashes, seenTradeIds } = runtime;
     let priceDelay = CONFIG.FETCH_MIN_DELAY_MS;
@@ -29,6 +30,10 @@ export function initAPI(nextCallbacks, { runtime = defaultTokenRuntime } = {}) {
     const renderedBootstrapTrades = new Set();
     const spawnedBootstrapTrades = new Set();
     let recentFeedTrades = [];
+    let destroyed = false;
+    const timers = new Set();
+    const pendingDelays = new Map();
+    const requestControllers = new Set();
     const STARTUP_CACHE_KEY = tokenCacheKey('ansem-frontline:startup', runtime.context, 'v2');
     const LEGACY_STARTUP_CACHE_KEY = 'ansem-frontline:startup:v1';
     const STARTUP_MARKET_TTL_MS = 5 * 60_000;
@@ -48,12 +53,20 @@ export function initAPI(nextCallbacks, { runtime = defaultTokenRuntime } = {}) {
     }
 
     setConnection('connecting');
-    hydrateStartupSnapshot();
-    schedule(runMarketLoop, 0);
+    if (initialMarket) {
+        initialMarketRacePending = false;
+        if (initialMarket.source === 'dexscreener') lastPoolDiscovery = Date.now();
+        applyMarketData({ ...initialMarket, tokenContext: runtime.context });
+        refreshConnection();
+    } else {
+        hydrateStartupSnapshot();
+    }
+    schedule(runMarketLoop, initialMarket ? CONFIG.FETCH_MIN_DELAY_MS : 0);
     schedule(runTradeLoop, state.trackedPools.length ? 0 : 1_200);
-    return { refresh: refreshAPI, runtime };
+    return { refresh: refreshAPI, destroy, runtime, getDiagnostics };
 
 function refreshAPI({ catchUpTrades = false } = {}) {
+    if (destroyed) return Promise.resolve();
     streamController?.reconnect();
     if (visibilityRefreshPromise) return visibilityRefreshPromise;
     visibilityRefreshPromise = (async () => {
@@ -62,25 +75,58 @@ function refreshAPI({ catchUpTrades = false } = {}) {
             state.priceFailures = 0;
             if (catchUpTrades) await catchUpTrackedPools();
         } catch (error) {
-            state.priceFailures += 1;
-            console.warn('[visibility-refresh]', error);
+            if (!destroyed) {
+                state.priceFailures += 1;
+                console.warn('[visibility-refresh]', error);
+            }
         } finally {
-            refreshConnection();
+            if (!destroyed) refreshConnection();
             visibilityRefreshPromise = null;
         }
     })();
     return visibilityRefreshPromise;
 }
 
-function schedule(task, delay) { window.setTimeout(task, delay); }
+function schedule(task, delay) {
+    if (destroyed) return 0;
+    const timer = window.setTimeout(() => {
+        timers.delete(timer);
+        if (!destroyed) void task();
+    }, Math.max(0, delay));
+    timers.add(timer);
+    return timer;
+}
+
+function clearTimer(timer) {
+    if (!timer) return;
+    window.clearTimeout(timer);
+    timers.delete(timer);
+}
+
+function wait(delay) {
+    if (destroyed) return Promise.resolve(false);
+    return new Promise((resolve) => {
+        const timer = schedule(() => {
+            pendingDelays.delete(timer);
+            resolve(true);
+        }, delay);
+        pendingDelays.set(timer, resolve);
+    });
+}
+
+function emit(name, ...args) {
+    if (!destroyed) callbacks[name]?.(...args);
+}
 
 function setConnection(status) {
+    if (destroyed) return;
     if (state.connection === status) return;
     state.connection = status;
-    callbacks.onConnectionChange?.(status);
+    emit('onConnectionChange', status);
 }
 
 function refreshConnection() {
+    if (destroyed) return;
     if (state.priceFailures >= 3) setConnection('offline');
     else if (state.priceFailures || state.tradesFailures >= 3) setConnection('degraded');
     else if (state.trackedPools.length) setConnection('online');
@@ -88,11 +134,14 @@ function refreshConnection() {
 }
 
 async function runMarketLoop() {
+    if (destroyed) return;
     try {
         const market = await fetchMarketDataShared();
+        if (destroyed) return;
         state.priceFailures = 0;
         priceDelay = market.source === 'dexscreener' ? CONFIG.FETCH_MIN_DELAY_MS : Math.max(15_000, CONFIG.FETCH_MIN_DELAY_MS);
     } catch (error) {
+        if (destroyed) return;
         state.priceFailures += 1;
         priceDelay = Math.min(CONFIG.FETCH_MAX_DELAY_MS, priceDelay * 2);
         console.error('[market]', error);
@@ -102,7 +151,7 @@ async function runMarketLoop() {
 }
 
 async function runTradeLoop() {
-    if (!pollingFallback) return;
+    if (destroyed || !pollingFallback) return;
     if (Date.now() < geckoRateLimitedUntil) {
         schedule(runTradeLoop, geckoRateLimitedUntil - Date.now());
         return;
@@ -119,9 +168,11 @@ async function runTradeLoop() {
     state.poolCursor = (state.poolCursor + 1) % state.trackedPools.length;
     try {
         await fetchPoolTrades(pool);
+        if (destroyed) return;
         state.tradesFailures = 0;
         tradesDelay = CONFIG.TRADES_POLL_MIN_DELAY_MS;
     } catch (error) {
+        if (destroyed) return;
         state.tradesFailures += 1;
         if (error.status === 429) {
             geckoRateLimitedUntil = Date.now() + CONFIG.GECKO_RATE_LIMIT_COOLDOWN_MS;
@@ -137,15 +188,16 @@ async function runTradeLoop() {
 }
 
 function handleStreamStatus(status) {
+    if (destroyed) return;
     if (status === 'online') {
         pollingFallback = false;
-        window.clearTimeout(fallbackTimer);
+        clearTimer(fallbackTimer);
         state.tradesFailures = 0;
         refreshConnection();
         return;
     }
-    window.clearTimeout(fallbackTimer);
-    fallbackTimer = window.setTimeout(() => {
+    clearTimer(fallbackTimer);
+    fallbackTimer = schedule(() => {
         if (pollingFallback) return;
         pollingFallback = true;
         schedule(runTradeLoop, 0);
@@ -153,17 +205,19 @@ function handleStreamStatus(status) {
 }
 
 function receiveStreamTrade(trade) {
-    if (!trade?.txHash
+    if (destroyed || !trade?.txHash
         || (trade.tokenMint && trade.tokenMint !== runtime.context.identity.mint)
-        || (!trade.tokenMint && runtime !== defaultTokenRuntime)
+        || (!trade.tokenMint && !isDefaultRuntime())
         || seenTradeHashes.has(trade.txHash)) return;
     seenTradeHashes.add(trade.txHash);
     receiveTrade(trade, false);
 }
 
 async function fetchJson(url, timeoutMs = 8_000) {
+    if (destroyed) throw abortError();
     const controller = new AbortController();
-    const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
+    requestControllers.add(controller);
+    const timeout = schedule(() => controller.abort(), timeoutMs);
     try {
         const response = await fetch(url, { signal: controller.signal, headers: { accept: 'application/json' } });
         if (!response.ok) {
@@ -174,15 +228,20 @@ async function fetchJson(url, timeoutMs = 8_000) {
             }
             throw error;
         }
-        return await response.json();
+        const data = await response.json();
+        if (destroyed) throw abortError();
+        return data;
     } finally {
-        window.clearTimeout(timeout);
+        clearTimer(timeout);
+        requestControllers.delete(controller);
     }
 }
 
 async function postJson(url, body, timeoutMs = 4_000) {
+    if (destroyed) throw abortError();
     const controller = new AbortController();
-    const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
+    requestControllers.add(controller);
+    const timeout = schedule(() => controller.abort(), timeoutMs);
     try {
         const response = await fetch(url, {
             method: 'POST',
@@ -195,13 +254,17 @@ async function postJson(url, body, timeoutMs = 4_000) {
             error.status = response.status;
             throw error;
         }
-        return await response.json();
+        const data = await response.json();
+        if (destroyed) throw abortError();
+        return data;
     } finally {
-        window.clearTimeout(timeout);
+        clearTimer(timeout);
+        requestControllers.delete(controller);
     }
 }
 
 async function fetchMarketData() {
+    if (destroyed) throw abortError();
     let market;
     if (initialMarketRacePending) {
         initialMarketRacePending = false;
@@ -215,16 +278,18 @@ async function fetchMarketData() {
         try {
             market = await fetchDexMarketData();
         } catch (error) {
+            if (destroyed) throw abortError();
             console.warn('[market] DexScreener unavailable, using Helius fallback', error);
             market = await fetchRelayMarketData();
         }
     }
+    if (destroyed) throw abortError();
     applyMarketData(market);
     return market;
 }
 
 function applyMarketData(market) {
-    if (!market || !(Number(market.price) > 0)) return;
+    if (destroyed || !market || !(Number(market.price) > 0)) return;
     const { tokenContext, ...marketData } = market;
     if (tokenContext) runtime.updateContext(tokenContext);
     market = marketData;
@@ -253,15 +318,18 @@ function applyMarketData(market) {
     }
     startStreamIfReady();
     updateTrend(market.price);
-    callbacks.onActivityUpdate?.(state.activity5m);
-    callbacks.onMarketUpdate?.(latestMarket);
+    emit('onTokenContextChange', runtime.context);
+    emit('onActivityUpdate', state.activity5m);
+    emit('onMarketUpdate', latestMarket);
     persistStartupSnapshot();
     void bootstrapTrackedPools();
     void fetchChartIfNeeded(market.price)
         .then((updated) => {
-            if (updated) callbacks.onMarketUpdate?.(latestMarket);
+            if (updated) emit('onMarketUpdate', latestMarket);
         })
-        .catch((error) => console.warn('[chart] OHLCV unavailable', error));
+        .catch((error) => {
+            if (!destroyed && error?.name !== 'AbortError') console.warn('[chart] OHLCV unavailable', error);
+        });
 }
 
 function fetchMarketDataShared() {
@@ -276,6 +344,7 @@ async function fetchDexMarketData() {
         fetchPairs: (mint) => fetchJson(`${CONFIG.DEXSCREENER_TOKEN_URL}/${encodeURIComponent(mint)}`, 4_500),
         trackedPools: refreshPools ? [] : state.trackedPools,
     });
+    if (destroyed) throw abortError();
     if (!resolution.ok) {
         const error = new Error(resolution.error.message);
         error.code = resolution.error.code;
@@ -334,7 +403,7 @@ async function fetchRelayMarketData() {
 }
 
 function startStreamIfReady() {
-    if (!CONFIG.STREAM_URL || !state.trackedPools.length || !(state.price > 0) || !(state.solPriceUsd > 0)) return;
+    if (destroyed || !CONFIG.STREAM_URL || !state.trackedPools.length || !(state.price > 0) || !(state.solPriceUsd > 0)) return;
     const configurationKey = `${runtime.namespace}:${state.trackedPools.map((pool) => pool.address).sort().join(':')}`;
     if (streamStarted) {
         if (configurationKey !== streamConfigurationKey) {
@@ -426,6 +495,7 @@ async function fetchRecentPoolTrades(pool, timeoutMs = 8_000) {
 }
 
 function bootstrapTrackedPools() {
+    if (destroyed) return Promise.resolve();
     if (bootstrapPromise) return bootstrapPromise;
     const now = Date.now();
     const pools = state.trackedPools.filter((pool) =>
@@ -436,10 +506,11 @@ function bootstrapTrackedPools() {
     pools.forEach((pool) => bootstrapAttemptedAt.set(pool.address, now));
     bootstrapPromise = fetchBootstrapTrades(pools)
         .then((results) => {
+            if (destroyed) return;
             if (startupDiagnostics.bootstrapMs === null) {
                 startupDiagnostics.bootstrapMs = performance.now() - startupDiagnostics.startedAt;
             }
-            callbacks.onBootstrapComplete?.({
+            emit('onBootstrapComplete', {
                 pools: results.filter(Boolean).length,
                 trades: renderedBootstrapTrades.size,
             });
@@ -455,22 +526,22 @@ async function fetchBootstrapTrades(pools) {
             return { source: result.source, trades: result.trades };
         })
         .catch((error) => {
-            console.warn('[bootstrap:helius]', error);
+            if (!destroyed && error?.name !== 'AbortError') console.warn('[bootstrap:helius]', error);
             return null;
         });
     const geckoTasks = pools.map(async (pool, index) => {
         // Start with the two highest-value pools immediately. The remaining
         // requests are lightly staggered. Helius normally paints the feed first;
         // GeckoTerminal stays independent as a resilience/enrichment path.
-        if (index >= 2) await new Promise((resolve) => window.setTimeout(resolve, 450 + (index - 2) * 150));
-        if (Date.now() < geckoRateLimitedUntil) return null;
+        if (index >= 2 && !await wait(450 + (index - 2) * 150)) return null;
+        if (destroyed || Date.now() < geckoRateLimitedUntil) return null;
         try {
             const result = { pool, trades: await fetchRecentPoolTrades(pool, 3_500) };
             processBootstrapPool(result);
             return result;
         } catch (error) {
             if (error.status === 429) return null;
-            console.warn(`[bootstrap:${pool.dexId}]`, error);
+            if (!destroyed && error?.name !== 'AbortError') console.warn(`[bootstrap:${pool.dexId}]`, error);
             return null;
         }
     });
@@ -489,10 +560,11 @@ async function fetchRelayRecentTrades(pools) {
 }
 
 function processBootstrapSnapshot(pools, trades) {
+    if (destroyed) return;
     const grouped = new Map(pools.map((pool) => [pool.address, []]));
     trades
         .filter((trade) => trade.tokenMint === runtime.context.identity.mint
-            || (!trade.tokenMint && runtime === defaultTokenRuntime))
+            || (!trade.tokenMint && isDefaultRuntime()))
         .forEach((trade) => grouped.get(trade.poolAddress)?.push(trade));
     pools.forEach((pool) => {
         bootstrappedPools.add(pool.address);
@@ -508,6 +580,7 @@ function processBootstrapSnapshot(pools, trades) {
 }
 
 function processBootstrapPool({ pool, trades }) {
+    if (destroyed) return;
     bootstrappedPools.add(pool.address);
     const combined = [...(bootstrapTradesByPool.get(pool.address) || []), ...trades];
     bootstrapTradesByPool.set(pool.address, [...new Map(
@@ -517,6 +590,7 @@ function processBootstrapPool({ pool, trades }) {
 }
 
 function publishBootstrapTrades() {
+    if (destroyed) return;
     const uniqueTrades = [...new Map(
         [...bootstrapTradesByPool.values()].flat().map((trade) => [trade.txHash || trade.id, trade]),
     ).values()].sort((a, b) => a.timestamp - b.timestamp);
@@ -530,7 +604,7 @@ function publishBootstrapTrades() {
             source: 'verified-swaps',
         };
         state.activity5m = activity;
-        callbacks.onActivityUpdate?.(activity);
+        emit('onActivityUpdate', activity);
     }
     for (const trade of fiveMinuteTrades.slice(-CONFIG.MAX_TRADES_FEED)) {
         const key = trade.txHash || trade.id;
@@ -553,7 +627,7 @@ function publishBootstrapTrades() {
 }
 
 function receiveTrade(trade, bootstrap) {
-    if (trade.tokenMint && trade.tokenMint !== runtime.context.identity.mint) return;
+    if (destroyed || (trade.tokenMint && trade.tokenMint !== runtime.context.identity.mint)) return;
     if (!trade.tokenMint) trade = { ...trade, tokenMint: runtime.context.identity.mint };
     rememberFeedTrade(trade);
     if (startupDiagnostics.firstTradeMs === null) {
@@ -570,20 +644,20 @@ function receiveTrade(trade, bootstrap) {
     state.sellSol60s = pressure.sellSol;
     state.marketTrend = Math.sign(pressure.buySol - pressure.sellSol);
     state.targetFrontlineX = Math.max(-45, Math.min(45, (pressure.bullPercent - 50) * 0.9));
-    callbacks.onTrade?.(trade, { bootstrap, previousFrontlineX, nextFrontlineX: state.targetFrontlineX });
-    callbacks.onPressureUpdate?.(pressure);
+    emit('onTrade', trade, { bootstrap, previousFrontlineX, nextFrontlineX: state.targetFrontlineX });
+    emit('onPressureUpdate', pressure);
     persistStartupSnapshot();
 }
 
 function publishHistoricalTrade(trade) {
-    if (trade.tokenMint && trade.tokenMint !== runtime.context.identity.mint) return;
-    if (!trade.tokenMint && runtime !== defaultTokenRuntime) return;
+    if (destroyed || (trade.tokenMint && trade.tokenMint !== runtime.context.identity.mint)) return;
+    if (!trade.tokenMint && !isDefaultRuntime()) return;
     if (!trade.tokenMint) trade = { ...trade, tokenMint: runtime.context.identity.mint };
     rememberFeedTrade(trade);
     if (startupDiagnostics.firstFeedMs === null) {
         startupDiagnostics.firstFeedMs = performance.now() - startupDiagnostics.startedAt;
     }
-    callbacks.onHistoricalTrade?.(trade);
+    emit('onHistoricalTrade', trade);
     persistStartupSnapshot();
 }
 
@@ -601,15 +675,16 @@ function rememberFeedTrade(trade) {
 }
 
 function hydrateStartupSnapshot() {
+    if (destroyed) return false;
     try {
         const serialized = window.localStorage.getItem(STARTUP_CACHE_KEY)
-            || (runtime === defaultTokenRuntime ? window.localStorage.getItem(LEGACY_STARTUP_CACHE_KEY) : null);
+            || (isDefaultRuntime() ? window.localStorage.getItem(LEGACY_STARTUP_CACHE_KEY) : null);
         const snapshot = JSON.parse(serialized || 'null');
         const age = Date.now() - Number(snapshot?.marketAt || snapshot?.savedAt || 0);
         if (!snapshot || age < 0 || age > STARTUP_MARKET_TTL_MS
             || !Number.isFinite(Number(snapshot.market?.price)) || !(Number(snapshot.market?.price) > 0)) return false;
         if (snapshot.token?.mint && snapshot.token.mint !== runtime.context.identity.mint) return false;
-        if (!snapshot.token?.mint && runtime !== defaultTokenRuntime) return false;
+        if (!snapshot.token?.mint && !isDefaultRuntime()) return false;
         const trackedPools = Array.isArray(snapshot.trackedPools)
             ? snapshot.trackedPools.filter((pool) => (
                 pool && validateSolanaMint(pool.address).ok
@@ -637,8 +712,8 @@ function hydrateStartupSnapshot() {
             referencePool: state.referencePool,
             cached: true,
         };
-        callbacks.onActivityUpdate?.(state.activity5m);
-        callbacks.onMarketUpdate?.(latestMarket);
+        emit('onActivityUpdate', state.activity5m);
+        emit('onMarketUpdate', latestMarket);
         startupDiagnostics.cacheMs = performance.now() - startupDiagnostics.startedAt;
         startupDiagnostics.marketMs = startupDiagnostics.cacheMs;
         startupDiagnostics.marketSource = 'startup-cache';
@@ -683,13 +758,13 @@ function isValidCachedTrade(trade, maxAge = STARTUP_TRADE_TTL_MS) {
         && Number(trade.solValue) >= 0
         && Number.isFinite(Number(trade.usdValue))
         && (trade.tokenMint === runtime.context.identity.mint
-            || (!trade.tokenMint && runtime === defaultTokenRuntime))
+            || (!trade.tokenMint && isDefaultRuntime()))
         && age >= 0
         && age <= maxAge;
 }
 
 function persistStartupSnapshot() {
-    if (restoringStartupCache || !latestMarket || !(state.price > 0) || !state.trackedPools.length) return;
+    if (destroyed || restoringStartupCache || !latestMarket || !(state.price > 0) || !state.trackedPools.length) return;
     try {
         window.localStorage.setItem(STARTUP_CACHE_KEY, JSON.stringify({
             token: { mint: runtime.context.identity.mint, chain: runtime.context.identity.chain },
@@ -720,9 +795,50 @@ async function catchUpTrackedPools() {
             if (error.status === 429) break;
             console.warn(`[catch-up:${pool.dexId}]`, error);
         }
-        if (pool !== state.trackedPools.at(-1)) {
-            await new Promise((resolve) => window.setTimeout(resolve, 350));
-        }
+        if (pool !== state.trackedPools.at(-1) && !await wait(350)) return;
     }
+}
+
+function isDefaultRuntime() {
+    return runtime.context.identity.mint === DEFAULT_TOKEN_CONTEXT.identity.mint;
+}
+
+function destroy() {
+    if (destroyed) return;
+    destroyed = true;
+    streamController?.stop();
+    streamController = null;
+    streamStarted = false;
+    fallbackTimer = null;
+    for (const [timer, resolve] of pendingDelays) {
+        window.clearTimeout(timer);
+        resolve(false);
+    }
+    pendingDelays.clear();
+    for (const timer of timers) window.clearTimeout(timer);
+    timers.clear();
+    for (const controller of requestControllers) controller.abort();
+    requestControllers.clear();
+    visibilityRefreshPromise = null;
+    marketRequestPromise = null;
+    bootstrapPromise = null;
+}
+
+function getDiagnostics() {
+    return {
+        mint: runtime.context.identity.mint,
+        namespace: runtime.namespace,
+        destroyed,
+        timers: timers.size,
+        requests: requestControllers.size,
+        streamActive: Boolean(streamStarted && streamController),
+        bootstrapPending: Boolean(bootstrapPromise),
+    };
+}
+
+function abortError() {
+    const error = new Error('Token runtime was destroyed');
+    error.name = 'AbortError';
+    return error;
 }
 }
