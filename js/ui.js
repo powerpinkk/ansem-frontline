@@ -423,6 +423,37 @@ export function showTradesReady({ pools = 0 } = {}) {
         : 'Historical swaps unavailable · live stream retrying';
 }
 
+export function resetFrontlineUI() {
+    window.clearTimeout(signalTimer);
+    signalTimer = null;
+    if (dashboardFrameId) cancelAnimationFrame(dashboardFrameId);
+    dashboardFrameId = 0;
+    lastRenderedBullPct = -1;
+    selectedTrade = null;
+    DOM.killfeed?.replaceChildren();
+    DOM.tradesfeed?.replaceChildren();
+    if (DOM.fieldTradeSignal) DOM.fieldTradeSignal.className = 'field-trade-signal';
+    if (DOM.awaySummary) DOM.awaySummary.className = 'away-summary';
+    hideUnitInspector();
+    setText(DOM.mcapValue, '—');
+    setText(DOM.price, '$0.000000');
+    setText(DOM.change, '—');
+    if (DOM.change) DOM.change.className = 'neutral';
+    setText(DOM.coverageValue, '—');
+    setText(DOM.buyFlowCount, '0');
+    setText(DOM.sellFlowCount, '0');
+    setText(DOM.buyFlow1h, '0');
+    setText(DOM.sellFlow1h, '0');
+    setText(DOM.pressureVolume, '0.00 / 0.00 SOL');
+    setText(DOM.dataFreshness, 'WAITING FOR MARKET DATA');
+    setText(DOM.visibleCoverage, 'BULL FORCE 0 · BEAR FORCE 0 · 0 VERIFIED SWAPS / 60S');
+    miniChartCtx?.clearRect(0, 0, CONFIG.MINI_CHART_WIDTH, CONFIG.MINI_CHART_HEIGHT);
+    setConnectionStatus('connecting');
+    updateDashboardUI();
+    showBattleLogSyncing();
+    showTradesWaiting();
+}
+
 export function addBullSwarmEvent({ buyCount, buySol, dominance }) {
     const row = document.createElement('div');
     row.className = 'kill-item bull-swarm-event';

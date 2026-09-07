@@ -698,6 +698,124 @@ export function setSceneActive(active) {
     if (!animationFrameId) animationFrameId = requestAnimationFrame(gameLoop);
 }
 
+export function resetTokenPresentation() {
+    if (!scene) return;
+    while (entities.length) retireEntity(entities.at(-1));
+    while (projectiles.length) removeProjectile(projectiles.length - 1);
+    for (const particle of particles) {
+        scene.remove(particle.mesh);
+        if (particlePool.length < 120) particlePool.push(particle.mesh);
+    }
+    particles = [];
+    for (const wave of supportWaves) {
+        scene.remove(wave.mesh);
+        wave.mesh.material.dispose();
+    }
+    supportWaves = [];
+    for (const strike of kingStrikes) {
+        scene.remove(strike.beam, strike.impact);
+        strike.material.dispose();
+    }
+    kingStrikes = [];
+    for (const impact of chargeImpacts) {
+        scene.remove(impact.mesh);
+        impact.mesh.material.dispose();
+    }
+    chargeImpacts = [];
+    for (const type of ['bull', 'bear']) {
+        crowdSequence[type] = 0;
+        crowdAgents[type].length = 0;
+        crowdOrders[type].clear();
+        crowdSpawnBudget[type] = 0;
+        const meshes = crowdMeshes[type];
+        if (meshes) {
+            for (const mesh of [meshes.body, meshes.accent, meshes.detail, meshes.eyes, ...meshes.legs]) {
+                mesh.count = 0;
+                mesh.instanceMatrix.needsUpdate = true;
+            }
+        }
+    }
+    crowdSeparationUsedBuckets.splice(0).forEach((index) => crowdSeparationBuckets[index].splice(0));
+    crowdSeparationAgents.length = 0;
+    detailedContactActive.length = 0;
+    detailedContactPairs.length = 0;
+    championCrowdMovedEntities.length = 0;
+    crowdClashAccumulator = 0;
+    crowdCasualtyAccumulator = 0;
+    lastCrowdPlanAt = 0;
+    crowdLaneChanges = 0;
+    crowdHotBin = 3;
+    lastCrowdHotBinAt = 0;
+    crowdFormationX = null;
+    devBattleOverride = null;
+    lastPublishedForces = '';
+    kingStrikeEvents = 0;
+    bullChargeStarts = 0;
+    bullChargeHits = 0;
+    lastBullChargeAt = 0;
+    bullSupportUntil = 0;
+    lastKingReclaimAt = 0;
+    lastKingDefenseAt = 0;
+    lastTerritoryAuditAt = 0;
+    bullControlSince = 0;
+    kingFocusUntil = 0;
+    kingFocusStartedAt = 0;
+    kingFocusPeakUntil = 0;
+    kingDefenseUntil = 0;
+    kingThreat = null;
+    kingDefenseTargetX = null;
+    kingDefenseTargetZ = null;
+    kingReactionAt = 0;
+    kingReactionStrength = 0;
+    kingCommandZ = -7;
+    kingCommandZUntil = 0;
+    kingModeSince = Date.now();
+    kingModeChanges = 0;
+    kingSpeed = 0;
+    kingTurnRate = 0;
+    kingGestureStartedAt = 0;
+    kingNextGestureAt = 0;
+    kingCommandGestures = 0;
+    if (bullKingRig) {
+        bullKingRig.position.set(-26, 10, -7);
+        bullKingRig.rotation.set(0, 0, 0);
+        _kingPreviousPosition.copy(bullKingRig.position);
+    }
+    lastFrontlineFitX = Number.POSITIVE_INFINITY;
+    setKingMode('overwatch');
+    Object.assign(crowdBattle, {
+        targetBull: 0,
+        targetBear: 0,
+        hotspotX: 0,
+        hotspotZ: 0,
+        centerX: 0,
+        centerZ: 0,
+        bullCenterX: ARENA.spawnBullX,
+        bearCenterX: ARENA.spawnBearX,
+        bullFrontX: ARENA.spawnBullX,
+        bearFrontX: ARENA.spawnBearX,
+        contactGap: ARENA.spawnBearX - ARENA.spawnBullX,
+        spread: 0,
+        engaged: 0,
+        overlaps: 0,
+        crossedPairs: 0,
+        pairedFighters: 0,
+        meanSpeed: 0,
+        maxSpeed: 0,
+        maxTurnRate: 0,
+        directionChanges: 0,
+        intensity: 0,
+        hourBalance: 0,
+        bullStance: 'muster',
+        bearStance: 'muster',
+    });
+    selectedEntity = null;
+    onInspectUnit(null);
+    floatContainer?.replaceChildren();
+    setFrontlineColor(0xffffff);
+    publishVisibleUnitCount();
+}
+
 export function setCameraMode(mode) {
     const previousMode = state.cameraMode;
     clearCameraShakeOffset();

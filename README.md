@@ -1,12 +1,22 @@
 # $ANSEM FRONTLINE
 
-An open-source 3D market visualization that turns verified `$ANSEM` swaps on Solana into a live bull-versus-bear battlefield.
+An open-source 3D market visualization that turns verified Solana token swaps into a live bull-versus-bear battlefield. `$ANSEM` remains the default token and visual presentation.
 
 ![The $ANSEM Frontline live battlefield](public/og-card.png)
 
 - Token: `$ANSEM`
 - Contract address: `9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump`
 - Live application: [ansem-frontline.vercel.app](https://ansem-frontline.vercel.app/)
+
+## Loading another Solana token
+
+Use the compact `SOLANA TOKEN` panel in the sidebar, paste or type a valid Solana CA/mint, and press Enter or `LOAD`. Frontline validates the address as a real 32-byte base58 public key, resolves compatible pools through the shared discovery layer and switches only after resolution succeeds. Token Data shows only available identity, reference-pool and provenance data; unknown fields are omitted rather than rendered as zero.
+
+A successful non-default selection is represented by `?token=<mint>`. Query routing is deliberate: Vercel, GitHub Pages (including its `/ansem-frontline/` base) and a local static/preview server can refresh the same HTML document without an SPA fallback. The base URL, with no `token` query, represents default ANSEM. Normal Back/Forward navigation replays token selection without a full-page reload.
+
+On every switch, the old API session closes its WebSocket, aborts pending fetches, clears polling/retry timers and stops publishing callbacks before a fresh per-mint runtime becomes active. Startup caches and Pixel Frontline channels remain mint-namespaced. A late response from an older token cannot update the current UI or battlefield.
+
+Token names, symbols and images are untrusted input: display text is bounded and assigned with text-only DOM APIs, while logos accept HTTPS only and fall back to a text avatar. `COPY CA` and `COPY LINK` expose the validated current identity and reproducible URL. Other tokens temporarily use the existing base Frontline battlefield presentation; token-aware themes are intentionally deferred to M6.
 
 ## What the visualization means
 
@@ -101,7 +111,13 @@ The code deliberately separates token identity/resolution (`token-context.js`, `
 
 Every token-bearing boundary validates the base58 value as a 32-byte Solana public key. Browser startup storage, pixel-companion channels, recent-snapshot edge caches, stream configuration keys and Durable Object routing are namespaced by mint. Stream and cached trades also carry their mint and are rejected when it differs from the receiving runtime. Discovery distinguishes resolved, invalid, unavailable, temporary, unsupported and upstream-failure outcomes; fallback pools are never borrowed from another token.
 
-ANSEM remains the default configuration, so the current URL, visual theme, battlefield and realtime startup behavior are unchanged. M4 intentionally does not expose token selection in the UI, add token URLs/navigation or build token-specific UX states. Those are reserved for M5.
+ANSEM remains the default configuration, so the base URL, visual theme, battlefield and realtime startup behavior are unchanged. M4 provided the internal token foundation; the selector and navigation described above consume that same foundation rather than introducing a parallel data path.
+
+### Token selection and navigation (M5)
+
+`token-controller.js` owns request generations and the single active runtime. Input and URL requests pass through `token-loader.js`, which calls the M4 validator and discovery service. `token-navigation.js` is the pure query/history boundary, and `token-ui.js` is the safe, low-frequency Token Data renderer. UI and `scene.js` retain a live state binding; the scene only exposes a presentation reset and contains no token discovery, networking, cache or routing logic.
+
+If an input selection cannot be resolved, the current token remains visibly active and the URL is not changed. If an invalid or unresolvable token is present in the initial URL/history, no ANSEM market data is silently substituted; the panel reports the precise failure class and allows correction or `DEFAULT ANSEM` recovery.
 
 The production build places Three.js and the battlefield scene in separate content-hashed chunks. Market discovery, the sidebar and the verified feed start before the heavier 3D scene is evaluated, so token information is not blocked by geometry construction. Vercel serves hashed assets with a one-year immutable cache policy. Dynamic army transforms use eight `InstancedMesh` buffers per side—body, accent, anatomical detail, eyes and four independently animated legs—so hundreds of ranks remain practical without sacrificing readable gait, silhouettes or eye colour.
 
@@ -128,6 +144,8 @@ npm run test:e2e
 
 The token smoke check is the intentionally upstream-dependent layer: it confirms that ANSEM, USDC and JUP still resolve to compatible live DexScreener pools. The deterministic unit suite uses fixtures for the same three mints, including metadata, error classification, concurrency and state/cache isolation, so ordinary CI does not become dependent on third-party availability.
 
+After starting a production preview on port `4174`, `npm run test:m5:smoke` exercises the public selector, deep-link reload, Token Data, connection state, ANSEM → USDC → JUP → ANSEM switching and resource teardown against live upstreams. Set `M5_SMOKE_URL` to target another already-built M5 URL.
+
 For a five-minute production-build movement and stability soak, run `npm run build && npm run preview -- --port 4174` in one terminal and `npm run test:soak` in another. Set `SOAK_SCENARIO=stress` to cycle through quiet, buyer surge, balanced high volume, seller surge and buy reversal. The monitor enables read-only diagnostics through a query flag and checks line crossings, stalled patrols, army/champion overlaps, missing model instances, support behaviour, woodland engagements, King activity/camera containment, arena bounds, viewport coverage, render load and browser/network errors.
 
 ## Project structure
@@ -141,6 +159,10 @@ js/config.js               Public endpoint and polling configuration
 js/token-context.js        Validated canonical token identity/data model
 js/token-presets.js        ANSEM default data preset (separate from theme)
 js/token-discovery.js      Structured token/pool resolution and failure states
+js/token-loader.js         Abortable public discovery entry point
+js/token-controller.js     Single-runtime selection and race control
+js/token-navigation.js     Base-safe query and History API helpers
+js/token-ui.js             Safe Token Data and copy controls
 js/market.js               Pure pool/trade/pressure calculations
 js/battlefield.js          Pure force-scaling and tactical doctrine
 js/navigation.js           Arena bounds, lanes, patrols and lifetime rules
@@ -160,6 +182,7 @@ worker/src/recent-trades.js Free-plan Helius startup history
 tests/market.test.js       Market semantics and parsing tests
 tests/battlefield.test.js  Force scale, doctrines and King modes
 tests/navigation.test.js   Deterministic movement and lifecycle tests
+tests/token-*.test.js      Token identity, selection, URL and UI safety tests
 .github/workflows/ci.yml   Automated quality gate
 .github/workflows/codeql.yml Security-extended JavaScript scanning
 .github/dependabot.yml     Weekly npm and Actions updates
@@ -186,6 +209,14 @@ GitHub Dependabot monitors npm and workflow dependencies weekly, while CodeQL ru
 5. Configure the resulting `/stream` WebSocket URL as `VITE_STREAM_URL` or update the public fallback in `js/config.js`, then redeploy the frontend.
 
 Never add the Helius key to `.env`, Vercel client variables or source control.
+
+### Token troubleshooting
+
+- `Invalid mint` means the value is not a 32-byte Solana base58 public key; paste the CA again without a label or URL.
+- `Not available` means the mint is valid but current sources returned no usable Solana market data.
+- `Unsupported` means markets exist but none match the pool/runtime constraints used by Frontline.
+- `Temporary error` can be retried; it normally indicates a timeout, rate limit or recoverable provider outage.
+- `Upstream failure` means discovery returned an invalid or unavailable response. The requested token is never replaced with mislabeled ANSEM data.
 
 ## Limitations and roadmap
 

@@ -68,9 +68,26 @@ function createRuntimeState() {
 
 export const defaultTokenRuntime = createTokenRuntime(DEFAULT_TOKEN_CONTEXT);
 
+let activeTokenRuntime = defaultTokenRuntime;
+
+// Rendering and UI import this live binding. Switching it keeps their hot paths
+// token-agnostic while the application controller owns runtime identity.
+export let state = activeTokenRuntime.state;
+
+export function activateTokenRuntime(runtime) {
+    if (!runtime?.state) throw new TypeError('A token runtime is required');
+    assertTokenContext(runtime.context);
+    activeTokenRuntime = runtime;
+    state = runtime.state;
+    return activeTokenRuntime;
+}
+
+export function getActiveTokenRuntime() {
+    return activeTokenRuntime;
+}
+
 // Compatibility aliases keep rendering/UI hot paths on the default runtime.
 // New token-aware data services receive a runtime explicitly.
-export const state = defaultTokenRuntime.state;
 export const seenTradeIds = defaultTokenRuntime.seenTradeIds;
 export const seenTradeHashes = defaultTokenRuntime.seenTradeHashes;
 export const bootstrappedPools = defaultTokenRuntime.bootstrappedPools;

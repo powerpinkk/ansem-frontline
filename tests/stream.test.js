@@ -86,5 +86,8 @@ describe('trade stream lifecycle', () => {
         controller.reconnect();
         expect(FakeWebSocket.instances).toHaveLength(2);
         controller.stop();
+        expect(FakeWebSocket.instances.at(-1).readyState).toBe(FakeWebSocket.CLOSED);
+        vi.runAllTimers();
+        expect(FakeWebSocket.instances).toHaveLength(2);
     });
 });

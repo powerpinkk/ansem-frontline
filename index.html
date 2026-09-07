@@ -114,6 +114,46 @@
             </div>
         </div>
         <div id="sidebar">
+            <section id="token-panel" class="token-panel" aria-labelledby="token-panel-title">
+                <div class="token-panel-heading">
+                    <div>
+                        <span class="token-panel-kicker">SOLANA TOKEN</span>
+                        <strong id="token-panel-title">LOAD BY CA</strong>
+                    </div>
+                    <button id="token-default-btn" class="token-quiet-btn" type="button">DEFAULT ANSEM</button>
+                </div>
+                <form id="token-form" novalidate>
+                    <label class="sr-only" for="token-mint-input">Solana contract address or mint</label>
+                    <div class="token-input-row">
+                        <input id="token-mint-input" name="token" type="text" inputmode="text" maxlength="44" spellcheck="false" autocomplete="off" autocapitalize="off" placeholder="Paste Solana CA / mint" aria-describedby="token-resolution-status">
+                        <button id="token-load-btn" type="submit">LOAD</button>
+                    </div>
+                </form>
+                <p id="token-resolution-status" class="token-resolution-status resolving" role="status" aria-live="polite" aria-atomic="true">Loading default ANSEM market…</p>
+                <div id="token-data" class="token-data" hidden>
+                    <div class="token-identity">
+                        <div class="token-avatar" aria-hidden="true">
+                            <img id="token-image" alt="" referrerpolicy="no-referrer" hidden>
+                            <span id="token-image-fallback">A</span>
+                        </div>
+                        <div class="token-name-block">
+                            <strong id="token-symbol">ANSEM</strong>
+                            <span id="token-name">The Black Bull</span>
+                        </div>
+                        <span id="token-data-connection" class="token-data-connection connecting">CONNECTING</span>
+                    </div>
+                    <dl class="token-facts">
+                        <div><dt>MINT</dt><dd id="token-mint-display">—</dd></div>
+                        <div id="token-supply-row" hidden><dt>SUPPLY</dt><dd id="token-supply">—</dd></div>
+                        <div id="token-pool-row" hidden><dt>REFERENCE</dt><dd id="token-pool">—</dd></div>
+                        <div><dt>SOURCE</dt><dd id="token-source">—</dd></div>
+                    </dl>
+                    <div class="token-copy-actions">
+                        <button id="copy-token-mint" class="token-quiet-btn" type="button">COPY CA</button>
+                        <button id="copy-token-url" class="token-quiet-btn" type="button">COPY LINK</button>
+                    </div>
+                </div>
+            </section>
             <div id="momentum">
                 <div class="pressure-heading"><span>LIVE 60S SOL PRESSURE</span><span id="pressure-volume">0.00 / 0.00 SOL</span></div>
                 <div class="bar-container">
@@ -160,7 +200,7 @@
 
 <div id="companion-dock-screen" hidden>
     <div class="companion-dock-content">
-        <span>▦ $ANSEM PIXEL FRONTLINE</span>
+        <span id="companion-token-label">▦ $ANSEM PIXEL FRONTLINE</span>
         <strong>30S VERIFIED BATTLE RUNNING</strong>
         <p>The 3D renderer is paused while the compact companion stays live.</p>
         <button id="companion-return" class="control-btn active-blue" type="button">RETURN TO 3D FRONTLINE</button>
