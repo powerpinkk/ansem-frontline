@@ -49,6 +49,19 @@ describe('token-agnostic discovery', () => {
         expect(malformed.status).toBe(TOKEN_DISCOVERY_STATUS.UPSTREAM_FAILURE);
     });
 
+    it('enriches tokens without a direct SOL pool using an independent SOL/USD quote', async () => {
+        const stablecoinPair = pair({ context: USDC, mint: USDC.identity.mint, symbol: 'USDC', name: 'USD Coin', price: 1, pool: POOLS[1] });
+        stablecoinPair.quoteToken = { address: 'Es9vMFrzaCERmJfrF4H2FYDCLDFAm19AetDjbYdoSZEd', symbol: 'USDT', name: 'Tether' };
+        stablecoinPair.priceNative = '1';
+        const resolution = await discoverToken(USDC, {
+            fetchPairs: async () => [stablecoinPair],
+            fetchSolPrice: async () => 104.64,
+        });
+
+        expect(resolution.ok).toBe(true);
+        expect(resolution.market.solPriceUsd).toBe(104.64);
+    });
+
     it('never accepts a Gecko trade whose token addresses do not match its context', async () => {
         const resolution = await discoverToken(USDC, {
             fetchPairs: async () => [pair({ context: USDC, mint: USDC.identity.mint, symbol: 'USDC', name: 'USD Coin', price: 1, pool: POOLS[1] })],

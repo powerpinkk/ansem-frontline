@@ -9,12 +9,22 @@ function number(value) {
 }
 
 export function deriveSolPrice(pairs) {
+    const solBasePair = pairs.find((pair) =>
+        isSolToken(pair?.baseToken)
+        && number(pair.priceUsd) > 0
+    );
+    if (solBasePair) return number(solBasePair.priceUsd);
     const solPair = pairs.find((pair) =>
-        ['SOL', 'WSOL'].includes(String(pair?.quoteToken?.symbol || '').toUpperCase())
+        isSolToken(pair?.quoteToken)
         && number(pair.priceUsd) > 0
         && number(pair.priceNative) > 0
     );
     return solPair ? number(solPair.priceUsd) / number(solPair.priceNative) : 0;
+}
+
+function isSolToken(token) {
+    return token?.address === CONFIG.SOL_MINT
+        || ['SOL', 'WSOL'].includes(String(token?.symbol || '').toUpperCase());
 }
 
 export function selectTrackedPools(pairs, tokenContext, limit = CONFIG.MAX_TRACKED_POOLS) {

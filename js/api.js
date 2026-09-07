@@ -1,5 +1,5 @@
 import { CONFIG } from './config.js';
-import { calculatePressure, parseGeckoTrade } from './market.js';
+import { calculatePressure, deriveSolPrice, parseGeckoTrade } from './market.js';
 import { connectTradeStream } from './stream.js';
 import { discoverToken } from './token-discovery.js';
 import { tokenCacheKey, urlWithMint, validateSolanaMint, withTokenResolution } from './token-context.js';
@@ -30,6 +30,9 @@ export function initAPI(nextCallbacks, { runtime = defaultTokenRuntime, initialM
     const renderedBootstrapTrades = new Set();
     const spawnedBootstrapTrades = new Set();
     let recentFeedTrades = [];
+    let solPriceQuote = Number(initialMarket?.solPriceUsd) > 0
+        ? { value: Number(initialMarket.solPriceUsd), updatedAt: Date.now() }
+        : { value: 0, updatedAt: 0 };
     let destroyed = false;
     const timers = new Set();
     const pendingDelays = new Map();
@@ -342,6 +345,7 @@ async function fetchDexMarketData() {
     const refreshPools = !state.trackedPools.length || Date.now() - lastPoolDiscovery > CONFIG.POOL_REFRESH_MS;
     const resolution = await discoverToken(runtime.context, {
         fetchPairs: (mint) => fetchJson(`${CONFIG.DEXSCREENER_TOKEN_URL}/${encodeURIComponent(mint)}`, 4_500),
+        fetchSolPrice: fetchDexSolPrice,
         trackedPools: refreshPools ? [] : state.trackedPools,
     });
     if (destroyed) throw abortError();
@@ -354,6 +358,16 @@ async function fetchDexMarketData() {
     if (refreshPools) lastPoolDiscovery = Date.now();
     runtime.updateContext(resolution.context);
     return resolution.market;
+}
+
+async function fetchDexSolPrice() {
+    if (solPriceQuote.value > 0 && Date.now() - solPriceQuote.updatedAt < 60_000) return solPriceQuote.value;
+    const payload = await fetchJson(`${CONFIG.DEXSCREENER_TOKEN_URL}/${encodeURIComponent(CONFIG.SOL_MINT)}`, 4_500);
+    const pairs = Array.isArray(payload) ? payload : payload?.pairs;
+    const value = deriveSolPrice(Array.isArray(pairs) ? pairs : []);
+    if (!(value > 0)) throw new Error('SOL/USD price is unavailable');
+    solPriceQuote = { value, updatedAt: Date.now() };
+    return value;
 }
 
 async function fetchRelayMarketData() {
