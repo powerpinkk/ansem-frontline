@@ -3095,7 +3095,9 @@ function planCrowdManeuvers(tactics, now) {
             }
         }
     }
-    let moveBudget = clamp(tactics.flowIntensity || 0, 0, 1) > 0.58 ? 2 : 1;
+    // One deliberate reassignment per planning cycle keeps squads readable
+    // under sustained flow and matches the established maneuver-rate budget.
+    let moveBudget = 1;
     const firstType = Math.floor(now / 3_200) % 2 === 0 ? 'bull' : 'bear';
     const typeOrder = firstType === 'bull' ? ['bull', 'bear'] : ['bear', 'bull'];
     for (const type of typeOrder) {
