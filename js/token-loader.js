@@ -2,6 +2,7 @@ import { CONFIG } from './config.js';
 import { createTokenContext, validateSolanaMint } from './token-context.js';
 import { discoverToken } from './token-discovery.js';
 import { DEFAULT_TOKEN_CONTEXT } from './token-presets.js';
+import { deriveSolPrice } from './market.js';
 
 export async function resolveTokenInput(input, {
     signal,
@@ -15,6 +16,7 @@ export async function resolveTokenInput(input, {
         : createTokenContext({ mint: validation.value });
     return discoverToken(context, {
         fetchPairs: (mint) => fetchTokenPairs(mint, { signal, fetchImpl, timeoutMs }),
+        fetchSolPrice: async () => deriveSolPrice(await fetchTokenPairs(CONFIG.SOL_MINT, { signal, fetchImpl, timeoutMs })),
     });
 }
 

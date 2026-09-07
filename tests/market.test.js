@@ -14,6 +14,15 @@ describe('market parsing', () => {
         expect(deriveSolPrice([{ quoteToken: { symbol: 'SOL' }, priceUsd: '0.25', priceNative: '0.0025' }])).toBe(100);
     });
 
+    it('derives the SOL/USD price directly when SOL is the base asset', () => {
+        expect(deriveSolPrice([{
+            baseToken: { address: CONFIG.SOL_MINT, symbol: 'SOL' },
+            quoteToken: { symbol: 'USDC' },
+            priceUsd: '104.64',
+            priceNative: '104.64',
+        }])).toBe(104.64);
+    });
+
     it('parses a buy paid in SOL and marks 20 SOL as a giant trade', () => {
         const parsed = parseGeckoTrade(trade({
             kind: 'buy',

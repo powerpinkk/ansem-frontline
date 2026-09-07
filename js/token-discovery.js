@@ -9,6 +9,7 @@ import {
 
 export async function discoverToken(input, {
     fetchPairs,
+    fetchSolPrice,
     poolLimit = CONFIG.MAX_TRACKED_POOLS,
     trackedPools = [],
 } = {}) {
@@ -23,7 +24,11 @@ export async function discoverToken(input, {
 
     try {
         const payload = await fetchPairs(validation.value);
-        return resolveDexScreenerPayload(context, payload, poolLimit, trackedPools);
+        const resolution = resolveDexScreenerPayload(context, payload, poolLimit, trackedPools);
+        if (!resolution.ok || resolution.market.solPriceUsd > 0 || typeof fetchSolPrice !== 'function') return resolution;
+        const solPriceUsd = Number(await fetchSolPrice());
+        if (!Number.isFinite(solPriceUsd) || !(solPriceUsd > 0)) throw new Error('SOL/USD price is unavailable');
+        return { ...resolution, market: { ...resolution.market, solPriceUsd } };
     } catch (error) {
         const temporary = error?.name === 'AbortError'
             || error?.status === 408
