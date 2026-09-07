@@ -4,51 +4,39 @@ import { parseClientConfiguration } from './configuration.js';
 import { normalizeHeliusMarket, SOL_MINT } from './market-fallback.js';
 import { fetchGeckoProxy } from './gecko-proxy.js';
 import { fetchRecentTrades } from './recent-trades.js';
+import { corsHeaders, isAllowedOrigin } from './origin-policy.js';
 import { recentCacheUrl, resolveRequestMint, streamObjectName } from './token-routing.js';
 
 export default {
     async fetch(request, env) {
         const url = new URL(request.url);
         const origin = request.headers.get('Origin');
-        if (!isAllowedOrigin(origin, env.ALLOWED_ORIGIN)) return new Response('Origin not allowed', { status: 403 });
-        if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders(origin, env.ALLOWED_ORIGIN) });
+        const allowedOrigins = env.ALLOWED_ORIGINS || env.ALLOWED_ORIGIN;
+        if (!isAllowedOrigin(origin, allowedOrigins)) return new Response('Origin not allowed', { status: 403 });
+        if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders(origin, allowedOrigins) });
         if (url.pathname === '/health') {
             return Response.json({ ok: true, service: 'ansem-frontline-stream' });
         }
         if (url.pathname === '/market') {
             const token = resolveRequestMint(url, env.DEFAULT_TOKEN_MINT);
-            if (!token.ok) return invalidMintResponse(token, origin, env.ALLOWED_ORIGIN);
-            return fetchFallbackMarket(env, origin, token.mint);
+            if (!token.ok) return invalidMintResponse(token, origin, allowedOrigins);
+            return fetchFallbackMarket(env, origin, token.mint, allowedOrigins);
         }
-        if (url.pathname === '/recent') return fetchRecentSnapshot(request, env, origin);
-        if (url.pathname.startsWith('/gecko/')) return fetchGeckoProxy(request, origin, env.ALLOWED_ORIGIN);
+        if (url.pathname === '/recent') return fetchRecentSnapshot(request, env, origin, allowedOrigins);
+        if (url.pathname.startsWith('/gecko/')) return fetchGeckoProxy(request, origin, allowedOrigins);
         if (url.pathname !== '/stream') return new Response('Not found', { status: 404 });
         const token = resolveRequestMint(url, env.DEFAULT_TOKEN_MINT);
-        if (!token.ok) return invalidMintResponse(token, origin, env.ALLOWED_ORIGIN);
+        if (!token.ok) return invalidMintResponse(token, origin, allowedOrigins);
         const id = env.STREAM_HUB.idFromName(streamObjectName(token.mint));
         return env.STREAM_HUB.get(id).fetch(request);
     },
 };
 
-function isAllowedOrigin(origin, allowedOrigin) {
-    return !origin || !allowedOrigin || origin === allowedOrigin || origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:');
-}
-
-function corsHeaders(origin, allowedOrigin) {
-    return {
-        'access-control-allow-origin': origin && isAllowedOrigin(origin, allowedOrigin) ? origin : allowedOrigin,
-        'access-control-allow-methods': 'GET, POST, OPTIONS',
-        'access-control-allow-headers': 'content-type',
-        vary: 'Origin',
-        'cache-control': 'public, max-age=15',
-    };
-}
-
-async function fetchRecentSnapshot(request, env, origin) {
+async function fetchRecentSnapshot(request, env, origin, allowedOrigins) {
     if (request.method !== 'POST') {
         return Response.json({ error: 'Method not allowed' }, {
             status: 405,
-            headers: corsHeaders(origin, env.ALLOWED_ORIGIN),
+            headers: corsHeaders(origin, allowedOrigins),
         });
     }
     try {
@@ -58,7 +46,7 @@ async function fetchRecentSnapshot(request, env, origin) {
         if (!configuration) {
             return Response.json({ error: 'Invalid configuration' }, {
                 status: 400,
-                headers: corsHeaders(origin, env.ALLOWED_ORIGIN),
+                headers: corsHeaders(origin, allowedOrigins),
             });
         }
         const cacheKey = recentCacheKey(configuration);
@@ -74,12 +62,12 @@ async function fetchRecentSnapshot(request, env, origin) {
             });
             await cache.put(cacheKey, cachedResponse);
         }
-        return Response.json(payload, { headers: corsHeaders(origin, env.ALLOWED_ORIGIN) });
+        return Response.json(payload, { headers: corsHeaders(origin, allowedOrigins) });
     } catch (error) {
         console.error('[recent-trades] request failed', error instanceof Error ? error.name : 'UnknownError');
         return Response.json({ error: 'Recent swaps unavailable' }, {
             status: 503,
-            headers: corsHeaders(origin, env.ALLOWED_ORIGIN),
+            headers: corsHeaders(origin, allowedOrigins),
         });
     }
 }
@@ -88,7 +76,7 @@ function recentCacheKey(configuration) {
     return new Request(recentCacheUrl(configuration));
 }
 
-async function fetchFallbackMarket(env, origin, mint) {
+async function fetchFallbackMarket(env, origin, mint, allowedOrigins) {
     try {
         const [token, sol] = await Promise.all([
             fetchHeliusAsset(env, mint),
@@ -101,12 +89,12 @@ async function fetchFallbackMarket(env, origin, mint) {
                 status: market.status,
                 error: { code: 'NO_SAFE_FALLBACK_POOLS', message: 'No verified fallback pools are configured for this mint' },
                 token: market.token,
-            }, { status: 422, headers: corsHeaders(origin, env.ALLOWED_ORIGIN) });
+            }, { status: 422, headers: corsHeaders(origin, allowedOrigins) });
         }
-        return Response.json(market, { headers: corsHeaders(origin, env.ALLOWED_ORIGIN) });
+        return Response.json(market, { headers: corsHeaders(origin, allowedOrigins) });
     } catch (error) {
         console.error('[market-fallback] request failed', error instanceof Error ? error.name : 'UnknownError');
-        return Response.json({ error: 'Market fallback unavailable' }, { status: 503, headers: corsHeaders(origin, env.ALLOWED_ORIGIN) });
+        return Response.json({ error: 'Market fallback unavailable' }, { status: 503, headers: corsHeaders(origin, allowedOrigins) });
     }
 }
 
@@ -144,7 +132,7 @@ export class StreamHub extends DurableObject {
     async fetch(request) {
         if (request.headers.get('Upgrade') !== 'websocket') return new Response('Expected websocket', { status: 426 });
         const token = resolveRequestMint(new URL(request.url), this.env.DEFAULT_TOKEN_MINT);
-        if (!token.ok) return invalidMintResponse(token, request.headers.get('Origin'), this.env.ALLOWED_ORIGIN);
+        if (!token.ok) return invalidMintResponse(token, request.headers.get('Origin'), this.env.ALLOWED_ORIGINS || this.env.ALLOWED_ORIGIN);
         if (this.tokenMint && this.tokenMint !== token.mint) return new Response('Token runtime mismatch', { status: 409 });
         this.tokenMint = token.mint;
         const pair = new WebSocketPair();

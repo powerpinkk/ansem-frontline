@@ -13,6 +13,6 @@
   ],
   "vars": {
     "DEFAULT_TOKEN_MINT": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
-    "ALLOWED_ORIGIN": "https://ansem-frontline.vercel.app"
+    "ALLOWED_ORIGINS": "https://ansem-frontline.vercel.app,https://powerpinkk.github.io"
   }
 }
