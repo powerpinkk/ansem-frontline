@@ -1,6 +1,7 @@
 import { CONFIG } from './config.js';
 import { deriveBattleTactics } from './market.js';
 import { state } from './state.js';
+import { ANSEM_THEME } from './theme-presets.js';
 
 const DOM = {};
 let miniChartCtx = null;
@@ -8,8 +9,13 @@ let lastRenderedBullPct = -1;
 let dashboardFrameId = 0;
 let signalTimer = null;
 let selectedTrade = null;
+let activeThemePresentation = {
+    themeId: ANSEM_THEME.identity.id,
+    copy: ANSEM_THEME.ui.copy,
+    colors: ANSEM_THEME.ui.colors,
+};
 let sceneCallbacks = {
-    setFrontlineColor: () => {},
+    setFrontlineState: () => {},
 };
 
 const CONNECTION_LABELS = {
@@ -65,6 +71,14 @@ export function initUI(sceneHooks = {}) {
     setConnectionStatus('connecting');
     updateFreshnessUI();
     window.setInterval(updateFreshnessUI, 1_000);
+}
+
+export function setUIThemePresentation(presentation) {
+    if (!presentation?.themeId || !presentation?.copy || !presentation?.colors) return;
+    activeThemePresentation = presentation;
+    updateBattleState();
+    updateVisibleCoverage(state.visibleCombatants);
+    if (selectedTrade) updateInspectorTitle(selectedTrade);
 }
 
 function setupMiniChart() {
@@ -146,7 +160,9 @@ export function renderMiniChart() {
 
     miniChartCtx.beginPath();
     const chartRising = state.priceHistory[state.priceHistory.length - 1] >= state.priceHistory[0];
-    miniChartCtx.strokeStyle = chartRising ? '#00ff88' : '#9b1739';
+    miniChartCtx.strokeStyle = chartRising
+        ? activeThemePresentation.colors.buy
+        : activeThemePresentation.colors.chartSell;
     miniChartCtx.lineWidth = 2;
     miniChartCtx.lineJoin = 'round';
 
@@ -173,8 +189,8 @@ export function updateDashboardUI() {
             lastRenderedBullPct = bullPct;
         }
 
-        const colorHex = state.marketTrend === 1 ? 0x00ff88 : (state.marketTrend === -1 ? 0xff3366 : 0xffffff);
-        sceneCallbacks.setFrontlineColor(colorHex);
+        const frontlineState = state.marketTrend === 1 ? 'buy' : (state.marketTrend === -1 ? 'sell' : 'neutral');
+        sceneCallbacks.setFrontlineState(frontlineState);
         if (DOM.pressureVolume) {
             setText(DOM.pressureVolume, `${formatSol(state.buySol60s)} / ${formatSol(state.sellSol60s)} SOL`);
             DOM.pressureVolume.title = 'Verified buy SOL / sell SOL in the rolling 60-second window';
@@ -199,13 +215,14 @@ function updateBattleState() {
             ? 'NO VERIFIED FLOW · 60S'
             : `${netSol > 0 ? 'BUYERS' : 'SELLERS'} ${netSol > 0 ? '+' : '−'}${formatSol(Math.abs(netSol))} SOL · 60S`);
     }
+    const copy = activeThemePresentation.copy;
     const detail = tactics.state === 'bull'
-        ? 'Bulls break grizzly ranks · fresh sellers reinforce from their camp'
+        ? copy.buyBattle
         : tactics.state === 'bear'
-            ? 'Grizzlies break bull ranks · fresh buyers reinforce from the King’s camp'
+            ? copy.sellBattle
             : tactics.state === 'contested'
-                ? 'Both sides cross contested ground while 60s SOL flow moves the marker'
-                : 'No verified SOL flow in 60s · tracked 5m market ranks muster behind the front';
+                ? copy.contestedBattle
+                : copy.quietBattle;
     setText(DOM.battleStateDetail, detail);
     updateVisibleCoverage(state.visibleCombatants);
 }
@@ -300,7 +317,8 @@ export function updateVisibleCoverage(counts = state.visibleCombatants) {
     const total = Number(counts?.total || 0);
     const bull = Number(counts?.bull || 0);
     const bear = Number(counts?.bear || 0);
-    setText(DOM.visibleCoverage, `BULL FORCE ${bull} · BEAR FORCE ${bear} · ${recentVerified} VERIFIED SWAP${recentVerified === 1 ? '' : 'S'} / 60S`);
+    const copy = activeThemePresentation.copy;
+    setText(DOM.visibleCoverage, `${copy.buyForce} ${bull} · ${copy.sellForce} ${bear} · ${recentVerified} VERIFIED SWAP${recentVerified === 1 ? '' : 'S'} / 60S`);
     DOM.visibleCoverage.title = `Solid champions represent up to ${CONFIG.MAX_VISIBLE_UNITS_PER_SIDE} individually verifiable swaps per side. Instanced army depth scales from tracked one-hour transactions; the five-minute pulse and verified 60-second SOL drive immediate reinforcements. ${total} total visual forces are currently rendered.`;
 }
 
@@ -313,7 +331,7 @@ export function showUnitInspector(entity) {
     selectedTrade = trade;
     DOM.unitInspector.hidden = false;
     DOM.unitInspector.className = `unit-inspector ${trade.isBuy ? 'buy' : 'sell'}`;
-    DOM.unitInspectorTitle.textContent = `${trade.isWhale ? 'GIANT ' : ''}${trade.isBuy ? 'BLACK BULL · BUY' : 'GRIZZLY · SELL'}`;
+    updateInspectorTitle(trade);
     DOM.unitInspectorSol.textContent = `${formatSol(trade.solValue)} SOL`;
     DOM.unitInspectorUsd.textContent = `$${Math.round(trade.usdValue).toLocaleString()}`;
     DOM.unitInspectorPool.textContent = String(trade.dexId || 'unknown').toUpperCase();
@@ -325,6 +343,12 @@ export function showUnitInspector(entity) {
 export function hideUnitInspector() {
     selectedTrade = null;
     if (DOM.unitInspector) DOM.unitInspector.hidden = true;
+}
+
+function updateInspectorTitle(trade) {
+    if (!DOM.unitInspectorTitle || !trade) return;
+    const copy = activeThemePresentation.copy;
+    DOM.unitInspectorTitle.textContent = `${trade.isWhale ? 'GIANT ' : ''}${trade.isBuy ? copy.buyUnit : copy.sellUnit} · ${trade.isBuy ? 'BUY' : 'SELL'}`;
 }
 
 export function showAwaySummary({ durationMs = 0, buys = 0, sells = 0, buySol = 0, sellSol = 0 } = {}) {
@@ -375,14 +399,16 @@ export function updateActivityUI(activity) {
 export function addWhaleSpawnEvent(type, solValue, usdValue) {
     const row = document.createElement('div');
     row.className = `kill-item whale-event ${type === 'bear' ? 'bear' : ''}`;
-    row.textContent = `${new Date().toLocaleTimeString()} ${type === 'bull' ? '🐂' : '🐻'} GIANT ${type === 'bull' ? 'BUY' : 'SELL'} · ${solValue.toFixed(1)} SOL · $${Math.round(usdValue).toLocaleString()}`;
+    const copy = activeThemePresentation.copy;
+    row.textContent = `${new Date().toLocaleTimeString()} ${type === 'bull' ? copy.buyEmoji : copy.sellEmoji} GIANT ${type === 'bull' ? 'BUY' : 'SELL'} · ${solValue.toFixed(1)} SOL · $${Math.round(usdValue).toLocaleString()}`;
     DOM.killfeed.prepend(row);
     trimFeed(DOM.killfeed, CONFIG.MAX_KILLFEED);
 }
 
 export function addRealKillEvent(killer, victim, isCrit, kW = false, vW = false) {
-    const kStr = killer === 'bull' ? (kW ? 'Bull Whale' : 'Bull') : (kW ? 'Bear Whale' : 'Bear');
-    const vStr = victim === 'bear' ? (vW ? 'Bear Whale' : 'Bear') : (vW ? 'Bull Whale' : 'Bull');
+    const copy = activeThemePresentation.copy;
+    const kStr = killer === 'bull' ? (kW ? copy.buyWhale : copy.buySingular) : (kW ? copy.sellWhale : copy.sellSingular);
+    const vStr = victim === 'bear' ? (vW ? copy.sellWhale : copy.sellSingular) : (vW ? copy.buyWhale : copy.buySingular);
     const action = killer === 'bull' ? (isCrit ? 'destroyed' : 'liquidated') : (isCrit ? 'devoured' : 'dumped on');
     const row = document.createElement('div');
     row.className = `kill-item ${killer === 'bull' ? 'bull-kill' : 'bear-kill'}`;
@@ -446,7 +472,8 @@ export function resetFrontlineUI() {
     setText(DOM.sellFlow1h, '0');
     setText(DOM.pressureVolume, '0.00 / 0.00 SOL');
     setText(DOM.dataFreshness, 'WAITING FOR MARKET DATA');
-    setText(DOM.visibleCoverage, 'BULL FORCE 0 · BEAR FORCE 0 · 0 VERIFIED SWAPS / 60S');
+    const copy = activeThemePresentation.copy;
+    setText(DOM.visibleCoverage, `${copy.buyForce} 0 · ${copy.sellForce} 0 · 0 VERIFIED SWAPS / 60S`);
     miniChartCtx?.clearRect(0, 0, CONFIG.MINI_CHART_WIDTH, CONFIG.MINI_CHART_HEIGHT);
     setConnectionStatus('connecting');
     updateDashboardUI();
@@ -457,7 +484,8 @@ export function resetFrontlineUI() {
 export function addBullSwarmEvent({ buyCount, buySol, dominance }) {
     const row = document.createElement('div');
     row.className = 'kill-item bull-swarm-event';
-    row.textContent = `${new Date().toLocaleTimeString()} · BULL SWARM · ${buyCount} buys · ${buySol.toFixed(1)} SOL · King's support ${Math.round(dominance * 100)}%`;
+    const copy = activeThemePresentation.copy;
+    row.textContent = `${new Date().toLocaleTimeString()} · ${copy.supportEvent} · ${buyCount} buys · ${buySol.toFixed(1)} SOL · ${copy.supportOwner} ${Math.round(dominance * 100)}%`;
     DOM.killfeed.prepend(row);
     trimFeed(DOM.killfeed, CONFIG.MAX_KILLFEED);
 }
@@ -465,8 +493,10 @@ export function addBullSwarmEvent({ buyCount, buySol, dominance }) {
 export function addKingReclaimEvent({ count, solValue, reason, bullPercent }) {
     const row = document.createElement('div');
     row.className = 'kill-item bull-swarm-event';
+    const copy = activeThemePresentation.copy;
     if (reason === 'king-defense') {
-        row.textContent = `${new Date().toLocaleTimeString()} · KING'S WARD · ${count} invading ${count === 1 ? 'grizzly' : 'grizzlies'} repelled · ${Math.round(bullPercent)}% buy pressure`;
+        const units = count === 1 ? copy.sellSingular : copy.sellPlural;
+        row.textContent = `${new Date().toLocaleTimeString()} · ${copy.wardEvent} · ${count} invading ${lowerFirst(units)} repelled · ${Math.round(bullPercent)}% buy pressure`;
         DOM.killfeed.prepend(row);
         trimFeed(DOM.killfeed, CONFIG.MAX_KILLFEED);
         return;
@@ -474,7 +504,12 @@ export function addKingReclaimEvent({ count, solValue, reason, bullPercent }) {
     const trigger = reason === 'sustained-control'
         ? `${Math.round(bullPercent)}% sustained buy pressure`
         : `${solValue.toFixed(1)} SOL buy reversal`;
-    row.textContent = `${new Date().toLocaleTimeString()} · KING'S RECLAMATION · ${count} stranded ${count === 1 ? 'grizzly' : 'grizzlies'} cleared · ${trigger}`;
+    const units = count === 1 ? copy.sellSingular : copy.sellPlural;
+    row.textContent = `${new Date().toLocaleTimeString()} · ${copy.reclamationEvent} · ${count} stranded ${lowerFirst(units)} cleared · ${trigger}`;
     DOM.killfeed.prepend(row);
     trimFeed(DOM.killfeed, CONFIG.MAX_KILLFEED);
+}
+
+function lowerFirst(value) {
+    return value ? value.charAt(0).toLowerCase() + value.slice(1) : '';
 }

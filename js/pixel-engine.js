@@ -1,3 +1,5 @@
+import { ANSEM_THEME } from './theme-presets.js';
+
 export const PIXEL_SOURCE_WIDTH = 640;
 export const PIXEL_SOURCE_HEIGHT = 160;
 
@@ -228,9 +230,11 @@ export function findPixelOverlaps(layout) {
 }
 
 export class PixelFrontline {
-    constructor(canvas) {
+    constructor(canvas, presentation = pixelPresentation(ANSEM_THEME)) {
         this.canvas = canvas;
         this.ctx = canvas.getContext('2d', { alpha: false });
+        this.presentation = normalizePixelPresentation(presentation);
+        this.presentationApplications = 1;
         this.snapshot = createPixelSnapshot({ liveTrades: [], priceTicks30s: [] });
         this.running = false;
         this.frame = 0;
@@ -258,6 +262,14 @@ export class PixelFrontline {
     setSnapshot(snapshot) {
         if (!snapshot || !Array.isArray(snapshot.trades)) return;
         this.snapshot = snapshot;
+    }
+
+    setTheme(presentation) {
+        const next = normalizePixelPresentation(presentation);
+        if (next.themeId === this.presentation.themeId && next.colors === this.presentation.colors) return false;
+        this.presentation = next;
+        this.presentationApplications += 1;
+        return true;
     }
 
     start() {
@@ -292,6 +304,8 @@ export class PixelFrontline {
             overlaps: findPixelOverlaps(this.lastLayout),
             pricePoints: this.snapshot.priceTicks?.length || 0,
             mcap: Number(this.snapshot.mcap) || 0,
+            themeId: this.presentation.themeId,
+            themeApplications: this.presentationApplications,
         };
     }
 
@@ -303,11 +317,12 @@ export class PixelFrontline {
         const footerHeight = h < 120 ? 16 : 20;
         const footerY = h - footerHeight;
         const groundTop = Math.floor(h * 0.34);
-        crispRect(ctx, 0, 0, w, h, '#020504');
-        crispRect(ctx, 0, groundTop, w, footerY - groundTop, '#6c4b2e');
-        crispRect(ctx, 0, groundTop, w, 4, '#2f7745');
+        const colors = this.presentation.colors;
+        crispRect(ctx, 0, 0, w, h, colors.background);
+        crispRect(ctx, 0, groundTop, w, footerY - groundTop, colors.ground);
+        crispRect(ctx, 0, groundTop, w, 4, colors.groundEdge);
         ctx.globalAlpha = 0.28;
-        crispRect(ctx, 0, groundTop + 4, w, footerY - groundTop - 4, '#9b7144');
+        crispRect(ctx, 0, groundTop + 4, w, footerY - groundTop - 4, colors.groundOverlay);
         ctx.globalAlpha = 1;
 
         this.drawPriceTrace(w, h, now, footerY);
@@ -318,7 +333,7 @@ export class PixelFrontline {
         const markerX = Math.round(this.lastLayout.combatX);
         ctx.globalAlpha = 0.42;
         for (let y = groundTop + 4; y < footerY - 3; y += 10) {
-            crispRect(ctx, markerX, y, 2, 5, this.lastLayout.buyShare >= 0.5 ? '#00ff88' : '#ff164f');
+            crispRect(ctx, markerX, y, 2, 5, this.lastLayout.buyShare >= 0.5 ? colors.rise : colors.fall);
         }
         ctx.globalAlpha = 1;
 
@@ -330,11 +345,12 @@ export class PixelFrontline {
 
     drawPriceTrace(w, h, now, footerY) {
         const ctx = this.ctx;
+        const colors = this.presentation.colors;
         const top = h < 120 ? 26 : 34;
         const bottom = footerY - 3;
         const ticks = (this.snapshot.priceTicks || []).filter((tick) => now - tick.timestamp <= WINDOW_MS);
         ctx.globalAlpha = 0.12;
-        ctx.strokeStyle = '#7ba58d';
+        ctx.strokeStyle = colors.grid;
         ctx.lineWidth = 1;
         for (let seconds = 5; seconds < 30; seconds += 5) {
             const x = w * (1 - seconds / 30);
@@ -360,7 +376,7 @@ export class PixelFrontline {
         ctx.lineTo(points.at(-1).x, bottom);
         ctx.closePath();
         ctx.globalAlpha = 0.13;
-        ctx.fillStyle = rising ? '#00ff88' : '#ff164f';
+        ctx.fillStyle = rising ? colors.rise : colors.fall;
         ctx.fill();
         ctx.globalAlpha = 0.28;
         ctx.beginPath();
@@ -368,7 +384,7 @@ export class PixelFrontline {
             if (index === 0) ctx.moveTo(point.x, point.y);
             else ctx.lineTo(point.x, point.y);
         });
-        ctx.strokeStyle = rising ? '#00ff88' : '#ff164f';
+        ctx.strokeStyle = rising ? colors.rise : colors.fall;
         ctx.lineWidth = h < 120 ? 3 : 5;
         ctx.stroke();
         ctx.globalAlpha = 0.92;
@@ -378,18 +394,19 @@ export class PixelFrontline {
     }
 
     drawScenery(w, h, footerY) {
+        const colors = this.presentation.colors;
         const groundTop = Math.floor(h * 0.34);
         for (const position of [0.035, 0.94]) {
             const x = Math.floor(w * position);
-            crispRect(this.ctx, x, groundTop - 8, 5, 21, '#3d2315');
-            crispRect(this.ctx, x - 9, groundTop - 15, 23, 9, '#174429');
-            crispRect(this.ctx, x - 6, groundTop - 23, 17, 10, '#257143');
+            crispRect(this.ctx, x, groundTop - 8, 5, 21, colors.treeTrunk);
+            crispRect(this.ctx, x - 9, groundTop - 15, 23, 9, colors.foliageDark);
+            crispRect(this.ctx, x - 6, groundTop - 23, 17, 10, colors.foliageLight);
         }
         for (let index = 0; index < 10; index++) {
             const x = (index * 83 + 47) % Math.max(1, Math.floor(w));
             const y = groundTop + 10 + ((index * 31) % Math.max(1, Math.floor(footerY - groundTop - 16)));
-            if (index % 3 === 0) crispRect(this.ctx, x, y, 6, 3, '#3b2b20');
-            else crispRect(this.ctx, x, y, 2, 6, '#347342');
+            if (index % 3 === 0) crispRect(this.ctx, x, y, 6, 3, colors.rock);
+            else crispRect(this.ctx, x, y, 2, 6, colors.grass);
         }
     }
 
@@ -397,7 +414,7 @@ export class PixelFrontline {
         const ctx = this.ctx;
         ctx.save();
         ctx.globalAlpha = 0.13;
-        ctx.fillStyle = '#d8ffe9';
+        ctx.fillStyle = this.presentation.colors.watermark;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.font = `900 ${Math.max(14, Math.min(28, Math.floor(w / 24)))}px monospace`;
@@ -407,6 +424,7 @@ export class PixelFrontline {
 
     drawUnit(unit, time) {
         const ctx = this.ctx;
+        const colors = this.presentation.colors;
         const { scale, isBull, x, y } = unit;
         const stride = Math.sin(time * 0.015 + unit.phase) > 0 ? 1 : -1;
         const attack = unit.engaged ? Math.max(0, Math.sin(time * 0.01 + unit.phase)) : 0;
@@ -414,11 +432,11 @@ export class PixelFrontline {
         const left = Math.round(x + lunge - unit.width * 0.5);
 
         ctx.globalAlpha = 0.32;
-        crispRect(ctx, left + scale, y + scale, unit.width - scale * 2, Math.max(2, scale * 1.5), '#020302');
+        crispRect(ctx, left + scale, y + scale, unit.width - scale * 2, Math.max(2, scale * 1.5), colors.shadow);
         ctx.globalAlpha = 1;
         if (unit.isWhale) {
             ctx.globalAlpha = 0.22 + attack * 0.12;
-            crispRect(ctx, left - 4, y - unit.height - 4, unit.width + 8, unit.height + 10, isBull ? '#00ff88' : '#ff164f');
+            crispRect(ctx, left - 4, y - unit.height - 4, unit.width + 8, unit.height + 10, isBull ? colors.buyGlow : colors.sellGlow);
             ctx.globalAlpha = 1;
         }
         if (isBull) this.drawBull(left, y, scale, stride, attack);
@@ -427,62 +445,65 @@ export class PixelFrontline {
 
     drawBull(left, y, scale, stride, attack) {
         const ctx = this.ctx;
-        crispRect(ctx, left + scale, y - 10 * scale, 12 * scale, 7 * scale, '#050807');
-        crispRect(ctx, left + 4 * scale, y - 12 * scale, 6 * scale, 3 * scale, '#111c17');
-        crispRect(ctx, left + 11 * scale, y - 12 * scale, 7 * scale, 6 * scale, '#07100c');
-        crispRect(ctx, left + 16 * scale, y - 10 * scale, 3 * scale, 3 * scale, '#1a251f');
-        crispRect(ctx, left + 12 * scale, y - 15 * scale, 2 * scale, 4 * scale, '#e1fff2');
-        crispRect(ctx, left + 16 * scale, y - 15 * scale, 2 * scale, 4 * scale, '#e1fff2');
+        const colors = this.presentation.colors;
+        crispRect(ctx, left + scale, y - 10 * scale, 12 * scale, 7 * scale, colors.buyBody);
+        crispRect(ctx, left + 4 * scale, y - 12 * scale, 6 * scale, 3 * scale, colors.buyBodyAlt);
+        crispRect(ctx, left + 11 * scale, y - 12 * scale, 7 * scale, 6 * scale, colors.buyHead);
+        crispRect(ctx, left + 16 * scale, y - 10 * scale, 3 * scale, 3 * scale, colors.buyMuzzle);
+        crispRect(ctx, left + 12 * scale, y - 15 * scale, 2 * scale, 4 * scale, colors.buyHorn);
+        crispRect(ctx, left + 16 * scale, y - 15 * scale, 2 * scale, 4 * scale, colors.buyHorn);
         ctx.globalAlpha = 0.35;
-        crispRect(ctx, left + 13.5 * scale, y - 13.5 * scale, 5 * scale, 5 * scale, '#00ff88');
+        crispRect(ctx, left + 13.5 * scale, y - 13.5 * scale, 5 * scale, 5 * scale, colors.buyGlow);
         ctx.globalAlpha = 1;
-        crispRect(ctx, left + 15 * scale, y - 12 * scale, 2.3 * scale, 2.3 * scale, attack > 0.55 ? '#d7ffeb' : '#00ff88');
+        crispRect(ctx, left + 15 * scale, y - 12 * scale, 2.3 * scale, 2.3 * scale, attack > 0.55 ? colors.buyEyeAttack : colors.buyGlow);
         if (attack > 0.68) {
             ctx.globalAlpha = 0.72;
-            crispRect(ctx, left + 17 * scale, y - 11.5 * scale, 5 * scale, Math.max(1, scale * 0.7), '#00ff88');
+            crispRect(ctx, left + 17 * scale, y - 11.5 * scale, 5 * scale, Math.max(1, scale * 0.7), colors.buyGlow);
             ctx.globalAlpha = 1;
         }
-        crispRect(ctx, left - scale, y - 11 * scale, 3 * scale, scale, '#07100b');
-        crispRect(ctx, left + 3 * scale, y - 3 * scale, 3 * scale, (3 + stride) * scale, '#030504');
-        crispRect(ctx, left + 10 * scale, y - 3 * scale, 3 * scale, (3 - stride) * scale, '#030504');
-        crispRect(ctx, left + 2 * scale, y + stride * scale, 4 * scale, scale, '#1b2a23');
-        crispRect(ctx, left + 10 * scale, y - stride * scale, 4 * scale, scale, '#1b2a23');
+        crispRect(ctx, left - scale, y - 11 * scale, 3 * scale, scale, colors.buyTail);
+        crispRect(ctx, left + 3 * scale, y - 3 * scale, 3 * scale, (3 + stride) * scale, colors.buyLeg);
+        crispRect(ctx, left + 10 * scale, y - 3 * scale, 3 * scale, (3 - stride) * scale, colors.buyLeg);
+        crispRect(ctx, left + 2 * scale, y + stride * scale, 4 * scale, scale, colors.buyHoof);
+        crispRect(ctx, left + 10 * scale, y - stride * scale, 4 * scale, scale, colors.buyHoof);
     }
 
     drawBear(left, y, scale, stride, attack) {
         const ctx = this.ctx;
-        crispRect(ctx, left + 5 * scale, y - 10 * scale, 12 * scale, 7 * scale, '#a96f46');
-        crispRect(ctx, left + 8 * scale, y - 13 * scale, 6 * scale, 4 * scale, '#c18150');
-        crispRect(ctx, left + scale, y - 12 * scale, 7 * scale, 6 * scale, '#c88b55');
-        crispRect(ctx, left, y - 9 * scale, 4 * scale, 3 * scale, '#56311e');
-        crispRect(ctx, left + 2 * scale, y - 14 * scale, 2 * scale, 2 * scale, '#684027');
-        crispRect(ctx, left + 6 * scale, y - 14 * scale, 2 * scale, 2 * scale, '#684027');
+        const colors = this.presentation.colors;
+        crispRect(ctx, left + 5 * scale, y - 10 * scale, 12 * scale, 7 * scale, colors.sellBody);
+        crispRect(ctx, left + 8 * scale, y - 13 * scale, 6 * scale, 4 * scale, colors.sellBodyAlt);
+        crispRect(ctx, left + scale, y - 12 * scale, 7 * scale, 6 * scale, colors.sellHead);
+        crispRect(ctx, left, y - 9 * scale, 4 * scale, 3 * scale, colors.sellMuzzle);
+        crispRect(ctx, left + 2 * scale, y - 14 * scale, 2 * scale, 2 * scale, colors.sellEar);
+        crispRect(ctx, left + 6 * scale, y - 14 * scale, 2 * scale, 2 * scale, colors.sellEar);
         ctx.globalAlpha = 0.35;
-        crispRect(ctx, left, y - 13.5 * scale, 5 * scale, 5 * scale, '#ff164f');
+        crispRect(ctx, left, y - 13.5 * scale, 5 * scale, 5 * scale, colors.sellGlow);
         ctx.globalAlpha = 1;
-        crispRect(ctx, left + 2 * scale, y - 12 * scale, 2.3 * scale, 2.3 * scale, attack > 0.55 ? '#ffd5df' : '#ff164f');
-        crispRect(ctx, left - (2 + Math.round(attack * 3)) * scale, y - 12 * scale, (4 + Math.round(attack * 2)) * scale, Math.max(1, scale), '#ff164f');
-        crispRect(ctx, left + 7 * scale, y - 3 * scale, 3 * scale, (3 + stride) * scale, '#56351f');
-        crispRect(ctx, left + 14 * scale, y - 3 * scale, 3 * scale, (3 - stride) * scale, '#56351f');
-        crispRect(ctx, left + 6 * scale, y + stride * scale, 4 * scale, scale, '#24160f');
-        crispRect(ctx, left + 14 * scale, y - stride * scale, 4 * scale, scale, '#24160f');
+        crispRect(ctx, left + 2 * scale, y - 12 * scale, 2.3 * scale, 2.3 * scale, attack > 0.55 ? colors.sellEyeAttack : colors.sellGlow);
+        crispRect(ctx, left - (2 + Math.round(attack * 3)) * scale, y - 12 * scale, (4 + Math.round(attack * 2)) * scale, Math.max(1, scale), colors.sellGlow);
+        crispRect(ctx, left + 7 * scale, y - 3 * scale, 3 * scale, (3 + stride) * scale, colors.sellLeg);
+        crispRect(ctx, left + 14 * scale, y - 3 * scale, 3 * scale, (3 - stride) * scale, colors.sellLeg);
+        crispRect(ctx, left + 6 * scale, y + stride * scale, 4 * scale, scale, colors.sellHoof);
+        crispRect(ctx, left + 14 * scale, y - stride * scale, 4 * scale, scale, colors.sellHoof);
     }
 
     drawMarketHud(w, h) {
         const ctx = this.ctx;
+        const colors = this.presentation.colors;
         const compact = w < 480 || h < 120;
         const hudHeight = compact ? 25 : 33;
-        crispRect(ctx, 0, 0, w, hudHeight, '#030706');
+        crispRect(ctx, 0, 0, w, hudHeight, colors.hud);
         ctx.textBaseline = 'middle';
         ctx.font = `900 ${compact ? 10 : 12}px monospace`;
-        ctx.fillStyle = this.snapshot.online ? '#00ff88' : '#ff5a76';
+        ctx.fillStyle = this.snapshot.online ? colors.rise : colors.offline;
         ctx.textAlign = 'left';
         ctx.fillText(this.snapshot.online ? (compact ? '● 30S' : '● LIVE · 30S') : '● RETRY', 8, hudHeight * 0.5);
-        ctx.fillStyle = '#e8fff3';
+        ctx.fillStyle = colors.text;
         ctx.textAlign = 'center';
         ctx.font = `900 ${compact ? 13 : 18}px monospace`;
         ctx.fillText(formatMarketCap(this.snapshot.mcap, compact), w * 0.5, hudHeight * 0.5);
-        ctx.fillStyle = '#b8c8bf';
+        ctx.fillStyle = colors.muted;
         ctx.textAlign = 'right';
         ctx.font = `900 ${compact ? 9 : 11}px monospace`;
         ctx.fillText(formatPrice(this.snapshot.price, compact), w - 8, hudHeight * 0.5);
@@ -492,7 +513,7 @@ export class PixelFrontline {
 
     drawWaitingState(w, h, footerY) {
         const ctx = this.ctx;
-        ctx.fillStyle = '#b8c8bf';
+        ctx.fillStyle = this.presentation.colors.muted;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.font = `900 ${h < 120 ? 9 : 11}px monospace`;
@@ -503,23 +524,24 @@ export class PixelFrontline {
 
     drawPressureFooter(w, h, layout) {
         const ctx = this.ctx;
+        const colors = this.presentation.colors;
         const compact = w < 480 || h < 120;
         const footerHeight = compact ? 16 : 20;
         const y = h - footerHeight;
         const buyPercent = Math.round(layout.buyShare * 100);
         const sellPercent = 100 - buyPercent;
-        crispRect(ctx, 0, y, w, footerHeight, '#080a09');
-        crispRect(ctx, 0, y, w * layout.buyShare, 4, '#00ff88');
-        crispRect(ctx, w * layout.buyShare, y, w * (1 - layout.buyShare), 4, '#ff164f');
+        crispRect(ctx, 0, y, w, footerHeight, colors.footer);
+        crispRect(ctx, 0, y, w * layout.buyShare, 4, colors.rise);
+        crispRect(ctx, w * layout.buyShare, y, w * (1 - layout.buyShare), 4, colors.fall);
         ctx.textBaseline = 'middle';
         ctx.font = `900 ${compact ? 8 : 10}px monospace`;
-        ctx.fillStyle = '#70ffc0';
+        ctx.fillStyle = colors.buyText;
         ctx.textAlign = 'left';
         const buyLabel = compact
             ? `BUY ${buyPercent}% · ${layout.bullTotal}`
             : `BUY ${buyPercent}% · ${formatSol(this.snapshot.buySol)} SOL · ${layout.bullTotal} SWAPS`;
         ctx.fillText(buyLabel, 7, y + footerHeight * 0.62);
-        ctx.fillStyle = '#ff7394';
+        ctx.fillStyle = colors.sellText;
         ctx.textAlign = 'right';
         const sellLabel = compact
             ? `SELL ${sellPercent}% · ${layout.bearTotal}`
@@ -528,4 +550,13 @@ export class PixelFrontline {
         ctx.textAlign = 'left';
         ctx.textBaseline = 'alphabetic';
     }
+}
+
+export function pixelPresentation(theme) {
+    return Object.freeze({ themeId: theme.identity.id, colors: theme.pixel.colors });
+}
+
+function normalizePixelPresentation(presentation) {
+    if (!presentation?.themeId || !presentation?.colors) return pixelPresentation(ANSEM_THEME);
+    return presentation;
 }
