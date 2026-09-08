@@ -93,10 +93,10 @@ describe('pool selection and pressure', () => {
 
     it('derives an explicit tactical state from 60-second SOL flow and 5-minute activity', () => {
         expect(deriveBattleTactics({ buySol: 18, sellSol: 2, buyCount: 40, sellCount: 20 })).toMatchObject({
-            state: 'bull', label: 'BLACK BULLS ADVANCING', balance: 0.8,
+            state: 'bull', balance: 0.8,
         });
         expect(deriveBattleTactics({ buySol: 5.4, sellSol: 5, buyCount: 20, sellCount: 20 }).state).toBe('contested');
-        expect(deriveBattleTactics({ buyCount: 40, sellCount: 50 })).toMatchObject({ state: 'holding', label: 'FRONTLINE QUIET', balance: 0 });
+        expect(deriveBattleTactics({ buyCount: 40, sellCount: 50 })).toMatchObject({ state: 'holding', balance: 0 });
     });
 });
 

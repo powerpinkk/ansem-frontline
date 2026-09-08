@@ -42,6 +42,7 @@ for (const [symbol, mint, name] of [['USDC', USDC, 'USD Coin'], ['JUP', JUP, 'Ju
         await expect(page.locator('#token-name')).toHaveText(name);
         await expect(page.locator('#theme-brand-primary')).toHaveText('TOKEN');
         await expect(page.locator('#theme-legend-buy')).toHaveText('buy unit = verified buy');
+        await expect(page.locator('body')).not.toContainText(/BLACK BULLS ADVANCING|GRIZZLIES ADVANCING/);
         const evidence = await page.evaluate(() => ({
             scene: window.__ansemSceneDiagnostics(),
             companion: window.__ansemCompanionDiagnostics(),

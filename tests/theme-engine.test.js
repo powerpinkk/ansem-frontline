@@ -14,6 +14,7 @@ import {
 } from '../js/theme-presets.js';
 import { createTokenContext } from '../js/token-context.js';
 import { ANSEM_MINT, DEFAULT_TOKEN_CONTEXT } from '../js/token-presets.js';
+import { resolveBattleStateLabel } from '../js/ui.js';
 
 const USDC = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
 const JUP = 'JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN';
@@ -177,6 +178,13 @@ describe('theme assets and presentation lifecycle', () => {
 });
 
 describe('presentation adapters', () => {
+    it('resolves tactical state labels through theme copy without generic ANSEM branding', () => {
+        expect(resolveBattleStateLabel('bull', ANSEM_THEME.ui.copy)).toBe('BLACK BULLS ADVANCING');
+        expect(resolveBattleStateLabel('bear', ANSEM_THEME.ui.copy)).toBe('GRIZZLIES ADVANCING');
+        expect(resolveBattleStateLabel('bull', GENERIC_THEME.ui.copy)).toBe('BUY FORCES ADVANCING');
+        expect(resolveBattleStateLabel('bear', GENERIC_THEME.ui.copy)).toBe('SELL FORCES ADVANCING');
+    });
+
     it('replaces every CSS and copy token without stale ANSEM state', () => {
         const fakeDocument = documentHarness();
         const adapter = createUIThemeAdapter(fakeDocument);

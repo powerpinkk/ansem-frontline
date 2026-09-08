@@ -21,6 +21,7 @@ const UI_COPY_KEYS = Object.freeze([
     'legendBuy', 'legendSell', 'buyForce', 'sellForce', 'buyUnit', 'sellUnit',
     'buySingular', 'sellSingular', 'buyPlural', 'sellPlural', 'buyWhale', 'sellWhale',
     'buyEmoji', 'sellEmoji', 'buyBattle', 'sellBattle', 'contestedBattle', 'quietBattle',
+    'buyAdvance', 'sellAdvance', 'contestedState', 'quietState',
     'supportEvent', 'supportOwner', 'wardEvent', 'reclamationEvent',
 ]);
 

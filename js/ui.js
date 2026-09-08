@@ -208,14 +208,14 @@ function updateBattleState() {
         sellCount: state.activity5m.sellCount,
     });
     if (DOM.battleState.className !== tactics.state) DOM.battleState.className = tactics.state;
-    setText(DOM.battleStateLabel, tactics.label);
+    const copy = activeThemePresentation.copy;
+    setText(DOM.battleStateLabel, resolveBattleStateLabel(tactics.state, copy));
     const netSol = state.buySol60s - state.sellSol60s;
     if (DOM.battleStateFlow) {
         setText(DOM.battleStateFlow, Math.abs(netSol) < 0.005
             ? 'NO VERIFIED FLOW · 60S'
             : `${netSol > 0 ? 'BUYERS' : 'SELLERS'} ${netSol > 0 ? '+' : '−'}${formatSol(Math.abs(netSol))} SOL · 60S`);
     }
-    const copy = activeThemePresentation.copy;
     const detail = tactics.state === 'bull'
         ? copy.buyBattle
         : tactics.state === 'bear'
@@ -225,6 +225,13 @@ function updateBattleState() {
                 : copy.quietBattle;
     setText(DOM.battleStateDetail, detail);
     updateVisibleCoverage(state.visibleCombatants);
+}
+
+export function resolveBattleStateLabel(tacticalState, copy) {
+    if (tacticalState === 'bull') return copy.buyAdvance;
+    if (tacticalState === 'bear') return copy.sellAdvance;
+    if (tacticalState === 'contested') return copy.contestedState;
+    return copy.quietState;
 }
 
 function formatSol(value) {
