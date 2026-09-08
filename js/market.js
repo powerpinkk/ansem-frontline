@@ -129,15 +129,15 @@ export function deriveBattleTactics({ buySol = 0, sellSol = 0, buyCount = 0, sel
     const activityLevel = Math.min(1, Math.log1p(totalTrades) / Math.log(221));
 
     if (totalSol < 0.01) {
-        return { state: 'holding', label: 'FRONTLINE QUIET', balance: 0, flowIntensity: 0, activityLevel };
+        return { state: 'holding', balance: 0, flowIntensity: 0, activityLevel };
     }
     if (Math.abs(balance) < 0.12) {
-        return { state: 'contested', label: 'FRONTLINE CONTESTED', balance, flowIntensity, activityLevel };
+        return { state: 'contested', balance, flowIntensity, activityLevel };
     }
     if (balance > 0) {
-        return { state: 'bull', label: 'BLACK BULLS ADVANCING', balance, flowIntensity, activityLevel };
+        return { state: 'bull', balance, flowIntensity, activityLevel };
     }
-    return { state: 'bear', label: 'GRIZZLIES ADVANCING', balance, flowIntensity, activityLevel };
+    return { state: 'bear', balance, flowIntensity, activityLevel };
 }
 
 export function evaluateBuySwarm(trades, now = Date.now(), lastTriggeredAt = 0) {
