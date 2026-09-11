@@ -10,6 +10,8 @@ import { initTokenUI } from './token-ui.js';
 import { createCompanionThemeAdapter, createSceneThemeAdapter, createUIThemeAdapter } from './theme-adapters.js';
 import { createThemePresentationController } from './theme-presentation.js';
 import { GENERIC_THEME, THEME_REGISTRY, THEME_RESOLVER } from './theme-presets.js';
+import { ANSEM_THEME } from './theme-presets.js';
+import { initThemeStudio } from './theme-studio.js';
 import {
     initUI,
     bindCameraControls,
@@ -43,6 +45,7 @@ let companionController = null;
 let currentSession = null;
 let tokenController = null;
 let tokenUI = null;
+let themeStudio = null;
 const pendingSceneTrades = [];
 const runtimeSessions = [];
 const sceneThemeAdapter = createSceneThemeAdapter();
@@ -110,6 +113,7 @@ function mountRuntime(resolution) {
     };
     activateTokenRuntime(runtime);
     themePresentation.applyForToken(runtime.context);
+    themeStudio?.setTokenContext(runtime.context);
     currentSession = session;
     runtimeSessions.push(session);
     if (runtimeSessions.length > 24) runtimeSessions.shift();
@@ -140,6 +144,7 @@ function mountRuntime(resolution) {
         onTokenContextChange: active((context) => {
             tokenUI?.renderContext(context);
             themePresentation.applyForToken(context);
+            themeStudio?.setTokenContext(context);
             companionController?.setTokenContext(context);
         }),
     }, { runtime, initialMarket: resolution.market });
@@ -184,6 +189,11 @@ function boot() {
         onSubmit: (mint) => void tokenController.select(mint, { history: 'push' }),
         onDefault: () => void tokenController.selectDefault({ history: 'push' }),
         getCurrentUrl: () => window.location.href,
+    });
+    themeStudio = initThemeStudio({
+        presentation: themePresentation,
+        resolver: THEME_RESOLVER,
+        presets: { ansem: ANSEM_THEME, generic: GENERIC_THEME },
     });
     tokenController = createTokenController({
         defaultContext: DEFAULT_TOKEN_CONTEXT,
@@ -235,6 +245,8 @@ function boot() {
             })),
         });
         window.__ansemThemeDiagnostics = () => themePresentation.getDiagnostics();
+        window.__ansemThemeStudioDiagnostics = () => themeStudio?.getDiagnostics() || null;
+        window.__ansemOpenThemeStudio = () => themeStudio?.open();
         window.__ansemApplyTheme = (themeId) => themePresentation.applyThemeId(String(themeId)).identity.id;
         window.__ansemApplyMissingAssetTheme = () => themePresentation.applyDefinition({
             ...GENERIC_THEME,

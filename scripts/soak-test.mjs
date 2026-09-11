@@ -6,6 +6,7 @@ const url = process.env.SOAK_URL || 'http://127.0.0.1:4174/';
 const durationMs = Number(process.env.SOAK_DURATION_MS || 300_000);
 const sampleMs = 5_000;
 const stressScenario = process.env.SOAK_SCENARIO === 'stress';
+const studioScenario = process.env.SOAK_STUDIO === '1';
 const stressPhaseMs = Number(process.env.SOAK_PHASE_MS || 45_000);
 const browser = await chromium.launch({ headless: true });
 const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
@@ -67,6 +68,7 @@ const summary = {
     battleStates: new Set(),
     kingModes: new Set(),
 };
+let studioRuntimeBefore = null;
 
 page.on('pageerror', (error) => pageErrors.push(error.message));
 page.on('requestfailed', (request) => requestFailures.push(`${request.failure()?.errorText || 'failed'} ${request.url()}`));
@@ -87,6 +89,14 @@ try {
     } catch (error) {
         console.error('[soak:init]', { url: diagnosticsUrl.href, pageErrors, requestFailures, httpErrors });
         throw error;
+    }
+    if (studioScenario) {
+        await page.waitForFunction(() => window.__ansemThemeStudioDiagnostics?.()?.mint);
+        studioRuntimeBefore = await page.evaluate(() => window.__ansemTokenDiagnostics());
+        await page.locator('#theme-studio-open').click();
+        await page.locator('[data-studio-section="ui"]').click();
+        await page.locator('#studio-ui-colors-accent-hex').fill('#6ee7ff');
+        await page.waitForFunction(() => window.__ansemThemeStudioDiagnostics?.()?.previewApplied === true);
     }
     const stressPhases = [
         { buySol: 1.2, sellSol: 0.8, buyCount: 4, sellCount: 3, buyCount1h: 90, sellCount1h: 70, verifiedBuyCount: 2, verifiedSellCount: 2 },
@@ -250,6 +260,8 @@ try {
 
     if (!Number.isFinite(summary.minEntities)) summary.minEntities = 0;
     if (!Number.isFinite(summary.minContactGap)) summary.minContactGap = 0;
+    const studioRuntimeAfter = studioScenario ? await page.evaluate(() => window.__ansemTokenDiagnostics()) : null;
+    const studioDiagnostics = studioScenario ? await page.evaluate(() => window.__ansemThemeStudioDiagnostics()) : null;
     const report = {
         ...summary,
         stalledPatrols: [...summary.stalledPatrols],
@@ -260,6 +272,11 @@ try {
         pageErrors,
         requestFailures: [...new Set(requestFailures)].slice(0, 20),
         httpErrors: [...new Set(httpErrors)].slice(0, 20),
+        themeStudio: studioScenario ? {
+            before: studioRuntimeBefore,
+            after: studioRuntimeAfter,
+            diagnostics: studioDiagnostics,
+        } : null,
     };
     await page.screenshot({ path: '.artifacts/soak-final.png', fullPage: true });
     console.log(JSON.stringify(report, null, 2));
@@ -276,6 +293,9 @@ try {
         || summary.minContactGap < -12 || (summary.samples >= 4 && summary.kingTravel < 0.5)
         || summary.maxKingOutOfViewStreak > 2 || summary.maxKingAheadOfFront > 12
         || summary.maxLaneChanges > Math.ceil(durationMs / 3_000) + 8
+        || (studioScenario && (studioRuntimeAfter?.activeMint !== studioRuntimeBefore?.activeMint
+            || studioRuntimeAfter?.generation !== studioRuntimeBefore?.generation
+            || !studioDiagnostics?.previewApplied))
         || (stressScenario && (summary.maxLateralSpread < 48 || summary.maxWoodlandEngagements < 2
             || summary.maxAssisting < 2 || summary.maxKingCommandGestures < 1
             || summary.bullChargeStarts < 1 || summary.bullChargeHits < 1 || summary.maxActiveBullCharges > 3))) {

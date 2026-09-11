@@ -72,6 +72,7 @@ The UI displays the number of monitored pools and their share of DexScreener-rep
 Validated TokenContext (mint + identity + discovery provenance)
       ├── ThemeResolver (canonical mint only)
       │     └── ThemeRegistry → immutable ANSEM or Generic ThemeDefinition
+      │           ├── Theme Studio draft → validate / preview / local save / export
       │           └── scene / UI / Pixel + companion presentation adapters
       │
 DexScreener ── token-agnostic pool discovery, price, liquidity, market cap
@@ -134,6 +135,12 @@ The presentation controller applies a resolved definition through bounded scene,
 
 ANSEM keeps the historical colors, copy, procedural battlefield, special commander and Pixel palette as an explicit compatibility preset. Generic Frontline uses neutral product branding and colors without inventing branding or downloading assets for the selected token. There is no public theme URL parameter or selector. See [Theme Engine architecture](docs/theme-engine.md) for the internal extension contract. Theme Studio, user-generated themes and public personalization are intentionally outside M6.
 
+### Theme Studio (M7)
+
+`THEME STUDIO` opens a professional local authoring overlay over the existing M6 Theme Engine. It clones the ANSEM or Generic preset into a separate draft, validates every revision, previews safe changes through the same scene/UI/Pixel/companion adapters, and provides bounded Undo/Redo, section/full reset, explicit preview reversion, local save/autosave and deterministic JSON import/export. Invalid input can never replace the active token theme.
+
+Draft storage is versioned, capped and scoped by canonical mint plus base preset. Persisted and imported JSON is always treated as untrusted: files are size-limited; unknown/prototype-pollution fields, unsafe values, locked-field changes and every asset declaration are rejected. Theme Studio accepts no code, HTML, CSS URLs, remote assets or uploads, and it never changes TokenContext, sockets, Workers, market data, browser History or the public `?token=` contract. See [Theme Studio architecture](docs/theme-studio.md) for the editable surface and lifecycle.
+
 ## Local development
 
 Requirements: Node.js 20.19 or newer.
@@ -159,6 +166,8 @@ After starting a production preview on port `4174`, `npm run test:m5:smoke` exer
 
 For a five-minute production-build movement and stability soak, run `npm run build && npm run preview -- --port 4174` in one terminal and `npm run test:soak` in another. Set `SOAK_SCENARIO=stress` to cycle through quiet, buyer surge, balanced high volume, seller surge and buy reversal. The monitor enables read-only diagnostics through a query flag and checks line crossings, stalled patrols, army/champion overlaps, missing model instances, support behaviour, woodland engagements, King activity/camera containment, arena bounds, viewport coverage, render load and browser/network errors.
 
+Set `SOAK_STUDIO=1` to keep Theme Studio open with a validated live preview during the same deterministic budgets; the report also verifies that mint and runtime generation remain unchanged.
+
 ## Project structure
 
 ```text
@@ -181,6 +190,10 @@ js/theme-presets.js        ANSEM and Generic Frontline definitions
 js/theme-adapters.js       Bounded scene, UI and companion adapters
 js/theme-presentation.js   Theme application lifecycle coordinator
 js/theme-assets.js         Safe local asset resolution and fallback
+js/theme-studio-contract.js Curated authoring allowlist and secure import/export
+js/theme-studio-model.js   Isolated validated draft and bounded history
+js/theme-studio-storage.js Versioned mint/preset-scoped local persistence
+js/theme-studio.js         Responsive accessible authoring controller
 js/market.js               Pure pool/trade/pressure calculations
 js/battlefield.js          Pure force-scaling and tactical doctrine
 js/navigation.js           Arena bounds, lanes, patrols and lifetime rules
@@ -202,6 +215,7 @@ tests/battlefield.test.js  Force scale, doctrines and King modes
 tests/navigation.test.js   Deterministic movement and lifecycle tests
 tests/token-*.test.js      Token identity, selection, URL and UI safety tests
 tests/theme-engine.test.js Theme validation, resolution, security and lifecycle tests
+tests/theme-studio.test.js Draft, persistence and import/export security tests
 .github/workflows/ci.yml   Automated quality gate
 .github/workflows/codeql.yml Security-extended JavaScript scanning
 .github/dependabot.yml     Weekly npm and Actions updates

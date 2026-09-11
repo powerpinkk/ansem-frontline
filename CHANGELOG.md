@@ -6,12 +6,17 @@ All notable changes are documented here. The project follows [Semantic Versionin
 
 ### Added
 
+- A responsive Theme Studio with live M6-powered preview, bounded Undo/Redo, exact preset reset and explicit active/draft state.
+- Versioned per-token local draft persistence plus deterministic, allowlisted Theme Definition import/export.
+- Import security checks for size, object complexity, prototype keys, unknown fields, values, locked fields and asset declarations.
 - One-hour buy/sell market depth as the strategic input for aggregate army size.
 - A verified 30-second Pixel Frontline companion with Document Picture-in-Picture and popup fallback.
 - Long-soak diagnostics for King visibility, woodland engagements, champion contacts and lateral spread.
 
 ### Changed
 
+- Theme presentation now applies validated revisions sharing one theme ID while still coalescing the same immutable definition.
+- ThemeDefinition validation rejects unknown fields, non-plain/deep structures and out-of-range RGB channels.
 - Widened the playable arena to 26 organic combat corridors with tree and rock avoidance on both flanks.
 - Replaced the Bull King's moving defense goal with a fixed, bounded intercept and persistent camera framing.
 - Replaced global champion clamping with local rank contact and combat animation.

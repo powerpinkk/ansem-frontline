@@ -30,7 +30,7 @@ The presentation controller resolves and applies a theme only at startup, a comm
 
 The scene mutates shared materials and lights in place. A theme change creates no geometries, textures, materials, render targets, sockets, requests, timers or BroadcastChannels. Existing entity auras, transient effects and special-entity materials are updated synchronously before the next frame. Switching back to ANSEM restores the exact preset values.
 
-A theme-only change does not recreate `TokenContext`, rediscover pools, remount the API runtime or change the `?token=<mint>` URL. No public theme selector or `?theme=` route exists in M6.
+A theme-only change does not recreate `TokenContext`, rediscover pools, remount the API runtime or change the `?token=<mint>` URL. M7's Theme Studio consumes this internal path with validated immutable draft revisions; no public `?theme=` route exists.
 
 ## Assets and fallback
 
@@ -48,4 +48,4 @@ Adding a theme must not require changes to market parsing, Worker code, pool dis
 
 ## Scope
 
-M6 is infrastructure plus the official ANSEM and neutral Generic Frontline presets. It does not include Theme Studio, uploads, user-created themes, a marketplace, monetization, cloud persistence, automatic branding, AI generation, wallet functionality or trading.
+M6 remains the infrastructure plus the official ANSEM and neutral Generic Frontline presets. M7 adds only the local authoring layer described in [Theme Studio architecture](theme-studio.md); uploads, a marketplace, monetization, cloud persistence, AI generation, wallet functionality and trading remain out of scope.

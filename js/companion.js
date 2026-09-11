@@ -218,7 +218,7 @@ export function initPixelCompanion({ setSceneActive, tokenContext = DEFAULT_TOKE
             publish();
         },
         setTheme(nextTheme) {
-            if (!nextTheme?.identity?.id || nextTheme.identity.id === currentTheme.identity.id) return false;
+            if (!nextTheme?.identity?.id || nextTheme === currentTheme) return false;
             currentTheme = nextTheme;
             const presentation = pixelPresentation(currentTheme);
             videoEngine?.setTheme(presentation);
