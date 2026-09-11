@@ -3,6 +3,17 @@ const THEME_VERSION = /^\d+\.\d+\.\d+$/;
 const HEX_COLOR = /^#[0-9a-f]{6}$/i;
 const SAFE_CSS_COLOR = /^(?:#[0-9a-f]{6}|rgba?\(\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3}(?:\s*,\s*(?:0(?:\.\d+)?|1(?:\.0+)?))?\s*\))$/i;
 const LOCAL_ASSET_PATH = /^(?!.*(?:^|\/)\.\.(?:\/|$))(?!.*[?:#\\])(?:[a-z0-9_.-]+\/)*[a-z0-9_.-]+$/i;
+const DANGEROUS_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+
+export const THEME_DEFINITION_LIMITS = Object.freeze({
+    fogNear: Object.freeze({ min: 0, max: 1_000, step: 1 }),
+    fogFar: Object.freeze({ min: 1, max: 5_000, step: 1 }),
+    lightIntensity: Object.freeze({ min: 0, max: 20, step: 0.05 }),
+    displayName: 80,
+    brand: 24,
+    documentTitle: 100,
+    copy: 180,
+});
 
 const SCENE_MATERIAL_KEYS = Object.freeze([
     'buyBody', 'buyHead', 'buyAccent', 'buyEye', 'buyEyeEmissive',
@@ -34,7 +45,9 @@ const PIXEL_COLOR_KEYS = Object.freeze([
 ]);
 
 export function createThemeDefinition(input) {
+    assertSafeObjectTree(input);
     const source = record(input, 'ThemeDefinition');
+    exactKeys(source, ['identity', 'scene', 'ui', 'pixel', 'companion', 'assets'], 'ThemeDefinition');
     const identity = record(source.identity, 'ThemeDefinition.identity');
     const scene = record(source.scene, 'ThemeDefinition.scene');
     const environment = record(scene.environment, 'ThemeDefinition.scene.environment');
@@ -48,19 +61,32 @@ export function createThemeDefinition(input) {
     const pixel = record(source.pixel, 'ThemeDefinition.pixel');
     const pixelColors = record(pixel.colors, 'ThemeDefinition.pixel.colors');
     const companion = record(source.companion, 'ThemeDefinition.companion');
+    exactKeys(identity, ['id', 'version', 'displayName'], 'ThemeDefinition.identity');
+    exactKeys(scene, ['environment', 'lighting', 'hero', 'materials'], 'ThemeDefinition.scene');
+    exactKeys(environment, ['background', 'fog', 'fogNear', 'fogFar', 'terrainTint', 'buyTrend', 'sellTrend'], 'ThemeDefinition.scene.environment');
+    exactKeys(lighting, ['ambient', 'hemisphere', 'sun', 'rim'], 'ThemeDefinition.scene.lighting');
+    exactKeys(hero, ['visible'], 'ThemeDefinition.scene.hero');
+    exactKeys(materials, SCENE_MATERIAL_KEYS, 'ThemeDefinition.scene.materials');
+    exactKeys(ui, ['brand', 'colors', 'copy'], 'ThemeDefinition.ui');
+    exactKeys(brand, ['primary', 'accent', 'documentTitle'], 'ThemeDefinition.ui.brand');
+    exactKeys(uiColors, UI_COLOR_KEYS, 'ThemeDefinition.ui.colors');
+    exactKeys(copy, UI_COPY_KEYS, 'ThemeDefinition.ui.copy');
+    exactKeys(pixel, ['colors'], 'ThemeDefinition.pixel');
+    exactKeys(pixelColors, PIXEL_COLOR_KEYS, 'ThemeDefinition.pixel.colors');
+    exactKeys(companion, ['background'], 'ThemeDefinition.companion');
 
     const definition = {
         identity: {
             id: themeId(identity.id),
             version: themeVersion(identity.version),
-            displayName: boundedText(identity.displayName, 80, 'Theme display name'),
+            displayName: boundedText(identity.displayName, THEME_DEFINITION_LIMITS.displayName, 'Theme display name'),
         },
         scene: {
             environment: {
                 background: hex(environment.background, 'scene background'),
                 fog: hex(environment.fog, 'scene fog'),
-                fogNear: boundedNumber(environment.fogNear, 0, 1_000, 'fog near'),
-                fogFar: boundedNumber(environment.fogFar, 1, 5_000, 'fog far'),
+                fogNear: boundedNumber(environment.fogNear, THEME_DEFINITION_LIMITS.fogNear.min, THEME_DEFINITION_LIMITS.fogNear.max, 'fog near'),
+                fogFar: boundedNumber(environment.fogFar, THEME_DEFINITION_LIMITS.fogFar.min, THEME_DEFINITION_LIMITS.fogFar.max, 'fog far'),
                 terrainTint: hex(environment.terrainTint, 'terrain tint'),
                 buyTrend: hex(environment.buyTrend, 'buy trend'),
                 sellTrend: hex(environment.sellTrend, 'sell trend'),
@@ -76,9 +102,9 @@ export function createThemeDefinition(input) {
         },
         ui: {
             brand: {
-                primary: boundedText(brand.primary, 24, 'brand primary'),
-                accent: boundedText(brand.accent, 24, 'brand accent'),
-                documentTitle: boundedText(brand.documentTitle, 100, 'document title'),
+                primary: boundedText(brand.primary, THEME_DEFINITION_LIMITS.brand, 'brand primary'),
+                accent: boundedText(brand.accent, THEME_DEFINITION_LIMITS.brand, 'brand accent'),
+                documentTitle: boundedText(brand.documentTitle, THEME_DEFINITION_LIMITS.documentTitle, 'document title'),
             },
             colors: cssColorRecord(uiColors, UI_COLOR_KEYS, 'UI color'),
             copy: textRecord(copy, UI_COPY_KEYS, 'UI copy'),
@@ -108,18 +134,20 @@ export function isSafeLocalThemeAsset(value) {
 
 function light(value, label) {
     const source = record(value, label);
+    exactKeys(source, ['color', 'intensity'], label);
     return {
         color: hex(source.color, `${label} color`),
-        intensity: boundedNumber(source.intensity, 0, 20, `${label} intensity`),
+        intensity: boundedNumber(source.intensity, THEME_DEFINITION_LIMITS.lightIntensity.min, THEME_DEFINITION_LIMITS.lightIntensity.max, `${label} intensity`),
     };
 }
 
 function hemisphereLight(value) {
     const source = record(value, 'hemisphere light');
+    exactKeys(source, ['sky', 'ground', 'intensity'], 'hemisphere light');
     return {
         sky: hex(source.sky, 'hemisphere sky'),
         ground: hex(source.ground, 'hemisphere ground'),
-        intensity: boundedNumber(source.intensity, 0, 20, 'hemisphere intensity'),
+        intensity: boundedNumber(source.intensity, THEME_DEFINITION_LIMITS.lightIntensity.min, THEME_DEFINITION_LIMITS.lightIntensity.max, 'hemisphere intensity'),
     };
 }
 
@@ -146,7 +174,7 @@ function cssColorRecord(source, keys, label) {
 }
 
 function textRecord(source, keys, label) {
-    return Object.fromEntries(keys.map((key) => [key, boundedText(source[key], 180, `${label} ${key}`)]));
+    return Object.fromEntries(keys.map((key) => [key, boundedText(source[key], THEME_DEFINITION_LIMITS.copy, `${label} ${key}`)]));
 }
 
 function themeId(value) {
@@ -166,7 +194,11 @@ function hex(value, label) {
 
 function cssColor(value, label) {
     if (typeof value !== 'string' || value.length > 64 || !SAFE_CSS_COLOR.test(value)) throw new TypeError(`Invalid ${label}`);
-    return value.toLowerCase().replace(/\s+/g, '');
+    const normalized = value.toLowerCase().replace(/\s+/g, '');
+    if (normalized.startsWith('#')) return normalized;
+    const channels = normalized.match(/[\d.]+/g)?.map(Number) || [];
+    if (channels.length < 3 || channels.slice(0, 3).some((channel) => channel > 255)) throw new TypeError(`Invalid ${label}`);
+    return normalized;
 }
 
 function boundedText(value, maximum, label) {
@@ -190,6 +222,31 @@ function boolean(value, label) {
 function record(value, label) {
     if (!value || typeof value !== 'object' || Array.isArray(value)) throw new TypeError(`${label} must be an object`);
     return value;
+}
+
+function exactKeys(value, keys, label) {
+    const allowed = new Set(keys);
+    const unknown = Object.keys(value).find((key) => !allowed.has(key));
+    if (unknown) throw new TypeError(`${label} contains unknown field: ${unknown}`);
+    const missing = keys.find((key) => !Object.hasOwn(value, key));
+    if (missing) throw new TypeError(`${label} is missing field: ${missing}`);
+}
+
+function assertSafeObjectTree(root) {
+    const stack = [{ value: root, depth: 0 }];
+    let nodes = 0;
+    while (stack.length) {
+        const { value, depth } = stack.pop();
+        if (!value || typeof value !== 'object') continue;
+        if (depth > 12 || ++nodes > 320) throw new TypeError('ThemeDefinition structure is too complex');
+        if (Array.isArray(value)) throw new TypeError('ThemeDefinition arrays are not supported');
+        const prototype = Object.getPrototypeOf(value);
+        if (prototype !== Object.prototype && prototype !== null) throw new TypeError('ThemeDefinition objects must be plain records');
+        for (const key of Object.keys(value)) {
+            if (DANGEROUS_KEYS.has(key)) throw new TypeError(`ThemeDefinition contains forbidden field: ${key}`);
+            stack.push({ value: value[key], depth: depth + 1 });
+        }
+    }
 }
 
 function deepFreeze(value) {

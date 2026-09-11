@@ -106,14 +106,24 @@ test('repeated theme switching has bounded presentation and GPU resources', asyn
     test.skip(testInfo.project.name !== 'desktop-chromium', 'One deterministic resource stress is sufficient');
     await page.goto(`/?token=${USDC}`);
     await expectTheme(page, 'USDC', 'generic');
-    const before = await diagnostics(page);
-    await page.evaluate(() => {
+    await page.waitForFunction(() => window.__ansemTokenDiagnostics().sessions.every((session) => (
+        !session.active || (!session.api.bootstrapPending && session.api.requests === 0)
+    )));
+    const evidence = await page.evaluate(() => {
+        const snapshot = () => ({
+            token: window.__ansemTokenDiagnostics(),
+            theme: window.__ansemThemeDiagnostics(),
+            scene: window.__ansemSceneDiagnostics(),
+            companion: window.__ansemCompanionDiagnostics(),
+        });
+        const before = snapshot();
         for (let index = 0; index < 40; index += 1) {
             window.__ansemApplyTheme('ansem');
             window.__ansemApplyTheme('generic');
         }
+        return { before, after: snapshot() };
     });
-    const after = await diagnostics(page);
+    const { before, after } = evidence;
     expect(after.token.activeMint).toBe(USDC);
     expect(after.token.sessions).toEqual(before.token.sessions);
     expect(after.scene.render.geometries).toBe(before.scene.render.geometries);

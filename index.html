@@ -54,6 +54,7 @@
 
             <button id="sound-btn" class="control-btn" type="button" aria-label="Toggle sound">🔇 SOUND</button>
             <button id="pixel-mode-btn" class="control-btn pixel-mode-btn" type="button" aria-label="Open the 30-second pixel companion in Picture-in-Picture" aria-pressed="false">▦ PIXEL 30S</button>
+            <button id="theme-studio-open" class="control-btn theme-studio-open" type="button" aria-haspopup="dialog">✦ THEME STUDIO</button>
 
             <div class="info-box" id="mcap-box">
                 <div class="info-label">MCAP</div>
@@ -205,6 +206,65 @@
         <p>The 3D renderer is paused while the compact companion stays live.</p>
         <button id="companion-return" class="control-btn active-blue" type="button">RETURN TO 3D FRONTLINE</button>
     </div>
+</div>
+
+<div id="theme-studio-backdrop" class="theme-studio-backdrop" hidden>
+    <section id="theme-studio" class="theme-studio" role="dialog" aria-modal="true" aria-labelledby="theme-studio-title" aria-describedby="theme-studio-description">
+        <header class="theme-studio-header">
+            <div>
+                <span class="studio-eyebrow">VISUAL AUTHORING · LOCAL ONLY</span>
+                <h2 id="theme-studio-title">Theme Studio</h2>
+                <p id="theme-studio-description">Tune the M6 Theme Engine without changing token data or networking.</p>
+            </div>
+            <button id="theme-studio-close" class="studio-icon-button" type="button" aria-label="Close Theme Studio">×</button>
+        </header>
+        <div class="theme-studio-context" aria-live="polite">
+            <div><span>ACTIVE THEME</span><strong id="theme-studio-active">—</strong></div>
+            <div><span>DRAFT</span><strong id="theme-studio-draft">—</strong></div>
+            <div><span>STATUS</span><strong id="theme-studio-save-state">SAVED</strong></div>
+            <div><span>PREVIEW</span><strong id="theme-studio-preview-state">OFF</strong></div>
+        </div>
+        <div class="theme-studio-body">
+            <aside class="theme-studio-rail" aria-label="Theme Studio navigation">
+                <div class="studio-presets" aria-labelledby="studio-presets-label">
+                    <span id="studio-presets-label">STARTING PRESET</span>
+                    <button type="button" data-studio-preset="ansem">ANSEM</button>
+                    <button type="button" data-studio-preset="generic">GENERIC</button>
+                </div>
+                <nav id="theme-studio-tabs" class="theme-studio-tabs" aria-label="Theme sections"></nav>
+                <div class="studio-trust-note">
+                    <strong>SAFE BY DESIGN</strong>
+                    <span>Local registered assets only. No code, remote URLs or token metadata.</span>
+                </div>
+            </aside>
+            <main class="theme-studio-editor">
+                <div class="studio-section-heading">
+                    <div><span id="theme-studio-section-kicker">THEME</span><h3 id="theme-studio-section-title">Identity</h3></div>
+                    <button id="theme-studio-reset-section" type="button">RESET SECTION</button>
+                </div>
+                <p id="theme-studio-section-description" class="studio-section-description"></p>
+                <div id="theme-studio-fields" class="theme-studio-fields"></div>
+                <p id="theme-studio-error" class="theme-studio-error" role="alert" aria-live="assertive" hidden></p>
+            </main>
+        </div>
+        <footer class="theme-studio-footer">
+            <div class="studio-history-actions">
+                <button id="theme-studio-undo" type="button" aria-label="Undo draft change">↶ UNDO</button>
+                <button id="theme-studio-redo" type="button" aria-label="Redo draft change">↷ REDO</button>
+                <button id="theme-studio-reset" type="button">RESET THEME</button>
+            </div>
+            <div class="studio-file-actions">
+                <input id="theme-studio-import-input" type="file" accept="application/json,.json" hidden>
+                <button id="theme-studio-import" type="button">IMPORT</button>
+                <button id="theme-studio-export" type="button">EXPORT</button>
+                <button id="theme-studio-save" type="button">SAVE LOCAL</button>
+            </div>
+            <div class="studio-preview-actions">
+                <button id="theme-studio-revert" type="button">REVERT PREVIEW</button>
+                <button id="theme-studio-apply" class="studio-primary" type="button">APPLY PREVIEW</button>
+            </div>
+        </footer>
+    </section>
 </div>
 
 <script type="module" src="js/main.js"></script>

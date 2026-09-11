@@ -50,13 +50,14 @@ export function createThemePresentationController({
     };
 
     const applyIfChanged = (theme, reason) => {
-        if (currentTheme?.identity.id === theme.identity.id) return currentTheme;
+        if (currentTheme === theme) return currentTheme;
         return applyPrepared(theme, reason);
     };
 
     return Object.freeze({
         applyForToken(tokenContext) {
             const theme = resolver.resolve(tokenContext);
+            if (currentTheme && currentMint === tokenContext.identity.mint) return currentTheme;
             currentMint = tokenContext.identity.mint;
             return applyIfChanged(theme, 'token');
         },
