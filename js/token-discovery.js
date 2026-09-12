@@ -1,5 +1,7 @@
 import { CONFIG } from './config.js';
-import { deriveSolPrice, selectTrackedPools, summarizePoolActivity } from './market.js';
+import { deriveSolPrice, summarizePoolActivity } from './market.js';
+import { selectMarket } from './market-selection.js';
+import { providerValuation } from './market-valuation.js';
 import {
     TOKEN_DISCOVERY_STATUS,
     createTokenContext,
@@ -12,6 +14,7 @@ export async function discoverToken(input, {
     fetchSolPrice,
     poolLimit = CONFIG.MAX_TRACKED_POOLS,
     trackedPools = [],
+    previousSelection = null,
 } = {}) {
     const suppliedContext = input?.identity ? input : null;
     const mint = suppliedContext?.identity?.mint ?? input;
@@ -24,7 +27,7 @@ export async function discoverToken(input, {
 
     try {
         const payload = await fetchPairs(validation.value);
-        const resolution = resolveDexScreenerPayload(context, payload, poolLimit, trackedPools);
+        const resolution = resolveDexScreenerPayload(context, payload, poolLimit, trackedPools, previousSelection);
         if (!resolution.ok || resolution.market.solPriceUsd > 0 || typeof fetchSolPrice !== 'function') return resolution;
         const solPriceUsd = Number(await fetchSolPrice());
         if (!Number.isFinite(solPriceUsd) || !(solPriceUsd > 0)) throw new Error('SOL/USD price is unavailable');
@@ -44,7 +47,7 @@ export async function discoverToken(input, {
     }
 }
 
-export function resolveDexScreenerPayload(context, payload, poolLimit = CONFIG.MAX_TRACKED_POOLS, existingPools = []) {
+export function resolveDexScreenerPayload(context, payload, poolLimit = CONFIG.MAX_TRACKED_POOLS, _existingPools = [], previousSelection = null) {
     const pairs = Array.isArray(payload) ? payload : payload?.pairs;
     if (!Array.isArray(pairs)) {
         return failure(TOKEN_DISCOVERY_STATUS.UPSTREAM_FAILURE, 'DISCOVERY_PAYLOAD', 'Invalid discovery response', context);
@@ -56,12 +59,8 @@ export function resolveDexScreenerPayload(context, payload, poolLimit = CONFIG.M
         return failure(TOKEN_DISCOVERY_STATUS.UNAVAILABLE, 'TOKEN_NOT_FOUND', 'No Solana markets were found for this mint', context);
     }
     const basePairs = matchingPairs.filter((pair) => pair?.baseToken?.address === mint);
-    const availablePoolAddresses = new Set(basePairs.map((pair) => pair?.pairAddress));
-    const reusablePools = existingPools.filter((pool) => availablePoolAddresses.has(pool?.address));
-    const trackedPools = reusablePools.length && reusablePools.length === existingPools.length
-        ? reusablePools.slice(0, poolLimit)
-        : selectTrackedPools(basePairs, context, poolLimit);
-    if (!trackedPools.length) {
+    const selected = selectMarket(basePairs, mint, previousSelection, Date.now(), poolLimit);
+    if (!selected) {
         return failure(
             TOKEN_DISCOVERY_STATUS.UNSUPPORTED,
             'NO_COMPATIBLE_POOLS',
@@ -70,24 +69,23 @@ export function resolveDexScreenerPayload(context, payload, poolLimit = CONFIG.M
         );
     }
 
-    const selectedPairs = matchingPairs.filter((pair) => trackedPools.some((pool) => pool.address === pair.pairAddress));
+    const { pools: trackedPools, pairs: selectedPairs, pair: primaryPair, selection } = selected;
     const referencePool = trackedPools[0];
-    const tokenDescriptor = basePairs[0]?.baseToken || {};
+    const tokenDescriptor = primaryPair.baseToken;
     const totalVolume = basePairs.reduce((sum, pair) => sum + numeric(pair.volume?.h24), 0);
     const trackedVolume = trackedPools.reduce((sum, pool) => sum + pool.volumeH24Usd, 0);
-    const liquidity = selectedPairs.reduce((sum, pair) => sum + numeric(pair.liquidity?.usd), 0);
-    const price = liquidity > 0
-        ? selectedPairs.reduce((sum, pair) => sum + numeric(pair.priceUsd) * numeric(pair.liquidity?.usd), 0) / liquidity
-        : numeric(selectedPairs[0]?.priceUsd || basePairs[0]?.priceUsd);
+    const price = numeric(primaryPair.priceUsd);
     if (!(price > 0)) {
         return failure(TOKEN_DISCOVERY_STATUS.UNAVAILABLE, 'PRICE_UNAVAILABLE', 'Token price is not available', context);
     }
 
     const resolvedAt = Date.now();
+    const valuation = providerValuation({ tokenMint: mint, marketIdentity: primaryPair.pairAddress,
+        source: 'dexscreener', priceUsd: price, marketCap: primaryPair.marketCap, fdv: primaryPair.fdv, receivedAt: resolvedAt });
     const resolvedContext = withTokenResolution(context, {
         symbol: tokenDescriptor.symbol,
         name: tokenDescriptor.name,
-        metadata: { imageUrl: basePairs.find((pair) => pair?.info?.imageUrl)?.info?.imageUrl },
+        metadata: { imageUrl: primaryPair.info?.imageUrl },
         resources: { pools: trackedPools, referencePool },
         discovery: {
             status: TOKEN_DISCOVERY_STATUS.RESOLVED,
@@ -103,8 +101,10 @@ export function resolveDexScreenerPayload(context, payload, poolLimit = CONFIG.M
         context: resolvedContext,
         market: {
             price,
-            mcap: numeric(selectedPairs[0]?.marketCap || selectedPairs[0]?.fdv),
-            chg: numeric(selectedPairs[0]?.priceChange?.h1),
+            mcap: valuation.kind === 'MARKET_CAP' ? valuation.valueUsd : null,
+            valuation,
+            selection,
+            chg: numeric(primaryPair.priceChange?.h1),
             pools: trackedPools.length,
             coverage: totalVolume > 0 ? (trackedVolume / totalVolume) * 100 : 0,
             referencePool,

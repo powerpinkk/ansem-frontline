@@ -93,10 +93,18 @@ test('theme-only switching preserves the token runtime and renderer resources', 
     await expect(page.locator('html')).toHaveAttribute('data-frontline-theme', 'generic');
     await page.evaluate(() => window.__ansemApplyTheme('ansem'));
     await expectTheme(page, 'ANSEM', 'ansem');
+    await page.waitForFunction(() => window.__ansemTokenDiagnostics().sessions.every((session) => (
+        !session.active || (!session.api.bootstrapPending && session.api.requests === 0)
+    )));
     const after = await diagnostics(page);
     expect(after.token.activeMint).toBe(before.token.activeMint);
     expect(after.token.generation).toBe(before.token.generation);
-    expect(after.token.sessions).toEqual(before.token.sessions);
+    // Market observations legitimately refresh while a theme is switched.
+    // Compare lifecycle resources, retaining every pre-integrity diagnostic.
+    const lifecycle = (sessions) => sessions.map((session) => ({ ...session,
+        api: Object.fromEntries(Object.entries(session.api).filter(([key]) =>
+            !['selection', 'valuation', 'journal', 'integrity'].includes(key))) }));
+    expect(lifecycle(after.token.sessions)).toEqual(lifecycle(before.token.sessions));
     expect(after.scene.render.geometries).toBe(before.scene.render.geometries);
     expect(after.scene.render.textures).toBe(before.scene.render.textures);
     expect(after.theme.themeOnlySwitches - before.theme.themeOnlySwitches).toBe(2);
@@ -237,7 +245,7 @@ async function installMarketRoutes(page) {
         },
     }));
     await page.route('https://ansem-frontline-stream.ansem-frontline.workers.dev/recent', (route) => route.fulfill({
-        json: { source: 'fixture', pools: 1, trades: [] },
+        json: { version: 3, tokenMint: route.request().postDataJSON().token.mint, source: 'verified-rpc-history', pools: 1, trades: [] },
     }));
     await page.route('https://ansem-frontline-stream.ansem-frontline.workers.dev/gecko/**', async (route) => {
         await route.fulfill({ json: route.request().url().includes('/ohlcv/')

@@ -64,8 +64,8 @@ describe('trade stream lifecycle', () => {
         });
         const socket = FakeWebSocket.instances[0];
         socket.open();
-        socket.emit('message', { data: JSON.stringify({ type: 'trade', data: { txHash: 'tx' } }) });
-        socket.emit('message', { data: JSON.stringify({ type: 'status', status: 'live' }) });
+        socket.emit('message', { data: JSON.stringify({ version: 3, type: 'trade', data: { txHash: 'tx' } }) });
+        socket.emit('message', { data: JSON.stringify({ version: 3, type: 'status', status: 'live' }) });
 
         expect(JSON.parse(socket.sent[0])).toEqual({ type: 'configure', token: { mint: 'mint' }, pools: [{ address: 'pool' }] });
         expect(onTrade).toHaveBeenCalledWith({ txHash: 'tx' });
@@ -89,5 +89,29 @@ describe('trade stream lifecycle', () => {
         expect(FakeWebSocket.instances.at(-1).readyState).toBe(FakeWebSocket.CLOSED);
         vi.runAllTimers();
         expect(FakeWebSocket.instances).toHaveLength(2);
+    });
+
+    it('100 reconnects discard obsolete socket delivery and leave no timer after teardown', () => {
+        const onTrade = vi.fn();
+        const controller = connectTradeStream('wss://example.test/stream', { onTrade });
+        for (let i = 0; i < 100; i += 1) {
+            const previous = FakeWebSocket.instances.at(-1);
+            previous.open(); previous.close(); controller.reconnect();
+            previous.emit('message', { data: JSON.stringify({ version: 3, type: 'trade', data: { id: 'obsolete' } }) });
+        }
+        expect(FakeWebSocket.instances).toHaveLength(101);
+        expect(onTrade).not.toHaveBeenCalled();
+        controller.stop();
+        expect(vi.getTimerCount()).toBe(0);
+    });
+
+    it('a silent connection times out and reconnects instead of remaining live indefinitely', () => {
+        const controller = connectTradeStream('wss://example.test/stream', {});
+        FakeWebSocket.instances[0].open();
+        vi.advanceTimersByTime(30_000);
+        expect(FakeWebSocket.instances[0].readyState).toBe(FakeWebSocket.CLOSED);
+        vi.advanceTimersByTime(1000);
+        expect(FakeWebSocket.instances).toHaveLength(2);
+        controller.stop();
     });
 });

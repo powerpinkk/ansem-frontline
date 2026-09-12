@@ -1,3 +1,4 @@
+import { canonicalEvent } from './fixtures/integrity.js';
 import { describe, expect, it } from 'vitest';
 import { createPixelSnapshot, findPixelOverlaps, layoutPixelBattle } from '../js/pixel-engine.js';
 
@@ -17,7 +18,7 @@ describe('30-second pixel companion data', () => {
                 { txHash: 'fresh-buy', isBuy: true, isWhale: false, solValue: 3, timestamp: now - 2_000 },
                 { txHash: 'fresh-whale', isBuy: false, isWhale: true, solValue: 24, timestamp: now - 29_999 },
                 { txHash: 'expired', isBuy: true, isWhale: false, solValue: 100, timestamp: now - 30_001 },
-            ],
+            ].map(canonicalEvent),
         }, now);
         expect(snapshot.trades.map((trade) => trade.id)).toEqual(['fresh-buy', 'fresh-whale']);
         expect(snapshot.buySol).toBe(3);
@@ -27,7 +28,6 @@ describe('30-second pixel companion data', () => {
         expect(snapshot.priceTicks).toEqual([
             { timestamp: now - 25_000, price: 0.24 },
             { timestamp: now - 1_000, price: 0.25 },
-            { timestamp: now, price: 0.25 },
         ]);
     });
 
@@ -40,7 +40,7 @@ describe('30-second pixel companion data', () => {
             solValue: index % 7 === 0 ? 25 : 1,
             timestamp: now - 8_000 - index * 10,
         }));
-        const snapshot = createPixelSnapshot({ connection: 'online', price: 0.25, liveTrades }, now);
+        const snapshot = createPixelSnapshot({ connection: 'online', price: 0.25, liveTrades: liveTrades.map(canonicalEvent) }, now);
         const layout = layoutPixelBattle(snapshot, 640, 160, now);
         expect(layout.bulls).toHaveLength(6);
         expect(layout.bears).toHaveLength(6);
@@ -60,7 +60,7 @@ describe('30-second pixel companion data', () => {
             solValue: index % 9 === 0 ? 30 : 0.8,
             timestamp: now - 5_000 - index * 20,
         }));
-        const snapshot = createPixelSnapshot({ connection: 'online', price: 0.25, mcap: 250_000_000, liveTrades }, now);
+        const snapshot = createPixelSnapshot({ connection: 'online', price: 0.25, mcap: 250_000_000, liveTrades: liveTrades.map(canonicalEvent) }, now);
         const layout = layoutPixelBattle(snapshot, 320, 96, now);
         expect(findPixelOverlaps(layout)).toEqual([]);
         expect(Math.min(...layout.units.map((unit) => unit.width))).toBeGreaterThanOrEqual(23);

@@ -863,6 +863,10 @@ export function setSceneActive(active) {
     if (!animationFrameId) animationFrameId = requestAnimationFrame(gameLoop);
 }
 
+export function removeTradePresentation(eventId) {
+    for (const entity of [...entities]) if (entity.trade?.id === eventId) retireEntity(entity);
+}
+
 export function resetTokenPresentation() {
     if (!scene) return;
     while (entities.length) retireEntity(entities.at(-1));

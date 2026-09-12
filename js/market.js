@@ -1,7 +1,7 @@
 import { CONFIG } from './config.js';
-import { validateSolanaMint } from './token-context.js';
+import { selectMarket } from './market-selection.js';
+import { activeTrade } from './market-evidence.js';
 
-const SUPPORTED_QUOTES = new Set(['SOL', 'WSOL', 'USDC', 'USDT']);
 
 function number(value) {
     const parsed = Number.parseFloat(value);
@@ -9,12 +9,14 @@ function number(value) {
 }
 
 export function deriveSolPrice(pairs) {
-    const solBasePair = pairs.find((pair) =>
+    const ordered = [...pairs].sort((a, b) => number(b.liquidity?.usd) - number(a.liquidity?.usd)
+        || String(a.pairAddress || '').localeCompare(String(b.pairAddress || '')));
+    const solBasePair = ordered.find((pair) =>
         isSolToken(pair?.baseToken)
         && number(pair.priceUsd) > 0
     );
     if (solBasePair) return number(solBasePair.priceUsd);
-    const solPair = pairs.find((pair) =>
+    const solPair = ordered.find((pair) =>
         isSolToken(pair?.quoteToken)
         && number(pair.priceUsd) > 0
         && number(pair.priceNative) > 0
@@ -23,43 +25,11 @@ export function deriveSolPrice(pairs) {
 }
 
 function isSolToken(token) {
-    return token?.address === CONFIG.SOL_MINT
-        || ['SOL', 'WSOL'].includes(String(token?.symbol || '').toUpperCase());
+    return token?.address === CONFIG.SOL_MINT;
 }
 
 export function selectTrackedPools(pairs, tokenContext, limit = CONFIG.MAX_TRACKED_POOLS) {
-    const tokenMint = tokenContext?.identity?.mint;
-    return pairs
-        .filter((pair) => pair?.chainId === 'solana')
-        .filter((pair) => pair?.baseToken?.address === tokenMint)
-        .filter((pair) => validateSolanaMint(pair?.pairAddress).ok)
-        .filter((pair) => SUPPORTED_QUOTES.has(String(pair?.quoteToken?.symbol || '').toUpperCase()))
-        .sort((a, b) => poolScore(b) - poolScore(a))
-        .slice(0, limit)
-        .map((pair) => ({
-            address: pair.pairAddress,
-            dexId: String(pair.dexId || 'solana').slice(0, 40),
-            quoteSymbol: String(pair.quoteToken.symbol).toUpperCase().slice(0, 12),
-            liquidityUsd: number(pair.liquidity?.usd),
-            volumeH24Usd: number(pair.volume?.h24),
-            volumeH1Usd: number(pair.volume?.h1),
-            url: safeHttpsUrl(pair.url),
-        }));
-}
-
-function safeHttpsUrl(value) {
-    try {
-        const url = new URL(String(value));
-        return url.protocol === 'https:' ? url.toString() : null;
-    } catch {
-        return null;
-    }
-}
-
-function poolScore(pair) {
-    return number(pair.volume?.h1) * 8
-        + number(pair.volume?.h24)
-        + number(pair.liquidity?.usd) * 0.25;
+    return selectMarket(pairs, tokenContext?.identity?.mint, null, Date.now(), limit)?.pools || [];
 }
 
 export function parseGeckoTrade(entry, pool, solPriceUsd, tokenContext) {
@@ -87,6 +57,8 @@ export function parseGeckoTrade(entry, pool, solPriceUsd, tokenContext) {
 
     return {
         id: entry.id || `${attrs.tx_hash}:${pool.address}:${attrs.block_number}`,
+        evidenceLevel: 'PROVIDER_INDICATIVE',
+        authorityEligible: false,
         txHash: attrs.tx_hash,
         isBuy,
         tokenAmount,
@@ -103,12 +75,15 @@ export function parseGeckoTrade(entry, pool, solPriceUsd, tokenContext) {
 }
 
 export function calculatePressure(trades, now = Date.now()) {
-    const recent = trades.filter((trade) => now - trade.timestamp <= CONFIG.PRESSURE_WINDOW_MS);
+    const unique = [...new Map(trades.filter(activeTrade).map((t) => [t.id, t])).values()];
+    const eligible = unique.filter((trade) => trade.timestamp !== null && now - trade.timestamp >= 0 && now - trade.timestamp <= CONFIG.PRESSURE_WINDOW_MS);
+    const recent = eligible.filter((trade) => trade.quoteMint === CONFIG.SOL_MINT && Number.isFinite(trade.solValue) && trade.solValue > 0);
     const buySol = recent.filter((trade) => trade.isBuy).reduce((sum, trade) => sum + trade.solValue, 0);
     const sellSol = recent.filter((trade) => !trade.isBuy).reduce((sum, trade) => sum + trade.solValue, 0);
     const total = buySol + sellSol;
     const bullPercent = total > 0 ? (buySol / total) * 100 : 50;
-    return { buySol, sellSol, totalSol: total, bullPercent, bearPercent: 100 - bullPercent };
+    return { buySol, sellSol, totalSol: total, bullPercent, bearPercent: 100 - bullPercent,
+        coverage: { included: recent.length, excludedNonSol: eligible.length - recent.length, basis: 'VERIFIED_SOL_QUOTE_ONLY' } };
 }
 
 export function summarizePoolActivity(pairs, timeframe = 'm5') {
@@ -141,7 +116,9 @@ export function deriveBattleTactics({ buySol = 0, sellSol = 0, buyCount = 0, sel
 }
 
 export function evaluateBuySwarm(trades, now = Date.now(), lastTriggeredAt = 0) {
-    const recent = trades.filter((trade) => now - trade.timestamp <= CONFIG.BUY_SWARM_WINDOW_MS);
+    const recent = trades.filter((trade) => activeTrade(trade) && trade.quoteMint === CONFIG.SOL_MINT
+        && Number.isFinite(trade.solValue) && trade.timestamp !== null && now - trade.timestamp >= 0
+        && now - trade.timestamp <= CONFIG.BUY_SWARM_WINDOW_MS);
     const unique = [...new Map(recent.map((trade) => [trade.txHash || trade.id, trade])).values()];
     const buys = unique.filter((trade) => trade.isBuy);
     const buySol = buys.reduce((sum, trade) => sum + trade.solValue, 0);

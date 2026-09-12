@@ -51,7 +51,7 @@ describe('token-agnostic discovery', () => {
 
     it('enriches tokens without a direct SOL pool using an independent SOL/USD quote', async () => {
         const stablecoinPair = pair({ context: USDC, mint: USDC.identity.mint, symbol: 'USDC', name: 'USD Coin', price: 1, pool: POOLS[1] });
-        stablecoinPair.quoteToken = { address: 'Es9vMFrzaCERmJfrF4H2FYDCLDFAm19AetDjbYdoSZEd', symbol: 'USDT', name: 'Tether' };
+        stablecoinPair.quoteToken = { address: 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB', symbol: 'USDT', name: 'Tether' };
         stablecoinPair.priceNative = '1';
         const resolution = await discoverToken(USDC, {
             fetchPairs: async () => [stablecoinPair],
@@ -94,8 +94,8 @@ describe('token-agnostic discovery', () => {
             volumeH1Usd: 10_000,
             url: `https://dex.example/${POOLS[0]}`,
         }];
-        const resolution = resolveDexScreenerPayload(JUP, [first, second], 5, existing);
-        expect(resolution.market.trackedPools).toEqual(existing);
+        const resolution = resolveDexScreenerPayload(JUP, [first, second], 5, existing, { tokenMint: JUP.identity.mint, source: 'dexscreener', pairAddress: POOLS[0], dexId: 'fixture-dex', quoteMint: CONFIG.SOL_MINT, sourceEpoch: 1, selectedAt: 1 });
+        expect(resolution.market.trackedPools[0]).toMatchObject(existing[0]);
         expect(resolution.context.resources.pools[0].address).toBe(POOLS[0]);
     });
 

@@ -1,3 +1,5 @@
+import { canonicalEvent } from '../fixtures/integrity.js';
+import { providerValuation } from '../../js/market-valuation.js';
 import { expect, test } from '@playwright/test';
 
 const token = '9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump';
@@ -38,6 +40,8 @@ test.beforeEach(async ({ page }) => {
                     { address: buyPool, dexId: 'pumpswap', quoteSymbol: 'SOL' },
                     { address: sellPool, dexId: 'meteora', quoteSymbol: 'SOL' },
                 ],
+                token: { identity: { mint: token } },
+                valuation: providerValuation({ tokenMint: token, source: 'helius-fallback', priceUsd: 0.259, fdv: 258000000 }),
                 source: 'helius-fallback',
             },
         });
@@ -46,7 +50,7 @@ test.beforeEach(async ({ page }) => {
         await new Promise((resolve) => setTimeout(resolve, 90));
         await route.fulfill({
             json: {
-                source: 'helius-history',
+                version: 3, tokenMint: token, source: 'verified-rpc-history',
                 pools: 2,
                 trades: [relayTrade(true), relayTrade(false)],
             },
@@ -319,7 +323,9 @@ test('boots from the Helius market fallback when DexScreener is unavailable', as
                 { address: '6e7V9eegCHw997T72MxgwwJipZ6GJyZF8NvjkzT1rvpN', dexId: 'meteora', quoteSymbol: 'SOL' },
                 { address: 'FnzKY6x7entQ1eR3D225dQyT7ybfka4PskBMQhb8L3CC', dexId: 'pumpswap', quoteSymbol: 'SOL' },
             ],
-            source: 'helius-fallback',
+            token: { identity: { mint: token } },
+                valuation: providerValuation({ tokenMint: token, source: 'helius-fallback', priceUsd: 0.259, fdv: 258000000 }),
+                source: 'helius-fallback',
         },
     }));
     await page.goto('/');
@@ -774,12 +780,12 @@ function geckoTrade(isBuy) {
 }
 
 function relayTrade(isBuy) {
-    return {
+    return canonicalEvent({
         id: isBuy ? 'buy-signature' : 'sell-signature',
         txHash: isBuy ? 'buy-signature' : 'sell-signature',
         isBuy,
         tokenAmount: isBuy ? 10_000 : 5_000,
-        usdValue: isBuy ? 2_500 : 800,
+        usdValue: null, quoteAmount: isBuy ? 25 : 8,
         solValue: isBuy ? 25 : 8,
         isWhale: isBuy,
         timestamp: Date.now() - (isBuy ? 500 : 250),
@@ -788,5 +794,5 @@ function relayTrade(isBuy) {
         dexId: isBuy ? 'pumpswap' : 'meteora',
         quoteSymbol: 'SOL',
         provider: 'helius',
-    };
+    });
 }

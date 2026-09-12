@@ -1,3 +1,4 @@
+import { providerValuation } from '../js/market-valuation.js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { initAPI } from '../js/api.js';
 import { createTokenRuntime } from '../js/state.js';
@@ -21,7 +22,7 @@ describe('token API teardown', () => {
 
     it('clears scheduled market and trade polling timers', () => {
         const api = initAPI({}, { runtime: createTokenRuntime(DEFAULT_TOKEN_CONTEXT) });
-        expect(api.getDiagnostics().timers).toBe(2);
+        expect(api.getDiagnostics().timers).toBe(3);
         api.destroy();
         expect(api.getDiagnostics()).toMatchObject({ destroyed: true, timers: 0, requests: 0, streamActive: false });
     });
@@ -88,6 +89,7 @@ describe('token API teardown', () => {
             }
         }
         vi.stubGlobal('WebSocket', FakeWebSocket);
+        vi.stubGlobal('fetch', vi.fn(() => new Promise(() => {})));
         const pool = { address: '6e7V9eegCHw997T72MxgwwJipZ6GJyZF8NvjkzT1rvpN', dexId: 'fixture', quoteSymbol: 'SOL' };
         const api = initAPI({}, {
             runtime: createTokenRuntime(DEFAULT_TOKEN_CONTEXT),
@@ -100,6 +102,7 @@ describe('token API teardown', () => {
                 coverage: 100,
                 solPriceUsd: 100,
                 source: 'dexscreener',
+                valuation: providerValuation({ tokenMint: DEFAULT_TOKEN_CONTEXT.identity.mint, source: 'dexscreener', priceUsd: 1, marketCap: 1e6 }),
             },
         });
         expect(FakeWebSocket.instances).toHaveLength(1);

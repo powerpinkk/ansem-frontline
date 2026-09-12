@@ -1,5 +1,7 @@
 import { TOKEN_DISCOVERY_STATUS, createTokenContext } from '../../js/token-context.js';
 import { ANSEM_FALLBACK_POOLS, ANSEM_MINT } from '../../js/token-presets.js';
+import { providerValuation } from '../../js/market-valuation.js';
+import { positive } from '../../js/market-selection.js';
 
 export const SOL_MINT = 'So11111111111111111111111111111111111111112';
 
@@ -8,15 +10,19 @@ export function fallbackPoolsForMint(mint) {
 }
 
 export function normalizeHeliusMarket(token, sol, { mint = ANSEM_MINT, pools = fallbackPoolsForMint(mint) } = {}) {
-    const price = Number(token?.token_info?.price_info?.price_per_token || 0);
-    const solPriceUsd = Number(sol?.token_info?.price_info?.price_per_token || 0);
-    const reportedDecimals = Number(token?.token_info?.decimals);
+    if ((token?.id && token.id !== mint) || (sol?.id && sol.id !== SOL_MINT)) return null;
+    const price = positive(token?.token_info?.price_info?.price_per_token);
+    const solPriceUsd = positive(sol?.token_info?.price_info?.price_per_token);
+    const value = token?.token_info?.decimals;
+    const reportedDecimals = value === null || value === undefined || typeof value === 'boolean' || value === '' ? NaN : Number(value);
     const decimals = Number.isInteger(reportedDecimals) && reportedDecimals >= 0 && reportedDecimals <= 18
         ? reportedDecimals
         : null;
-    const rawSupply = Number(token?.token_info?.supply || 0);
-    const supply = decimals !== null && Number.isFinite(rawSupply) && rawSupply >= 0
-        ? rawSupply / (10 ** decimals)
+    const reportedSupply = token?.token_info?.supply;
+    const rawSupply = typeof reportedSupply === 'string' && /^\d{1,20}$/.test(reportedSupply) && BigInt(reportedSupply) <= 18446744073709551615n
+        ? reportedSupply : Number.isSafeInteger(reportedSupply) && reportedSupply >= 0 ? String(reportedSupply) : null;
+    const supply = decimals !== null && rawSupply !== null
+        ? Number(rawSupply) / (10 ** decimals)
         : null;
     if (!Number.isFinite(price) || !(price > 0) || !Number.isFinite(solPriceUsd) || !(solPriceUsd > 0)) return null;
     const metadata = token?.content?.metadata || {};
@@ -37,10 +43,14 @@ export function normalizeHeliusMarket(token, sol, { mint = ANSEM_MINT, pools = f
             provenance: { identity: 'helius', supply: 'helius', market: 'helius', pools: pools.length ? 'default-preset' : 'unavailable' },
         },
     });
+    const valuation = providerValuation({ tokenMint: mint, source: 'helius-fallback', priceUsd: price,
+        fdv: supply > 0 ? supply * price : null,
+        supplyBasis: supply !== null ? { kind: 'TOTAL', rawAmount: rawSupply, decimals, source: 'helius-das' } : null });
     return {
         price,
         solPriceUsd,
-        mcap: supply > 0 ? supply * price : 0,
+        mcap: null,
+        valuation,
         chg: null,
         pools,
         token: tokenContext,

@@ -15,6 +15,7 @@ import { initThemeStudio } from './theme-studio.js';
 import { createChampionController } from './champion-controller.js';
 import { createChampionPolicy, DEFAULT_CHAMPION_DURATION_MS } from './champion-policy.js';
 import { initChampionUI } from './champion-ui.js';
+import { activeTrade } from './market-evidence.js';
 import {
     initUI,
     bindCameraControls,
@@ -38,6 +39,7 @@ import {
     updateBattleLogSnapshot,
     showTradesReady,
     resetFrontlineUI,
+    removeTradeFromFeed,
 } from './ui.js';
 
 let lastBullSwarmAt = 0;
@@ -75,6 +77,8 @@ const unsubscribeChampion = championController.subscribe((snapshot) => {
 
 function handleTrade(trade, meta) {
     if (awaySession && !meta.bootstrap && trade.timestamp >= awaySession.startedAt) {
+        awaySession.countedIds.add(trade.id);
+        if (awaySession.countedIds.size > 1024) awaySession.countedIds.delete(awaySession.countedIds.values().next().value);
         if (trade.isBuy) {
             awaySession.buys += 1;
             awaySession.buySol += trade.solValue;
@@ -89,6 +93,7 @@ function handleTrade(trade, meta) {
     if (trade.isWhale) addWhaleSpawnEvent(type, trade.solValue, trade.usdValue);
     if (!sceneReady) {
         pendingSceneTrades.push({ trade, meta });
+        if (pendingSceneTrades.length > 32) pendingSceneTrades.shift();
         return;
     }
     applyTradeToScene(trade, meta);
@@ -152,6 +157,32 @@ function mountRuntime(resolution) {
         }),
         onTrade: active(handleTrade),
         onHistoricalTrade: active(addOnChainTrade),
+        onSettlementUpdate: active(addOnChainTrade),
+        onTradeReconciliation: active((event, _journal, before) => {
+            if (awaySession?.countedIds.has(event.id)) {
+                const count = before.isBuy ? 'buys' : 'sells';
+                const amount = before.isBuy ? 'buySol' : 'sellSol';
+                if (activeTrade(before)) {
+                    awaySession[count] = Math.max(0, awaySession[count] - 1);
+                    awaySession[amount] = Math.max(0, awaySession[amount] - (before.solValue || 0));
+                }
+                if (activeTrade(event)) {
+                    awaySession[event.isBuy ? 'buys' : 'sells'] += 1;
+                    awaySession[event.isBuy ? 'buySol' : 'sellSol'] += event.solValue || 0;
+                }
+            }
+            removeTradeFromFeed(event.id);
+            sceneModule?.removeTradePresentation(event.id);
+            for (let i = pendingSceneTrades.length - 1; i >= 0; i -= 1) {
+                if (pendingSceneTrades[i].trade.id === event.id) pendingSceneTrades.splice(i, 1);
+            }
+            if (activeTrade(event)) {
+                addOnChainTrade(event);
+                if (event.timestamp !== null && Date.now() - event.timestamp <= 60_000) {
+                    sceneModule?.spawnUnit(event.isBuy ? 'bull' : 'bear', true, event.isWhale, event);
+                }
+            }
+        }),
         onPressureUpdate: active(updateDashboardUI),
         onConnectionChange: active((status) => {
             setConnectionStatus(status);
@@ -308,7 +339,7 @@ function handleVisibility() {
     }
     if (document.hidden) {
         if (!awaySession) {
-            awaySession = { startedAt: Date.now(), buys: 0, sells: 0, buySol: 0, sellSol: 0 };
+            awaySession = { startedAt: Date.now(), buys: 0, sells: 0, buySol: 0, sellSol: 0, countedIds: new Set() };
         }
         sceneModule?.setSceneActive(false);
         return;

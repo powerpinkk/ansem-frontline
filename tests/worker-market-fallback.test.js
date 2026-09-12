@@ -6,12 +6,25 @@ import { DEFAULT_TOKEN_CONTEXT } from '../js/token-presets.js';
 const USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
 
 describe('Helius market fallback normalization', () => {
-    it('derives market cap from raw supply and decimals', () => {
+    it('does not fabricate supply scale from missing decimals, overflow or unsafe numbers', () => {
+        const sol = { token_info: { price_info: { price_per_token: 95 } } };
+        for (const info of [{ supply: '1000', decimals: null }, { supply: '1000' },
+            { supply: '18446744073709551616', decimals: 6 }, { supply: 1e20, decimals: 6 }]) {
+            const market = normalizeHeliusMarket({ token_info: { ...info, price_info: { price_per_token: 1 } } }, sol);
+            expect(market.valuation).toMatchObject({ kind: 'UNKNOWN', valueUsd: null });
+        }
+    });
+    it('rejects foreign mint provenance and boolean price fields', () => {
+        const sol = { token_info: { price_info: { price_per_token: 95 } } };
+        expect(normalizeHeliusMarket({ id: USDC_MINT, token_info: { price_info: { price_per_token: 1 } } }, sol)).toBeNull();
+        expect(normalizeHeliusMarket({ token_info: { price_info: { price_per_token: true } } }, sol)).toBeNull();
+    });
+    it('labels total-supply valuation as FDV', () => {
         const market = normalizeHeliusMarket(
             { token_info: { price_info: { price_per_token: 0.25 }, supply: '1000000000', decimals: 2 } },
             { token_info: { price_info: { price_per_token: 95 } } },
         );
-        expect(market).toMatchObject({ price: 0.25, solPriceUsd: 95, mcap: 2_500_000, source: 'helius-fallback' });
+        expect(market).toMatchObject({ price: 0.25, solPriceUsd: 95, mcap: null, valuation: { kind: 'FDV', valueUsd: 2_500_000 }, source: 'helius-fallback' });
         expect(market.pools).toHaveLength(5);
         expect(market.token.identity.mint).toBe(DEFAULT_TOKEN_CONTEXT.identity.mint);
     });
