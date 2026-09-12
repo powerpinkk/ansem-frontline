@@ -6,6 +6,7 @@ import {
     pixelPresentation,
 } from './pixel-engine.js';
 import { state } from './state.js';
+import { sanitizeChampionSnapshot } from './champion-sync.js';
 import { tokenCacheKey } from './token-context.js';
 import { DEFAULT_TOKEN_CONTEXT } from './token-presets.js';
 import { ANSEM_THEME } from './theme-presets.js';
@@ -21,6 +22,7 @@ export function initPixelCompanion({ setSceneActive, tokenContext = DEFAULT_TOKE
 
     let currentTokenContext = tokenContext;
     let currentTheme = theme;
+    let currentChampionSnapshot = null;
     let channel = new BroadcastChannel(tokenCacheKey('ansem-frontline:pixel', currentTokenContext, 'v1'));
     const canvas = document.createElement('canvas');
     const video = document.createElement('video');
@@ -56,6 +58,8 @@ export function initPixelCompanion({ setSceneActive, tokenContext = DEFAULT_TOKE
         if (destroyed) return;
         const snapshot = {
             ...createPixelSnapshot(state),
+            mint: currentTokenContext.identity.mint,
+            champion: currentChampionSnapshot,
             presentation: { themeId: currentTheme.identity.id },
         };
         channel.postMessage(snapshot);
@@ -196,6 +200,12 @@ export function initPixelCompanion({ setSceneActive, tokenContext = DEFAULT_TOKE
         mint: currentTokenContext.identity.mint,
         themeId: currentTheme.identity.id,
         channel: tokenCacheKey('ansem-frontline:pixel', currentTokenContext, 'v1'),
+        champion: currentChampionSnapshot ? {
+            status: currentChampionSnapshot.status,
+            activationId: currentChampionSnapshot.activationId,
+            source: currentChampionSnapshot.source,
+            sequence: currentChampionSnapshot.sequence,
+        } : null,
     });
     const destroy = () => {
         if (destroyed) return;
@@ -213,6 +223,7 @@ export function initPixelCompanion({ setSceneActive, tokenContext = DEFAULT_TOKE
             if (!nextContext?.identity?.mint || nextContext.identity.mint === currentTokenContext.identity.mint) return;
             channel.close();
             currentTokenContext = nextContext;
+            currentChampionSnapshot = null;
             channel = new BroadcastChannel(tokenCacheKey('ansem-frontline:pixel', currentTokenContext, 'v1'));
             if (dockLabel) dockLabel.textContent = `▦ $${currentTokenContext.identity.symbol || 'TOKEN'} PIXEL FRONTLINE`;
             publish();
@@ -226,6 +237,15 @@ export function initPixelCompanion({ setSceneActive, tokenContext = DEFAULT_TOKE
             if (companionStyle) companionStyle.textContent = companionStyles(currentTheme);
             publish();
             return true;
+        },
+        setChampionSnapshot(snapshot) {
+            currentChampionSnapshot = sanitizeChampionSnapshot(
+                snapshot,
+                currentTokenContext.identity.mint,
+                Date.now(),
+            );
+            publish();
+            return Boolean(currentChampionSnapshot);
         },
         destroy,
     };

@@ -91,6 +91,8 @@ const crowdBattle = {
 let scene, camera, renderer, frontlineLaser, frontlineMaterial, orbitControls, terrainMaterial;
 let ambientLight, hemisphereLight, sunLight, rimLight;
 let bullKingRig, kingMount, kingRider, kingRiderHead, kingRiderArm, kingWingNear, kingWingFar, kingStaff, kingStaffGlow, kingMountAura, kingTail;
+let userChampionRig, userChampionBull, userChampionSentinel, userChampionAura, userChampionLight;
+let userChampionSnapshot = null;
 const kingLegs = [];
 let kingTime = 0;
 let bullSupportUntil = 0;
@@ -158,6 +160,7 @@ const geoStaff = new THREE.CylinderGeometry(0.11, 0.16, 5.2, 8);
 const supportWaveGeometry = new THREE.RingGeometry(1, 1.35, 40);
 const unitAuraGeometry = new THREE.RingGeometry(1.2, 1.8, 24);
 const chargeImpactGeometry = new THREE.RingGeometry(0.82, 1.28, 28);
+const userChampionSentinelGeometry = new THREE.OctahedronGeometry(1, 0);
 const projectileGeometry = new THREE.CylinderGeometry(0.15, 0.15, 2.0, 8);
 projectileGeometry.rotateZ(Math.PI / 2);
 const projectileGlowGeometry = new THREE.CylinderGeometry(0.35, 0.35, 2.0, 8);
@@ -272,6 +275,9 @@ const matBullEye = new THREE.MeshStandardMaterial({ color: 0x021008, emissive: 0
 const matBullWhaleEye = matBullEye.clone();
 matBullWhaleEye.emissiveIntensity = 8;
 const matKingEyeBeam = new THREE.MeshBasicMaterial({ color: 0x00ff88, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false });
+const matUserChampionPrimary = new THREE.MeshPhysicalMaterial({ color: 0x050807, metalness: 0.72, roughness: 0.22, clearcoat: 0.7 });
+const matUserChampionAccent = new THREE.MeshStandardMaterial({ color: 0xffd700, emissive: 0x7a4300, emissiveIntensity: 0.8, metalness: 0.82, roughness: 0.18 });
+const matUserChampionGlow = new THREE.MeshBasicMaterial({ color: 0x00ff88, transparent: true, opacity: 0.34, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false, side: THREE.DoubleSide });
 const matBearEye = new THREE.MeshPhysicalMaterial({ color: 0x2c000d, emissive: 0x8f002c, emissiveIntensity: 7, metalness: 0.92, roughness: 0.04, clearcoat: 1 });
 const matBearWhaleEye = matBearEye.clone();
 matBearWhaleEye.emissiveIntensity = 13;
@@ -469,6 +475,19 @@ export function initScene(callbacks = {}) {
                 speed: kingSpeed,
                 turnRate: kingTurnRate,
                 ...getKingViewDiagnostics(),
+            } : null,
+            userChampion: userChampionRig ? {
+                entityKind: userChampionRig.userData.entityKind,
+                active: userChampionRig.visible,
+                activationId: userChampionRig.userData.activationId || null,
+                mint: userChampionSnapshot?.mint || null,
+                source: userChampionSnapshot?.source || null,
+                style: activeScenePresentation?.champion?.style || null,
+                presentationCount: userChampionRig.visible ? 1 : 0,
+                participatesInCombat: false,
+                x: userChampionRig.position.x,
+                y: userChampionRig.position.y,
+                z: userChampionRig.position.z,
             } : null,
             render: renderer ? {
                 calls: renderer.info.render.calls,
@@ -694,7 +713,7 @@ export function initScene(callbacks = {}) {
 
 export function applyThemePresentation(presentation) {
     if (!presentation?.themeId || !presentation?.environment || !presentation?.lighting
-        || !presentation?.materials || !presentation?.hero) {
+        || !presentation?.materials || !presentation?.hero || !presentation?.champion) {
         throw new TypeError('Invalid scene theme presentation');
     }
     activeScenePresentation = presentation;
@@ -726,6 +745,7 @@ export function applyThemePresentation(presentation) {
     applyLight(sunLight, lighting.sun);
     applyLight(rimLight, lighting.rim);
     applyMaterialPalette(materials);
+    applyUserChampionTheme(presentation.champion);
 
     if (bullKingRig) bullKingRig.visible = presentation.hero.visible;
     if (kingMountAura?.material) kingMountAura.material.color.set(materials.heroBeam);
@@ -736,6 +756,28 @@ export function applyThemePresentation(presentation) {
     chargeImpacts.forEach((impact) => impact.mesh.material.color.set(materials.buyAccent));
     setFrontlineState(state.marketTrend === 1 ? 'buy' : state.marketTrend === -1 ? 'sell' : 'neutral');
     renderNow();
+}
+
+export function setUserChampionSnapshot(snapshot) {
+    userChampionSnapshot = snapshot?.status === 'active' && snapshot.expiresAt > Date.now() ? snapshot : null;
+    if (!userChampionRig) return;
+    userChampionRig.visible = Boolean(userChampionSnapshot);
+    userChampionRig.userData.activationId = userChampionSnapshot?.activationId || null;
+    userChampionRig.userData.mint = userChampionSnapshot?.mint || null;
+    if (userChampionSnapshot) {
+        userChampionRig.position.set(-14, getTrenchHeight(-14, 10), 10);
+    }
+    renderNow();
+}
+
+function applyUserChampionTheme(champion) {
+    if (!champion) return;
+    setMaterial(matUserChampionPrimary, champion.primary);
+    setMaterial(matUserChampionAccent, champion.accent, champion.accent);
+    setMaterial(matUserChampionGlow, champion.glow);
+    if (userChampionLight) userChampionLight.color.set(champion.glow);
+    if (userChampionBull) userChampionBull.visible = champion.style === 'black-bull';
+    if (userChampionSentinel) userChampionSentinel.visible = champion.style === 'neutral-sentinel';
 }
 
 function applyMaterialPalette(materials) {
@@ -933,6 +975,12 @@ export function resetTokenPresentation() {
         bearStance: 'muster',
     });
     selectedEntity = null;
+    userChampionSnapshot = null;
+    if (userChampionRig) {
+        userChampionRig.visible = false;
+        userChampionRig.userData.activationId = null;
+        userChampionRig.userData.mint = null;
+    }
     onInspectUnit(null);
     floatContainer?.replaceChildren();
     setFrontlineState('neutral');
@@ -1590,6 +1638,7 @@ function init3D() {
     createGrassTufts();
     createCrowdArmies();
     createFlyingBullKing();
+    createUserChampionRig();
 
     frontlineLaser = new THREE.Group();
     const markerGeometry = new THREE.PlaneGeometry(0.34, 2.45);
@@ -1879,6 +1928,80 @@ function createCrowdArmies() {
         crowdMeshes[type] = { body, accent, detail, eyes, legs };
         scene.add(body, accent, detail, eyes, ...legs);
     }
+}
+
+function createUserChampionRig() {
+    userChampionRig = new THREE.Group();
+    userChampionRig.name = 'user-champion';
+    userChampionRig.userData.entityKind = 'user-champion';
+    userChampionRig.userData.participatesInCombat = false;
+    userChampionRig.visible = false;
+
+    userChampionBull = new THREE.Group();
+    const bullBody = createMesh(geoDetailedBullBody, matUserChampionPrimary, 1.18, 1.18, 1.18);
+    bullBody.position.y = 1.7;
+    const bullHead = createMesh(geoBox, matUserChampionPrimary, 1.04, 1.04, 1.04);
+    bullHead.position.set(1.25, 2.1, 0);
+    const bullHorns = createMesh(geoBullHornPair, matUserChampionAccent, 1.3, 1.3, 1.3);
+    bullHead.add(bullHorns);
+    [[0.68, 0.48], [0.68, -0.48], [-0.68, 0.48], [-0.68, -0.48]].forEach(([x, z]) => {
+        const leg = createMesh(geoLegBull, matUserChampionPrimary, 1.1, 1.18, 1.1);
+        leg.position.set(x, 1.15, z);
+        userChampionBull.add(leg);
+    });
+    userChampionBull.add(bullBody, bullHead);
+    userChampionBull.scale.setScalar(1.1);
+
+    userChampionSentinel = new THREE.Group();
+    const sentinelCore = createMesh(userChampionSentinelGeometry, matUserChampionPrimary, 1.45, 2.25, 1.45);
+    sentinelCore.position.y = 2.6;
+    const sentinelBand = new THREE.Mesh(new THREE.TorusGeometry(1.45, 0.13, 8, 28), matUserChampionAccent);
+    sentinelBand.position.y = 2.6;
+    sentinelBand.rotation.x = Math.PI / 2;
+    const sentinelBase = createMesh(geoCone, matUserChampionPrimary, 1.15, 2.4, 1.15);
+    sentinelBase.position.y = 0.75;
+    const sentinelCrest = createMesh(geoCone, matUserChampionAccent, 0.62, 1.3, 0.62);
+    sentinelCrest.position.y = 4.45;
+    userChampionSentinel.add(sentinelCore, sentinelBand, sentinelBase, sentinelCrest);
+
+    userChampionAura = new THREE.Mesh(unitAuraGeometry, matUserChampionGlow);
+    userChampionAura.rotation.x = -Math.PI / 2;
+    userChampionAura.position.y = 0.12;
+    userChampionAura.scale.setScalar(1.7);
+    userChampionLight = new THREE.PointLight(0x00ff88, 5, 18, 2);
+    userChampionLight.position.set(0, 3.2, 0);
+    userChampionRig.add(userChampionBull, userChampionSentinel, userChampionAura, userChampionLight);
+    userChampionRig.traverse((child) => {
+        if (child.isMesh) child.castShadow = false;
+    });
+    scene.add(userChampionRig);
+    applyUserChampionTheme(activeScenePresentation?.champion || {
+        style: 'black-bull', primary: '#050807', accent: '#ffd700', glow: '#00ff88',
+    });
+    // Upload both bounded presentations during scene warm-up so the first
+    // activation does not allocate new GPU resources or hitch the battlefield.
+    userChampionRig.visible = true;
+    userChampionBull.visible = true;
+    userChampionSentinel.visible = false;
+    renderer.render(scene, camera);
+    userChampionBull.visible = false;
+    userChampionSentinel.visible = true;
+    renderer.render(scene, camera);
+    applyUserChampionTheme(activeScenePresentation?.champion || {
+        style: 'black-bull', primary: '#050807', accent: '#ffd700', glow: '#00ff88',
+    });
+    userChampionRig.visible = false;
+}
+
+function updateUserChampion(timestamp) {
+    if (!userChampionRig?.visible) return;
+    const time = timestamp / 1_000;
+    const baseY = getTrenchHeight(userChampionRig.position.x, userChampionRig.position.z);
+    userChampionRig.position.y = baseY + Math.sin(time * 1.7) * (prefersReducedMotion ? 0.04 : 0.16);
+    userChampionAura.material.opacity = 0.24 + Math.sin(time * 2.4) * 0.06;
+    userChampionAura.rotation.z = time * 0.22;
+    if (userChampionBull?.visible) userChampionBull.rotation.y = -0.12 + Math.sin(time * 0.55) * 0.08;
+    if (userChampionSentinel?.visible) userChampionSentinel.rotation.y = time * 0.32;
 }
 
 function createFlyingBullKing() {
@@ -4926,6 +5049,7 @@ function gameLoop(timestamp) {
     updateChargeImpacts(simulationDelta);
     updateParticles(simulationDelta);
     updateEnvironment(presentationDelta);
+    updateUserChampion(timestamp);
     updateCamera(presentationDelta);
     renderer.render(scene, camera);
     updateAdaptiveQuality(simulationDelta);

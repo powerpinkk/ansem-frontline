@@ -29,6 +29,15 @@ describe('ThemeDefinition', () => {
         expect(Object.isFrozen(theme.pixel.colors)).toBe(true);
     });
 
+    it('upgrades an M7 definition without Champion presentation fields', () => {
+        const legacy = structuredClone(ANSEM_THEME);
+        delete legacy.scene.champion;
+        delete legacy.pixel.champion;
+        const upgraded = createThemeDefinition(legacy);
+        expect(upgraded.scene.champion).toMatchObject({ style: 'black-bull' });
+        expect(upgraded.pixel.champion).toMatchObject({ style: 'black-bull' });
+    });
+
     it('rejects a malformed definition', () => {
         const malformed = structuredClone(ANSEM_THEME);
         delete malformed.scene.environment;
@@ -196,7 +205,7 @@ describe('presentation adapters', () => {
         expect(fakeDocument.elements.get('theme-legend-buy').textContent).toBe('buy unit = verified buy');
         expect(fakeDocument.title).toBe('TOKEN FRONTLINE • On-Chain Live Data');
         expect(fakeDocument.meta.content).toBe('#071017');
-        expect(fakeDocument.styles).toHaveLength(8);
+        expect(fakeDocument.styles).toHaveLength(10);
     });
 
     it('updates Pixel Frontline in place without creating another engine', () => {

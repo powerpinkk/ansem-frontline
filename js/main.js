@@ -12,6 +12,9 @@ import { createThemePresentationController } from './theme-presentation.js';
 import { GENERIC_THEME, THEME_REGISTRY, THEME_RESOLVER } from './theme-presets.js';
 import { ANSEM_THEME } from './theme-presets.js';
 import { initThemeStudio } from './theme-studio.js';
+import { createChampionController } from './champion-controller.js';
+import { createChampionPolicy, DEFAULT_CHAMPION_DURATION_MS } from './champion-policy.js';
+import { initChampionUI } from './champion-ui.js';
 import {
     initUI,
     bindCameraControls,
@@ -46,6 +49,8 @@ let currentSession = null;
 let tokenController = null;
 let tokenUI = null;
 let themeStudio = null;
+let championUI = null;
+let championSnapshot = null;
 const pendingSceneTrades = [];
 const runtimeSessions = [];
 const sceneThemeAdapter = createSceneThemeAdapter();
@@ -54,6 +59,18 @@ const themePresentation = createThemePresentationController({
     registry: THEME_REGISTRY,
     resolver: THEME_RESOLVER,
     adapters: [createUIThemeAdapter(), sceneThemeAdapter, companionThemeAdapter],
+});
+const championController = createChampionController({
+    policy: createChampionPolicy({
+        durationMs: DEFAULT_CHAMPION_DURATION_MS,
+        testDurationMs: import.meta.env.MODE === 'e2e' ? 2_000 : DEFAULT_CHAMPION_DURATION_MS,
+    }),
+});
+const unsubscribeChampion = championController.subscribe((snapshot) => {
+    championSnapshot = snapshot;
+    championUI?.setSnapshot(snapshot);
+    sceneModule?.setUserChampionSnapshot(snapshot);
+    companionController?.setChampionSnapshot(snapshot);
 });
 
 function handleTrade(trade, meta) {
@@ -123,6 +140,7 @@ function mountRuntime(resolution) {
     resetFrontlineUI();
     sceneModule?.resetTokenPresentation();
     companionController?.setTokenContext(runtime.context);
+    championController.setActiveMint(runtime.context.identity.mint);
 
     const active = (callback) => (...args) => {
         if (session.active && currentSession === session) callback(...args);
@@ -180,6 +198,7 @@ function loadRoute() {
 
 function boot() {
     initUI({ setFrontlineState: (frontlineState) => sceneModule?.setFrontlineState(frontlineState) });
+    championUI = initChampionUI();
     bindCameraControls((mode) => sceneModule?.setCameraMode(mode));
     showBattleLogSyncing();
     showTradesWaiting();
@@ -204,7 +223,7 @@ function boot() {
     });
     bindPageLifecycle();
     window.addEventListener('popstate', () => void loadRoute());
-    window.addEventListener('beforeunload', () => tokenController.destroy(), { once: true });
+    window.addEventListener('beforeunload', destroyApplicationControllers, { once: true });
     void loadRoute();
 
     void import('./scene.js').then((loadedScene) => {
@@ -218,6 +237,7 @@ function boot() {
         });
         sceneThemeAdapter.connect(sceneModule);
         if (!currentSession) sceneModule.resetTokenPresentation();
+        sceneModule.setUserChampionSnapshot(championSnapshot);
         flushPendingSceneTrades();
         sceneModule.startGameLoop();
         if (import.meta.env.DEV) window.__ansemHandleVisibility = handleVisibility;
@@ -228,6 +248,7 @@ function boot() {
         });
         companionThemeAdapter.connect(companionController);
         if (currentSession) companionController?.setTokenContext(currentSession.context);
+        if (championSnapshot) companionController?.setChampionSnapshot(championSnapshot);
     }).catch((error) => {
         console.error('[scene] Failed to initialize', error);
         setRendererStatus('lost');
@@ -246,6 +267,11 @@ function boot() {
         });
         window.__ansemThemeDiagnostics = () => themePresentation.getDiagnostics();
         window.__ansemThemeStudioDiagnostics = () => themeStudio?.getDiagnostics() || null;
+        window.__ansemChampionDiagnostics = () => ({
+            controller: championController.getDiagnostics(),
+            ui: championUI?.getDiagnostics() || null,
+            active: championSnapshot,
+        });
         window.__ansemOpenThemeStudio = () => themeStudio?.open();
         window.__ansemApplyTheme = (themeId) => themePresentation.applyThemeId(String(themeId)).identity.id;
         window.__ansemApplyMissingAssetTheme = () => themePresentation.applyDefinition({
@@ -254,6 +280,25 @@ function boot() {
             assets: { emblem: 'themes/missing-emblem.png' },
         }).identity.id;
     }
+    if (import.meta.env.DEV) {
+        window.__ansemActivateSimulatedChampion = (displayLabel = null) => championController.activateSimulatedChampion({
+            mint: currentSession?.context?.identity?.mint,
+            displayLabel,
+        });
+        window.__ansemDeactivateChampion = () => championController.deactivate();
+    }
+    if (import.meta.env.MODE === 'e2e') {
+        window.__ansemActivateTestChampion = () => championController.activateTestChampion({
+            mint: currentSession?.context?.identity?.mint,
+        });
+    }
+}
+
+function destroyApplicationControllers() {
+    tokenController?.destroy();
+    unsubscribeChampion();
+    championUI?.destroy();
+    championController.destroy();
 }
 
 function handleVisibility() {
@@ -287,7 +332,7 @@ function bindPageLifecycle() {
     document.addEventListener('visibilitychange', handleVisibility);
     window.addEventListener('pagehide', (event) => {
         sceneModule?.setSceneActive(false);
-        if (!event.persisted) tokenController?.destroy();
+        if (!event.persisted) destroyApplicationControllers();
     });
     window.addEventListener('pageshow', () => {
         sceneModule?.setSceneActive(true);

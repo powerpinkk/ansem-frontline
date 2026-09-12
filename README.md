@@ -135,6 +135,12 @@ The presentation controller applies a resolved definition through bounded scene,
 
 ANSEM keeps the historical colors, copy, procedural battlefield, special commander and Pixel palette as an explicit compatibility preset. Generic Frontline uses neutral product branding and colors without inventing branding or downloading assets for the selected token. There is no public theme URL parameter or selector. See [Theme Engine architecture](docs/theme-engine.md) for the internal extension contract. Theme Studio, user-generated themes and public personalization are intentionally outside M6.
 
+### User Champion (M8)
+
+M8 adds a simulated, session-memory User Champion as a state and lifecycle dimension separate from token identity, verified trades, market data and themes. The main window owns one bounded token-scoped controller and one expiry timer; reactivation refreshes the 30-minute window without stacking entities. ANSEM receives a Black Bull-inspired presentation while Generic Frontline receives a neutral sentinel. Both the 3D battlefield and Pixel/PiP consume the same sanitized snapshot, and expired state cannot reappear after a token switch.
+
+The existing verified foreground swap “champions” and the persistent Bull King commander are unchanged. The User Champion never joins combat arrays, changes force calculations, creates a trade, opens a socket or modifies `TokenContext`. Its development-only simulation hook is not compiled into a production build, is not persisted, and is always labelled `SIMULATED`. Wallets, signatures, swaps, quotes and authoritative eligibility are intentionally deferred to M9. See [User Champion architecture](docs/user-champion.md).
+
 ### Theme Studio (M7)
 
 `THEME STUDIO` opens a professional local authoring overlay over the existing M6 Theme Engine. It clones the ANSEM or Generic preset into a separate draft, validates every revision, previews safe changes through the same scene/UI/Pixel/companion adapters, and provides bounded Undo/Redo, section/full reset, explicit preview reversion, local save/autosave and deterministic JSON import/export. Invalid input can never replace the active token theme.
@@ -188,6 +194,11 @@ js/theme-registry.js       Explicit built-in theme registry and fallback
 js/theme-resolver.js       Canonical-mint theme assignment
 js/theme-presets.js        ANSEM and Generic Frontline definitions
 js/theme-adapters.js       Bounded scene, UI and companion adapters
+js/champion-state.js       Canonical token-scoped User Champion state
+js/champion-policy.js      Duration, reactivation and bounded-memory policy
+js/champion-controller.js  In-memory lifecycle owner and single expiry timer
+js/champion-sync.js        Sanitized Pixel/PiP snapshot validation
+js/champion-ui.js          Accessible event status and 1-second countdown
 js/theme-presentation.js   Theme application lifecycle coordinator
 js/theme-assets.js         Safe local asset resolution and fallback
 js/theme-studio-contract.js Curated authoring allowlist and secure import/export

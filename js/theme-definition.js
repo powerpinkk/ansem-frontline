@@ -15,6 +15,8 @@ export const THEME_DEFINITION_LIMITS = Object.freeze({
     copy: 180,
 });
 
+const CHAMPION_STYLES = new Set(['black-bull', 'neutral-sentinel']);
+
 const SCENE_MATERIAL_KEYS = Object.freeze([
     'buyBody', 'buyHead', 'buyAccent', 'buyEye', 'buyEyeEmissive',
     'sellBody', 'sellHead', 'sellDetail', 'sellEye', 'sellEyeEmissive', 'sellLaser',
@@ -53,6 +55,9 @@ export function createThemeDefinition(input) {
     const environment = record(scene.environment, 'ThemeDefinition.scene.environment');
     const lighting = record(scene.lighting, 'ThemeDefinition.scene.lighting');
     const hero = record(scene.hero, 'ThemeDefinition.scene.hero');
+    const champion = scene.champion
+        ? record(scene.champion, 'ThemeDefinition.scene.champion')
+        : legacySceneChampion(source);
     const materials = record(scene.materials, 'ThemeDefinition.scene.materials');
     const ui = record(source.ui, 'ThemeDefinition.ui');
     const brand = record(ui.brand, 'ThemeDefinition.ui.brand');
@@ -60,19 +65,26 @@ export function createThemeDefinition(input) {
     const copy = record(ui.copy, 'ThemeDefinition.ui.copy');
     const pixel = record(source.pixel, 'ThemeDefinition.pixel');
     const pixelColors = record(pixel.colors, 'ThemeDefinition.pixel.colors');
+    const pixelChampion = pixel.champion
+        ? record(pixel.champion, 'ThemeDefinition.pixel.champion')
+        : legacyPixelChampion(source);
     const companion = record(source.companion, 'ThemeDefinition.companion');
     exactKeys(identity, ['id', 'version', 'displayName'], 'ThemeDefinition.identity');
-    exactKeys(scene, ['environment', 'lighting', 'hero', 'materials'], 'ThemeDefinition.scene');
+    exactKeys(scene, scene.champion
+        ? ['environment', 'lighting', 'hero', 'champion', 'materials']
+        : ['environment', 'lighting', 'hero', 'materials'], 'ThemeDefinition.scene');
     exactKeys(environment, ['background', 'fog', 'fogNear', 'fogFar', 'terrainTint', 'buyTrend', 'sellTrend'], 'ThemeDefinition.scene.environment');
     exactKeys(lighting, ['ambient', 'hemisphere', 'sun', 'rim'], 'ThemeDefinition.scene.lighting');
     exactKeys(hero, ['visible'], 'ThemeDefinition.scene.hero');
+    exactKeys(champion, ['style', 'primary', 'accent', 'glow'], 'ThemeDefinition.scene.champion');
     exactKeys(materials, SCENE_MATERIAL_KEYS, 'ThemeDefinition.scene.materials');
     exactKeys(ui, ['brand', 'colors', 'copy'], 'ThemeDefinition.ui');
     exactKeys(brand, ['primary', 'accent', 'documentTitle'], 'ThemeDefinition.ui.brand');
     exactKeys(uiColors, UI_COLOR_KEYS, 'ThemeDefinition.ui.colors');
     exactKeys(copy, UI_COPY_KEYS, 'ThemeDefinition.ui.copy');
-    exactKeys(pixel, ['colors'], 'ThemeDefinition.pixel');
+    exactKeys(pixel, pixel.champion ? ['colors', 'champion'] : ['colors'], 'ThemeDefinition.pixel');
     exactKeys(pixelColors, PIXEL_COLOR_KEYS, 'ThemeDefinition.pixel.colors');
+    exactKeys(pixelChampion, ['style', 'primary', 'accent', 'badge'], 'ThemeDefinition.pixel.champion');
     exactKeys(companion, ['background'], 'ThemeDefinition.companion');
 
     const definition = {
@@ -98,6 +110,12 @@ export function createThemeDefinition(input) {
                 rim: light(lighting.rim, 'rim light'),
             },
             hero: { visible: boolean(hero.visible, 'hero visibility') },
+            champion: {
+                style: championStyle(champion.style, 'scene Champion style'),
+                primary: hex(champion.primary, 'scene Champion primary'),
+                accent: hex(champion.accent, 'scene Champion accent'),
+                glow: hex(champion.glow, 'scene Champion glow'),
+            },
             materials: colorRecord(materials, SCENE_MATERIAL_KEYS, 'scene material'),
         },
         ui: {
@@ -109,7 +127,15 @@ export function createThemeDefinition(input) {
             colors: cssColorRecord(uiColors, UI_COLOR_KEYS, 'UI color'),
             copy: textRecord(copy, UI_COPY_KEYS, 'UI copy'),
         },
-        pixel: { colors: colorRecord(pixelColors, PIXEL_COLOR_KEYS, 'pixel color') },
+        pixel: {
+            colors: colorRecord(pixelColors, PIXEL_COLOR_KEYS, 'pixel color'),
+            champion: {
+                style: championStyle(pixelChampion.style, 'Pixel Champion style'),
+                primary: hex(pixelChampion.primary, 'Pixel Champion primary'),
+                accent: hex(pixelChampion.accent, 'Pixel Champion accent'),
+                badge: hex(pixelChampion.badge, 'Pixel Champion badge'),
+            },
+        },
         companion: { background: hex(companion.background, 'companion background') },
         assets: assetRecord(source.assets),
     };
@@ -117,6 +143,31 @@ export function createThemeDefinition(input) {
         throw new TypeError('Theme fog far must be greater than fog near');
     }
     return deepFreeze(definition);
+}
+
+function championStyle(value, label) {
+    if (!CHAMPION_STYLES.has(value)) throw new TypeError(`${label} is invalid`);
+    return value;
+}
+
+function legacySceneChampion(theme) {
+    const isAnsem = String(theme?.ui?.brand?.primary || '').toUpperCase().includes('ANSEM');
+    return {
+        style: isAnsem ? 'black-bull' : 'neutral-sentinel',
+        primary: theme.scene.materials.buyBody,
+        accent: theme.ui.colors.gold,
+        glow: theme.scene.materials.buyAccent,
+    };
+}
+
+function legacyPixelChampion(theme) {
+    const isAnsem = String(theme?.ui?.brand?.primary || '').toUpperCase().includes('ANSEM');
+    return {
+        style: isAnsem ? 'black-bull' : 'neutral-sentinel',
+        primary: theme.pixel.colors.buyBody,
+        accent: theme.ui.colors.gold,
+        badge: theme.pixel.colors.buyGlow,
+    };
 }
 
 export function isThemeDefinition(value) {

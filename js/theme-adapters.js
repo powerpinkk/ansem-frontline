@@ -33,6 +33,8 @@ export function createUIThemeAdapter(documentRef = document) {
             root.style.setProperty('--theme-surface', colors.surface);
             root.style.setProperty('--theme-border', colors.border);
             root.style.setProperty('--theme-body-glow', colors.bodyGlow);
+            root.style.setProperty('--champion-accent', theme.scene.champion.accent);
+            root.style.setProperty('--champion-glow', theme.scene.champion.glow);
             setText(documentRef, 'theme-brand-primary', theme.ui.brand.primary);
             setText(documentRef, 'theme-brand-accent', theme.ui.brand.accent);
             setText(documentRef, 'theme-legend-buy', theme.ui.copy.legendBuy);
@@ -68,6 +70,7 @@ function applyToScene(sceneModule, theme) {
         environment: theme.scene.environment,
         lighting: theme.scene.lighting,
         hero: theme.scene.hero,
+        champion: theme.scene.champion,
         materials: theme.scene.materials,
     });
 }
