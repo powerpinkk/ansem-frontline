@@ -19,6 +19,8 @@
     --status-offline: #ff3366;
     --status-connecting: #ffd700;
     --status-degraded: #ffaa00;
+    --champion-accent: #ffd700;
+    --champion-glow: #00ff88;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -724,6 +726,28 @@ canvas { width: 100%; height: 100%; display: block; outline: none; }
 .field-trade-signal.buy { color:var(--theme-buy); border-color:color-mix(in srgb, var(--theme-buy) 35%, transparent); box-shadow:0 0 20px color-mix(in srgb, var(--theme-buy) 13%, transparent); }
 .field-trade-signal.sell { color:var(--theme-sell); border-color:color-mix(in srgb, var(--theme-sell) 55%, transparent); box-shadow:0 0 20px color-mix(in srgb, var(--theme-sell) 18%, transparent); }
 
+.champion-status {
+    position: absolute;
+    top: 18px;
+    left: 18px;
+    z-index: 46;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    border: 1px solid color-mix(in srgb, var(--champion-accent) 42%, transparent);
+    border-radius: 8px;
+    background: rgba(3,7,5,.78);
+    box-shadow: 0 0 24px color-mix(in srgb, var(--champion-glow) 12%, transparent);
+    color: var(--champion-accent);
+    font: 800 8px 'Orbitron', sans-serif;
+    letter-spacing: .65px;
+    pointer-events: none;
+}
+.champion-status[hidden] { display: none; }
+.champion-status-mark { color: var(--champion-glow); font-size: 12px; text-shadow: 0 0 10px var(--champion-glow); }
+.champion-status time { color: #eef8f2; font-variant-numeric: tabular-nums; }
+
 @keyframes marketSignal {
     0% { opacity:0; transform:translate(-50%, -12px) scale(.96); }
     12%, 72% { opacity:1; transform:translate(-50%, 0) scale(1); }
@@ -883,6 +907,7 @@ canvas { width: 100%; height: 100%; display: block; outline: none; }
     #battle-state b { font-size:7px; }
     #battle-state span { font-size:7px; }
     .field-trade-signal { top:76px; max-width:calc(100% - 24px); font-size:7px; }
+    .champion-status { top:108px; left:8px; max-width:calc(100% - 16px); padding:6px 8px; font-size:6px; }
     .visible-coverage { right:8px; bottom:76px; max-width:calc(100% - 16px); font-size:6px; }
     .unit-inspector { top:auto; right:8px; bottom:72px; left:8px; width:auto; transform:none; }
     .data-freshness { font-size:7px; }
@@ -890,6 +915,16 @@ canvas { width: 100%; height: 100%; display: block; outline: none; }
     .token-panel { padding: 12px; }
     #momentum { flex: 0 0 auto; padding: 14px; }
     #killfeed, #tradesfeed { flex: 0 0 auto; min-height: 150px; }
+}
+
+@media (min-width: 769px) and (max-width: 1100px) {
+    #topbar { padding: 10px 16px; gap: 10px; }
+    #topbar > :first-child { width: 100%; }
+    .top-stats-container { width: 100%; min-width: 0; justify-content: space-between; gap: 10px; }
+    #holders-box, .mini-chart-wrap { display: none; }
+    #price { font-size: 22px; }
+    #price-container { margin-left: 0; }
+    .champion-status { top:110px; bottom:auto; left:14px; }
 }
 
 @media (max-width: 480px) {

@@ -304,6 +304,14 @@ export class PixelFrontline {
             overlaps: findPixelOverlaps(this.lastLayout),
             pricePoints: this.snapshot.priceTicks?.length || 0,
             mcap: Number(this.snapshot.mcap) || 0,
+            champion: {
+                active: isActivePixelChampion(this.snapshot.champion),
+                activationId: this.snapshot.champion?.activationId || null,
+                mint: this.snapshot.champion?.mint || null,
+                source: this.snapshot.champion?.source || null,
+                style: this.presentation.champion.style,
+                presentationCount: isActivePixelChampion(this.snapshot.champion) ? 1 : 0,
+            },
             themeId: this.presentation.themeId,
             themeApplications: this.presentationApplications,
         };
@@ -338,6 +346,7 @@ export class PixelFrontline {
         ctx.globalAlpha = 1;
 
         for (const unit of this.lastLayout.units) this.drawUnit(unit, time);
+        this.drawUserChampion(w, h, time, footerY);
         if (!this.lastLayout.units.length) this.drawWaitingState(w, h, footerY);
         this.drawMarketHud(w, h);
         this.drawPressureFooter(w, h, this.lastLayout);
@@ -441,6 +450,41 @@ export class PixelFrontline {
         }
         if (isBull) this.drawBull(left, y, scale, stride, attack);
         else this.drawBear(left, y, scale, stride, attack);
+    }
+
+    drawUserChampion(w, h, time, footerY) {
+        if (!isActivePixelChampion(this.snapshot.champion)) return;
+        const ctx = this.ctx;
+        const presentation = this.presentation.champion;
+        const compact = w < 480 || h < 120;
+        const groundTop = Math.floor(h * 0.34);
+        const x = Math.round(w * 0.19);
+        const y = Math.round((groundTop + footerY) * 0.5 + (compact ? 7 : 11));
+        const pulse = Math.sin(time * 0.006) > 0 ? 1 : 0;
+        ctx.save();
+        ctx.globalAlpha = 0.2;
+        crispRect(ctx, x - 28, y - 31, 56, 38, presentation.badge);
+        ctx.globalAlpha = 1;
+        if (presentation.style === 'black-bull') {
+            crispRect(ctx, x - 17, y - 15, 24, 13, presentation.primary);
+            crispRect(ctx, x + 4, y - 18, 13, 11, presentation.primary);
+            crispRect(ctx, x + 5, y - 23, 3, 6, presentation.accent);
+            crispRect(ctx, x + 13, y - 23, 3, 6, presentation.accent);
+            crispRect(ctx, x + 11, y - 17, 3, 3, presentation.badge);
+            crispRect(ctx, x - 12, y - 3, 4, 8 + pulse, presentation.primary);
+            crispRect(ctx, x + 1, y - 3, 4, 9 - pulse, presentation.primary);
+        } else {
+            crispRect(ctx, x - 8, y - 22, 16, 21, presentation.primary);
+            crispRect(ctx, x - 12, y - 17, 24, 11, presentation.accent);
+            crispRect(ctx, x - 4, y - 29, 8, 8, presentation.badge);
+            crispRect(ctx, x - 2, y - 34, 4, 5, presentation.accent);
+        }
+        ctx.fillStyle = presentation.accent;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'bottom';
+        ctx.font = `900 ${compact ? 7 : 9}px monospace`;
+        ctx.fillText(compact ? 'CHAMP · SIM' : 'USER CHAMPION · SIMULATED', x, y - 34);
+        ctx.restore();
     }
 
     drawBull(left, y, scale, stride, attack) {
@@ -553,10 +597,17 @@ export class PixelFrontline {
 }
 
 export function pixelPresentation(theme) {
-    return Object.freeze({ themeId: theme.identity.id, colors: theme.pixel.colors });
+    return Object.freeze({ themeId: theme.identity.id, colors: theme.pixel.colors, champion: theme.pixel.champion });
 }
 
 function normalizePixelPresentation(presentation) {
-    if (!presentation?.themeId || !presentation?.colors) return pixelPresentation(ANSEM_THEME);
+    if (!presentation?.themeId || !presentation?.colors || !presentation?.champion) return pixelPresentation(ANSEM_THEME);
     return presentation;
+}
+
+function isActivePixelChampion(champion, now = Date.now()) {
+    return champion?.status === 'active'
+        && champion?.presentationRole === 'user-champion'
+        && Number.isFinite(champion.expiresAt)
+        && champion.expiresAt > now;
 }

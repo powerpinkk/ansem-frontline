@@ -58,6 +58,7 @@ export const ANSEM_THEME = createThemeDefinition({
             rim: { color: '#00aaff', intensity: 1.5 },
         },
         hero: { visible: true },
+        champion: { style: 'black-bull', primary: '#050807', accent: '#ffd700', glow: '#00ff88' },
         materials: ANSEM_MATERIALS,
     },
     ui: {
@@ -68,7 +69,10 @@ export const ANSEM_THEME = createThemeDefinition({
         },
         copy: ANSEM_COPY,
     },
-    pixel: { colors: ANSEM_PIXEL },
+    pixel: {
+        colors: ANSEM_PIXEL,
+        champion: { style: 'black-bull', primary: '#050807', accent: '#ffd700', badge: '#00ff88' },
+    },
     companion: { background: '#020403' },
     assets: {},
 });
@@ -87,6 +91,7 @@ export const GENERIC_THEME = createThemeDefinition({
             rim: { color: '#5ac8fa', intensity: 1.6 },
         },
         hero: { visible: true },
+        champion: { style: 'neutral-sentinel', primary: '#26363c', accent: '#d8c27a', glow: '#55d6c2' },
         materials: {
             ...ANSEM_MATERIALS,
             buyBody: '#26363c', buyHead: '#1a282e', buyAccent: '#55d6c2', buyEye: '#061719', buyEyeEmissive: '#55f2dd',
@@ -131,6 +136,7 @@ export const GENERIC_THEME = createThemeDefinition({
             sellHead: '#bd857d', sellMuzzle: '#5f3e3a', sellEar: '#704a45', sellEyeAttack: '#ffe4df', sellLeg: '#694541', sellHoof: '#3d2927',
             sellGlow: '#ff806f', sellText: '#ffaaa0', hud: '#09141b', footer: '#0b151b', text: '#edf8f8', muted: '#b6c8cc',
         },
+        champion: { style: 'neutral-sentinel', primary: '#26363c', accent: '#d8c27a', badge: '#55d6c2' },
     },
     companion: { background: '#071017' },
     assets: {},
