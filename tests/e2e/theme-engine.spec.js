@@ -245,7 +245,7 @@ async function installMarketRoutes(page) {
         },
     }));
     await page.route('https://ansem-frontline-stream.ansem-frontline.workers.dev/recent', (route) => route.fulfill({
-        json: { version: 3, tokenMint: route.request().postDataJSON().token.mint, source: 'verified-rpc-history', pools: 1, trades: [] },
+        json: { version: 4, tokenMint: route.request().postDataJSON().token.mint, source: 'verified-rpc-history', pools: 1, trades: [] },
     }));
     await page.route('https://ansem-frontline-stream.ansem-frontline.workers.dev/gecko/**', async (route) => {
         await route.fulfill({ json: route.request().url().includes('/ohlcv/')

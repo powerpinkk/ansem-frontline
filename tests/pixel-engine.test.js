@@ -20,7 +20,7 @@ describe('30-second pixel companion data', () => {
                 { txHash: 'expired', isBuy: true, isWhale: false, solValue: 100, timestamp: now - 30_001 },
             ].map(canonicalEvent),
         }, now);
-        expect(snapshot.trades.map((trade) => trade.id)).toEqual(['fresh-buy', 'fresh-whale']);
+        expect(snapshot.trades.map((trade) => trade.id)).toEqual(['fresh-buy', 'fresh-whale'].map((signature) => canonicalEvent({ signature }).id));
         expect(snapshot.buySol).toBe(3);
         expect(snapshot.sellSol).toBe(24);
         expect(snapshot.online).toBe(true);

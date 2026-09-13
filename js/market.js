@@ -119,7 +119,7 @@ export function evaluateBuySwarm(trades, now = Date.now(), lastTriggeredAt = 0) 
     const recent = trades.filter((trade) => activeTrade(trade) && trade.quoteMint === CONFIG.SOL_MINT
         && Number.isFinite(trade.solValue) && trade.timestamp !== null && now - trade.timestamp >= 0
         && now - trade.timestamp <= CONFIG.BUY_SWARM_WINDOW_MS);
-    const unique = [...new Map(recent.map((trade) => [trade.txHash || trade.id, trade])).values()];
+    const unique = [...new Map(recent.map((trade) => [trade.id || trade.txHash, trade])).values()];
     const buys = unique.filter((trade) => trade.isBuy);
     const buySol = buys.reduce((sum, trade) => sum + trade.solValue, 0);
     const sellSol = unique.filter((trade) => !trade.isBuy).reduce((sum, trade) => sum + trade.solValue, 0);

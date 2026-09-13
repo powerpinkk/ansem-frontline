@@ -1,14 +1,18 @@
-import { createTradeJournal } from '../../js/market-evidence.js';
+import { createTradeJournal, isCanonicalTrade, isUserEconomicAttribution } from '../../js/market-evidence.js';
 import { verifyTransaction } from './transaction-evidence.js';
 import { validSignature } from './protocol-verifiers.js';
 import { verificationCategory, summarizeCoverage } from './verification-coverage.js';
+import { verifyPoolExecutions } from './pool-executions.js';
+import { summarizePoolCoverage } from './pool-coverage.js';
 
 export const INGESTION_POLICY = Object.freeze({ maxRecords: 1024, maxQueued: 128, concurrency: 2,
     maxAgeMs: 300_000, retries: 3, reconciliationMs: 3000, reconciliationDeadlineMs: 90_000, statusBatch: 50, maxTransactionReadsPerMinute: 120 });
 
-export function createEvidenceIngestion({ tokenMint, rpc, now = Date.now, onChange = () => {}, policy = INGESTION_POLICY }) {
+export function createEvidenceIngestion({ tokenMint, canonicalMarket = null, rpc, now = Date.now, onChange = () => {}, policy = INGESTION_POLICY }) {
     const records = new Map();
-    const journal = createTradeJournal(tokenMint, { maxEntries: policy.maxRecords, maxAgeMs: policy.maxAgeMs });
+    const journal = createTradeJournal(tokenMint, { maxEntries: policy.maxRecords, maxAgeMs: policy.maxAgeMs }, canonicalMarket
+        ? (e) => isCanonicalTrade(e) && e.poolAddress === canonicalMarket.address && e.sourceEpoch === canonicalMarket.sourceEpoch
+        : isUserEconomicAttribution);
     const running = new Set();
     const abort = new AbortController();
     let stopped = false;
@@ -24,9 +28,13 @@ export function createEvidenceIngestion({ tokenMint, rpc, now = Date.now, onChan
         if (event.settlement === 'REJECTED' && record.state !== 'REJECTED') counts.rejected += 1;
         if (event.settlement === 'FINALIZED' && record.state !== 'FINALIZED') counts.reconciled += 1;
         record.event = event;
+        record.events ||= new Map(); record.events.set(event.id, event);
         record.category = verificationCategory({ event });
         record.state = event.settlement;
         if (result.accepted) onChange({ type: result.fresh ? 'trade' : 'reconcile', data: event });
+    }
+    function withdraw(record, settlement, reconciliationReason) {
+        for (const event of record.events?.values() || []) publish(record, { ...event, settlement, reconciliationReason });
     }
     function cleanup() {
         for (const [signature, r] of records) if (!r.running && now() - r.createdAt > policy.maxAgeMs) records.delete(signature);
@@ -50,20 +58,27 @@ export function createEvidenceIngestion({ tokenMint, rpc, now = Date.now, onChan
             const tx = await rpc('getTransaction', [record.signature, { encoding: 'jsonParsed', commitment, maxSupportedTransactionVersion: 0 }], abort.signal);
             if (stopped) return;
             if (!tx) throw new Error('TRANSACTION_NOT_AVAILABLE');
-            const result = verifyTransaction(tx, record.signature, tokenMint, commitment.toUpperCase());
+            const result = canonicalMarket ? verifyPoolExecutions(tx, record.signature, canonicalMarket, commitment.toUpperCase())
+                : verifyTransaction(tx, record.signature, tokenMint, commitment.toUpperCase());
+            if (canonicalMarket) record.poolResult = result;
             record.category = verificationCategory(result);
-            if (result.event) publish(record, { ...result.event, observedAt: record.event?.observedAt ?? record.createdAt, receivedAt: now() });
-            else if (record.event) publish(record, { ...record.event, settlement: 'REJECTED', reconciliationReason: result.reason });
+            const events = result.events ?? (result.event ? [result.event] : []);
+            const incoming = new Set(events.map((e) => e.id));
+            for (const previous of record.events?.values() || []) if (!incoming.has(previous.id)) {
+                publish(record, { ...previous, settlement: 'REJECTED', reconciliationReason: result.reason || 'INVOCATION_MISSING' });
+            }
+            if (events.length) for (const event of events) publish(record, { ...event, observedAt: record.createdAt, receivedAt: now() });
+            else if (record.event) withdraw(record, 'REJECTED', result.reason);
             else {
                 record.state = result.status;
                 record.reason = result.reason;
-                if (result.status !== 'NON_DIRECTIONAL') counts[result.status === 'FAILED' ? 'rejected' : 'unverified'] += 1;
+                if (!['NON_DIRECTIONAL','NON_SWAP'].includes(result.status)) counts[result.status === 'FAILED' ? 'rejected' : 'unverified'] += 1;
             }
         } catch {
             if (stopped) return;
             counts.rpcFailures += 1;
             if (record.attempts >= policy.retries) {
-                if (record.event) publish(record, { ...record.event, settlement: 'RECONCILIATION_UNKNOWN' });
+                if (record.event) withdraw(record, 'RECONCILIATION_UNKNOWN');
                 else record.state = 'RECONCILIATION_UNKNOWN';
             } else {
                 record.state = commitment === 'finalized' ? 'FINALIZE_PENDING' : 'PENDING';
@@ -90,7 +105,7 @@ export function createEvidenceIngestion({ tokenMint, rpc, now = Date.now, onChan
         for (const record of records.values()) {
             if (record.state === 'FINALIZE_PENDING' && !record.running
                 && now() - record.createdAt > policy.reconciliationDeadlineMs) {
-                publish(record, { ...record.event, settlement: 'RECONCILIATION_UNKNOWN' });
+                withdraw(record, 'RECONCILIATION_UNKNOWN');
             }
         }
         pump();
@@ -107,17 +122,17 @@ export function createEvidenceIngestion({ tokenMint, rpc, now = Date.now, onChan
                 const record = pending[i];
                 record.checkedAt = now();
                 const status = result?.value?.[i];
-                if (status?.err) publish(record, { ...record.event, settlement: 'REJECTED', reconciliationReason: 'FINAL_STATUS_FAILED' });
+                if (status?.err) withdraw(record, 'REJECTED', 'FINAL_STATUS_FAILED');
                 else if (status?.confirmationStatus === 'finalized') {
                     record.state = 'FINALIZE_PENDING'; record.attempts = 0; record.nextAt = now();
                 } else if (now() - record.createdAt > policy.reconciliationDeadlineMs) {
-                    publish(record, { ...record.event, settlement: 'RECONCILIATION_UNKNOWN' });
+                    withdraw(record, 'RECONCILIATION_UNKNOWN');
                 }
             }
         } catch {
             counts.rpcFailures += 1;
             for (const record of pending) if (now() - record.createdAt > policy.reconciliationDeadlineMs) {
-                publish(record, { ...record.event, settlement: 'RECONCILIATION_UNKNOWN' });
+                withdraw(record, 'RECONCILIATION_UNKNOWN');
             }
         } finally { reconciling = false; pump(); }
     }
@@ -125,7 +140,7 @@ export function createEvidenceIngestion({ tokenMint, rpc, now = Date.now, onChan
         observeSignature, tick,
         async drain() { while (running.size && !stopped) await Promise.allSettled([...running]); },
         snapshot: () => journal.values(now(), true),
-        diagnostics: () => ({ ...counts, coverage: summarizeCoverage(records.values()), records: records.size, running: running.size,
+        diagnostics: () => ({ ...counts, coverage: canonicalMarket ? summarizePoolCoverage(records.values()) : summarizeCoverage(records.values()), records: records.size, running: running.size,
             pendingReconciliations: [...records.values()].filter((r) => ['CONFIRMED', 'FINALIZE_PENDING'].includes(r.state)).length,
             lastVerifiedSlot: journal.values(now()).reduce((s, e) => Math.max(s, e.slot), 0), journal: journal.diagnostics() }),
         destroy() { stopped = true; abort.abort(); records.clear(); journal.clear(); },

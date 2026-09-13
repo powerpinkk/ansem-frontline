@@ -2,6 +2,7 @@ import { expect, it, vi } from 'vitest';
 import { resolveServerMarket, createRpcTransport } from '../worker/src/server-market.js';
 import worker from '../worker/src/index.js';
 import { MINT, SOL, swapFixture } from './fixtures/integrity.js';
+import { readFileSync } from 'node:fs';
 
 it('discovers independently and rejects pool owners outside fixed protocol adapters', async () => {
     const f = swapFixture();
@@ -15,8 +16,12 @@ it('discovers independently and rejects pool owners outside fixed protocol adapt
     expect(rejected.unsupportedPools).toBe(1);
     rpc.mockResolvedValue({ context: { slot: 100 }, value: [{
         owner: f.transaction.transaction.message.instructions[0].programId, executable: false }] });
+    expect((await resolveServerMarket(MINT, rpc, null, fetchImpl)).pools).toEqual([]);
+    const sample = JSON.parse(readFileSync(new URL('./fixtures/public-chain/pool-identities.json', import.meta.url)))[0];
+    rpc.mockResolvedValueOnce({ context: { slot: 100 }, value: [sample.poolAccount] })
+        .mockResolvedValueOnce({ context: { slot: 101 }, value: sample.vaultAccounts.value });
     const accepted = await resolveServerMarket(MINT, rpc, null, fetchImpl);
-    expect(accepted.pools[0]).toMatchObject({ compatibility: 'PROGRAM_OWNER_CHECKED', verifiedAtSlot: 100 });
+    expect(accepted.pools[0]).toMatchObject({ compatibility: 'POOL_STATE_AND_VAULTS_VERIFIED', verifiedAtSlot: 101 });
     expect(fetchImpl.mock.calls[0][0]).toBe('https://api.dexscreener.com/token-pairs/v1/solana/' + MINT);
 });
 
@@ -32,7 +37,7 @@ it('fixed RPC transport rejects HTTP and JSON-RPC failures', async () => {
 it('recent endpoint forwards only mint identifiers to the same token-scoped Durable Object', async () => {
     const forwarded = [];
     const fetchImpl = vi.fn(async (request) => { forwarded.push({ url: request.url, body: await request.json() });
-        return Response.json({ version: 3, tokenMint: MINT, trades: [] }, { headers: { 'cache-control': 'no-store' } }); });
+        return Response.json({ version: 4, tokenMint: MINT, trades: [] }, { headers: { 'cache-control': 'no-store' } }); });
     const env = { DEFAULT_TOKEN_MINT: MINT, ALLOWED_ORIGINS: 'https://frontline.example',
         STREAM_HUB: { idFromName: (name) => name, get: () => ({ fetch: fetchImpl }) } };
     const response = await worker.fetch(new Request('https://relay.example/recent', { method: 'POST',

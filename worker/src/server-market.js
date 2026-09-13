@@ -1,5 +1,5 @@
 import { selectMarket } from '../../js/market-selection.js';
-import { PROTOCOLS } from './protocol-verifiers.js';
+import { decodePoolIdentity, verifyPoolVaults } from './pool-identity.js';
 
 export async function resolveServerMarket(mint, rpc, previous = null, fetchImpl = fetch) {
     // The browser requests a mint. All subscription candidates come from this
@@ -11,15 +11,21 @@ export async function resolveServerMarket(mint, rpc, previous = null, fetchImpl 
     const payload = await response.json();
     const selected = selectMarket(Array.isArray(payload) ? payload : payload.pairs, mint, previous);
     if (!selected) throw new Error('NO_COMPATIBLE_MARKET');
-    const result = await rpc('getMultipleAccounts', [selected.pools.map((p) => p.address), {
-        encoding: 'base64', commitment: 'confirmed', dataSlice: { offset: 0, length: 0 },
-    }]);
-    const pools = selected.pools.flatMap((pool, index) => {
-        const account = result?.value?.[index];
-        return account && !account.executable && PROTOCOLS[account.owner]
-            ? [{ ...pool, programId: account.owner, compatibility: 'PROGRAM_OWNER_CHECKED', verifiedAtSlot: result.context.slot }] : [];
-    });
-    return { pools, selection: selected.selection, unsupportedPools: selected.pools.length - pools.length, receivedAt: Date.now() };
+    // Only the deterministically selected market contributes pressure. Never
+    // silently substitute another pool if its on-chain identity is unavailable.
+    const primary = selected.pools[0];
+    const result = await rpc('getMultipleAccounts', [[primary.address], { encoding: 'base64', commitment: 'confirmed' }]);
+    let canonicalMarket = null, identityFailure = null;
+    try {
+        const identity = decodePoolIdentity(primary.address, result?.value?.[0], mint, primary.quoteMint);
+        const vaultResult = await rpc('getMultipleAccounts', [identity.vaults, {
+            encoding: 'base64', commitment: 'confirmed', minContextSlot: result.context.slot,
+        }]);
+        if (vaultResult.context.slot < result.context.slot) throw new Error('VAULT_SLOT_REGRESSION');
+        canonicalMarket = { ...verifyPoolVaults(identity, vaultResult.value, vaultResult.context.slot), sourceEpoch: selected.selection.sourceEpoch };
+    } catch (e) { identityFailure = e.message; }
+    return { pools: canonicalMarket ? [{ ...primary, ...canonicalMarket }] : [], canonicalMarket,
+        selection: selected.selection, unsupportedPools: canonicalMarket ? 0 : 1, identityFailure, receivedAt: Date.now() };
 }
 
 export function createRpcTransport(env, fetchImpl = fetch) {

@@ -23,6 +23,7 @@ export class StreamHub {
         this.nextConnectAt = 0;
         this.retryDelay = 1000;
         this.coverageIncomplete = false;
+        this.sourceEpoch = 0;
     }
 
     async fetch(request) {
@@ -31,7 +32,6 @@ export class StreamHub {
         if (!token.ok || (this.tokenMint && this.tokenMint !== token.mint)) return new Response('Invalid mint', { status: 400 });
         this.tokenMint = token.mint;
         this.lastClientAt = Date.now();
-        this.ensureIngestion();
         if (url.pathname === '/recent') {
             if (request.method !== 'POST') return new Response('Method not allowed', { status: 405 });
             const config = parseClientConfiguration(await request.text(), { expectedMint: this.tokenMint });
@@ -39,11 +39,12 @@ export class StreamHub {
             try {
                 await this.ensureMarket();
                 await this.catchUp();
-                await this.ingestion.tick();
+                await this.ingestion?.tick();
             } catch { this.coverageIncomplete = true; }
             await this.schedule();
-            return Response.json({ version: 3, source: 'verified-rpc-history', tokenMint: this.tokenMint,
-                trades: this.ingestion.snapshot(), pools: this.market?.pools.length || 0,
+            return Response.json({ version: 4, source: 'verified-pool-executions', tokenMint: this.tokenMint,
+                canonicalMarket: this.market?.canonicalMarket || null, sourceEpoch: this.sourceEpoch,
+                trades: this.ingestion?.snapshot() || [], pools: this.market?.pools.length || 0,
                 status: this.isDegraded() ? 'degraded' : 'observed', integrity: this.diagnostics() },
             { headers: { 'cache-control': 'no-store' } });
         }
@@ -52,14 +53,14 @@ export class StreamHub {
         const pair = new WebSocketPair();
         const [client, server] = Object.values(pair);
         this.ctx.acceptWebSocket(server);
-        server.send(JSON.stringify({ type: 'status', status: 'connecting', version: 3 }));
+        server.send(JSON.stringify({ type: 'status', status: 'connecting', version: 4 }));
         return new Response(null, { status: 101, webSocket: client });
     }
 
     ensureIngestion() {
-        if (this.ingestion) return;
-        this.ingestion = createEvidenceIngestion({ tokenMint: this.tokenMint, rpc: this.rpc,
-            onChange: (event) => this.broadcast({ ...event, version: 3 }) });
+        if (this.ingestion || !this.market?.canonicalMarket) return;
+        this.ingestion = createEvidenceIngestion({ tokenMint: this.tokenMint, canonicalMarket: this.market.canonicalMarket, rpc: this.rpc,
+            onChange: (event) => this.broadcast({ ...event, version: 4 }) });
     }
 
     async webSocketMessage(socket, raw) {
@@ -69,20 +70,35 @@ export class StreamHub {
         try {
             await this.ensureMarket();
             await this.ensureUpstream();
-            socket.send(JSON.stringify({ type: 'snapshot', version: 3, tokenMint: this.tokenMint, trades: this.ingestion.snapshot() }));
+            socket.send(JSON.stringify({ type: 'snapshot', version: 4, tokenMint: this.tokenMint,
+                canonicalMarket: this.market?.canonicalMarket || null, sourceEpoch: this.sourceEpoch, trades: this.ingestion?.snapshot() || [] }));
             await this.catchUp();
-        } catch { this.broadcast({ type: 'status', status: 'degraded', version: 3 }); }
+        } catch { this.broadcast({ type: 'status', status: 'degraded', version: 4 }); }
         await this.schedule();
     }
 
     async ensureMarket() {
-        if (this.market && Date.now() - this.market.receivedAt < 60_000) return this.market;
+        if (this.market && Date.now() - this.market.receivedAt < 60_000) { this.ensureIngestion(); return this.market; }
         if (this.marketPromise) return this.marketPromise;
         this.marketPromise = resolveServerMarket(this.tokenMint, this.rpc, this.market?.selection)
-            .then((next) => {
-                const key = (m) => m?.pools.map((p) => p.address).sort().join(':');
-                if (key(this.market) !== key(next)) this.closeUpstream();
+            .then(async (next) => {
+                const key = (m) => JSON.stringify(m?.canonicalMarket && [m.canonicalMarket.address, m.canonicalMarket.programId,
+                    m.canonicalMarket.mints, m.canonicalMarket.vaults, m.canonicalMarket.tokenPrograms]);
+                const changed = key(this.market) !== key(next);
+                if (changed) {
+                    this.closeUpstream(); this.ingestion?.destroy(); this.ingestion = null;
+                    this.cursorByPool.clear(); this.lastHistoryAt = 0; this.coverageIncomplete = false;
+                    // Persist an increasing epoch so late HTTP/WS responses from
+                    // an earlier incarnation cannot revive an obsolete market.
+                    const epoch = (await this.ctx.storage.get('marketEpoch') || 0) + 1;
+                    await this.ctx.storage.put('marketEpoch', epoch);
+                    this.sourceEpoch = epoch;
+                    if (next.canonicalMarket) next.canonicalMarket.sourceEpoch = epoch;
+                } else if (next.canonicalMarket) next.canonicalMarket.sourceEpoch = this.market.canonicalMarket.sourceEpoch;
                 this.market = next;
+                this.ensureIngestion();
+                if (changed) this.broadcast({ type: 'snapshot', version: 4, tokenMint: this.tokenMint,
+                    canonicalMarket: next.canonicalMarket, sourceEpoch: this.sourceEpoch, trades: [] });
                 const addresses = new Set(next.pools.map((p) => p.address));
                 for (const key of this.cursorByPool.keys()) if (!addresses.has(key)) this.cursorByPool.delete(key);
                 return next;
@@ -92,14 +108,18 @@ export class StreamHub {
 
     async catchUp() {
         if (this.historyPromise) return this.historyPromise;
+        if (!this.ingestion) return;
         if (Date.now() - this.lastHistoryAt < 15_000) return;
         this.lastHistoryAt = Date.now();
         this.historyPromise = (async () => {
-            // At most five signature reads per sweep, in parallel; 12 per pool.
+            const ingestion = this.ingestion, market = this.market;
+            // One canonical address, 12 mentions per bounded sweep.
             // A full page means an unproven gap, not a complete replay guarantee.
-            const result = await fetchRecentCandidates(this.rpc, this.market?.pools || [], this.cursorByPool);
+            const result = await fetchRecentCandidates(this.rpc, market?.pools || [], new Map(this.cursorByPool));
+            if (this.ingestion !== ingestion) return;
+            for (const [pool, cursor] of result.cursors) this.cursorByPool.set(pool, cursor);
             if (result.coverageIncomplete) this.coverageIncomplete = true;
-            for (const s of result.candidates) this.ingestion.observeSignature(s.signature, s.slot);
+            for (const s of result.candidates) ingestion.observeSignature(s.signature, s.slot);
         })().finally(() => { this.historyPromise = null; });
         return this.historyPromise;
     }
@@ -126,7 +146,7 @@ export class StreamHub {
             this.nextConnectAt = Date.now() + this.retryDelay;
             this.retryDelay = Math.min(30_000, this.retryDelay * 2);
             this.lastHistoryAt = 0;
-            this.broadcast({ type: 'status', status: 'reconnecting', version: 3 });
+            this.broadcast({ type: 'status', status: 'reconnecting', version: 4 });
             void this.schedule();
         });
     }
@@ -140,13 +160,13 @@ export class StreamHub {
             this.requests.delete(message.id);
             if (!this.requests.size) {
                 this.retryDelay = 1000;
-                this.broadcast({ type: 'status', status: 'live', version: 3 });
+                this.broadcast({ type: 'status', status: 'live', version: 4 });
             }
             return;
         }
         const result = message.params?.result;
-        if (message.method !== 'logsNotification' || result?.value?.err || !this.subscriptions.has(message.params.subscription)) return;
-        this.ingestion.observeSignature(result.value.signature, result.context?.slot);
+        if (message.method !== 'logsNotification' || !result?.value || !this.subscriptions.has(message.params.subscription)) return;
+        this.ingestion?.observeSignature(result.value.signature, result.context?.slot);
     }
 
     async alarm() {
@@ -160,16 +180,17 @@ export class StreamHub {
             await this.catchUp();
             await this.ingestion?.tick();
         } catch { this.coverageIncomplete = true; }
-        this.broadcast({ type: 'integrity', version: 3, data: this.diagnostics() });
+        this.broadcast({ type: 'integrity', version: 4, data: this.diagnostics() });
         await this.schedule();
     }
     isDegraded() {
         const d = this.ingestion?.diagnostics();
         return !this.market?.pools.length || this.coverageIncomplete || this.market?.unsupportedPools > 0
-            || d?.overflow > 0 || d?.unverified > 0 || d?.rpcFailures > 0;
+            || d?.overflow > 0 || d?.journal?.overflow > 0 || d?.journal?.rejected > 0 || d?.unverified > 0 || d?.rpcFailures > 0 || d?.coverage?.confidence === 'DEGRADED';
     }
     diagnostics() {
         return { tokenMint: this.tokenMint, primaryMarket: this.market?.selection || null,
+            canonicalMarket: this.market?.canonicalMarket || null, sourceEpoch: this.sourceEpoch, identityFailure: this.market?.identityFailure || null,
             ...this.ingestion?.diagnostics(), coverageIncomplete: this.coverageIncomplete,
             unsupportedPools: this.market?.unsupportedPools || 0, degraded: this.isDegraded() };
     }

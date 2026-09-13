@@ -24,6 +24,8 @@ export function initAPI(callbacks = {}, { runtime = defaultTokenRuntime, initial
     let historyStarted = false;
     let providerDegraded = false;
     let lastChartAt = 0;
+    let canonicalMarket = null;
+    let marketEpoch = 0;
     const started = performance.now();
     const startup = { marketMs: null, firstTradeMs: null, marketSource: null, cacheMs: null };
     const cacheKey = tokenCacheKey('ansem-frontline:market', runtime.context, 'v3');
@@ -65,6 +67,7 @@ export function initAPI(callbacks = {}, { runtime = defaultTokenRuntime, initial
     }
     function receive(event, bootstrap = false) {
         if (destroyed) return;
+        if (!canonicalMarket || event.poolAddress !== canonicalMarket.address || event.sourceEpoch !== marketEpoch) return;
         const previousFrontlineX = state.targetFrontlineX;
         const accepted = journal.upsert(event);
         if (!accepted.accepted) return;
@@ -84,6 +87,22 @@ export function initAPI(callbacks = {}, { runtime = defaultTokenRuntime, initial
             emit('onTrade', event, { bootstrap, previousFrontlineX, nextFrontlineX: state.targetFrontlineX });
         } else emit('onHistoricalTrade', event);
     }
+    function bindMarket(next, epoch = next?.sourceEpoch) {
+        if (!Number.isSafeInteger(epoch) || epoch < marketEpoch || epoch < 1 || next && next.sourceEpoch !== epoch) return false;
+        if (next && (next.tokenMint !== mint || next.compatibility !== 'POOL_STATE_AND_VAULTS_VERIFIED'
+            || !Number.isSafeInteger(next.sourceEpoch) || next.sourceEpoch < marketEpoch)) return false;
+        if (next && canonicalMarket && next.sourceEpoch === marketEpoch && next.address !== canonicalMarket.address) return false;
+        if (epoch === marketEpoch && canonicalMarket?.address === next?.address && canonicalMarket?.sourceEpoch === next?.sourceEpoch) return true;
+        const previous = journal.values();
+        journal.clear(); canonicalMarket = next || null;
+        marketEpoch = epoch;
+        state.canonicalMarket = canonicalMarket; state.lastTradeAt = 0;
+        pressure();
+        for (const event of previous) emit('onTradeReconciliation', {
+            ...event, settlement: 'REJECTED', reconciliationReason: 'MARKET_REBASE',
+        }, [], event);
+        return true;
+    }
     function configureStream() {
         if (stream || !CONFIG.STREAM_URL || !state.trackedPools.length) return;
         stream = connectTradeStream(urlWithMint(CONFIG.STREAM_URL, runtime.context), {
@@ -91,10 +110,11 @@ export function initAPI(callbacks = {}, { runtime = defaultTokenRuntime, initial
             onTrade: (event) => receive(event),
             onReconcile: (event) => receive(event),
             onSnapshot: (snapshot) => {
-                if (snapshot.tokenMint === mint) for (const event of snapshot.trades || []) receive(event, true);
+                if (snapshot.tokenMint === mint && bindMarket(snapshot.canonicalMarket, snapshot.sourceEpoch)) for (const event of snapshot.trades || []) receive(event, true);
             },
             onIntegrity: (diagnostics) => {
                 if (diagnostics.tokenMint !== mint) return;
+                if (!bindMarket(diagnostics.canonicalMarket, diagnostics.sourceEpoch)) return;
                 state.integrity = diagnostics; providerDegraded = diagnostics.degraded; connection();
             },
             onStatus: (status) => { if (status !== 'online') providerDegraded = true; connection(); },
@@ -188,7 +208,8 @@ export function initAPI(callbacks = {}, { runtime = defaultTokenRuntime, initial
         recentPromise = (async () => {
             try {
                 const snapshot = await json(CONFIG.RELAY_RECENT_URL, { type: 'configure', token: { mint, chain: 'solana' } });
-                if (snapshot.version !== 3 || snapshot.tokenMint !== mint || !Array.isArray(snapshot.trades)) throw new Error('UNVERIFIED_HISTORY_CONTRACT');
+                if (snapshot.version !== 4 || snapshot.tokenMint !== mint || !Array.isArray(snapshot.trades)) throw new Error('UNVERIFIED_HISTORY_CONTRACT');
+                if (!bindMarket(snapshot.canonicalMarket, snapshot.sourceEpoch)) return;
                 providerDegraded = snapshot.status === 'degraded';
                 state.integrity = snapshot.integrity || null;
                 // All updates, including invalidations, use the same identity path.
@@ -252,7 +273,7 @@ export function initAPI(callbacks = {}, { runtime = defaultTokenRuntime, initial
             timers.clear(); requests.clear(); journal.clear();
         },
         getDiagnostics: () => ({ mint, namespace: runtime.namespace, destroyed, timers: timers.size, requests: requests.size,
-            streamActive: !!stream, bootstrapPending: !!recentPromise, selection: state.marketSelection,
+            streamActive: !!stream, bootstrapPending: !!recentPromise, selection: state.marketSelection, canonicalMarket,
             valuation: state.valuation, journal: journal.diagnostics(), integrity: state.integrity }),
     };
 }

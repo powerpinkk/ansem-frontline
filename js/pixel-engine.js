@@ -71,7 +71,7 @@ export function createPixelSnapshot(source, now = Date.now()) {
         .filter(activeTrade)
         .filter((trade) => now - Number(trade.timestamp) >= 0 && now - Number(trade.timestamp) <= WINDOW_MS)
         .map((trade) => ({
-            id: String(trade.txHash || trade.id || `${trade.timestamp}-${trade.isBuy}`),
+            id: String(trade.id || trade.txHash || `${trade.timestamp}-${trade.isBuy}`),
             isBuy: Boolean(trade.isBuy),
             isWhale: Boolean(trade.isWhale),
             solValue: Math.max(0, Number(trade.solValue) || 0),

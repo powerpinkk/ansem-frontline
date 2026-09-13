@@ -201,7 +201,7 @@ export function updateDashboardUI() {
         if (DOM.pressureVolume) {
             setText(DOM.pressureVolume, `${formatSol(state.buySol60s)} / ${formatSol(state.sellSol60s)} SOL`);
             const coverage = state.integrity?.coverage;
-            DOM.pressureVolume.title = `Confirmed/finalized SOL swap flow in 60s; ${state.pressureCoverage?.excludedNonSol || 0} non-SOL swaps excluded. Verification: ${coverage?.confidence || 'UNKNOWN'}; ${coverage ? coverage.verifiedDirect + coverage.verifiedRouted : '?'} / ${coverage?.evaluated ?? '?'} evaluated candidates (bounded 5-minute sample). USD estimates never weight pressure.`;
+            DOM.pressureVolume.title = `Confirmed/finalized SOL swap flow in 60s; ${state.pressureCoverage?.excludedNonSol || 0} non-SOL swaps excluded. Verification: ${coverage?.confidence || 'UNKNOWN'}; ${coverage?.verifiedExecutions ?? '?'} / ${coverage?.actualSwapCandidates ?? '?'} identified pool swaps; ${coverage?.mentions ?? '?'} acquired mentions (bounded 5-minute sample). USD estimates never weight pressure.`;
         }
         updateBattleState();
     });

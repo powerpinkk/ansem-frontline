@@ -1,0 +1,157 @@
+[
+  {
+    "name": "current-pumpswap",
+    "signature": "3sEkaehmxgzm3UXpoSkpX7RWpWDFDBBNKEeBezKRutLqknKLFdyBuxgihA7ai3FgcknTwGk548JCdpLKWLe9AhhA",
+    "slot": 446702038,
+    "checkedAt": 1789303529375,
+    "checks": {
+      "signature": true,
+      "slot": true,
+      "accounts": true,
+      "logs": true,
+      "pre": true,
+      "post": true,
+      "failed": true
+    },
+    "vaultDeltas": [
+      {
+        "vault": "BmCXK8QFCHgjiqGm7peAtBbZpFPJNsp5fYP5rSRazMS8",
+        "mint": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+        "decimals": 6,
+        "rawDelta": "18513951"
+      },
+      {
+        "vault": "DaXhQ3pfN3J5dQnXxVU8YqW9bwA3RUVxXvq2iBjTDVt4",
+        "mint": "So11111111111111111111111111111111111111112",
+        "decimals": 9,
+        "rawDelta": "-30531404"
+      }
+    ],
+    "method": "Separate finalized compiled read; independent static+ALT indexing and vault balance subtraction; no production decoder",
+    "sha256": "089f6346c39540180ed6d020bfaecaa65a17eff6be426b2760292b848b34a2a2"
+  },
+  {
+    "name": "current-meteora-dlmm",
+    "signature": "5XBJwQZSPFM9fme2YQTmMyVAp5SvvrLCkswrEGivXXzywdiwu3nr3qAc4vuWP8AyDkXPRjMSDBBNEyKaYdqTLprx",
+    "slot": 446702331,
+    "checkedAt": 1789303532845,
+    "checks": {
+      "signature": true,
+      "slot": true,
+      "accounts": true,
+      "logs": true,
+      "pre": true,
+      "post": true,
+      "failed": true
+    },
+    "vaultDeltas": [
+      {
+        "vault": "GnyzhweyVAeGhdD9nLrzCUr6T4ZBvnbJoyBEBgN6i5da",
+        "mint": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+        "decimals": 6,
+        "rawDelta": "-19656914"
+      },
+      {
+        "vault": "BprsHVMgdCPP1s8KkwUCx9tkszrHmAEMdJFkynP3NW7N",
+        "mint": "So11111111111111111111111111111111111111112",
+        "decimals": 9,
+        "rawDelta": "32457510"
+      }
+    ],
+    "method": "Separate finalized compiled read; independent static+ALT indexing and vault balance subtraction; no production decoder",
+    "sha256": "621ad518a20b4be1c554765050af2a30f8f74cef2581a51f302928c8fff4a41a"
+  },
+  {
+    "name": "current-orca-whirlpool",
+    "signature": "52vq8P6uTnRshU3AshnLSaqtLvtJy2ZKgf9d29KVGAoBA2VWGynh1YWbJrE8VWpvwqgEhoz4fefLAcoTHtZR5VYp",
+    "slot": 446701836,
+    "checkedAt": 1789303536318,
+    "checks": {
+      "signature": true,
+      "slot": true,
+      "accounts": true,
+      "logs": true,
+      "pre": true,
+      "post": true,
+      "failed": true
+    },
+    "vaultDeltas": [
+      {
+        "vault": "3QYpcgkRv3cvHKPa6DgrKCU7jYgxr5PnJgxUdAWWfYPL",
+        "mint": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+        "decimals": 6,
+        "rawDelta": "-271375770"
+      },
+      {
+        "vault": "FMwjyFJmEBRR6BYmjH7XPnrcTzkrQBaCMwQrb5qUs9Dc",
+        "mint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+        "decimals": 6,
+        "rawDelta": "45000000"
+      }
+    ],
+    "method": "Separate finalized compiled read; independent static+ALT indexing and vault balance subtraction; no production decoder",
+    "sha256": "07d392144eb6001f5682164694b02960e15fce58a1a1fb9c8df7e0cc49759982"
+  },
+  {
+    "name": "current-raydium-clmm",
+    "signature": "312FsAXov1JLWipBzYQh2ioXt4Gu1DjPqNYHsFvtq2LvSMgkeEKXoNRNwnz3yvTzxUaSMMnUHkop6siRWkMMxrt5",
+    "slot": 446702292,
+    "checkedAt": 1789303539796,
+    "checks": {
+      "signature": true,
+      "slot": true,
+      "accounts": true,
+      "logs": true,
+      "pre": true,
+      "post": true,
+      "failed": true
+    },
+    "vaultDeltas": [
+      {
+        "vault": "Doi7KKrpLtdqoFQDNuWa6ZsR3cV8cgNDdjw19RrA9iUE",
+        "mint": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+        "decimals": 6,
+        "rawDelta": "479"
+      },
+      {
+        "vault": "3mXPuXPLiXbbYXRWaBLnDvThcPGsPuTvq7dWi5fA4A2N",
+        "mint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+        "decimals": 6,
+        "rawDelta": "-78"
+      }
+    ],
+    "method": "Separate finalized compiled read; independent static+ALT indexing and vault balance subtraction; no production decoder",
+    "sha256": "33a57abf215261bd3f14f2a6169b5e7ed871cfc36e14da6dfd1c13059d126d0d"
+  },
+  {
+    "name": "current-fresh-pumpswap",
+    "signature": "3wL4UZjAEgc5959pZv1PiiJ1L3JrG7oqYGj6W3zshhWsFc1P59s4q3bAVpxjtRTfLXy8X2V6VUSCZo8qJ4SVaB9",
+    "slot": 446703410,
+    "checkedAt": 1789303543274,
+    "checks": {
+      "signature": true,
+      "slot": true,
+      "accounts": true,
+      "logs": true,
+      "pre": true,
+      "post": true,
+      "failed": true
+    },
+    "vaultDeltas": [
+      {
+        "vault": "6aa2QMXD3A1QzXcdBa5dBskJCgvMpvjbraUzKRsV23yF",
+        "mint": "F46H2QLqv9JznhJsMS2PgUFosPUVRVWDtQf94ynGpump",
+        "decimals": 6,
+        "rawDelta": "-77369336523"
+      },
+      {
+        "vault": "TK1sZS8rfiA5efMQsTMbW9YstznxmYZEDPz3uboeKDj",
+        "mint": "So11111111111111111111111111111111111111112",
+        "decimals": 9,
+        "rawDelta": "51041072"
+      }
+    ],
+    "method": "Separate finalized compiled read; independent static+ALT indexing and vault balance subtraction; no production decoder",
+    "sha256": "2f6e72c4cbdc196e473f2aabeab7239f054295173c1d8f253fd6c5582b34fb66"
+  }
+]

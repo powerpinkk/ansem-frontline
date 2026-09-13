@@ -8,7 +8,7 @@ describe('bounded settlement ingestion', () => {
     it('enforces the RPC budget and withdraws a queued finalization at its deadline', async () => {
         let now = 10_000; let txReads = 0;
         const f = swapFixture({ blockTime: 10 });
-        const service = createEvidenceIngestion({ tokenMint: MINT, now: () => now,
+        const service = createEvidenceIngestion({ tokenMint: MINT, canonicalMarket: f.market, now: () => now,
             policy: { ...INGESTION_POLICY, maxTransactionReadsPerMinute: 1, reconciliationDeadlineMs: 10_000 },
             rpc: async (method) => {
                 if (method === 'getTransaction') { txReads += 1; return f.transaction; }
@@ -25,7 +25,7 @@ describe('bounded settlement ingestion', () => {
     it('confirmed→finalized upgrades one event after independently re-verifying finalized data', async () => {
         let now = 10_000; const changes = []; const calls = [];
         const f = swapFixture({ blockTime: 10 });
-        const service = createEvidenceIngestion({ tokenMint: MINT, now: () => now, onChange: (m) => changes.push(m),
+        const service = createEvidenceIngestion({ tokenMint: MINT, canonicalMarket: f.market, now: () => now, onChange: (m) => changes.push(m),
             rpc: async (method, params) => { calls.push({ method, params }); return method === 'getTransaction'
                 ? f.transaction : { value: [{ confirmationStatus: 'finalized', slot: 100, err: null }] }; } });
         expect(service.observeSignature(f.signature, 100)).toBe(true);
@@ -40,7 +40,7 @@ describe('bounded settlement ingestion', () => {
     });
     it('rebuilds pressure on invalidation without an opposite trade', async () => {
         let now = 10_000; const changes = []; const f = swapFixture({ blockTime: 10 });
-        const service = createEvidenceIngestion({ tokenMint: MINT, now: () => now, onChange: (m) => changes.push(m),
+        const service = createEvidenceIngestion({ tokenMint: MINT, canonicalMarket: f.market, now: () => now, onChange: (m) => changes.push(m),
             rpc: async (method) => method === 'getTransaction' ? f.transaction : { value: [{ err: { rejected: true } }] } });
         service.observeSignature(f.signature); await service.drain();
         expect(calculatePressure(service.snapshot(), now).buySol).toBe(25);
@@ -58,7 +58,7 @@ describe('bounded settlement ingestion', () => {
     });
     it('unknown reconciliation withdraws provisional authority and remains one identity', async () => {
         let now = 10_000; const f = swapFixture({ blockTime: 10 });
-        const service = createEvidenceIngestion({ tokenMint: MINT, now: () => now,
+        const service = createEvidenceIngestion({ tokenMint: MINT, canonicalMarket: f.market, now: () => now,
             rpc: async (method) => method === 'getTransaction' ? f.transaction : { value: [null] } });
         service.observeSignature(f.signature); await service.drain(); now = 101_000; await service.tick();
         expect(service.snapshot()[0].settlement).toBe('RECONCILIATION_UNKNOWN');

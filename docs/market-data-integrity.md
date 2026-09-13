@@ -1,6 +1,6 @@
 # Market data integrity — M10.1
 
-**Current status: M10.1 BLOCKED — MATERIAL VERIFICATION COVERAGE.** The dedicated M10.1b section below records the router increment and its measured limits. M10.2 is not authorized. The earlier M10.1 audit is retained as history; in particular, its acceptance of unknown-wrapper CPI sales has been superseded by stricter attribution.
+**Current status: M10.1 BLOCKED — MATERIAL POOL EXECUTION COVERAGE.** The M10.1c section at the end supersedes the market-pressure assumptions in the historical M10.1/M10.1b audits below. Pool execution and user attribution are now independent. The AMM increment is useful, but bonding-curve execution and terrain valuation remain unresolved. M10.2 is not ready.
 
 ## A. Baseline
 Started at `bf8ff6a6dc1a4bf664df96862e361bb3d0e62777`, equal to local main and origin/main. The original terrain branch was empty, clean, and had no upstream. Renamed locally to `feat/m10-market-data-integrity` before implementation. No terrain implementation existed. The earlier M10 audit stopped on data integrity.
@@ -277,3 +277,126 @@ Coverage is materially blocking: the current ANSEM candidate stream yielded no a
 Downstream code may consume accepted events under their explicit execution scopes and settlement rules. It cannot treat the current pressure stream as an adequate account of the battlefield or use indicative valuation as authoritative terrain. M10.2 remains blocked, with no Market Terrain implementation.
 
 M10.1 BLOCKED — MATERIAL VERIFICATION COVERAGE
+
+## M10.1c — CANONICAL POOL MARKET TRUTH
+
+### A–C. Baseline, denominator correction, MARKET EFFECT VS USER ATTRIBUTION
+
+Resumed the clean local branch `feat/m10-market-data-integrity` at `c1bb3a8965d3ed7dc2d0ee13e4ad2b763a43e0bc`. Both that M10.1b commit and M10.1 `3a16c4aff2741e63139474ee29951137a19d7fb7` remain identifiable. Local main and origin/main stay at `bf8ff6a6dc1a4bf664df96862e361bb3d0e62777`.
+
+The previous 0/60 result meant zero accepted **user-attribution events among address mentions**. It did not establish zero verified swaps out of 60 actual swaps. Failed transactions, liquidity instructions, unrelated account usage, wrappers and intermediate-token executions were mixed in that denominator. Its historical records remain useful for reproducing attribution failures, but its fraction is not a pool-swap coverage estimate.
+
+There are now two explicit paths:
+
+```mermaid
+flowchart LR
+  R[Trusted RPC transaction] --> C[Shared accounts, logs and raw balances]
+  C --> P[Selected pool state and successful DEX invocation]
+  P --> E[CanonicalMarketExecution per invocation]
+  E --> J[Market and epoch scoped settlement journal]
+  J --> B[Observed market pressure]
+  C --> U[M10.1b router and user economic attribution]
+  U --> F[Future wallet eligibility]
+```
+
+Pipeline A never calls Pipeline B to decide whether a pool BUY/SELL exists. Shared router ownership, an unsupported wrapper, a different fee payer, and zero final user balance in the tracked intermediate token cannot veto proven pool execution. The shared RPC account/log/balance normalization is in `transaction-context.js`; M10.1b's route decoding and ownership checks remain in their original attribution path. Its `net-v1` objects no longer pass the browser's market-event boundary. Production history and live ingestion explicitly supply the canonical market; the ingestion factory's legacy/default mode remains available to the independent attribution tests.
+
+### D–F. Canonical identity, acquisition and reconnect
+
+Server discovery still uses deterministic liquidity ranking, stable tie-breaking and the existing 25% incumbent hysteresis. It selects **one** canonical market. Only that market supplies pressure. Failure to verify its identity does not silently substitute another pool from the provider's list.
+
+The server reads the selected pool's account bytes and checks its fixed protocol owner, account discriminator, minimum known layout, both mint addresses and both vault addresses. A second bounded account read, at a context slot no earlier than the first, verifies each vault's SPL/Token-2022 program, initialized state, mint and authority equal to the pool. Transaction transfer evidence must match that mapping. The pool-state and vault reads establish identity; they are not an assertion that all reserves were observed atomically or that a USD valuation exists. Definitions, source revisions and SHA256 hashes are retained in [pool-protocol-provenance.json](pool-protocol-provenance.json); actual account bytes are retained in [pool-identities.json](../tests/fixtures/public-chain/pool-identities.json).
+
+ANSEM's selected pool in the capture was PumpSwap `FnzKY6x7entQ1eR3D225dQyT7ybfka4PskBMQhb8L3CC`, with ANSEM mint `9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump`, SOL quote mint and independently checked token vaults. Provider DEX labels are descriptive; the account owner determines the adapter.
+
+Acquisition uses one confirmed `logsSubscribe` address and bounded `getSignaturesForAddress` catch-up. Neither proves a swap: both successful and failed mentions are retained for acquisition diagnostics and a transaction read supplies execution evidence. Solana documents these as [log mentions](https://solana.com/docs/rpc/websocket/logssubscribe) and [address signature history](https://solana.com/docs/rpc/http/getsignaturesforaddress), not swap feeds. No blockSubscribe, global crawl or premium indexer was added.
+
+Catch-up retains the existing 12-signature page and 15-second sweep interval, with an `until` cursor and a five-minute time bound. A full page is an **unproven history gap**, not a complete replay. Reconnect resets the catch-up clock. Dedup is shared with live ingestion. Pool changes destroy old ingestion, clear history cursors and pressure, and persist a monotonically increasing source epoch. Late RPC/history callbacks are discarded if their ingestion generation changed. Browser snapshots reject older epochs and only admit events matching the selected market and epoch. Within a slot, transactions without a proven transaction index use deterministic signature ordering; only invocation order within a transaction is claimed to be execution order.
+
+### G–J. Protocol scope and Pump lifecycle
+
+| Protocol | Identity mapping | Pool execution support | Explicit limits |
+| --- | --- | --- | --- |
+| PumpSwap | Pool state → base/quote mints and token vaults | buy, buy_exact_quote_in, sell; direct or CPI | Boost buy-and-burn is classified as a swap candidate but has no execution adapter; fee/hook or unexplained vault flows are excluded |
+| Meteora DLMM | LbPair → token X/Y and reserves | swap, swap2, exact-out and price-impact variants already represented by fixed layouts | Unknown instruction variants and opaque mixed flows remain excluded; no speculative limit-order/zap verification |
+| Orca Whirlpool | Whirlpool → mint/vault A/B | swap and swap_v2 | two_hop_swap variants are identified but unsupported as a combined invocation |
+| Raydium CLMM | PoolState → mint/vault 0/1 | swap and swap_v2; input/output vault order checked against the canonical set | Router envelope is not an extra pool execution; inner swaps are examined. No AMM v4/CPMM support claim |
+| Pump.fun bonding curve | Investigated and captured, not wired to canonical acquisition | **Unsupported** | Native reserve/fee accounting, current V2/custom quote semantics and lifecycle discovery need their own proven adapter |
+
+The four AMM families were selected because they occur in ANSEM discovery and their actual pool accounts were observed. Other tiny/nonstandard-quote Meteora markets were not added speculatively. The state mappings follow the pinned official [PumpSwap](https://github.com/pump-fun/pump-public-docs/blob/f216b6724c6ede79d7cef9ce210b741f7e17e93b/docs/PUMP_SWAP_README.md), [DLMM](https://github.com/MeteoraAg/dlmm-sdk/blob/main/idls/dlmm.json), [Whirlpool](https://github.com/orca-so/whirlpools/blob/main/programs/whirlpool/src/state/whirlpool.rs) and [CLMM](https://github.com/raydium-io/raydium-clmm/blob/master/programs/amm/src/states/pool.rs) definitions; immutable revisions for all four are in the provenance artifact.
+
+Pump launch → active curve → completion/migration → PumpSwap is a market/source transition. It cannot be modeled as a price shock. Public records include two distinct active curve mints, with program-owned curve accounts showing `complete=false` at observation time and matching associated base-vault mints. The curve cohort contained 12 program mentions: eight failed transactions, one creator-fee collection and three successful swap instructions. Two of those swaps used SOL; one used a custom quote outside the accepted quote set. **0/3 identified curve swaps are supported**, including 0/2 SOL-quote examples. These are current active-curve examples, not evidence of the coins' creation age; a creation timestamp was not independently established.
+
+Four separate graduated examples were verified through the Pump `bonding-curve` and `pool-authority` PDA seeds, index-zero PumpSwap pool derivation, curve discriminator/owner and `complete=true`. All four match deterministic primary-pool selection in a subsequent public discovery check. Their provider-reported pool ages at capture were approximately 12.17h, 0.79h, 1.18h and 0.071h; these ages are indicative provider metadata. Each supplied one positively verified PumpSwap execution. The youngest example is mint `F46H2QLqv9JznhJsMS2PgUFosPUVRVWDtQf94ynGpump`. Account bytes and derivation outcomes are retained in [pool-mainnet-samples.json](pool-mainnet-samples.json). No actual migration was observed live, and no live curve-to-AMM continuity is claimed.
+
+### K–R. Execution schema, direction, ordering and settlement
+
+`CanonicalMarketExecution` uses `pool-execution-v1` and scope `CANONICAL_POOL_EXECUTION`. Identity is `mint:signature:pool:outer.inner:pool-v1`; `inner` is `outer` for a top-level invocation. It carries mint, pool/market identity, source epoch, signature, slot, nullable chain timestamp, explicit outer/inner order, settlement, fixed protocol, exact raw token/quote strings and their decimals, derived units, and instruction/transport provenance. USD fields are null. Wallet attribution is null and explicitly independent. Source epoch is checked separately from stable invocation identity; each epoch gets a fresh bounded journal.
+
+A BUY removes tracked token from its canonical vault while adding quote to the opposite vault; a SELL does the reverse. A supported positive swap discriminator, successful invocation and successful direct-child token transfers are required. Amounts are executed **gross pool quote units**, not encoded maximum input/minimum output, a Jupiter quote, user endpoint proceeds or provider estimates. Protocol fees that actually leave the quote vault are part of that vault's gross flow; fees paid outside it, native transaction fees, rent, tips and wrapping are not added to quote notional. SOL pressure uses actual WSOL quote units only; non-SOL executions stay visible as exclusions rather than estimated SOL equivalents.
+
+Vault-wide conservation guards the extracted transfers, including zero-net arbitrage. Token-2022 checked transfers without a net fee can pass; transfer hooks, unchecked transfers and unexplained/fee vault deltas do not. Mixed LP/admin flow can conservatively exclude otherwise identifiable swaps in the same transaction. Unsupported amounts are never filled in from account-net or USD heuristics. Known non-swap instructions are classified separately; unknown instructions remain unclassified. Failed transactions and unproven/caught swap invocations do not inflate the successful-swap denominator.
+
+Direct and Jupiter CPI fixtures have identical directional/raw-amount semantics. A shared Jupiter SOL→tracked-token→USDC fixture produces a market BUY at the first selected pool and a SELL at the second selected pool while M10.1b correctly returns a non-directional user-attribution result. A route that never touches the selected pool emits nothing. Actual retained public evidence includes a formerly excluded unknown-wrapper PumpSwap sale and the `doqiTDJ9hQ24…` intermediate ANSEM BUY at DLMM; its pool input is 194,917,910 lamports, separate from router fees and end-user intent.
+
+Same-pool BUY and SELL invocations in one signature produce two distinct events, including under a single router. Neither is netted to neutral or deduplicated by transaction hash. Journal ordering and the Pixel/pressure identity paths use execution IDs. Confirmed→finalized verification updates each existing ID; disappearance/failure/unknown reconciliation withdraws each provisional event without inventing an opposite trade. Publication is bounded to 16 executions per transaction and 1,024 journal entries. Old attribution events cannot re-enter pressure through bootstrap, stream or replay. Unit tests and a browser test cover multiple invocations, settlement and market rebase.
+
+### S–U. Valuation authority, MC/FDV and rebases
+
+Valuation remains typed `MARKET_CAP`, `FDV` or `UNKNOWN`, `PROVIDER_INDICATIVE`, `authorityEligible=false`. There is no automatic promotion because DEX execution now verifies. The provider MC and price generally lack an independently established observation timestamp and circulating-supply basis; the server's canonical epoch is also distinct from the browser's indicative-source epoch. SOL executions carry no independently fresh USD conversion. These are concrete unmet conditions for terrain authority, not a categorical ban on using a provider.
+
+Promotion requires an explicit observation bound, the same canonical mint/pool/epoch, a documented and appropriate supply basis for the chosen valuation kind, fresh applicable quote/USD evidence, sane numeric values, and an authority rule tested against stale/regressing/changed sources. Existing tests preserve deterministic provider ordering, MC versus FDV, stale/missing observations and coherent large price moves. A 100K→600K rise, 10×/50× move or reversal is not rejected solely for magnitude. Source/pool/supply-kind changes remain rebases rather than market movement.
+
+No reserve-ratio USD/MC shortcut was introduced. In particular, the current PumpSwap definition appends signed virtual quote reserves; any future spot-pricing adapter must use its documented effective quote reserve rule, not blindly divide raw vault balances. CLMM/Whirlpool vault ratios are likewise not spot-price proofs. There is no terrain, MC band, ImpactScore, frontier or new giant-event implementation.
+
+### V–Y. Actual coverage, denominator and pressure confidence
+
+Public captures below are finite per-address cohorts on 2026-09-13, observed from 12:23:45 through 12:27:16 UTC. The full selected windows, individual signatures, slots, classifications, raw event summaries and SHA256 hashes are in [pool-mainnet-samples.json](pool-mainnet-samples.json). Sampling was sequential, not a simultaneous market-wide interval.
+
+| ANSEM pool protocol | Acquired mentions | Failed tx | Non-swap tx | Identified successful swap invocations | Verified executions | Unsupported identified swaps |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| PumpSwap, selected primary | 32 | 1 | 9 | 22 | 22 | 0 |
+| DLMM, sampled alternate | 12 | 0 | 11 | 1 | 1 | 0 |
+| Whirlpool, sampled alternate | 12 | 0 | 2 | 10 | 10 | 0 |
+| Raydium CLMM, sampled alternate | 12 | 0 | 0 | 12 | 12 | 0 |
+| Total sampled | 68 | 1 | 22 | 45 | 45 | 0 |
+
+Thus 45/45 **identified swaps in these retrieved windows** verify; neither 45/68 nor 100% is a market-wide volume/capture estimate. Every page reached its configured limit, so earlier missed activity is unknown. Alternate pools demonstrate adapter coverage; production ANSEM pressure only consumes its selected primary, not the sum of these four pools. Zero identified swaps means N/A, not 0% verification. Unknown instructions, failed/unavailable fetches, rejected settlement, queue/journal overflow and truncated acquisition remain separate diagnostics and can degrade confidence.
+
+The four graduated fresh examples verified 4/4 examined executions, but were selected examples and are not a representative fresh-token-wide denominator. Bonding curves remain 0/3 for the actual successful instructions identified in their separate program cohort. The missing curve stage is material to a product intended to cover fresh Pump tokens.
+
+Five representative transactions, including all four AMMs and the youngest graduated example, were re-read as finalized compiled JSON. Independent static/ALT account indexing and vault subtraction agree with the captured parsed responses and raw quantities. All recorded checks pass in [pool-crosschecks.json](pool-crosschecks.json); full representative transactions are committed as fixtures. This is a separate read/decoding cross-check against public RPC, not independent-provider consensus or a light client.
+
+Live coverage reports acquired mentions/fetch outcomes separately from identified swaps and verified executions, including per-protocol counts. Fractions are null when the swap denominator is empty. Confidence is PARTIAL/DEGRADED/UNKNOWN; it never extrapolates to missing flow. The pressure tooltip uses identified pool swaps rather than the old attribution denominator and states non-SOL exclusions. A missing curve market or valuation cannot be advertised as M10.2-ready just because a supported AMM cohort is strong.
+
+### Z–AE. Cost, security and regression validation
+
+One canonical logs subscription replaces up to five pool subscriptions. A refresh adds two small bounded account reads per minute for state/vault identity. Existing ceilings remain: 1,024 records, 128 queued signatures, two concurrent transaction fetches, 120 transaction reads/minute including finalization, three retries, 50 statuses per reconciliation batch, three-second reconciliation tick and a 90-second provisional deadline. History uses one 12-signature page per 15 seconds. A saturated queue/page is reported rather than silently caught up through an unlimited crawl. Limits are per active token Durable Object; the pre-existing lack of global token/admission billing limits is not a new promise of bounded account-wide cost.
+
+No dependency, premium service, private key, signing flow or new secret was added. Fixed RPC/discovery endpoints remain on the server; browser pool/price fields cannot choose subscription accounts or mint authority. The client receives only contract-v4 market events and rejects legacy v3 trade messages. All source changes reset the scoped journal; no data crosses tokens or epochs. New scripts and fixtures are audit/test-only, with no imports into the product. Lint now ignores temporary audit output and generated Worker bundles instead of linting generated code.
+
+Validation at close:
+
+- 319 unit tests across 33 files pass, including all retained M10.1b tests and 40 additional pool/source/public-evidence checks relative to its 279-test baseline.
+- Lint and production browser build pass.
+- Worker dry-run bundle passes: 175.03 KiB / gzip 36.57 KiB; no deployment.
+- The complete final E2E command passes with exit 0: **98 definitions, 63 passed, 35 device skips, 10.5 minutes**. This preserves the 34 existing skips and adds one device skip for the new desktop contract/rebase case. Earlier complete runs exposed a Champion timing failure (passed on both later complete runs) and a decimal-format mistake in the new test. That expectation was corrected to the unchanged product formatter; the dedicated integrity suite then passed all three applicable tests with one device skip. No test gate was removed or weakened.
+- The final 60-second pool soak completed **630 cycles, 50,400 replay deliveries, 80 source rebases, 7,560 mocked RPC reads and 10,080 publications** across four token services. It exercised two ordered executions per signature, independent finalization and empty teardown; maxima were 30 records and 60 journal events per service. Measured counts are retained in [pool-soak.json](pool-soak.json). These are test-only transport/clock measurements, not production throughput guarantees.
+- A real standard public-WebSocket probe subscribed twice for 20 seconds each at 12:51:20 and 12:51:40 UTC. Both subscriptions were acknowledged; each received nine mentions. The 12-row catch-up page was full, and the combined unique count was 18. [pool-acquisition-probe.json](pool-acquisition-probe.json) explicitly records acquisition-only evidence and an unknown swap denominator; it is not a 40-second proof of lossless verified ingestion.
+- M4–M9 product behavior is preserved: token navigation/isolation, themes, Theme Studio, Champion entitlement/lifecycle, battlefield rendering and Pixel/PiP remain covered. No combat or entitlement implementation changed.
+
+### AF–AJ. Artifacts, changed files and local commit
+
+The implementation changes are the new pool identity/classification/execution/coverage modules, shared raw transaction context, scoped ingestion and StreamHub, contract-v4 browser journal/API/stream and execution-ID consumers. Tests add raw/public pool fixtures, adversarial market-effect cases, source-generation isolation, current finalized cross-checks and the browser rebase case. Existing browser mocks were updated to the new contract and one selected pool; existing assertions about visual behavior remain in place.
+
+Audit artifacts are `pool-mainnet-samples.json`, `pool-protocol-provenance.json`, `pool-crosschecks.json`, `pool-acquisition-probe.json` and `pool-soak.json`. `scripts/audit-pool-samples.mjs` replays the explicitly captured ignored working dataset and records the manifest; committed representative fixtures support offline unit regression without a network. Cross-check/probe scripts use public fixed endpoints and finite reads. No user prompt or credentials are committed.
+
+The closing response gives the third local commit SHA and exact diff inventory. `git diff c1bb3a8965d3ed7dc2d0ee13e4ad2b763a43e0bc HEAD --stat` identifies this increment. The two earlier commits are preserved without amendment. No push, PR, merge, deploy, tag or release is performed; the intended final working tree is clean. Committing this safe increment does not assert that the complete terrain foundation passed its readiness gate.
+
+### AK–AM. Material limits and exact M10.2 readiness
+
+The supported selected-AMM path can now consume real market effect without guessing user intent. The current ANSEM evidence is materially useful and substantially different from the old attribution result. However, this does not cover the launch/curve stage, combined Whirlpool swaps, every current DEX family, nonstandard quotes, token transfer fees/hooks or unexplained mixed vault flows. Some of these are narrow protocol limits; the entire active Pump curve stage is a **material** coverage gap for the stated fresh-token scope.
+
+Those omissions would mislead if pressure were presented as complete or curve inactivity were treated as no trading. They are therefore excluded/degraded, and M10.2 is **not ready**. Independently, canonical valuation authority is not established and remains explicitly false. Next required work is a bounded current curve discovery/execution/lifecycle adapter with measured successful-swap coverage, plus an explicit same-market/epoch valuation authority contract with observation and supply/quote provenance. Neither requires guessing wallet intent.
+
+M10.1 BLOCKED — MATERIAL POOL EXECUTION COVERAGE

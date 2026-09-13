@@ -64,8 +64,8 @@ describe('trade stream lifecycle', () => {
         });
         const socket = FakeWebSocket.instances[0];
         socket.open();
-        socket.emit('message', { data: JSON.stringify({ version: 3, type: 'trade', data: { txHash: 'tx' } }) });
-        socket.emit('message', { data: JSON.stringify({ version: 3, type: 'status', status: 'live' }) });
+        socket.emit('message', { data: JSON.stringify({ version: 4, type: 'trade', data: { txHash: 'tx' } }) });
+        socket.emit('message', { data: JSON.stringify({ version: 4, type: 'status', status: 'live' }) });
 
         expect(JSON.parse(socket.sent[0])).toEqual({ type: 'configure', token: { mint: 'mint' }, pools: [{ address: 'pool' }] });
         expect(onTrade).toHaveBeenCalledWith({ txHash: 'tx' });
@@ -97,7 +97,7 @@ describe('trade stream lifecycle', () => {
         for (let i = 0; i < 100; i += 1) {
             const previous = FakeWebSocket.instances.at(-1);
             previous.open(); previous.close(); controller.reconnect();
-            previous.emit('message', { data: JSON.stringify({ version: 3, type: 'trade', data: { id: 'obsolete' } }) });
+            previous.emit('message', { data: JSON.stringify({ version: 4, type: 'trade', data: { id: 'obsolete' } }) });
         }
         expect(FakeWebSocket.instances).toHaveLength(101);
         expect(onTrade).not.toHaveBeenCalled();

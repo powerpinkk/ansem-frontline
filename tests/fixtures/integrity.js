@@ -86,7 +86,10 @@ export function swapFixture({ protocol = 'pumpswap', isBuy = true, mint = MINT, 
     routeBytes.writeUInt16LE(10000, percentOffset); routeBytes[percentOffset + 3] = 1;
     const routeAccounts = [wallet, isBuy ? userQuote : userBase, isBuy ? userBase : userQuote,
         isBuy ? quoteMint : mint, isBuy ? mint : quoteMint, TOKEN, token2022 ? TOKEN2022 : TOKEN, ROUTER, eventAuthority, ROUTER];
-    return { signature, pool, mint, transaction: { slot, blockTime,
+    return { signature, pool, mint, market: { tokenMint: mint, quoteMint, address: pool, poolAddress: pool,
+        programId: program, protocol: protocol === 'dlmm' ? 'meteora-dlmm' : protocol === 'orca' ? 'orca-whirlpool' : protocol,
+        mints: [mint, quoteMint], vaults: [vaultBase, vaultQuote], tokenPrograms: [token2022 ? TOKEN2022 : TOKEN, TOKEN],
+        compatibility: 'POOL_STATE_AND_VAULTS_VERIFIED', identityEvidence: 'POOL_STATE_AND_VAULTS', sourceEpoch: 1 }, transaction: { slot, blockTime,
         transaction: { signatures: [signature], message: { accountKeys: uniqueKeys.map((pubkey) => ({ pubkey, signer: pubkey === wallet })),
             instructions: routed ? [{ programId: ROUTER, accounts: routeAccounts, data: base58(routeBytes) }] : [ix] } },
         meta: { err: null, fee: 5000, preTokenBalances: pre, postTokenBalances: post,
@@ -100,10 +103,14 @@ export function swapFixture({ protocol = 'pumpswap', isBuy = true, mint = MINT, 
 export function canonicalEvent(overrides = {}) {
     const signature = overrides.signature || overrides.txHash || signatureFor();
     const tokenMint = overrides.tokenMint || MINT;
-    return { evidenceLevel: 'CHAIN_VERIFIED', verificationVersion: 'swap-transfers-v1', settlement: 'CONFIRMED',
+    const poolAddress = overrides.poolAddress || ANSEM_FALLBACK_POOLS[2].address;
+    const executionOrder = overrides.executionOrder || { outerIndex: 0, innerIndex: null, transactionIndex: null };
+    const invocationPath = `${executionOrder.outerIndex}.${executionOrder.innerIndex ?? 'outer'}`;
+    return { evidenceLevel: 'CHAIN_VERIFIED', verificationVersion: 'pool-execution-v1', settlement: 'CONFIRMED',
+        economicScope: 'CANONICAL_POOL_EXECUTION', sourceEpoch: 1, executionOrder, invocationPath, marketIdentity: poolAddress,
         slot: 100, timestamp: Date.now(), blockTime: Math.floor(Date.now() / 1000), isBuy: true,
         rawTokenAmount: '10000000000', tokenDecimals: 6, rawQuoteAmount: '25000000000', quoteDecimals: 9,
         quoteMint: SOL, quoteAmount: 25, quoteSymbol: 'SOL', solValue: 25, usdValue: null, tokenAmount: 10000,
-        isWhale: true, dexId: 'pumpswap', poolAddress: ANSEM_FALLBACK_POOLS[2].address,
-        ...overrides, signature, txHash: signature, tokenMint, id: `${tokenMint}:${signature}:net-v1` };
+        isWhale: true, dexId: 'pumpswap',
+        ...overrides, poolAddress, signature, txHash: signature, tokenMint, id: `${tokenMint}:${signature}:${poolAddress}:${invocationPath}:pool-v1` };
 }

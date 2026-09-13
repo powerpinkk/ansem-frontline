@@ -1,4 +1,4 @@
-import { canonicalEvent } from '../fixtures/integrity.js';
+import { canonicalEvent, swapFixture } from '../fixtures/integrity.js';
 import { providerValuation } from '../../js/market-valuation.js';
 import { expect, test } from '@playwright/test';
 
@@ -50,7 +50,7 @@ test.beforeEach(async ({ page }) => {
         await new Promise((resolve) => setTimeout(resolve, 90));
         await route.fulfill({
             json: {
-                version: 3, tokenMint: token, source: 'verified-rpc-history',
+                version: 4, tokenMint: token, canonicalMarket: swapFixture().market, source: 'verified-rpc-history',
                 pools: 2,
                 trades: [relayTrade(true), relayTrade(false)],
             },
@@ -790,8 +790,8 @@ function relayTrade(isBuy) {
         isWhale: isBuy,
         timestamp: Date.now() - (isBuy ? 500 : 250),
         wallet: 'wallet',
-        poolAddress: isBuy ? buyPool : sellPool,
-        dexId: isBuy ? 'pumpswap' : 'meteora',
+        poolAddress: swapFixture().pool,
+        dexId: 'pumpswap',
         quoteSymbol: 'SOL',
         provider: 'helius',
     });

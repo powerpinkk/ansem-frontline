@@ -1,14 +1,14 @@
 import { expect, it, vi } from 'vitest';
 import { fetchRecentCandidates } from '../worker/src/recent-trades.js';
 import { signatureFor } from './fixtures/integrity.js';
-it('deduplicates history candidates and excludes failed, future, old and unknown time', async () => {
+it('deduplicates history mentions and retains failures while excluding future, old and unknown time', async () => {
     const recent = { signature: signatureFor(), slot: 42, blockTime: 500 };
     const rpc = vi.fn(async () => [recent, { ...recent, err: {} },
         { signature: signatureFor(2), blockTime: 1 }, { signature: signatureFor(3), blockTime: 700 },
         { signature: signatureFor(4), blockTime: null }]);
     const cursors = new Map();
     expect(await fetchRecentCandidates(rpc, [{ address: 'a' }, { address: 'b' }], cursors, 600_000))
-        .toEqual({ candidates: [recent], coverageIncomplete: false });
+        .toEqual({ candidates: [recent], cursors, coverageIncomplete: false });
     expect(cursors.size).toBe(2);
     await fetchRecentCandidates(rpc, [{ address: 'a' }], cursors, 600_000);
     expect(rpc.mock.lastCall[1][1]).toMatchObject({ until: recent.signature, limit: 12, commitment: 'confirmed' });

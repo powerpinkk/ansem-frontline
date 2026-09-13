@@ -28,7 +28,7 @@ export function connectTradeStream(url, handlers) {
             if (stopped || socket !== nextSocket) return;
             try {
                 const message = JSON.parse(event.data);
-                if (message.version !== 3) { handlers.onStatus?.('offline'); return; }
+                if (message.version !== 4) { handlers.onStatus?.('offline'); return; }
                 armHeartbeat(nextSocket);
                 if (message.type === 'trade') handlers.onTrade?.(message.data);
                 if (message.type === 'reconcile') handlers.onReconcile?.(message.data);
