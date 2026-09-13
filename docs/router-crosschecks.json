@@ -1,0 +1,78 @@
+[
+  {
+    "file": "pumpswap-4YquguNEKkyk",
+    "signature": "4YquguNEKkyksSma6sB7boFkj1gP4cLVXF1CUEgqi1K7Yx5sqdPk9Wr4naeHYaRyi1BbKBxwAcf1PfJfw3D1gGkN",
+    "slot": 446437184,
+    "checkedAt": "2026-09-13T03:16:09.708Z",
+    "method": "Independent compiled JSON read vs captured jsonParsed; static + writable + readonly, without production resolver",
+    "checks": {
+      "slot": true,
+      "signatures": true,
+      "resolvedKeys": true,
+      "preTokenBalances": true,
+      "postTokenBalances": true,
+      "logs": true,
+      "failedStatus": true
+    },
+    "loadedWritable": 0,
+    "loadedReadonly": 0,
+    "compiledResponseSha256": "1d9fdac94b8506612cdb6552eac3e2c2b0a02682565398ab447fd0e75bfa42ae"
+  },
+  {
+    "file": "meteora-dlmm-doqiTDJ9hQ24",
+    "signature": "doqiTDJ9hQ24Lj5NmDLzKsuLgKAT6nbinbDtqBBqddbjo4uUDiHXdsHRMTcAT5rr2acWbvN6LYpU85pmDgpgDE1",
+    "slot": 446437220,
+    "checkedAt": "2026-09-13T03:16:13.313Z",
+    "method": "Independent compiled JSON read vs captured jsonParsed; static + writable + readonly, without production resolver",
+    "checks": {
+      "slot": true,
+      "signatures": true,
+      "resolvedKeys": true,
+      "preTokenBalances": true,
+      "postTokenBalances": true,
+      "logs": true,
+      "failedStatus": true
+    },
+    "loadedWritable": 5,
+    "loadedReadonly": 11,
+    "compiledResponseSha256": "e8aac27ecbdaf852c25350caef42a9e48bce34a10516d1a2ff290a6874fff23f"
+  },
+  {
+    "file": "jupiter-2ZfyGQ1Znbti",
+    "signature": "2ZfyGQ1ZnbtigGYymKTwFetoSTjM12VVCEAmQQENJ8fFaPxRKUqwnHUpCgRMbnmsjY3QZZBHUCQgNE37YpyKP5ta",
+    "slot": 446595530,
+    "checkedAt": "2026-09-13T03:16:16.524Z",
+    "method": "Independent compiled JSON read vs captured jsonParsed; static + writable + readonly, without production resolver",
+    "checks": {
+      "slot": true,
+      "signatures": true,
+      "resolvedKeys": true,
+      "preTokenBalances": true,
+      "postTokenBalances": true,
+      "logs": true,
+      "failedStatus": true
+    },
+    "loadedWritable": 12,
+    "loadedReadonly": 17,
+    "compiledResponseSha256": "fbb3313125628e6b07dba4ecd090f8e857d6eb92cf4c57c144187a27b0f8929c"
+  },
+  {
+    "file": "jupiter-5TMkJvPGVbaT",
+    "signature": "5TMkJvPGVbaTpfANsKzgf5STSqxemsVcehKiU5y5UWu7VcJqCzjqEE62AUYoWrsXJ7CVnmeMS2Xy8zZRfu2BW16V",
+    "slot": 446595530,
+    "checkedAt": "2026-09-13T03:16:19.699Z",
+    "method": "Independent compiled JSON read vs captured jsonParsed; static + writable + readonly, without production resolver",
+    "checks": {
+      "slot": true,
+      "signatures": true,
+      "resolvedKeys": true,
+      "preTokenBalances": true,
+      "postTokenBalances": true,
+      "logs": true,
+      "failedStatus": true
+    },
+    "loadedWritable": 6,
+    "loadedReadonly": 3,
+    "compiledResponseSha256": "367ba28df83590f0cb8211ea45b13be55878f222137631ee46d0a9731c35fa3f"
+  }
+]

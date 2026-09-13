@@ -1,6 +1,7 @@
 import { createTradeJournal } from '../../js/market-evidence.js';
 import { verifyTransaction } from './transaction-evidence.js';
 import { validSignature } from './protocol-verifiers.js';
+import { verificationCategory, summarizeCoverage } from './verification-coverage.js';
 
 export const INGESTION_POLICY = Object.freeze({ maxRecords: 1024, maxQueued: 128, concurrency: 2,
     maxAgeMs: 300_000, retries: 3, reconciliationMs: 3000, reconciliationDeadlineMs: 90_000, statusBatch: 50, maxTransactionReadsPerMinute: 120 });
@@ -23,6 +24,7 @@ export function createEvidenceIngestion({ tokenMint, rpc, now = Date.now, onChan
         if (event.settlement === 'REJECTED' && record.state !== 'REJECTED') counts.rejected += 1;
         if (event.settlement === 'FINALIZED' && record.state !== 'FINALIZED') counts.reconciled += 1;
         record.event = event;
+        record.category = verificationCategory({ event });
         record.state = event.settlement;
         if (result.accepted) onChange({ type: result.fresh ? 'trade' : 'reconcile', data: event });
     }
@@ -49,12 +51,13 @@ export function createEvidenceIngestion({ tokenMint, rpc, now = Date.now, onChan
             if (stopped) return;
             if (!tx) throw new Error('TRANSACTION_NOT_AVAILABLE');
             const result = verifyTransaction(tx, record.signature, tokenMint, commitment.toUpperCase());
+            record.category = verificationCategory(result);
             if (result.event) publish(record, { ...result.event, observedAt: record.event?.observedAt ?? record.createdAt, receivedAt: now() });
             else if (record.event) publish(record, { ...record.event, settlement: 'REJECTED', reconciliationReason: result.reason });
             else {
                 record.state = result.status;
                 record.reason = result.reason;
-                counts[result.status === 'FAILED' ? 'rejected' : 'unverified'] += 1;
+                if (result.status !== 'NON_DIRECTIONAL') counts[result.status === 'FAILED' ? 'rejected' : 'unverified'] += 1;
             }
         } catch {
             if (stopped) return;
@@ -122,7 +125,7 @@ export function createEvidenceIngestion({ tokenMint, rpc, now = Date.now, onChan
         observeSignature, tick,
         async drain() { while (running.size && !stopped) await Promise.allSettled([...running]); },
         snapshot: () => journal.values(now(), true),
-        diagnostics: () => ({ ...counts, records: records.size, running: running.size,
+        diagnostics: () => ({ ...counts, coverage: summarizeCoverage(records.values()), records: records.size, running: running.size,
             pendingReconciliations: [...records.values()].filter((r) => ['CONFIRMED', 'FINALIZE_PENDING'].includes(r.state)).length,
             lastVerifiedSlot: journal.values(now()).reduce((s, e) => Math.max(s, e.slot), 0), journal: journal.diagnostics() }),
         destroy() { stopped = true; abort.abort(); records.clear(); journal.clear(); },

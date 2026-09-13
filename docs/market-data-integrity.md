@@ -1,6 +1,6 @@
 # Market data integrity — M10.1
 
-**Status: BLOCKED — VERIFICATION COVERAGE.** The four original integrity defects have regression coverage and safe replacements. M10.2 is not authorized by this result. In the bounded public-chain sample, positive end-user verification is demonstrated for PumpSwap direct and CPI sales; the sampled DLMM and Whirlpool routes are either non-swap mentions or cannot be normalized by the supported economic-owner model. Their exclusion is intentional, but is not proof of adequate market coverage.
+**Current status: M10.1 BLOCKED — MATERIAL VERIFICATION COVERAGE.** The dedicated M10.1b section below records the router increment and its measured limits. M10.2 is not authorized. The earlier M10.1 audit is retained as history; in particular, its acceptance of unknown-wrapper CPI sales has been superseded by stricter attribution.
 
 ## A. Baseline
 Started at `bf8ff6a6dc1a4bf664df96862e361bb3d0e62777`, equal to local main and origin/main. The original terrain branch was empty, clean, and had no upstream. Renamed locally to `feat/m10-market-data-integrity` before implementation. No terrain implementation existed. The earlier M10 audit stopped on data integrity.
@@ -164,3 +164,116 @@ Coverage of shared-account router economics is blocking. Before M10.2, implement
 Further limits: current valuation is indicative, circulating supply is not independently certified, independent USD quote/corroboration acquisition is not live, non-SOL trades do not weight SOL pressure, provider timestamps can be unknown, in-memory restart can lose gaps, and per-mint budgets are not global billing guarantees. These facts must remain explicit when choosing future terrain authority. No value-to-world mapping is implemented.
 
 M10.1 BLOCKED — VERIFICATION COVERAGE
+
+## M10.1b — Router economic attribution and measured coverage (2026-09-13)
+
+This section supersedes the earlier routing support/readiness statements, while preserving the M10.1 audit as history. The bounded implementation passes its deterministic gates. **The market-data milestone is still blocked by material verification coverage; this is not permission to build or release M10.2.** No live positive shared-route acceptance was demonstrated in the public sample.
+
+### A–B. Baseline and reproduced blocker
+
+Work remains on `feat/m10-market-data-integrity`, starting from the intact `3a16c4aff2741e63139474ee29951137a19d7fb7`. Both main refs remain `bf8ff6a6dc1a4bf664df96862e361bb3d0e62777`. The complete prior audit was read before editing. Running the original verifier from that commit against the new independently encoded shared direct, multihop, split and intermediate fixtures reproduces `ECONOMIC_OWNER_NOT_SIGNER` in all four cases. The new endpoint boundary resolves these deterministic cases without assigning a shared PDA to a user.
+
+The original fixtures' one-byte mock Jupiter instruction was not a documented routing format. It has been replaced with independently encoded actual V2 instructions. The old accepted non-Jupiter CPI sale `4hRRByUJeR5c…` now fails `UNSUPPORTED_ROUTER`: signer balance agreement alone cannot prove an unknown wrapper's intent. The original direct sale remains accepted with the same independently checked raw quantities. No negative assertion was relaxed into acceptance.
+
+### C. Current official research and the pinned on-chain IDL
+
+Swap V2 `/build` replaces the legacy two-call integration, uses `taker`, defaults to V2 instructions and supports ExactIn. Its routing weights are basis points. API version does not erase historical on-chain instructions. No legacy API client was added. [Jupiter migration contract](https://developers.jup.ag/docs/swap/migration/metis-to-build).
+
+The Meta-Aggregator can choose execution paths beyond the Jupiter Aggregator AMM program. A passive public observer cannot assume every winning router has Jupiter's account semantics or access someone else's `/execute` result/request ID. This implementation consumes public RPC only. [Jupiter order and execute](https://developers.jup.ag/docs/swap/order-and-execute). Separate payer and taker are supported explicitly by the integration contract and remain separate in attribution. [Jupiter gasless documentation](https://developers.jup.ag/docs/swap/advanced/gasless).
+
+The inspected official `jupiter-cpi`, `instruction-parser`, `jupiter-amm-implementation` and CPI example repository IDLs lacked V2 instruction definitions. They were not silently treated as current. Jupiter's own announcement points to the program IDL and states that V1 on-chain instructions remain valid. [Jupiter program update](https://t.me/s/jup_dev?before=157), [program IDL view](https://solscan.io/account/JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4#programIdl). The explorer's dynamic IDL data could not be retrieved here; its API returned HTTP 403. No explorer decoding is claimed.
+
+Instead, finalized public mainnet RPC returned the IDL account `C88XWfp26heEmDkmfSzeXP7Fd7GQJ2j9dDTUsyiZbUTa`, owned by `JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4`, at slot **446570768**. The retained compressed account bytes, owner, slot and SHA-256 are in [jupiter-idl-provenance.json](jupiter-idl-provenance.json). The uncompressed JSON hash is `3f0edbf2d65ec7be16b655348bcf63af70f3e64d19c68d9535048808167cc460`. A second read at slot 446598952 matched. The account uses the existing Anchor IDL seed/account layout; current documentation API branding is unrelated to this binary account format. [Anchor v0.31.1 IDL address and layout](https://github.com/coral-xyz/anchor/blob/v0.31.1/ts/packages/anchor/src/idl.ts).
+
+`worker/src/idl/jupiter-v6.js` retains the eight non-ledger route definitions (V1/V2 × ordinary/shared × ExactIn/ExactOut) and type definitions from that snapshot. A bounded Borsh interpreter follows named fields and enum definitions. Tests compare every instruction definition with the retained RPC payload and independently derive its Anchor discriminator. Unknown enums/types/versions, oversized vectors, malformed/trailing bytes and unsupported ledger instructions fail closed. The snapshot is static; `scripts/check-jupiter-idl.mjs` is a manual read-only drift check, never an automatic trust upgrade.
+
+### D–G. Economic endpoints, authority, account classes and token role
+
+The router boundary adds authority, input/output mint, exact raw executed quantities and decimals, named source/destination, actual destination owner, ExactIn/ExactOut context, quoted context, instruction/version, route plan, account classes and proof provenance. Quote context is explicitly not execution.
+
+The economic authority comes from the router's named `user_transfer_authority`, must be a transaction signer, and must own the source account. Delegated/non-signer authorities are unsupported. It is never chosen as the payer, first signer, largest delta or owner of a shared account. Direct DEX events also require their documented authority account to match the tracked-token owner, with a compatible user quote flow.
+
+Source/destination accounts are USER_ENDPOINT. Accounts with documented router authority and conserved routing flow are SHARED_ROUTER_ACCOUNT; signer-owned intermediates are USER_ROUTING_ACCOUNT. Documented DEX vaults are POOL_ACCOUNT. Successfully initialized/closed ephemeral wSOL accounts are TEMPORARY_ACCOUNT, with lifecycle instructions preserved. Unknown owners remain UNKNOWN and reject the route. Fee-bearing routes currently fail closed rather than guessing FEE_ACCOUNT roles or net amounts.
+
+The tracked token's proven endpoint role is INPUT → SELL or OUTPUT → BUY. A fully verified route using it only between endpoints returns NON_DIRECTIONAL / INTERMEDIATE with route evidence and no canonical event. NOT_INVOLVED is also non-directional. Unknown or partially decoded routes do not acquire a verified intermediate classification merely from a hint. User economic direction and pool price effects are distinct: these exclusions do not suppress the separate indicative valuation pipeline, and no synthetic market effect is created.
+
+### H–K. Direct, multihop, split and intermediate proof
+
+The existing PumpSwap, DLMM and Whirlpool adapters extract documented swap invocations and their direct-child transfers. For Jupiter they can extract all route legs, including those not touching the tracked mint. There is no second set of DEX parsers. Route-plan protocol/order/index/mint/weight checks, full leg count, successful invocation ancestry and connected source-to-destination transfer paths must agree. Non-vault intermediate flow must conserve exactly; residuals and disconnected flows reject.
+
+The deterministic shared direct route spends raw 1,000,000,000 input units and delivers raw 200,000,000 output units. A two-hop route preserves those endpoint amounts rather than using the intermediate quote. A 40/60 split aggregates both legs into the same one event. Identity remains `mint:signature:net-v1`; multiple router invocations/authorities in a transaction are rejected, so the key cannot combine different takers. Transfer ordering that preserves semantics leaves canonical economic evidence unchanged.
+
+The mandatory SOL → tracked → USDC shared fixture produces INTERMEDIATE, no BUY/SELL, no pressure and no future impact eligibility. The public `doqiTDJ9hQ24…` instruction also names SOL as input and another mint as output, with ANSEM in between; its fee-bearing/incompletely supported execution remains unsupported, not a verified intermediate event.
+
+### L–M. SOL/wSOL, custom destination and execution modes
+
+Swap size comes from successful scoped SPL transfers. Signer lamport deltas remain ancillary because they include fees, priority fees, tips and rent. Missing ephemeral wSOL balance identities are recovered only from successful SPL initialization; a successful closure is required. The tests include ATA setup, explicit system funding and syncNative, opening/closing wSOL, separate payer, fees and tips for SOL → token and token → SOL. These costs never enter canonical quote quantities. [SPL Token instruction semantics](https://github.com/solana-program/token/blob/main/interface/src/instruction.rs).
+
+This remains a conservative subset: pre-existing wSOL accounts funded or closed in ways that prevent exact account/owner net reconciliation may be rejected. Raw compiled transfer/transferChecked is decoded, while native-account initialization/closure must be available as parsed RPC instructions. The production transport already requests jsonParsed. Arbitrary native-destination wrappers and unexplained native flows remain unsupported.
+
+A named destination owned by another recipient can be accepted only with complete intent and transfer proof. The event wallet remains the authority; `destinationOwner` retains the other owner and `AUTHORITY_SELECTED_RECIPIENT` states the actual attribution. No ATA ownership assumption is made. All same-owner/mint account deltas are aggregated as a cross-check; unrelated activity that prevents exact reconciliation rejects the route.
+
+ExactIn requires executed endpoint input to equal the encoded input; ExactOut requires the executed output to equal the encoded output. The opposite quoted quantity never supplies executed size. Nonzero platform/positive-slippage fee parameters are currently unsupported. Pool quote amounts on direct DEX events keep M10.1's gross pool-flow meaning; router events use executed endpoint quote units. The event scope/provenance and UI distinguish these meanings. USD remains null.
+
+### N–R. Account indexing, instruction scope, fallback and correctness
+
+Compiled transaction JSON resolves static account keys, loaded writable keys and loaded readonly keys in that order. Required signatures select static signer keys. jsonParsed keys are already expanded and are not appended again; lookup-table keys cannot become signers. Balance accountIndex is checked against that resolved sequence, with duplicate/negative/out-of-range indices rejected. Deterministic tests cover both forms and raw SPL transfers. [Solana JSON structures](https://solana.com/docs/rpc/json-structures).
+
+The verifier retains each outer instruction's inner group and stack height. Only supported immediate DEX children of a single outer Jupiter instruction can form the routed proof. Missing/caught-failed invocations, unknown wrapper programs, nested router composition, unsupported route legs, transfers outside the causal scope and malformed evidence cannot fall back to direct authority. The requested transaction ID must be the first transaction signature, not merely any included signature.
+
+Adversarial tests cover payer substitution, unsigned loaded authority, largest shared delta, custom destination, duplicate owner accounts, unrelated net movement, missing transfers, malformed/unknown versions, unknown child operations, failed transactions, wrong scope/mint, Token-2022 net-fee mismatch, ATA/wSOL/tip changes, splits and allowed instruction reordering. Checked Token-2022 remains limited to exact conserved transfers without hooks/fees. Passing these tests is evidence for these cases, not a claim of a statistically measured zero false-positive rate across all mainnet activity.
+
+### S–V. Measured coverage, pressure confidence and public cross-checks
+
+The complete [sample register](router-mainnet-samples.json) includes every captured signature, slot, capture time, program, decoded router intent when available, authority, mint roles, observed account deltas, execution outcome, raw accepted amounts and payload hash. Unknown executed amounts stay null. Three separate cohorts must not be merged into one market percentage:
+
+| Fixed cohort | Unique candidates | Direct verified | Routed verified | Unsupported router/version/leg | Ambiguous/incomplete | Failed | No positive swap evidence |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Current ANSEM: 20 most recent mentions per each of 3 pools | 60 | 0 | 0 | 11 | 0 | 20 | 29 |
+| Auxiliary Jupiter program: latest 20 mentions, mixed output mints | 20 | 0 | 0 | 8 | 2 | 10 | 0 |
+| Previous M10.1 ANSEM sample replayed under stricter rules | 23 | 2 | 0 | 12 | 0 | 0 | 9 |
+
+All 80 new RPC transactions were available; there were zero duplicate signatures within either new cohort and zero final capture errors. Current ANSEM spans slots 446570989–446571442 (00:55:14–00:57:37 UTC); the auxiliary Jupiter cohort is all slot 446595530 (03:04:22 UTC). This latter single-slot cohort demonstrates formats and safe rejection, **not representative Jupiter-wide coverage**. Equal per-pool limits and address mentions are not a known true-trade denominator. “No positive swap evidence” does not assert a transaction was definitely a non-swap. No 24-hour market share or false-negative percentage is inferred.
+
+The previous cohort's two accepted direct sales total raw 228,000,000 tracked units. Missing economic amounts and possible intermediate turnover make a raw-amount coverage denominator indefensible; raw coverage and USD coverage remain null. No missing trades are rescaled into estimated volume. Current direct buys, successful fully accepted Jupiter/shared/split routes and custom payer/recipient combinations were not independently demonstrated in this bounded public validation. Shared V2, multileg, SOL/token intent and failed shared formats were naturally encountered, but decoding intent is not verified execution.
+
+The ingestion service reports retained unique candidate outcomes (maximum five minutes / 1,024 records), evaluated/pending counts, direct/routed accepted counts, unsupported, ambiguous, failed, intermediate, not-involved, no-evidence counts and accepted raw tracked totals. Duplicate/reconciled counters remain distinct from candidate counts and do not inflate the denominator. Reconciliation changes the existing record's category and pressure eligibility. Confidence is UNKNOWN before candidates, DEGRADED with missing/unsupported/ambiguous evidence or no accepted events, otherwise PARTIAL for the observed subset. It never asserts complete market coverage. The pressure tooltip shows the bounded sample's confidence and evaluated/accepted counts, separately from its 60-second SOL flow. Existing history gaps, upstream failures and non-SOL pressure exclusions remain visible; no extrapolation was introduced.
+
+Four selected signatures were independently requested again as compiled JSON. A separate script (without the production resolver) resolved the static/ALT account arrays and compared signature, slot, pre/post token balances, logs and failure status with the captured jsonParsed responses. All checks passed; results are retained in [router-crosschecks.json](router-crosschecks.json). The current shared V2 sample has 12 loaded writable and 17 loaded readonly keys; the failed shared sample has 6 and 3. Both raw public fixtures are committed. This is independent decoding/cross-check methodology against public RPC and a program-owned IDL, not independent RPC-provider consensus or a light client.
+
+Manual cross-check of `doqiTDJ9hQ24…`: encoded ExactIn 195,113,023 lamports; scoped input movement 194,917,910 plus a separate 195,113 fee; output transfer 1,443,279,952,110 raw units, distinct from the quoted 1,442,816,193,566. Its SOL system funding is not an additional swap. These values explain why neither a pool quote nor a quoted output may be substituted for user execution. The unsupported Raydium Launchlab leg and fee boundary keep it out of canonical authority.
+
+### W–AB. Performance, security and regression checks
+
+No new production RPC request, dependency, paid service, subscription, queue or persistent per-signature structure was added. The static IDL is bundled in the Worker. Existing 512-instruction / 16-leg bounds remain, with 32-item Borsh vectors and a depth limit. The existing ingestion budget, record lifetime, dedup, finalization and token isolation remain in place. Public capture used fixed endpoints, 3.1-second request spacing and finite cohorts. Request ceilings and global-admission limitations from M10.1 still apply; this is not a paid-provider cost guarantee.
+
+Client prices/pools/status cannot alter evidence. All new router quantities are raw RPC execution facts; no browser valuation is an input. Unknown versions cannot regain authority through the old signer fallback. Existing selection ordering, MC/FDV distinction, source rebases, canonical settlement, dedup and multi-token gates remain tested. No terrain, impact, giant entities, wallet, combat or visual redesign was implemented.
+
+| Validation | Result |
+| --- | --- |
+| All unit tests | 31 files, 279 tests passed (46 dedicated router tests; 3 new IDL/public-chain tests) |
+| Lint | Passed |
+| Production browser build | Passed |
+| Worker bundle, `wrangler deploy --dry-run` | Passed; 138.47 KiB / gzip 27.82 KiB; no upload/deployment |
+| Complete E2E command, one worker | 96 definitions: 62 passed, 34 existing device skips; exit 0, 10.7 minutes |
+| Public compiled-vs-parsed cross-check | 4 signatures passed every recorded check |
+| IDL drift check | Same hash on second finalized read |
+| Shared-route soak, final frozen-code run | 60 seconds; 752 cycles; 60,160 replay deliveries; 9,024 mocked RPC reads; 6,016 publications; max 76 records/token; all finalized; empty teardown |
+
+Two earlier shared-route soaks completed 844 and 591 cycles while additional checks were being developed. The final frozen-code run above covers four token services and 0.8356 virtual hours. Three services use shared direct/split/multihop fixtures and one direct fixture; each cycle asserts that the new signature actually verifies and finalizes. These are test-only transport/clock results, not production uptime or throughput estimates. Unit and lint gates were rerun on the final Worker code; browser code stayed unchanged during the full passing E2E run.
+
+### AC–AG. Artifacts, diff and local Git
+
+Implementation: `transaction-evidence.js`, `transaction-accounts.js`, `router-decoder.js`, `router-evidence.js`, the pinned `idl/jupiter-v6.js`, `verification-coverage.js` and ingestion diagnostics. Browser changes are confined to truthful pressure/trade tooltips. Tests add the router fixture builder, adversarial suite, two public fixtures, IDL snapshot checks and pressure coverage assertions. Capture, offline audit, compiled cross-check and IDL drift scripts plus the sample/provenance JSON files make the evidence reviewable. Prompts are not stored.
+
+The existing M10.1 commit is preserved without amendment. The closing response records the second local commit SHA for this safe bounded increment; its existence does not assert M10.2 readiness. `git diff 3a16c4aff2741e63139474ee29951137a19d7fb7 HEAD --stat` gives the final changed-file inventory. No push, PR, merge, deploy, tag or release is performed.
+
+### AH–AJ. Remaining limits, materiality and exact readiness
+
+Unsupported cases include arbitrary wrappers and non-Jupiter Meta-Aggregator programs; nested/multiple router invocation compositions; ledger variants; unsupported/dynamic DEX variants; nonzero platform/positive-slippage fees; routing residuals or opaque shared ownership; delegated/non-signer authority; unproved custom/native destinations; Token-2022 fees/hooks; and native lifecycle paths that cannot pass the stated checks. An observed instruction name in the IDL is not a claim to support that DEX's execution. No successful public shared-route acceptance is claimed.
+
+Coverage is materially blocking: the current ANSEM candidate stream yielded no authoritative event; even the prior positive sample retains only two direct sales after removing unknown-wrapper assumptions. The sample is too bounded and lacks a true-trade denominator to choose a defensible numeric readiness threshold. It certainly cannot justify treating the missing coverage as immaterial. The safe answer is to expose the observed subset as degraded. Independently authoritative valuation is also not established by this increment: the existing pipeline remains PROVIDER_INDICATIVE / authorityEligible=false. That predicate must not be declared satisfied merely because trade parsing improved.
+
+Downstream code may consume accepted events under their explicit execution scopes and settlement rules. It cannot treat the current pressure stream as an adequate account of the battlefield or use indicative valuation as authoritative terrain. M10.2 remains blocked, with no Market Terrain implementation.
+
+M10.1 BLOCKED — MATERIAL VERIFICATION COVERAGE

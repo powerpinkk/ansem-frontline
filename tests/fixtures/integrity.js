@@ -50,7 +50,8 @@ export function swapFixture({ protocol = 'pumpswap', isBuy = true, mint = MINT, 
     bytes.writeBigUInt64LE(BigInt(rawAmount), 8);
     bytes.writeBigUInt64LE(BigInt(rawQuote), 16);
     const ix = { programId: program, accounts, data: base58(bytes), stackHeight: routed ? 2 : 1 };
-    const keys = [wallet, userBase, userQuote, vaultBase, vaultQuote, ...accounts, mint, quoteMint, program, TOKEN, ROUTER];
+    const eventAuthority = 'D8cy77BBepLMngZx6ZukaTff5hCt1HrWyKk3Hnd9oitf';
+    const keys = [wallet, userBase, userQuote, vaultBase, vaultQuote, ...accounts, mint, quoteMint, program, TOKEN, TOKEN2022, ROUTER, eventAuthority];
     const uniqueKeys = [...new Set(keys)];
     const qdec = quoteMint === SOL ? 9 : 6;
     const transfer = (source, destination, token, raw, dec, programId) => ({
@@ -75,9 +76,19 @@ export function swapFixture({ protocol = 'pumpswap', isBuy = true, mint = MINT, 
     const logs = [ ...(routed ? [`Program ${ROUTER} invoke [1]`] : []), `Program ${program} invoke [${routed ? 2 : 1}]`,
         ...transfers.flatMap((t) => [`Program ${t.programId} invoke [${t.stackHeight}]`, `Program ${t.programId} success`]),
         `Program ${program} success`, ...(routed ? [`Program ${ROUTER} success`] : []) ];
+    const routeBytes = Buffer.alloc(protocol === 'orca' ? 40 : 39);
+    createHash('sha256').update('global:route_v2').digest().copy(routeBytes, 0, 0, 8);
+    routeBytes.writeBigUInt64LE(BigInt(isBuy ? rawQuote : rawAmount), 8);
+    routeBytes.writeBigUInt64LE(BigInt(isBuy ? rawAmount : rawQuote), 16);
+    routeBytes.writeUInt32LE(1, 30);
+    routeBytes[34] = protocol === 'pumpswap' ? isBuy ? 72 : 73 : protocol === 'dlmm' ? 38 : 17;
+    const percentOffset = protocol === 'orca' ? 36 : 35;
+    routeBytes.writeUInt16LE(10000, percentOffset); routeBytes[percentOffset + 3] = 1;
+    const routeAccounts = [wallet, isBuy ? userQuote : userBase, isBuy ? userBase : userQuote,
+        isBuy ? quoteMint : mint, isBuy ? mint : quoteMint, TOKEN, token2022 ? TOKEN2022 : TOKEN, ROUTER, eventAuthority, ROUTER];
     return { signature, pool, mint, transaction: { slot, blockTime,
         transaction: { signatures: [signature], message: { accountKeys: uniqueKeys.map((pubkey) => ({ pubkey, signer: pubkey === wallet })),
-            instructions: routed ? [{ programId: ROUTER, accounts: uniqueKeys, data: base58(new Uint8Array([1])) }] : [ix] } },
+            instructions: routed ? [{ programId: ROUTER, accounts: routeAccounts, data: base58(routeBytes) }] : [ix] } },
         meta: { err: null, fee: 5000, preTokenBalances: pre, postTokenBalances: post,
             preBalances: uniqueKeys.map(() => 1e9), postBalances: uniqueKeys.map((_key, i) => i ? 1e9 : 1e9 - 5000),
             innerInstructions: [{ index: 0, instructions: routed ? [ix, ...transfers] : transfers }], logMessages: logs },

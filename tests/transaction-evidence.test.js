@@ -44,6 +44,7 @@ describe('positive economic swap evidence', () => {
         const absent = swapFixture(); absent.transaction.meta.innerInstructions[0].instructions.pop();
         expect(verify(absent).event).toBeNull();
         const wrong = swapFixture(); wrong.transaction.transaction.message.instructions[0].accounts[3] = USDC;
+        wrong.transaction.transaction.message.accountKeys.push({ pubkey: USDC, signer: false });
         expect(verify(wrong).reason).toBe('POOL_MINT_MISMATCH');
         const missing = swapFixture(); missing.transaction.meta.logMessages = [];
         expect(verify(missing).reason).toBe('SWAP_INVOCATION_NOT_SUCCESSFUL');

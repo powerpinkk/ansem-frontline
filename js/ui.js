@@ -200,7 +200,8 @@ export function updateDashboardUI() {
         sceneCallbacks.setFrontlineState(frontlineState);
         if (DOM.pressureVolume) {
             setText(DOM.pressureVolume, `${formatSol(state.buySol60s)} / ${formatSol(state.sellSol60s)} SOL`);
-            DOM.pressureVolume.title = `Confirmed/finalized SOL-quoted pool flow in 60s; ${state.pressureCoverage?.excludedNonSol || 0} non-SOL swaps excluded. USD estimates never weight pressure.`;
+            const coverage = state.integrity?.coverage;
+            DOM.pressureVolume.title = `Confirmed/finalized SOL swap flow in 60s; ${state.pressureCoverage?.excludedNonSol || 0} non-SOL swaps excluded. Verification: ${coverage?.confidence || 'UNKNOWN'}; ${coverage ? coverage.verifiedDirect + coverage.verifiedRouted : '?'} / ${coverage?.evaluated ?? '?'} evaluated candidates (bounded 5-minute sample). USD estimates never weight pressure.`;
         }
         updateBattleState();
     });
@@ -260,7 +261,7 @@ export function addOnChainTrade(trade) {
     row.href = `https://solscan.io/tx/${encodeURIComponent(trade.txHash)}`;
     row.target = '_blank';
     row.rel = 'noopener noreferrer';
-    row.title = `${trade.settlement || 'UNVERIFIED'} · ${trade.dexId} · pool quote; USD is an estimate`;
+    row.title = `${trade.settlement || 'UNVERIFIED'} · ${trade.dexId} · ${trade.economicScope === 'ROUTER_ECONOMIC_ENDPOINTS' ? 'executed route endpoint quote' : 'pool quote'}; USD unavailable unless separately estimated`;
     row.dataset.eventId = trade.id;
     row.dataset.timestamp = String(trade.timestamp);
     const time = document.createElement('span');
