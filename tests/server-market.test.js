@@ -10,15 +10,16 @@ it('discovers independently and rejects pool owners outside fixed protocol adapt
         { chainId: 'solana', pairAddress: f.pool, dexId: 'client-label-not-proof', baseToken: { address: MINT },
             quoteToken: { address: SOL }, priceUsd: '1', liquidity: { usd: 100 } },
     ] }));
-    const rpc = vi.fn(async () => ({ context: { slot: 99 }, value: [{ owner: 'attacker', executable: false }] }));
+    const rpc = vi.fn(async (_method,[addresses]) => ({ context: { slot: 99 }, value: addresses.length===2?[null,null]:[{ owner: 'attacker', executable: false }] }));
     const rejected = await resolveServerMarket(MINT, rpc, null, fetchImpl);
     expect(rejected.pools).toEqual([]);
     expect(rejected.unsupportedPools).toBe(1);
-    rpc.mockResolvedValue({ context: { slot: 100 }, value: [{
-        owner: f.transaction.transaction.message.instructions[0].programId, executable: false }] });
+    rpc.mockImplementation(async (_method,[addresses]) => ({ context: { slot: 100 }, value:addresses.length===2?[null,null]:[{
+        owner: f.transaction.transaction.message.instructions[0].programId, executable: false }] }));
     expect((await resolveServerMarket(MINT, rpc, null, fetchImpl)).pools).toEqual([]);
     const sample = JSON.parse(readFileSync(new URL('./fixtures/public-chain/pool-identities.json', import.meta.url)))[0];
-    rpc.mockResolvedValueOnce({ context: { slot: 100 }, value: [sample.poolAccount] })
+    rpc.mockResolvedValueOnce({context:{slot:99},value:[null,null]})
+        .mockResolvedValueOnce({ context: { slot: 100 }, value: [sample.poolAccount] })
         .mockResolvedValueOnce({ context: { slot: 101 }, value: sample.vaultAccounts.value });
     const accepted = await resolveServerMarket(MINT, rpc, null, fetchImpl);
     expect(accepted.pools[0]).toMatchObject({ compatibility: 'POOL_STATE_AND_VAULTS_VERIFIED', verifiedAtSlot: 101 });

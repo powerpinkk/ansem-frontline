@@ -1,0 +1,1576 @@
+{
+  "historicalReplay": true,
+  "observationRange": [
+    1789339831498,
+    1789341346387
+  ],
+  "authoritativeAtObservation": 7,
+  "mayhemSupplyWithheld": 3,
+  "valuations": [
+    {
+      "mint": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+      "protocol": "pumpswap",
+      "market": "FnzKY6x7entQ1eR3D225dQyT7ybfka4PskBMQhb8L3CC",
+      "observedAt": 1789339831498,
+      "native": {
+        "rawQuoteValue": "1422967405546025",
+        "supplyRaw": "997364029286488",
+        "supplyBasis": "LIVE_MINT_SUPPLY",
+        "effectiveQuoteReserve": "10866960705020",
+        "tokenMint": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+        "marketIdentity": "FnzKY6x7entQ1eR3D225dQyT7ybfka4PskBMQhb8L3CC",
+        "sourceEpoch": 1,
+        "quoteMint": "So11111111111111111111111111111111111111112",
+        "quoteDecimals": 9,
+        "kind": "PROTOCOL_MARKET_CAP",
+        "protocolDefinition": "PUMP_PROTOCOL_MARKET_CAP_V1",
+        "source": "ONCHAIN_PUMP_STATE",
+        "slot": 446821100,
+        "observedAt": 1789339831498,
+        "supplyVerified": true,
+        "provenance": {
+          "formula": "pump-swap-sdk@1.20.0:poolMarketCap",
+          "transport": "TRUSTED_RPC",
+          "observation": "ATOMIC_GET_MULTIPLE_ACCOUNTS",
+          "state": {
+            "mintSupply": "997364029286488",
+            "mayhem": false,
+            "baseReserve": "7616699913585",
+            "quoteReserve": "10866960705020",
+            "virtualQuoteReserves": "0"
+          },
+          "mintExtensions": [
+            18,
+            19
+          ]
+        }
+      },
+      "quote": {
+        "quoteMint": "So11111111111111111111111111111111111111112",
+        "price": "9997149850",
+        "exponent": -8,
+        "observedAt": 1789339830000,
+        "receivedAt": 1789339831498,
+        "slot": 446821100,
+        "source": "PYTH_ONCHAIN_FULL",
+        "verification": "FULL",
+        "confidenceRaw": "1700005",
+        "confidenceAccepted": true,
+        "provenance": {
+          "source": "PYTH_PRICE_UPDATE_V2",
+          "account": "7AviUf9nL62mcxNbQGKm4nKDQnPjswo6c5MX4D57HmyE",
+          "feedId": "ef0d8b6fda2ceba41da15d4095d1da392a0d2f8ed0c6c7bc0f4cfac8c280b56d",
+          "owner": "rec2HHDDnjLfj4kE7VyEtFA1HPGQLK33259532cRyHp",
+          "postedSlot": "446821100",
+          "transport": "TRUSTED_RPC"
+        }
+      },
+      "valuation": {
+        "tokenMint": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+        "marketIdentity": "FnzKY6x7entQ1eR3D225dQyT7ybfka4PskBMQhb8L3CC",
+        "sourceEpoch": 1,
+        "kind": "PROTOCOL_MARKET_CAP",
+        "protocolDefinition": "PUMP_PROTOCOL_MARKET_CAP_V1",
+        "supplyBasis": "LIVE_MINT_SUPPLY",
+        "supplyRaw": "997364029286488",
+        "valueUsd": "142256183.8490933299684625",
+        "nativeQuoteValue": "1422967405546025",
+        "quoteMint": "So11111111111111111111111111111111111111112",
+        "quoteUsdPrice": "99.9714985",
+        "nativeObservedAt": 1789339831498,
+        "quoteObservedAt": 1789339830000,
+        "slot": 446821100,
+        "provenance": {
+          "native": {
+            "formula": "pump-swap-sdk@1.20.0:poolMarketCap",
+            "transport": "TRUSTED_RPC",
+            "observation": "ATOMIC_GET_MULTIPLE_ACCOUNTS",
+            "state": {
+              "mintSupply": "997364029286488",
+              "mayhem": false,
+              "baseReserve": "7616699913585",
+              "quoteReserve": "10866960705020",
+              "virtualQuoteReserves": "0"
+            },
+            "mintExtensions": [
+              18,
+              19
+            ]
+          },
+          "quote": {
+            "source": "PYTH_PRICE_UPDATE_V2",
+            "account": "7AviUf9nL62mcxNbQGKm4nKDQnPjswo6c5MX4D57HmyE",
+            "feedId": "ef0d8b6fda2ceba41da15d4095d1da392a0d2f8ed0c6c7bc0f4cfac8c280b56d",
+            "owner": "rec2HHDDnjLfj4kE7VyEtFA1HPGQLK33259532cRyHp",
+            "postedSlot": "446821100",
+            "transport": "TRUSTED_RPC"
+          }
+        },
+        "gates": {
+          "identity": true,
+          "formula": true,
+          "supply": true,
+          "nativeFresh": true,
+          "quoteIdentity": true,
+          "quoteFresh": true,
+          "slot": true,
+          "lifecycle": true,
+          "numeric": true
+        },
+        "nativeFreshness": "FRESH",
+        "quoteFreshness": "FRESH",
+        "freshness": "FRESH",
+        "authorityEligible": true,
+        "movementCause": "SOURCE_REBASE"
+      },
+      "failure": null,
+      "corroboration": {
+        "mint": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+        "observedAt": 1789339832095,
+        "pumpStatus": 200,
+        "pump": {
+          "market_cap_quote": 1426728.2193483687,
+          "market_cap_usd": 142644287.3704499,
+          "usd_market_cap": 142644287.3704499,
+          "total_supply": 1000000000000000,
+          "total_supply_str": "1000000000000000",
+          "virtual_token_reserves": 1073000000000000,
+          "virtual_quote_reserves": 30000000000
+        },
+        "dex": [
+          {
+            "pair": "FnzKY6x7entQ1eR3D225dQyT7ybfka4PskBMQhb8L3CC",
+            "mc": 141944529,
+            "fdv": 141944529,
+            "priceUsd": "0.1423"
+          }
+        ],
+        "pumpPayloadSha256": "ae30fadff18fee948799cff5a7aa407cbfb9542d00f16848ffcb1b3e2f514a06",
+        "dexPayloadSha256": "949f596a3bcf5e766959b75652174aa15469a9f2f46f94b0d1a43a4ce1baccca"
+      },
+      "comparison": {
+        "pumpQuoteRatio": 0.9973640292864877,
+        "pumpUsdDelta": -388103.52135658264,
+        "pumpUsdDeltaPercent": -0.2720778578034988,
+        "dex": [
+          {
+            "pair": "FnzKY6x7entQ1eR3D225dQyT7ybfka4PskBMQhb8L3CC",
+            "mcDelta": 311654.849093318,
+            "mcDeltaPercent": 0.21956101534095218
+          }
+        ]
+      },
+      "note": "Exact SDK protocol definition with live mint supply; asynchronous provider corroboration only."
+    },
+    {
+      "mint": "4N7fcsLHFCdUuMHu9LcFfBBvEr5B8hp8dg17Wf26pump",
+      "protocol": "pumpswap",
+      "market": "CLBMvshnwBsCYKEm1HMPEt4acocom65cbeAezRCNf7yX",
+      "observedAt": 1789339844692,
+      "native": {
+        "rawQuoteValue": "17911454913",
+        "supplyRaw": "999987892689304",
+        "supplyBasis": "LIVE_MINT_SUPPLY",
+        "effectiveQuoteReserve": "17889103216",
+        "tokenMint": "4N7fcsLHFCdUuMHu9LcFfBBvEr5B8hp8dg17Wf26pump",
+        "marketIdentity": "CLBMvshnwBsCYKEm1HMPEt4acocom65cbeAezRCNf7yX",
+        "sourceEpoch": 1,
+        "quoteMint": "So11111111111111111111111111111111111111112",
+        "quoteDecimals": 9,
+        "kind": "PROTOCOL_MARKET_CAP",
+        "protocolDefinition": "PUMP_PROTOCOL_MARKET_CAP_V1",
+        "source": "ONCHAIN_PUMP_STATE",
+        "slot": 446821141,
+        "observedAt": 1789339844692,
+        "supplyVerified": true,
+        "provenance": {
+          "formula": "pump-swap-sdk@1.20.0:poolMarketCap",
+          "transport": "TRUSTED_RPC",
+          "observation": "ATOMIC_GET_MULTIPLE_ACCOUNTS",
+          "state": {
+            "mintSupply": "999987892689304",
+            "mayhem": false,
+            "baseReserve": "998740008217783",
+            "quoteReserve": "304597928",
+            "virtualQuoteReserves": "17584505288"
+          },
+          "mintExtensions": [
+            18,
+            19
+          ]
+        }
+      },
+      "quote": {
+        "quoteMint": "So11111111111111111111111111111111111111112",
+        "price": "9993568424",
+        "exponent": -8,
+        "observedAt": 1789339835000,
+        "receivedAt": 1789339844692,
+        "slot": 446821141,
+        "source": "PYTH_ONCHAIN_FULL",
+        "verification": "FULL",
+        "confidenceRaw": "1116144",
+        "confidenceAccepted": true,
+        "provenance": {
+          "source": "PYTH_PRICE_UPDATE_V2",
+          "account": "7AviUf9nL62mcxNbQGKm4nKDQnPjswo6c5MX4D57HmyE",
+          "feedId": "ef0d8b6fda2ceba41da15d4095d1da392a0d2f8ed0c6c7bc0f4cfac8c280b56d",
+          "owner": "rec2HHDDnjLfj4kE7VyEtFA1HPGQLK33259532cRyHp",
+          "postedSlot": "446821115",
+          "transport": "TRUSTED_RPC"
+        }
+      },
+      "valuation": {
+        "tokenMint": "4N7fcsLHFCdUuMHu9LcFfBBvEr5B8hp8dg17Wf26pump",
+        "marketIdentity": "CLBMvshnwBsCYKEm1HMPEt4acocom65cbeAezRCNf7yX",
+        "sourceEpoch": 1,
+        "kind": "PROTOCOL_MARKET_CAP",
+        "protocolDefinition": "PUMP_PROTOCOL_MARKET_CAP_V1",
+        "supplyBasis": "LIVE_MINT_SUPPLY",
+        "supplyRaw": "999987892689304",
+        "valueUsd": "1789.99350246456467112",
+        "nativeQuoteValue": "17911454913",
+        "quoteMint": "So11111111111111111111111111111111111111112",
+        "quoteUsdPrice": "99.93568424",
+        "nativeObservedAt": 1789339844692,
+        "quoteObservedAt": 1789339835000,
+        "slot": 446821141,
+        "provenance": {
+          "native": {
+            "formula": "pump-swap-sdk@1.20.0:poolMarketCap",
+            "transport": "TRUSTED_RPC",
+            "observation": "ATOMIC_GET_MULTIPLE_ACCOUNTS",
+            "state": {
+              "mintSupply": "999987892689304",
+              "mayhem": false,
+              "baseReserve": "998740008217783",
+              "quoteReserve": "304597928",
+              "virtualQuoteReserves": "17584505288"
+            },
+            "mintExtensions": [
+              18,
+              19
+            ]
+          },
+          "quote": {
+            "source": "PYTH_PRICE_UPDATE_V2",
+            "account": "7AviUf9nL62mcxNbQGKm4nKDQnPjswo6c5MX4D57HmyE",
+            "feedId": "ef0d8b6fda2ceba41da15d4095d1da392a0d2f8ed0c6c7bc0f4cfac8c280b56d",
+            "owner": "rec2HHDDnjLfj4kE7VyEtFA1HPGQLK33259532cRyHp",
+            "postedSlot": "446821115",
+            "transport": "TRUSTED_RPC"
+          }
+        },
+        "gates": {
+          "identity": true,
+          "formula": true,
+          "supply": true,
+          "nativeFresh": true,
+          "quoteIdentity": true,
+          "quoteFresh": true,
+          "slot": true,
+          "lifecycle": true,
+          "numeric": true
+        },
+        "nativeFreshness": "FRESH",
+        "quoteFreshness": "FRESH",
+        "freshness": "FRESH",
+        "authorityEligible": true,
+        "movementCause": "SOURCE_REBASE"
+      },
+      "failure": null,
+      "corroboration": {
+        "mint": "4N7fcsLHFCdUuMHu9LcFfBBvEr5B8hp8dg17Wf26pump",
+        "observedAt": 1789339845171,
+        "pumpStatus": 200,
+        "pump": {
+          "market_cap_quote": 17.911671775242574,
+          "market_cap_usd": 1785.972792709437,
+          "usd_market_cap": 1785.972792709437,
+          "total_supply": 1000000000000000,
+          "total_supply_str": "1000000000000000",
+          "virtual_token_reserves": 279900000000000,
+          "virtual_quote_reserves": 115005359057
+        },
+        "dex": [
+          {
+            "pair": "CLBMvshnwBsCYKEm1HMPEt4acocom65cbeAezRCNf7yX",
+            "mc": 1770,
+            "fdv": 1770,
+            "priceUsd": "0.000001770"
+          }
+        ],
+        "pumpPayloadSha256": "ae68152494cbc2693f271a8cf5b1b850c109e6cbc071b481173f7f5dd6b76436",
+        "dexPayloadSha256": "d5bdb8faaeb9404d22e01d088f050556cac8c642393fc942ce7c026f5a53bed0"
+      },
+      "comparison": {
+        "pumpQuoteRatio": 0.9999878926855463,
+        "pumpUsdDelta": 4.020709755127655,
+        "pumpUsdDeltaPercent": 0.22512715599816158,
+        "dex": [
+          {
+            "pair": "CLBMvshnwBsCYKEm1HMPEt4acocom65cbeAezRCNf7yX",
+            "mcDelta": 19.9935024645647,
+            "mcDeltaPercent": 1.1295764104273909
+          }
+        ]
+      },
+      "note": "Exact SDK protocol definition with live mint supply; asynchronous provider corroboration only."
+    },
+    {
+      "mint": "67QR3aSt4MU4htHb8sNsaSsG6Wf9HQtXqBJkqxwgpump",
+      "protocol": "pumpswap",
+      "market": "DNzx81DpSybnZNaHipBBNeyDHfyJdEoy6ymW5BJtiEty",
+      "observedAt": 1789339857922,
+      "native": {
+        "rawQuoteValue": "18124949232",
+        "supplyRaw": "999928381447169",
+        "supplyBasis": "LIVE_MINT_SUPPLY",
+        "effectiveQuoteReserve": "17958530433",
+        "tokenMint": "67QR3aSt4MU4htHb8sNsaSsG6Wf9HQtXqBJkqxwgpump",
+        "marketIdentity": "DNzx81DpSybnZNaHipBBNeyDHfyJdEoy6ymW5BJtiEty",
+        "sourceEpoch": 1,
+        "quoteMint": "So11111111111111111111111111111111111111112",
+        "quoteDecimals": 9,
+        "kind": "PROTOCOL_MARKET_CAP",
+        "protocolDefinition": "PUMP_PROTOCOL_MARKET_CAP_V1",
+        "source": "ONCHAIN_PUMP_STATE",
+        "slot": 446821179,
+        "observedAt": 1789339857922,
+        "supplyVerified": true,
+        "provenance": {
+          "formula": "pump-swap-sdk@1.20.0:poolMarketCap",
+          "transport": "TRUSTED_RPC",
+          "observation": "ATOMIC_GET_MULTIPLE_ACCOUNTS",
+          "state": {
+            "mintSupply": "999928381447169",
+            "mayhem": false,
+            "baseReserve": "990747286419811",
+            "quoteReserve": "374025145",
+            "virtualQuoteReserves": "17584505288"
+          },
+          "mintExtensions": [
+            18,
+            19
+          ]
+        }
+      },
+      "quote": {
+        "quoteMint": "So11111111111111111111111111111111111111112",
+        "price": "9992133157",
+        "exponent": -8,
+        "observedAt": 1789339855000,
+        "receivedAt": 1789339857922,
+        "slot": 446821179,
+        "source": "PYTH_ONCHAIN_FULL",
+        "verification": "FULL",
+        "confidenceRaw": "1130013",
+        "confidenceAccepted": true,
+        "provenance": {
+          "source": "PYTH_PRICE_UPDATE_V2",
+          "account": "7AviUf9nL62mcxNbQGKm4nKDQnPjswo6c5MX4D57HmyE",
+          "feedId": "ef0d8b6fda2ceba41da15d4095d1da392a0d2f8ed0c6c7bc0f4cfac8c280b56d",
+          "owner": "rec2HHDDnjLfj4kE7VyEtFA1HPGQLK33259532cRyHp",
+          "postedSlot": "446821175",
+          "transport": "TRUSTED_RPC"
+        }
+      },
+      "valuation": {
+        "tokenMint": "67QR3aSt4MU4htHb8sNsaSsG6Wf9HQtXqBJkqxwgpump",
+        "marketIdentity": "DNzx81DpSybnZNaHipBBNeyDHfyJdEoy6ymW5BJtiEty",
+        "sourceEpoch": 1,
+        "kind": "PROTOCOL_MARKET_CAP",
+        "protocolDefinition": "PUMP_PROTOCOL_MARKET_CAP_V1",
+        "supplyBasis": "LIVE_MINT_SUPPLY",
+        "supplyRaw": "999928381447169",
+        "valueUsd": "1811.06906190008885424",
+        "nativeQuoteValue": "18124949232",
+        "quoteMint": "So11111111111111111111111111111111111111112",
+        "quoteUsdPrice": "99.92133157",
+        "nativeObservedAt": 1789339857922,
+        "quoteObservedAt": 1789339855000,
+        "slot": 446821179,
+        "provenance": {
+          "native": {
+            "formula": "pump-swap-sdk@1.20.0:poolMarketCap",
+            "transport": "TRUSTED_RPC",
+            "observation": "ATOMIC_GET_MULTIPLE_ACCOUNTS",
+            "state": {
+              "mintSupply": "999928381447169",
+              "mayhem": false,
+              "baseReserve": "990747286419811",
+              "quoteReserve": "374025145",
+              "virtualQuoteReserves": "17584505288"
+            },
+            "mintExtensions": [
+              18,
+              19
+            ]
+          },
+          "quote": {
+            "source": "PYTH_PRICE_UPDATE_V2",
+            "account": "7AviUf9nL62mcxNbQGKm4nKDQnPjswo6c5MX4D57HmyE",
+            "feedId": "ef0d8b6fda2ceba41da15d4095d1da392a0d2f8ed0c6c7bc0f4cfac8c280b56d",
+            "owner": "rec2HHDDnjLfj4kE7VyEtFA1HPGQLK33259532cRyHp",
+            "postedSlot": "446821175",
+            "transport": "TRUSTED_RPC"
+          }
+        },
+        "gates": {
+          "identity": true,
+          "formula": true,
+          "supply": true,
+          "nativeFresh": true,
+          "quoteIdentity": true,
+          "quoteFresh": true,
+          "slot": true,
+          "lifecycle": true,
+          "numeric": true
+        },
+        "nativeFreshness": "FRESH",
+        "quoteFreshness": "FRESH",
+        "freshness": "FRESH",
+        "authorityEligible": true,
+        "movementCause": "SOURCE_REBASE"
+      },
+      "failure": null,
+      "corroboration": {
+        "mint": "67QR3aSt4MU4htHb8sNsaSsG6Wf9HQtXqBJkqxwgpump",
+        "observedAt": 1789339858296,
+        "pumpStatus": 200,
+        "pump": {
+          "market_cap_quote": 18.126247408555002,
+          "market_cap_usd": 1837.687323016761,
+          "usd_market_cap": 1837.687323016761,
+          "total_supply": 1000000000000000,
+          "total_supply_str": "1000000000000000",
+          "virtual_token_reserves": 279900000000000,
+          "virtual_quote_reserves": 115005359057
+        },
+        "dex": [
+          {
+            "pair": "DNzx81DpSybnZNaHipBBNeyDHfyJdEoy6ymW5BJtiEty",
+            "mc": 1814,
+            "fdv": 1814,
+            "priceUsd": "0.000001814"
+          }
+        ],
+        "pumpPayloadSha256": "def811e2c24c7c177192b1078935041e1064dbe2de7b74e97ddc7f620995a391",
+        "dexPayloadSha256": "c213dd3c7a549e7f62dedf047645aae84f50c824537e5160a5ee8f187bbd9065"
+      },
+      "comparison": {
+        "pumpQuoteRatio": 0.9999283813949053,
+        "pumpUsdDelta": -26.6182611166721,
+        "pumpUsdDeltaPercent": -1.4484651868292509,
+        "dex": [
+          {
+            "pair": "DNzx81DpSybnZNaHipBBNeyDHfyJdEoy6ymW5BJtiEty",
+            "mcDelta": -2.9309380999111454,
+            "mcDeltaPercent": -0.16157321388705626
+          }
+        ]
+      },
+      "note": "Exact SDK protocol definition with live mint supply; asynchronous provider corroboration only."
+    },
+    {
+      "mint": "F8rBqHYGou7jimo6rz4QULGKzjb9NeXiNziexWr2pump",
+      "protocol": "pumpswap",
+      "market": "DiG86gt1CiTjBGgEb94LiAZHHiuF7n8t2j9V56iJMJCP",
+      "observedAt": 1789339871155,
+      "native": {
+        "rawQuoteValue": "17775927249",
+        "supplyRaw": "998716292158704",
+        "supplyBasis": "LIVE_MINT_SUPPLY",
+        "effectiveQuoteReserve": "17762167967",
+        "tokenMint": "F8rBqHYGou7jimo6rz4QULGKzjb9NeXiNziexWr2pump",
+        "marketIdentity": "DiG86gt1CiTjBGgEb94LiAZHHiuF7n8t2j9V56iJMJCP",
+        "sourceEpoch": 1,
+        "quoteMint": "So11111111111111111111111111111111111111112",
+        "quoteDecimals": 9,
+        "kind": "PROTOCOL_MARKET_CAP",
+        "protocolDefinition": "PUMP_PROTOCOL_MARKET_CAP_V1",
+        "source": "ONCHAIN_PUMP_STATE",
+        "slot": 446821220,
+        "observedAt": 1789339871155,
+        "supplyVerified": true,
+        "provenance": {
+          "formula": "pump-swap-sdk@1.20.0:poolMarketCap",
+          "transport": "TRUSTED_RPC",
+          "observation": "ATOMIC_GET_MULTIPLE_ACCOUNTS",
+          "state": {
+            "mintSupply": "998716292158704",
+            "mayhem": false,
+            "baseReserve": "997943245570437",
+            "quoteReserve": "177662679",
+            "virtualQuoteReserves": "17584505288"
+          },
+          "mintExtensions": [
+            18,
+            19
+          ]
+        }
+      },
+      "quote": {
+        "quoteMint": "So11111111111111111111111111111111111111112",
+        "price": "9988153262",
+        "exponent": -8,
+        "observedAt": 1789339865000,
+        "receivedAt": 1789339871155,
+        "slot": 446821220,
+        "source": "PYTH_ONCHAIN_FULL",
+        "verification": "FULL",
+        "confidenceRaw": "1696278",
+        "confidenceAccepted": true,
+        "provenance": {
+          "source": "PYTH_PRICE_UPDATE_V2",
+          "account": "7AviUf9nL62mcxNbQGKm4nKDQnPjswo6c5MX4D57HmyE",
+          "feedId": "ef0d8b6fda2ceba41da15d4095d1da392a0d2f8ed0c6c7bc0f4cfac8c280b56d",
+          "owner": "rec2HHDDnjLfj4kE7VyEtFA1HPGQLK33259532cRyHp",
+          "postedSlot": "446821208",
+          "transport": "TRUSTED_RPC"
+        }
+      },
+      "valuation": {
+        "tokenMint": "F8rBqHYGou7jimo6rz4QULGKzjb9NeXiNziexWr2pump",
+        "marketIdentity": "DiG86gt1CiTjBGgEb94LiAZHHiuF7n8t2j9V56iJMJCP",
+        "sourceEpoch": 1,
+        "kind": "PROTOCOL_MARKET_CAP",
+        "protocolDefinition": "PUMP_PROTOCOL_MARKET_CAP_V1",
+        "supplyBasis": "LIVE_MINT_SUPPLY",
+        "supplyRaw": "998716292158704",
+        "valueUsd": "1775.48685737174036238",
+        "nativeQuoteValue": "17775927249",
+        "quoteMint": "So11111111111111111111111111111111111111112",
+        "quoteUsdPrice": "99.88153262",
+        "nativeObservedAt": 1789339871155,
+        "quoteObservedAt": 1789339865000,
+        "slot": 446821220,
+        "provenance": {
+          "native": {
+            "formula": "pump-swap-sdk@1.20.0:poolMarketCap",
+            "transport": "TRUSTED_RPC",
+            "observation": "ATOMIC_GET_MULTIPLE_ACCOUNTS",
+            "state": {
+              "mintSupply": "998716292158704",
+              "mayhem": false,
+              "baseReserve": "997943245570437",
+              "quoteReserve": "177662679",
+              "virtualQuoteReserves": "17584505288"
+            },
+            "mintExtensions": [
+              18,
+              19
+            ]
+          },
+          "quote": {
+            "source": "PYTH_PRICE_UPDATE_V2",
+            "account": "7AviUf9nL62mcxNbQGKm4nKDQnPjswo6c5MX4D57HmyE",
+            "feedId": "ef0d8b6fda2ceba41da15d4095d1da392a0d2f8ed0c6c7bc0f4cfac8c280b56d",
+            "owner": "rec2HHDDnjLfj4kE7VyEtFA1HPGQLK33259532cRyHp",
+            "postedSlot": "446821208",
+            "transport": "TRUSTED_RPC"
+          }
+        },
+        "gates": {
+          "identity": true,
+          "formula": true,
+          "supply": true,
+          "nativeFresh": true,
+          "quoteIdentity": true,
+          "quoteFresh": true,
+          "slot": true,
+          "lifecycle": true,
+          "numeric": true
+        },
+        "nativeFreshness": "FRESH",
+        "quoteFreshness": "FRESH",
+        "freshness": "FRESH",
+        "authorityEligible": true,
+        "movementCause": "SOURCE_REBASE"
+      },
+      "failure": null,
+      "corroboration": {
+        "mint": "F8rBqHYGou7jimo6rz4QULGKzjb9NeXiNziexWr2pump",
+        "observedAt": 1789339871540,
+        "pumpStatus": 200,
+        "pump": {
+          "market_cap_quote": 17.79877567771594,
+          "market_cap_usd": 1791.090796448555,
+          "usd_market_cap": 1791.090796448555,
+          "total_supply": 1000000000000000,
+          "total_supply_str": "1000000000000000",
+          "virtual_token_reserves": 279900000000000,
+          "virtual_quote_reserves": 115005359057
+        },
+        "dex": [
+          {
+            "pair": "DiG86gt1CiTjBGgEb94LiAZHHiuF7n8t2j9V56iJMJCP",
+            "mc": 1774,
+            "fdv": 1774,
+            "priceUsd": "0.000001775"
+          }
+        ],
+        "pumpPayloadSha256": "5d4d99c4be4ad986573a79a218702f528d40950f36135ed1602f9f75e8fcf3d8",
+        "dexPayloadSha256": "61ec515b9a019827fffb5fcf58f1fd23dac88152fb4185767b0d1adae680fa66"
+      },
+      "comparison": {
+        "pumpQuoteRatio": 0.9987162921130273,
+        "pumpUsdDelta": -15.60393907681464,
+        "pumpUsdDeltaPercent": -0.8711975466433541,
+        "dex": [
+          {
+            "pair": "DiG86gt1CiTjBGgEb94LiAZHHiuF7n8t2j9V56iJMJCP",
+            "mcDelta": 1.4868573717403706,
+            "mcDeltaPercent": 0.08381383155244837
+          }
+        ]
+      },
+      "note": "Exact SDK protocol definition with live mint supply; asynchronous provider corroboration only."
+    },
+    {
+      "mint": "6drEq8T19ejkLNX9NU39TpZEcauCqxhxmavhjLu6pump",
+      "protocol": "pump-curve",
+      "market": "E8GEU6avjnLM3Mg8c1aftC5x4ga4zwgY27sjo3GX6mcA",
+      "observedAt": 1789339877778,
+      "native": {
+        "rawQuoteValue": "27966611829",
+        "supplyRaw": "1000000000000000",
+        "supplyBasis": "LIVE_MINT_SUPPLY",
+        "effectiveQuoteReserve": "30004087031",
+        "tokenMint": "6drEq8T19ejkLNX9NU39TpZEcauCqxhxmavhjLu6pump",
+        "marketIdentity": "E8GEU6avjnLM3Mg8c1aftC5x4ga4zwgY27sjo3GX6mcA",
+        "sourceEpoch": 1,
+        "quoteMint": "So11111111111111111111111111111111111111112",
+        "quoteDecimals": 9,
+        "kind": "PROTOCOL_MARKET_CAP",
+        "protocolDefinition": "PUMP_PROTOCOL_MARKET_CAP_V1",
+        "source": "ONCHAIN_PUMP_STATE",
+        "slot": 446821241,
+        "observedAt": 1789339877778,
+        "supplyVerified": true,
+        "provenance": {
+          "formula": "pump-sdk@2.0.0:bondingCurveMarketCap",
+          "transport": "TRUSTED_RPC",
+          "observation": "ATOMIC_GET_MULTIPLE_ACCOUNTS",
+          "state": {
+            "curveSupply": "1000000000000000",
+            "mintSupply": "1000000000000000",
+            "mayhem": false,
+            "supplyAgreement": true,
+            "virtualTokenReserves": "1072853844918655",
+            "virtualQuoteReserves": "30004087031"
+          },
+          "mintExtensions": [
+            18,
+            19
+          ]
+        }
+      },
+      "quote": {
+        "quoteMint": "So11111111111111111111111111111111111111112",
+        "price": "9987879034",
+        "exponent": -8,
+        "observedAt": 1789339875000,
+        "receivedAt": 1789339877778,
+        "slot": 446821241,
+        "source": "PYTH_ONCHAIN_FULL",
+        "verification": "FULL",
+        "confidenceRaw": "878934",
+        "confidenceAccepted": true,
+        "provenance": {
+          "source": "PYTH_PRICE_UPDATE_V2",
+          "account": "7AviUf9nL62mcxNbQGKm4nKDQnPjswo6c5MX4D57HmyE",
+          "feedId": "ef0d8b6fda2ceba41da15d4095d1da392a0d2f8ed0c6c7bc0f4cfac8c280b56d",
+          "owner": "rec2HHDDnjLfj4kE7VyEtFA1HPGQLK33259532cRyHp",
+          "postedSlot": "446821237",
+          "transport": "TRUSTED_RPC"
+        }
+      },
+      "valuation": {
+        "tokenMint": "6drEq8T19ejkLNX9NU39TpZEcauCqxhxmavhjLu6pump",
+        "marketIdentity": "E8GEU6avjnLM3Mg8c1aftC5x4ga4zwgY27sjo3GX6mcA",
+        "sourceEpoch": 1,
+        "kind": "PROTOCOL_MARKET_CAP",
+        "protocolDefinition": "PUMP_PROTOCOL_MARKET_CAP_V1",
+        "supplyBasis": "LIVE_MINT_SUPPLY",
+        "supplyRaw": "1000000000000000",
+        "valueUsd": "2793.27135938885493186",
+        "nativeQuoteValue": "27966611829",
+        "quoteMint": "So11111111111111111111111111111111111111112",
+        "quoteUsdPrice": "99.87879034",
+        "nativeObservedAt": 1789339877778,
+        "quoteObservedAt": 1789339875000,
+        "slot": 446821241,
+        "provenance": {
+          "native": {
+            "formula": "pump-sdk@2.0.0:bondingCurveMarketCap",
+            "transport": "TRUSTED_RPC",
+            "observation": "ATOMIC_GET_MULTIPLE_ACCOUNTS",
+            "state": {
+              "curveSupply": "1000000000000000",
+              "mintSupply": "1000000000000000",
+              "mayhem": false,
+              "supplyAgreement": true,
+              "virtualTokenReserves": "1072853844918655",
+              "virtualQuoteReserves": "30004087031"
+            },
+            "mintExtensions": [
+              18,
+              19
+            ]
+          },
+          "quote": {
+            "source": "PYTH_PRICE_UPDATE_V2",
+            "account": "7AviUf9nL62mcxNbQGKm4nKDQnPjswo6c5MX4D57HmyE",
+            "feedId": "ef0d8b6fda2ceba41da15d4095d1da392a0d2f8ed0c6c7bc0f4cfac8c280b56d",
+            "owner": "rec2HHDDnjLfj4kE7VyEtFA1HPGQLK33259532cRyHp",
+            "postedSlot": "446821237",
+            "transport": "TRUSTED_RPC"
+          }
+        },
+        "gates": {
+          "identity": true,
+          "formula": true,
+          "supply": true,
+          "nativeFresh": true,
+          "quoteIdentity": true,
+          "quoteFresh": true,
+          "slot": true,
+          "lifecycle": true,
+          "numeric": true
+        },
+        "nativeFreshness": "FRESH",
+        "quoteFreshness": "FRESH",
+        "freshness": "FRESH",
+        "authorityEligible": true,
+        "movementCause": "SOURCE_REBASE"
+      },
+      "failure": null,
+      "corroboration": {
+        "mint": "6drEq8T19ejkLNX9NU39TpZEcauCqxhxmavhjLu6pump",
+        "observedAt": 1789339878145,
+        "pumpStatus": 200,
+        "pump": {
+          "market_cap_quote": 27.96661182984803,
+          "market_cap_usd": 2824.3481286963524,
+          "usd_market_cap": 2824.3481286963524,
+          "total_supply": 1000000000000000,
+          "total_supply_str": "1000000000000000",
+          "virtual_token_reserves": 1072853844918655,
+          "virtual_quote_reserves": 30004087031
+        },
+        "dex": [
+          {
+            "pair": "E8GEU6avjnLM3Mg8c1aftC5x4ga4zwgY27sjo3GX6mcA",
+            "mc": 2825.75,
+            "fdv": 2825.75,
+            "priceUsd": "0.000002825"
+          }
+        ],
+        "pumpPayloadSha256": "2e235be9bd93ae30d9cec55237c8e2cd4928c69907e1c939a4d8fc5f1a13e52f",
+        "dexPayloadSha256": "9050a05acfab2826b7dacac75d8e79cadade45d2d37411301b48e905a999f799"
+      },
+      "comparison": {
+        "pumpQuoteRatio": 0.999999999969677,
+        "pumpUsdDelta": -31.07676930749767,
+        "pumpUsdDeltaPercent": -1.1003165293876793,
+        "dex": [
+          {
+            "pair": "E8GEU6avjnLM3Mg8c1aftC5x4ga4zwgY27sjo3GX6mcA",
+            "mcDelta": -32.47864061114524,
+            "mcDeltaPercent": -1.1493812478508447
+          }
+        ]
+      },
+      "note": "Exact SDK protocol definition with live mint supply; asynchronous provider corroboration only."
+    },
+    {
+      "mint": "J4nqFfT6VG2M6NHkgx8Fwt3XECJznb754ZDbnGPEpump",
+      "protocol": "pump-curve",
+      "market": "FBm5Wuh47R75dLZJaaKbZMi14KDBjbCz7tpUXiimoFdD",
+      "observedAt": 1789339884400,
+      "native": {
+        "rawQuoteValue": "28305626146",
+        "supplyRaw": "1000000000000000",
+        "supplyBasis": "LIVE_MINT_SUPPLY",
+        "effectiveQuoteReserve": "30185395751",
+        "tokenMint": "J4nqFfT6VG2M6NHkgx8Fwt3XECJznb754ZDbnGPEpump",
+        "marketIdentity": "FBm5Wuh47R75dLZJaaKbZMi14KDBjbCz7tpUXiimoFdD",
+        "sourceEpoch": 1,
+        "quoteMint": "So11111111111111111111111111111111111111112",
+        "quoteDecimals": 9,
+        "kind": "PROTOCOL_MARKET_CAP",
+        "protocolDefinition": "PUMP_PROTOCOL_MARKET_CAP_V1",
+        "source": "ONCHAIN_PUMP_STATE",
+        "slot": 446821261,
+        "observedAt": 1789339884400,
+        "supplyVerified": true,
+        "provenance": {
+          "formula": "pump-sdk@2.0.0:bondingCurveMarketCap",
+          "transport": "TRUSTED_RPC",
+          "observation": "ATOMIC_GET_MULTIPLE_ACCOUNTS",
+          "state": {
+            "curveSupply": "1000000000000000",
+            "mintSupply": "1000000000000000",
+            "mayhem": false,
+            "supplyAgreement": true,
+            "virtualTokenReserves": "1066409751699971",
+            "virtualQuoteReserves": "30185395751"
+          },
+          "mintExtensions": [
+            18,
+            19
+          ]
+        }
+      },
+      "quote": {
+        "quoteMint": "So11111111111111111111111111111111111111112",
+        "price": "9987832287",
+        "exponent": -8,
+        "observedAt": 1789339882000,
+        "receivedAt": 1789339884400,
+        "slot": 446821261,
+        "source": "PYTH_ONCHAIN_FULL",
+        "verification": "FULL",
+        "confidenceRaw": "928017",
+        "confidenceAccepted": true,
+        "provenance": {
+          "source": "PYTH_PRICE_UPDATE_V2",
+          "account": "7AviUf9nL62mcxNbQGKm4nKDQnPjswo6c5MX4D57HmyE",
+          "feedId": "ef0d8b6fda2ceba41da15d4095d1da392a0d2f8ed0c6c7bc0f4cfac8c280b56d",
+          "owner": "rec2HHDDnjLfj4kE7VyEtFA1HPGQLK33259532cRyHp",
+          "postedSlot": "446821260",
+          "transport": "TRUSTED_RPC"
+        }
+      },
+      "valuation": {
+        "tokenMint": "J4nqFfT6VG2M6NHkgx8Fwt3XECJznb754ZDbnGPEpump",
+        "marketIdentity": "FBm5Wuh47R75dLZJaaKbZMi14KDBjbCz7tpUXiimoFdD",
+        "sourceEpoch": 1,
+        "kind": "PROTOCOL_MARKET_CAP",
+        "protocolDefinition": "PUMP_PROTOCOL_MARKET_CAP_V1",
+        "supplyBasis": "LIVE_MINT_SUPPLY",
+        "supplyRaw": "1000000000000000",
+        "valueUsd": "2827.11846724770175902",
+        "nativeQuoteValue": "28305626146",
+        "quoteMint": "So11111111111111111111111111111111111111112",
+        "quoteUsdPrice": "99.87832287",
+        "nativeObservedAt": 1789339884400,
+        "quoteObservedAt": 1789339882000,
+        "slot": 446821261,
+        "provenance": {
+          "native": {
+            "formula": "pump-sdk@2.0.0:bondingCurveMarketCap",
+            "transport": "TRUSTED_RPC",
+            "observation": "ATOMIC_GET_MULTIPLE_ACCOUNTS",
+            "state": {
+              "curveSupply": "1000000000000000",
+              "mintSupply": "1000000000000000",
+              "mayhem": false,
+              "supplyAgreement": true,
+              "virtualTokenReserves": "1066409751699971",
+              "virtualQuoteReserves": "30185395751"
+            },
+            "mintExtensions": [
+              18,
+              19
+            ]
+          },
+          "quote": {
+            "source": "PYTH_PRICE_UPDATE_V2",
+            "account": "7AviUf9nL62mcxNbQGKm4nKDQnPjswo6c5MX4D57HmyE",
+            "feedId": "ef0d8b6fda2ceba41da15d4095d1da392a0d2f8ed0c6c7bc0f4cfac8c280b56d",
+            "owner": "rec2HHDDnjLfj4kE7VyEtFA1HPGQLK33259532cRyHp",
+            "postedSlot": "446821260",
+            "transport": "TRUSTED_RPC"
+          }
+        },
+        "gates": {
+          "identity": true,
+          "formula": true,
+          "supply": true,
+          "nativeFresh": true,
+          "quoteIdentity": true,
+          "quoteFresh": true,
+          "slot": true,
+          "lifecycle": true,
+          "numeric": true
+        },
+        "nativeFreshness": "FRESH",
+        "quoteFreshness": "FRESH",
+        "freshness": "FRESH",
+        "authorityEligible": true,
+        "movementCause": "SOURCE_REBASE"
+      },
+      "failure": null,
+      "corroboration": {
+        "mint": "J4nqFfT6VG2M6NHkgx8Fwt3XECJznb754ZDbnGPEpump",
+        "observedAt": 1789339884861,
+        "pumpStatus": 200,
+        "pump": {
+          "market_cap_quote": 28.305626146873898,
+          "market_cap_usd": 2864.202853929295,
+          "usd_market_cap": 2864.202853929295,
+          "total_supply": 1000000000000000,
+          "total_supply_str": "1000000000000000",
+          "virtual_token_reserves": 1066409751699971,
+          "virtual_quote_reserves": 30185395751
+        },
+        "dex": [
+          {
+            "pair": "FBm5Wuh47R75dLZJaaKbZMi14KDBjbCz7tpUXiimoFdD",
+            "mc": 2865.1,
+            "fdv": 2865.1,
+            "priceUsd": "0.000002865"
+          }
+        ],
+        "pumpPayloadSha256": "fe72ed490390260fdab994ddb35ade521cf8f5d9dc18ccdaa16b613575c0c2af",
+        "dexPayloadSha256": "216cddfd036b8476e0327c191f92ccc6a5c8b3549caf303a767f4c53b98a2a4f"
+      },
+      "comparison": {
+        "pumpQuoteRatio": 0.9999999999691264,
+        "pumpUsdDelta": -37.084386681593514,
+        "pumpUsdDeltaPercent": -1.2947541976895516,
+        "dex": [
+          {
+            "pair": "FBm5Wuh47R75dLZJaaKbZMi14KDBjbCz7tpUXiimoFdD",
+            "mcDelta": -37.981532752298335,
+            "mcDeltaPercent": -1.3256616785556674
+          }
+        ]
+      },
+      "note": "Exact SDK protocol definition with live mint supply; asynchronous provider corroboration only."
+    },
+    {
+      "mint": "7yLghwqzL3jRZXZgzZAzBXzofSMbVe238hkU9Ni1pump",
+      "protocol": "pump-curve",
+      "market": "5uNgS2fbxnZtC86rMNDeFVzu8ePpwxnronQ9ApoWRwuw",
+      "observedAt": 1789339891020,
+      "native": {
+        "rawQuoteValue": "115397969948",
+        "supplyRaw": "1000000000000000",
+        "supplyBasis": "LIVE_MINT_SUPPLY",
+        "effectiveQuoteReserve": "60948016431",
+        "tokenMint": "7yLghwqzL3jRZXZgzZAzBXzofSMbVe238hkU9Ni1pump",
+        "marketIdentity": "5uNgS2fbxnZtC86rMNDeFVzu8ePpwxnronQ9ApoWRwuw",
+        "sourceEpoch": 1,
+        "quoteMint": "So11111111111111111111111111111111111111112",
+        "quoteDecimals": 9,
+        "kind": "PROTOCOL_MARKET_CAP",
+        "protocolDefinition": "PUMP_PROTOCOL_MARKET_CAP_V1",
+        "source": "ONCHAIN_PUMP_STATE",
+        "slot": 446821283,
+        "observedAt": 1789339891020,
+        "supplyVerified": true,
+        "provenance": {
+          "formula": "pump-sdk@2.0.0:bondingCurveMarketCap",
+          "transport": "TRUSTED_RPC",
+          "observation": "ATOMIC_GET_MULTIPLE_ACCOUNTS",
+          "state": {
+            "curveSupply": "1000000000000000",
+            "mintSupply": "1000000000000000",
+            "mayhem": false,
+            "supplyAgreement": true,
+            "virtualTokenReserves": "528155013977801",
+            "virtualQuoteReserves": "60948016431"
+          },
+          "mintExtensions": [
+            18,
+            19
+          ]
+        }
+      },
+      "quote": {
+        "quoteMint": "So11111111111111111111111111111111111111112",
+        "price": "9988076681",
+        "exponent": -8,
+        "observedAt": 1789339885000,
+        "receivedAt": 1789339891020,
+        "slot": 446821283,
+        "source": "PYTH_ONCHAIN_FULL",
+        "verification": "FULL",
+        "confidenceRaw": "1419419",
+        "confidenceAccepted": true,
+        "provenance": {
+          "source": "PYTH_PRICE_UPDATE_V2",
+          "account": "7AviUf9nL62mcxNbQGKm4nKDQnPjswo6c5MX4D57HmyE",
+          "feedId": "ef0d8b6fda2ceba41da15d4095d1da392a0d2f8ed0c6c7bc0f4cfac8c280b56d",
+          "owner": "rec2HHDDnjLfj4kE7VyEtFA1HPGQLK33259532cRyHp",
+          "postedSlot": "446821269",
+          "transport": "TRUSTED_RPC"
+        }
+      },
+      "valuation": {
+        "tokenMint": "7yLghwqzL3jRZXZgzZAzBXzofSMbVe238hkU9Ni1pump",
+        "marketIdentity": "5uNgS2fbxnZtC86rMNDeFVzu8ePpwxnronQ9ApoWRwuw",
+        "sourceEpoch": 1,
+        "kind": "PROTOCOL_MARKET_CAP",
+        "protocolDefinition": "PUMP_PROTOCOL_MARKET_CAP_V1",
+        "supplyBasis": "LIVE_MINT_SUPPLY",
+        "supplyRaw": "1000000000000000",
+        "valueUsd": "11526.03772672357582588",
+        "nativeQuoteValue": "115397969948",
+        "quoteMint": "So11111111111111111111111111111111111111112",
+        "quoteUsdPrice": "99.88076681",
+        "nativeObservedAt": 1789339891020,
+        "quoteObservedAt": 1789339885000,
+        "slot": 446821283,
+        "provenance": {
+          "native": {
+            "formula": "pump-sdk@2.0.0:bondingCurveMarketCap",
+            "transport": "TRUSTED_RPC",
+            "observation": "ATOMIC_GET_MULTIPLE_ACCOUNTS",
+            "state": {
+              "curveSupply": "1000000000000000",
+              "mintSupply": "1000000000000000",
+              "mayhem": false,
+              "supplyAgreement": true,
+              "virtualTokenReserves": "528155013977801",
+              "virtualQuoteReserves": "60948016431"
+            },
+            "mintExtensions": [
+              18,
+              19
+            ]
+          },
+          "quote": {
+            "source": "PYTH_PRICE_UPDATE_V2",
+            "account": "7AviUf9nL62mcxNbQGKm4nKDQnPjswo6c5MX4D57HmyE",
+            "feedId": "ef0d8b6fda2ceba41da15d4095d1da392a0d2f8ed0c6c7bc0f4cfac8c280b56d",
+            "owner": "rec2HHDDnjLfj4kE7VyEtFA1HPGQLK33259532cRyHp",
+            "postedSlot": "446821269",
+            "transport": "TRUSTED_RPC"
+          }
+        },
+        "gates": {
+          "identity": true,
+          "formula": true,
+          "supply": true,
+          "nativeFresh": true,
+          "quoteIdentity": true,
+          "quoteFresh": true,
+          "slot": true,
+          "lifecycle": true,
+          "numeric": true
+        },
+        "nativeFreshness": "FRESH",
+        "quoteFreshness": "FRESH",
+        "freshness": "FRESH",
+        "authorityEligible": true,
+        "movementCause": "SOURCE_REBASE"
+      },
+      "failure": null,
+      "corroboration": {
+        "mint": "7yLghwqzL3jRZXZgzZAzBXzofSMbVe238hkU9Ni1pump",
+        "observedAt": 1789339891321,
+        "pumpStatus": 200,
+        "pump": {
+          "market_cap_quote": 115.39796994819729,
+          "market_cap_usd": 11535.34619497269,
+          "usd_market_cap": 11535.34619497269,
+          "total_supply": 1000000000000000,
+          "total_supply_str": "1000000000000000",
+          "virtual_token_reserves": 528155013977801,
+          "virtual_quote_reserves": 60948016431
+        },
+        "dex": [
+          {
+            "pair": "5uNgS2fbxnZtC86rMNDeFVzu8ePpwxnronQ9ApoWRwuw",
+            "mc": 11549.03,
+            "fdv": 11549.03,
+            "priceUsd": "0.00001154"
+          }
+        ],
+        "pumpPayloadSha256": "5ac2d639e9b6e4c142a1626f83e677978c0e5c24a65930505e3199195cbf922f",
+        "dexPayloadSha256": "fc8e136c16ca2b056e9e5236cb157a3d114519747eb4a5e138c17e246d8f9f56"
+      },
+      "comparison": {
+        "pumpQuoteRatio": 0.9999999999982904,
+        "pumpUsdDelta": -9.308468249113503,
+        "pumpUsdDeltaPercent": -0.08069517890300082,
+        "dex": [
+          {
+            "pair": "5uNgS2fbxnZtC86rMNDeFVzu8ePpwxnronQ9ApoWRwuw",
+            "mcDelta": -22.992273276424385,
+            "mcDeltaPercent": -0.199084020704976
+          }
+        ]
+      },
+      "note": "Exact SDK protocol definition with live mint supply; asynchronous provider corroboration only."
+    },
+    {
+      "mint": "GXsZujDj1FsKq2ZFrQsPQMzdMeAcN4Fbk18Hi2c3pump",
+      "protocol": "pump-curve",
+      "market": "Ay5Bn1AijWNr9BKKoim1WBxqWyNLyiwsxH7rTiAav2nB",
+      "observedAt": 1789341329754,
+      "native": {
+        "rawQuoteValue": "628907088",
+        "supplyRaw": "2000000000000000",
+        "supplyBasis": "LIVE_MINT_SUPPLY",
+        "effectiveQuoteReserve": "337950506",
+        "tokenMint": "GXsZujDj1FsKq2ZFrQsPQMzdMeAcN4Fbk18Hi2c3pump",
+        "marketIdentity": "Ay5Bn1AijWNr9BKKoim1WBxqWyNLyiwsxH7rTiAav2nB",
+        "sourceEpoch": 1,
+        "quoteMint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+        "quoteDecimals": 6,
+        "kind": "PROTOCOL_MARKET_CAP",
+        "protocolDefinition": "PUMP_PROTOCOL_MARKET_CAP_V1",
+        "source": "ONCHAIN_PUMP_STATE",
+        "slot": 446825833,
+        "observedAt": 1789341329754,
+        "supplyVerified": false,
+        "provenance": {
+          "formula": "pump-sdk@2.0.0:bondingCurveMarketCap",
+          "transport": "TRUSTED_RPC",
+          "observation": "ATOMIC_GET_MULTIPLE_ACCOUNTS",
+          "state": {
+            "curveSupply": "1000000000000000",
+            "mintSupply": "2000000000000000",
+            "mayhem": true,
+            "supplyAgreement": false,
+            "virtualTokenReserves": "1074723157863550",
+            "virtualQuoteReserves": "337950506"
+          },
+          "mintExtensions": [
+            18,
+            19
+          ]
+        },
+        "supplyDefinitionStatus": "MAYHEM_CURVE_SUPPLY_CONVENTION_UNRESOLVED"
+      },
+      "quote": {
+        "quoteMint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+        "price": "99987987",
+        "exponent": -8,
+        "observedAt": 1789341324000,
+        "receivedAt": 1789341329754,
+        "slot": 446825833,
+        "source": "PYTH_ONCHAIN_FULL",
+        "verification": "FULL",
+        "confidenceRaw": "42013",
+        "confidenceAccepted": true,
+        "provenance": {
+          "source": "PYTH_PRICE_UPDATE_V2",
+          "account": "6HAuqASbHEh4w4REJEUUUCginTLfj1kwCh215ZLtMkrT",
+          "feedId": "eaa020c61cc479712813461ce153894a96a6c00b21ed0cfc2798d1f9a9e9c94a",
+          "owner": "rec2HHDDnjLfj4kE7VyEtFA1HPGQLK33259532cRyHp",
+          "postedSlot": "446825822",
+          "transport": "TRUSTED_RPC"
+        }
+      },
+      "valuation": {
+        "tokenMint": "GXsZujDj1FsKq2ZFrQsPQMzdMeAcN4Fbk18Hi2c3pump",
+        "marketIdentity": "Ay5Bn1AijWNr9BKKoim1WBxqWyNLyiwsxH7rTiAav2nB",
+        "sourceEpoch": 1,
+        "kind": "PROTOCOL_MARKET_CAP",
+        "protocolDefinition": "PUMP_PROTOCOL_MARKET_CAP_V1",
+        "supplyBasis": "LIVE_MINT_SUPPLY",
+        "supplyRaw": "2000000000000000",
+        "valueUsd": "628.83153739151856",
+        "nativeQuoteValue": "628907088",
+        "quoteMint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+        "quoteUsdPrice": "0.99987987",
+        "nativeObservedAt": 1789341329754,
+        "quoteObservedAt": 1789341324000,
+        "slot": 446825833,
+        "provenance": {
+          "native": {
+            "formula": "pump-sdk@2.0.0:bondingCurveMarketCap",
+            "transport": "TRUSTED_RPC",
+            "observation": "ATOMIC_GET_MULTIPLE_ACCOUNTS",
+            "state": {
+              "curveSupply": "1000000000000000",
+              "mintSupply": "2000000000000000",
+              "mayhem": true,
+              "supplyAgreement": false,
+              "virtualTokenReserves": "1074723157863550",
+              "virtualQuoteReserves": "337950506"
+            },
+            "mintExtensions": [
+              18,
+              19
+            ]
+          },
+          "quote": {
+            "source": "PYTH_PRICE_UPDATE_V2",
+            "account": "6HAuqASbHEh4w4REJEUUUCginTLfj1kwCh215ZLtMkrT",
+            "feedId": "eaa020c61cc479712813461ce153894a96a6c00b21ed0cfc2798d1f9a9e9c94a",
+            "owner": "rec2HHDDnjLfj4kE7VyEtFA1HPGQLK33259532cRyHp",
+            "postedSlot": "446825822",
+            "transport": "TRUSTED_RPC"
+          }
+        },
+        "gates": {
+          "identity": true,
+          "formula": true,
+          "supply": false,
+          "nativeFresh": true,
+          "quoteIdentity": true,
+          "quoteFresh": true,
+          "slot": true,
+          "lifecycle": true,
+          "numeric": true
+        },
+        "nativeFreshness": "FRESH",
+        "quoteFreshness": "FRESH",
+        "freshness": "DEGRADED",
+        "authorityEligible": false,
+        "movementCause": "SOURCE_REBASE"
+      },
+      "failure": "MAYHEM_CURVE_SUPPLY_CONVENTION_UNRESOLVED",
+      "corroboration": {
+        "mint": "GXsZujDj1FsKq2ZFrQsPQMzdMeAcN4Fbk18Hi2c3pump",
+        "observedAt": 1789341330629,
+        "pumpStatus": 200,
+        "pump": {
+          "market_cap_quote": 314.4535441776599,
+          "market_cap_usd": 314.4535441776599,
+          "usd_market_cap": 314.4535441776599,
+          "total_supply": 1000000000000000,
+          "total_supply_str": "1000000000000000",
+          "virtual_token_reserves": 1074723157863550,
+          "virtual_quote_reserves": 337950506
+        },
+        "dex": [
+          {
+            "pair": "Ay5Bn1AijWNr9BKKoim1WBxqWyNLyiwsxH7rTiAav2nB",
+            "mc": 314.45,
+            "fdv": 314.45,
+            "priceUsd": "0.0000003144"
+          }
+        ],
+        "pumpPayloadSha256": "214542fdf8cb0df11436215e7800be1b2baa4ade25ad1aa5460e84f6cd347bd3",
+        "dexPayloadSha256": "b745155fa5102209c83bad1aa1d0712dd57e19c246f66af78aedceab59f22d05"
+      },
+      "comparison": {
+        "pumpQuoteRatio": 1.9999999988700403,
+        "pumpUsdDelta": 314.3779932138586,
+        "pumpUsdDeltaPercent": 99.97597388701757,
+        "dex": [
+          {
+            "pair": "Ay5Bn1AijWNr9BKKoim1WBxqWyNLyiwsxH7rTiAav2nB",
+            "mcDelta": 314.3815373915185,
+            "mcDeltaPercent": 99.97822782366626
+          }
+        ]
+      },
+      "note": "SDK live-supply diagnostic is approximately twice Pump frontend MC; supply gate closed."
+    },
+    {
+      "mint": "GLq5sChb2SeZugRBhnPVwnjzweimbiFauoa4yQYwpump",
+      "protocol": "pump-curve",
+      "market": "3KPyvyya5YHbgDQHr83xBb387xdCXKqWSQ13qw4JStVw",
+      "observedAt": 1789341339796,
+      "native": {
+        "rawQuoteValue": "46588816",
+        "supplyRaw": "2000000000000000",
+        "supplyBasis": "LIVE_MINT_SUPPLY",
+        "effectiveQuoteReserve": "23299632",
+        "tokenMint": "GLq5sChb2SeZugRBhnPVwnjzweimbiFauoa4yQYwpump",
+        "marketIdentity": "3KPyvyya5YHbgDQHr83xBb387xdCXKqWSQ13qw4JStVw",
+        "sourceEpoch": 1,
+        "quoteMint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+        "quoteDecimals": 6,
+        "kind": "PROTOCOL_MARKET_CAP",
+        "protocolDefinition": "PUMP_PROTOCOL_MARKET_CAP_V1",
+        "source": "ONCHAIN_PUMP_STATE",
+        "slot": 446825863,
+        "observedAt": 1789341339796,
+        "supplyVerified": false,
+        "provenance": {
+          "formula": "pump-sdk@2.0.0:bondingCurveMarketCap",
+          "transport": "TRUSTED_RPC",
+          "observation": "ATOMIC_GET_MULTIPLE_ACCOUNTS",
+          "state": {
+            "curveSupply": "1000000000000000",
+            "mintSupply": "2000000000000000",
+            "mayhem": true,
+            "supplyAgreement": false,
+            "virtualTokenReserves": "1000224256631545",
+            "virtualQuoteReserves": "23299632"
+          },
+          "mintExtensions": [
+            18,
+            19
+          ]
+        },
+        "supplyDefinitionStatus": "MAYHEM_CURVE_SUPPLY_CONVENTION_UNRESOLVED"
+      },
+      "quote": {
+        "quoteMint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+        "price": "99987986",
+        "exponent": -8,
+        "observedAt": 1789341334000,
+        "receivedAt": 1789341339796,
+        "slot": 446825863,
+        "source": "PYTH_ONCHAIN_FULL",
+        "verification": "FULL",
+        "confidenceRaw": "37004",
+        "confidenceAccepted": true,
+        "provenance": {
+          "source": "PYTH_PRICE_UPDATE_V2",
+          "account": "6HAuqASbHEh4w4REJEUUUCginTLfj1kwCh215ZLtMkrT",
+          "feedId": "eaa020c61cc479712813461ce153894a96a6c00b21ed0cfc2798d1f9a9e9c94a",
+          "owner": "rec2HHDDnjLfj4kE7VyEtFA1HPGQLK33259532cRyHp",
+          "postedSlot": "446825850",
+          "transport": "TRUSTED_RPC"
+        }
+      },
+      "valuation": {
+        "tokenMint": "GLq5sChb2SeZugRBhnPVwnjzweimbiFauoa4yQYwpump",
+        "marketIdentity": "3KPyvyya5YHbgDQHr83xBb387xdCXKqWSQ13qw4JStVw",
+        "sourceEpoch": 1,
+        "kind": "PROTOCOL_MARKET_CAP",
+        "protocolDefinition": "PUMP_PROTOCOL_MARKET_CAP_V1",
+        "supplyBasis": "LIVE_MINT_SUPPLY",
+        "supplyRaw": "2000000000000000",
+        "valueUsd": "46.58321881964576",
+        "nativeQuoteValue": "46588816",
+        "quoteMint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+        "quoteUsdPrice": "0.99987986",
+        "nativeObservedAt": 1789341339796,
+        "quoteObservedAt": 1789341334000,
+        "slot": 446825863,
+        "provenance": {
+          "native": {
+            "formula": "pump-sdk@2.0.0:bondingCurveMarketCap",
+            "transport": "TRUSTED_RPC",
+            "observation": "ATOMIC_GET_MULTIPLE_ACCOUNTS",
+            "state": {
+              "curveSupply": "1000000000000000",
+              "mintSupply": "2000000000000000",
+              "mayhem": true,
+              "supplyAgreement": false,
+              "virtualTokenReserves": "1000224256631545",
+              "virtualQuoteReserves": "23299632"
+            },
+            "mintExtensions": [
+              18,
+              19
+            ]
+          },
+          "quote": {
+            "source": "PYTH_PRICE_UPDATE_V2",
+            "account": "6HAuqASbHEh4w4REJEUUUCginTLfj1kwCh215ZLtMkrT",
+            "feedId": "eaa020c61cc479712813461ce153894a96a6c00b21ed0cfc2798d1f9a9e9c94a",
+            "owner": "rec2HHDDnjLfj4kE7VyEtFA1HPGQLK33259532cRyHp",
+            "postedSlot": "446825850",
+            "transport": "TRUSTED_RPC"
+          }
+        },
+        "gates": {
+          "identity": true,
+          "formula": true,
+          "supply": false,
+          "nativeFresh": true,
+          "quoteIdentity": true,
+          "quoteFresh": true,
+          "slot": true,
+          "lifecycle": true,
+          "numeric": true
+        },
+        "nativeFreshness": "FRESH",
+        "quoteFreshness": "FRESH",
+        "freshness": "DEGRADED",
+        "authorityEligible": false,
+        "movementCause": "SOURCE_REBASE"
+      },
+      "failure": "MAYHEM_CURVE_SUPPLY_CONVENTION_UNRESOLVED",
+      "corroboration": {
+        "mint": "GLq5sChb2SeZugRBhnPVwnjzweimbiFauoa4yQYwpump",
+        "observedAt": 1789341340448,
+        "pumpStatus": 200,
+        "pump": {
+          "market_cap_quote": 23.294408074511374,
+          "market_cap_usd": 23.294408074511374,
+          "usd_market_cap": 23.294408074511374,
+          "total_supply": 1000000000000000,
+          "total_supply_str": "1000000000000000",
+          "virtual_token_reserves": 1000224256631545,
+          "virtual_quote_reserves": 23299632
+        },
+        "dex": [
+          {
+            "pair": "3KPyvyya5YHbgDQHr83xBb387xdCXKqWSQ13qw4JStVw",
+            "mc": 23.29,
+            "fdv": 23.29,
+            "priceUsd": "0.00000002329"
+          }
+        ],
+        "pumpPayloadSha256": "9bdb0f6cf6c3a70ec514b5b71d394d1825a67e631b9d5e3c0ae92a4156e47562",
+        "dexPayloadSha256": "39a69beeed9911f20f7a6dba753596e6fe870c4be8f13b1ec2e794daaad9be00"
+      },
+      "comparison": {
+        "pumpQuoteRatio": 1.9999999936026387,
+        "pumpUsdDelta": 23.288810745134384,
+        "pumpUsdDeltaPercent": 99.97597136034071,
+        "dex": [
+          {
+            "pair": "3KPyvyya5YHbgDQHr83xBb387xdCXKqWSQ13qw4JStVw",
+            "mcDelta": 23.29321881964576,
+            "mcDeltaPercent": 100.01382060818274
+          }
+        ]
+      },
+      "note": "SDK live-supply diagnostic is approximately twice Pump frontend MC; supply gate closed."
+    },
+    {
+      "mint": "EictSphkTzcMpw5WQGxxxiKNzAFAgqRXosjbdM5Epump",
+      "protocol": "pump-curve",
+      "market": "DcMecWDnBRedQsbwL6pMyyaFCo7ingK14LQFHAF2njSF",
+      "observedAt": 1789341346387,
+      "native": {
+        "rawQuoteValue": "67377756",
+        "supplyRaw": "2000000000000000",
+        "supplyBasis": "LIVE_MINT_SUPPLY",
+        "effectiveQuoteReserve": "55321490",
+        "tokenMint": "EictSphkTzcMpw5WQGxxxiKNzAFAgqRXosjbdM5Epump",
+        "marketIdentity": "DcMecWDnBRedQsbwL6pMyyaFCo7ingK14LQFHAF2njSF",
+        "sourceEpoch": 1,
+        "quoteMint": "So11111111111111111111111111111111111111112",
+        "quoteDecimals": 9,
+        "kind": "PROTOCOL_MARKET_CAP",
+        "protocolDefinition": "PUMP_PROTOCOL_MARKET_CAP_V1",
+        "source": "ONCHAIN_PUMP_STATE",
+        "slot": 446825885,
+        "observedAt": 1789341346387,
+        "supplyVerified": false,
+        "provenance": {
+          "formula": "pump-sdk@2.0.0:bondingCurveMarketCap",
+          "transport": "TRUSTED_RPC",
+          "observation": "ATOMIC_GET_MULTIPLE_ACCOUNTS",
+          "state": {
+            "curveSupply": "1000000000000000",
+            "mintSupply": "2000000000000000",
+            "mayhem": true,
+            "supplyAgreement": false,
+            "virtualTokenReserves": "1642129189906883",
+            "virtualQuoteReserves": "55321490"
+          },
+          "mintExtensions": [
+            18,
+            19
+          ]
+        },
+        "supplyDefinitionStatus": "MAYHEM_CURVE_SUPPLY_CONVENTION_UNRESOLVED"
+      },
+      "quote": {
+        "quoteMint": "So11111111111111111111111111111111111111112",
+        "price": "9962250137",
+        "exponent": -8,
+        "observedAt": 1789341339000,
+        "receivedAt": 1789341346387,
+        "slot": 446825885,
+        "source": "PYTH_ONCHAIN_FULL",
+        "verification": "FULL",
+        "confidenceRaw": "924983",
+        "confidenceAccepted": true,
+        "provenance": {
+          "source": "PYTH_PRICE_UPDATE_V2",
+          "account": "7AviUf9nL62mcxNbQGKm4nKDQnPjswo6c5MX4D57HmyE",
+          "feedId": "ef0d8b6fda2ceba41da15d4095d1da392a0d2f8ed0c6c7bc0f4cfac8c280b56d",
+          "owner": "rec2HHDDnjLfj4kE7VyEtFA1HPGQLK33259532cRyHp",
+          "postedSlot": "446825867",
+          "transport": "TRUSTED_RPC"
+        }
+      },
+      "valuation": {
+        "tokenMint": "EictSphkTzcMpw5WQGxxxiKNzAFAgqRXosjbdM5Epump",
+        "marketIdentity": "DcMecWDnBRedQsbwL6pMyyaFCo7ingK14LQFHAF2njSF",
+        "sourceEpoch": 1,
+        "kind": "PROTOCOL_MARKET_CAP",
+        "protocolDefinition": "PUMP_PROTOCOL_MARKET_CAP_V1",
+        "supplyBasis": "LIVE_MINT_SUPPLY",
+        "supplyRaw": "2000000000000000",
+        "valueUsd": "6.71234058941752572",
+        "nativeQuoteValue": "67377756",
+        "quoteMint": "So11111111111111111111111111111111111111112",
+        "quoteUsdPrice": "99.62250137",
+        "nativeObservedAt": 1789341346387,
+        "quoteObservedAt": 1789341339000,
+        "slot": 446825885,
+        "provenance": {
+          "native": {
+            "formula": "pump-sdk@2.0.0:bondingCurveMarketCap",
+            "transport": "TRUSTED_RPC",
+            "observation": "ATOMIC_GET_MULTIPLE_ACCOUNTS",
+            "state": {
+              "curveSupply": "1000000000000000",
+              "mintSupply": "2000000000000000",
+              "mayhem": true,
+              "supplyAgreement": false,
+              "virtualTokenReserves": "1642129189906883",
+              "virtualQuoteReserves": "55321490"
+            },
+            "mintExtensions": [
+              18,
+              19
+            ]
+          },
+          "quote": {
+            "source": "PYTH_PRICE_UPDATE_V2",
+            "account": "7AviUf9nL62mcxNbQGKm4nKDQnPjswo6c5MX4D57HmyE",
+            "feedId": "ef0d8b6fda2ceba41da15d4095d1da392a0d2f8ed0c6c7bc0f4cfac8c280b56d",
+            "owner": "rec2HHDDnjLfj4kE7VyEtFA1HPGQLK33259532cRyHp",
+            "postedSlot": "446825867",
+            "transport": "TRUSTED_RPC"
+          }
+        },
+        "gates": {
+          "identity": true,
+          "formula": true,
+          "supply": false,
+          "nativeFresh": true,
+          "quoteIdentity": true,
+          "quoteFresh": true,
+          "slot": true,
+          "lifecycle": true,
+          "numeric": true
+        },
+        "nativeFreshness": "FRESH",
+        "quoteFreshness": "FRESH",
+        "freshness": "DEGRADED",
+        "authorityEligible": false,
+        "movementCause": "SOURCE_REBASE"
+      },
+      "failure": "MAYHEM_CURVE_SUPPLY_CONVENTION_UNRESOLVED",
+      "corroboration": {
+        "mint": "EictSphkTzcMpw5WQGxxxiKNzAFAgqRXosjbdM5Epump",
+        "observedAt": 1789341346811,
+        "pumpStatus": 200,
+        "pump": {
+          "market_cap_quote": 0.0336888780371397,
+          "market_cap_usd": 3.36131870371597,
+          "usd_market_cap": 3.36131870371597,
+          "total_supply": 1000000000000000,
+          "total_supply_str": "1000000000000000",
+          "virtual_token_reserves": 1642129189906883,
+          "virtual_quote_reserves": 55321490
+        },
+        "dex": [
+          {
+            "pair": "DcMecWDnBRedQsbwL6pMyyaFCo7ingK14LQFHAF2njSF",
+            "mc": 3.36,
+            "fdv": 3.36,
+            "priceUsd": "0.000000003361"
+          }
+        ],
+        "pumpPayloadSha256": "a75ea2f3e6d15dc5b0a3b452f927b265cf5bcbd03c2ce249ed344f2ce2a04ea6",
+        "dexPayloadSha256": "87c53309b6d7dd8970558d2d30e9394551f193d174d28c2bfbb212631550a8e2"
+      },
+      "comparison": {
+        "pumpQuoteRatio": 1.9999999977951357,
+        "pumpUsdDelta": 3.3510218857015555,
+        "pumpUsdDeltaPercent": 99.69366730970701,
+        "dex": [
+          {
+            "pair": "DcMecWDnBRedQsbwL6pMyyaFCo7ingK14LQFHAF2njSF",
+            "mcDelta": 3.3523405894175258,
+            "mcDeltaPercent": 99.77204135171208
+          }
+        ]
+      },
+      "note": "SDK live-supply diagnostic is approximately twice Pump frontend MC; supply gate closed."
+    }
+  ]
+}

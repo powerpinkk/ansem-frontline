@@ -1,0 +1,129 @@
+{
+  "source": {
+    "pump": "2.0.0",
+    "pumpSwap": "1.20.0",
+    "execution": "Official npm exports with BN.js; no production calculator imported"
+  },
+  "vectors": [
+    {
+      "name": "initial",
+      "input": {
+        "supply": "1000000000000000",
+        "baseReserve": "1073000000000000",
+        "quoteReserve": "30000000000",
+        "protocol": "pump-curve",
+        "mayhem": false,
+        "virtualQuoteReserve": "0"
+      },
+      "rawQuoteValue": "27958993476"
+    },
+    {
+      "name": "post-buy",
+      "input": {
+        "supply": "1000000000000000",
+        "baseReserve": "1000000000000000",
+        "quoteReserve": "32190000000",
+        "protocol": "pump-curve",
+        "mayhem": false,
+        "virtualQuoteReserve": "0"
+      },
+      "rawQuoteValue": "32190000000"
+    },
+    {
+      "name": "post-sell",
+      "input": {
+        "supply": "1000000000000000",
+        "baseReserve": "1020000000000000",
+        "quoteReserve": "31558823529",
+        "protocol": "pump-curve",
+        "mayhem": false,
+        "virtualQuoteReserve": "0"
+      },
+      "rawQuoteValue": "30940023067"
+    },
+    {
+      "name": "near-graduation",
+      "input": {
+        "supply": "1000000000000000",
+        "baseReserve": "279900000000000",
+        "quoteReserve": "115005359056",
+        "protocol": "pump-curve",
+        "mayhem": false,
+        "virtualQuoteReserve": "0"
+      },
+      "rawQuoteValue": "410880168117"
+    },
+    {
+      "name": "large-u64",
+      "input": {
+        "supply": "18446744073709551615",
+        "baseReserve": "11",
+        "quoteReserve": "18446744073709551615",
+        "protocol": "pump-curve",
+        "mayhem": false,
+        "virtualQuoteReserve": "0"
+      },
+      "rawQuoteValue": "30934760629176223947861919934940828020"
+    },
+    {
+      "name": "nonstandard-supply",
+      "input": {
+        "supply": "1234567890123456",
+        "baseReserve": "333333333333",
+        "quoteReserve": "123456789",
+        "protocol": "pump-curve",
+        "mayhem": true,
+        "virtualQuoteReserve": "0"
+      },
+      "rawQuoteValue": "457247362551"
+    },
+    {
+      "name": "usdc-quote",
+      "input": {
+        "supply": "1000000000000000",
+        "baseReserve": "761342019529656",
+        "quoteReserve": "1513296233",
+        "protocol": "pump-curve",
+        "mayhem": false,
+        "virtualQuoteReserve": "0"
+      },
+      "rawQuoteValue": "1987669397"
+    },
+    {
+      "name": "amm-mayhem",
+      "input": {
+        "supply": "2000000000000000",
+        "baseReserve": "200000000000000",
+        "quoteReserve": "84000000000",
+        "protocol": "pumpswap",
+        "mayhem": true,
+        "virtualQuoteReserve": "0"
+      },
+      "rawQuoteValue": "420000000000"
+    },
+    {
+      "name": "amm-positive-virtual",
+      "input": {
+        "supply": "1000000000000000",
+        "baseReserve": "200000000000000",
+        "quoteReserve": "84000000000",
+        "protocol": "pumpswap",
+        "mayhem": false,
+        "virtualQuoteReserve": "7000000000"
+      },
+      "rawQuoteValue": "455000000000"
+    },
+    {
+      "name": "amm-negative-virtual",
+      "input": {
+        "supply": "1000000000000000",
+        "baseReserve": "200000000000000",
+        "quoteReserve": "84000000000",
+        "protocol": "pumpswap",
+        "mayhem": false,
+        "virtualQuoteReserve": "-7000000000"
+      },
+      "rawQuoteValue": "385000000000"
+    }
+  ]
+}

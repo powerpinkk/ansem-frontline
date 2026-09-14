@@ -117,18 +117,24 @@ export function setConnectionStatus(status) {
     DOM.connectionLabel.textContent = CONNECTION_LABELS[status] || status.toUpperCase();
 }
 
-export function updateMarketUI({ price, valuation, chg, pools, coverage, referencePool }) {
+export function updateValuationUI(provider = state.valuation) {
+    const valuation = state.canonicalValuation?.authorityEligible ? state.canonicalValuation : provider;
     if (DOM.mcapValue) {
         const mcap = valuation?.valueUsd;
-        document.querySelector('#mcap-box .info-label').textContent = valuationLabel(valuation);
-        DOM.mcapValue.title = `${valuation?.source || 'unavailable'} · ${valuation?.freshness || 'UNAVAILABLE'} · provider indicative`;
+        document.querySelector('#mcap-box .info-label').textContent = valuation?.kind==='PROTOCOL_MARKET_CAP'?'PUMP MC':valuationLabel(valuation);
+        DOM.mcapValue.title = valuation?.kind==='PROTOCOL_MARKET_CAP'
+            ? `Pump protocol market cap · ${valuation.supplyBasis} · on-chain state + Pyth USD quote · ${valuation.freshness}`
+            : `${valuation?.source || 'unavailable'} · ${valuation?.freshness || 'UNAVAILABLE'} · provider indicative`;
         if (!(mcap > 0) || valuation?.kind === 'UNKNOWN') DOM.mcapValue.textContent = '—';
         else
         DOM.mcapValue.textContent = mcap > 1_000_000
             ? `$${(mcap / 1_000_000).toFixed(2)}M`
             : `$${(mcap / 1000).toFixed(1)}K`;
     }
+}
 
+export function updateMarketUI({ price, valuation, chg, pools, coverage, referencePool }) {
+    updateValuationUI(valuation);
     if (DOM.price) {
         DOM.price.textContent = `$${price.toFixed(6)}`;
     }

@@ -1,0 +1,134 @@
+{
+  "checkedAt": 1789341406676,
+  "pumpRevision": "f216b6724c6ede79d7cef9ce210b741f7e17e93b",
+  "pythRevision": "807ff575a9090cee99b9e1a30dc23edf3522fe1b",
+  "pumpProgram": "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P",
+  "pumpIdlVersion": "0.1.0",
+  "sources": [
+    {
+      "url": "https://github.com/pump-fun/pump-public-docs/blob/f216b6724c6ede79d7cef9ce210b741f7e17e93b/README.md",
+      "revision": "f216b6724c6ede79d7cef9ce210b741f7e17e93b",
+      "sha256": "0c0e03ed24a6c3804a6e91fc1ec54620c9125b1707b220fd0abf8e3058f180bb"
+    },
+    {
+      "url": "https://github.com/pump-fun/pump-public-docs/blob/f216b6724c6ede79d7cef9ce210b741f7e17e93b/idl/pump.json",
+      "revision": "f216b6724c6ede79d7cef9ce210b741f7e17e93b",
+      "sha256": "ffe966c42f1af41652ee753fe2f1e3f7cd4077d7e6f49faf3138959c8b56064b"
+    },
+    {
+      "url": "https://github.com/pump-fun/pump-public-docs/blob/f216b6724c6ede79d7cef9ce210b741f7e17e93b/idl/pump_amm.json",
+      "revision": "f216b6724c6ede79d7cef9ce210b741f7e17e93b",
+      "sha256": "2091433899b07d003d98118ae6cd3c628960fd393b40710b6e15bce6d0e7f2d1"
+    },
+    {
+      "url": "https://github.com/pump-fun/pump-public-docs/blob/f216b6724c6ede79d7cef9ce210b741f7e17e93b/docs/PUMP_PROGRAM_README.md",
+      "revision": "f216b6724c6ede79d7cef9ce210b741f7e17e93b",
+      "sha256": "ce6c84112e9ec870a2341562eaf825fe05059b157ce35cdf9d59a533262edc90"
+    },
+    {
+      "url": "https://github.com/pump-fun/pump-public-docs/blob/f216b6724c6ede79d7cef9ce210b741f7e17e93b/docs/PUMP_SWAP_README.md",
+      "revision": "f216b6724c6ede79d7cef9ce210b741f7e17e93b",
+      "sha256": "58edc63278cf87ff464f8ff7efd55bed83f55045319e483454abd075c34956fa"
+    },
+    {
+      "url": "https://github.com/pump-fun/pump-public-docs/blob/f216b6724c6ede79d7cef9ce210b741f7e17e93b/docs/instructions/BUY.md",
+      "revision": "f216b6724c6ede79d7cef9ce210b741f7e17e93b",
+      "sha256": "b2ba018cf1512d95a84482298091facdec532e9c734a2c6890e56461405987b7"
+    },
+    {
+      "url": "https://github.com/pump-fun/pump-public-docs/blob/f216b6724c6ede79d7cef9ce210b741f7e17e93b/docs/instructions/SELL.md",
+      "revision": "f216b6724c6ede79d7cef9ce210b741f7e17e93b",
+      "sha256": "02037217c2fb0b83c70380888535107d8649116719f504646a5cc200765d1910"
+    },
+    {
+      "url": "https://github.com/pump-fun/pump-public-docs/blob/f216b6724c6ede79d7cef9ce210b741f7e17e93b/docs/instructions/COIN_CREATION.md",
+      "revision": "f216b6724c6ede79d7cef9ce210b741f7e17e93b",
+      "sha256": "9ffd3ba9c8e7cdd8ba2c5abec4c27ddb79a4afc0e7fe8864cfcc1c71aa290732"
+    },
+    {
+      "url": "https://github.com/pump-fun/pump-public-docs/blob/f216b6724c6ede79d7cef9ce210b741f7e17e93b/docs/HOLDER_REWARDS_README.md",
+      "revision": "f216b6724c6ede79d7cef9ce210b741f7e17e93b",
+      "sha256": "9ee0be922393c75e5f359d5e222f3e112e3f7cb6b73446fdbc7da095461900c9"
+    },
+    {
+      "package": "@pump-fun/pump-sdk",
+      "version": "2.0.0",
+      "url": "https://registry.npmjs.org/@pump-fun/pump-sdk/-/pump-sdk-2.0.0.tgz",
+      "integrity": "sha512-qDtUx/1eHJl4uMof3bxTJ/YqKNp+HtXoIWfmOArQD11Vp+Zb0AZHLod0ktii7tc3uAwRtg1GoteouT0ynM58YQ==",
+      "verifiedIntegrity": true,
+      "repository": {
+        "url": "git+https://github.com/pump-fun/pump-sdk.git",
+        "type": "git"
+      }
+    },
+    {
+      "package": "@pump-fun/pump-swap-sdk",
+      "version": "1.20.0",
+      "url": "https://registry.npmjs.org/@pump-fun/pump-swap-sdk/-/pump-swap-sdk-1.20.0.tgz",
+      "integrity": "sha512-DuBZ5ge3OJPao6m0aZZj+GTZFzfZ/TU3ca1EgL9ejr+8QIYETlLQVMaiznS+U4uGzM9z58mpxoXn3HuVEYHCFw==",
+      "verifiedIntegrity": true,
+      "repository": {
+        "url": "git+https://github.com/pump-fun/pump-swap-sdk.git",
+        "type": "git"
+      }
+    },
+    {
+      "url": "https://github.com/pyth-network/pyth-crosschain/blob/807ff575a9090cee99b9e1a30dc23edf3522fe1b/target_chains/solana/sdk/js/pyth_solana_receiver/src/address.ts",
+      "revision": "807ff575a9090cee99b9e1a30dc23edf3522fe1b",
+      "sha256": "40b52e3fd1c64e81da3401df7ef8134020177c3ade9e6be16b4ba6bc023255ac"
+    },
+    {
+      "url": "https://github.com/pyth-network/pyth-crosschain/blob/807ff575a9090cee99b9e1a30dc23edf3522fe1b/target_chains/solana/programs/pyth-push-oracle/src/lib.rs",
+      "revision": "807ff575a9090cee99b9e1a30dc23edf3522fe1b",
+      "sha256": "449975b46f8c0df749bb6671abcf55a280db8c631bfa1bda3c03aa3187e188a1"
+    },
+    {
+      "url": "https://github.com/pyth-network/pyth-crosschain/blob/807ff575a9090cee99b9e1a30dc23edf3522fe1b/target_chains/solana/pyth_solana_receiver_sdk/src/price_update.rs",
+      "revision": "807ff575a9090cee99b9e1a30dc23edf3522fe1b",
+      "sha256": "12d0ce8bc3907ae2949043397eaf3d5bd25deed98450c6969d957be402c807ae"
+    },
+    {
+      "url": "https://github.com/pyth-network/pyth-crosschain/blob/807ff575a9090cee99b9e1a30dc23edf3522fe1b/pythnet/pythnet_sdk/src/messages.rs",
+      "revision": "807ff575a9090cee99b9e1a30dc23edf3522fe1b",
+      "sha256": "859f315c9474e694dc5ddb04d1900c5bae8b115a347c4e59746123245cbabc2a"
+    }
+  ],
+  "feeds": [
+    {
+      "id": "ef0d8b6fda2ceba41da15d4095d1da392a0d2f8ed0c6c7bc0f4cfac8c280b56d",
+      "market_hours": {
+        "is_open": true,
+        "next_open": null,
+        "next_close": null
+      },
+      "attributes": {
+        "asset_type": "Crypto",
+        "description": "SOLANA / US DOLLAR",
+        "display_symbol": "SOLUSD",
+        "quote_currency": "USD",
+        "schedule": "America/New_York;O,O,O,O,O,O,O;",
+        "symbol": "Crypto.SOL/USD",
+        "min_channel": "real_time"
+      }
+    },
+    {
+      "id": "eaa020c61cc479712813461ce153894a96a6c00b21ed0cfc2798d1f9a9e9c94a",
+      "market_hours": {
+        "is_open": true,
+        "next_open": null,
+        "next_close": null
+      },
+      "attributes": {
+        "asset_type": "Crypto",
+        "description": "USD COIN / US DOLLAR",
+        "display_symbol": "USDCUSD",
+        "quote_currency": "USD",
+        "schedule": "America/New_York;O,O,O,O,O,O,O;",
+        "symbol": "Crypto.USDC/USD",
+        "min_channel": "real_time"
+      }
+    }
+  ],
+  "argumentPrefixReference": "https://github.com/coral-xyz/anchor/blob/v0.31.1/lang/syn/src/codegen/program/handlers.rs",
+  "quoteTransport": "Existing trusted Solana RPC; full Pyth PriceUpdateV2 accounts; no Hermes API key or new paid dependency"
+}

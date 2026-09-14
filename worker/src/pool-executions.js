@@ -4,6 +4,8 @@ import { TOKEN_PROGRAM, TOKEN_2022_PROGRAM, swapLayout, validSignature, decodeBa
 import { resolveTransactionAccounts } from './transaction-accounts.js';
 import { successfulInvocations, balanceEvidence, rawInteger } from './transaction-context.js';
 import { INSTRUCTION_KINDS } from './pool-instruction-kinds.js';
+import { verifyPumpExecutions } from './pump-executions.js';
+import { PUMP_PROGRAM } from './pump-state.js';
 
 export const POOL_EXECUTION_VERSION = 'pool-execution-v1';
 const raydium = 'CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK';
@@ -26,6 +28,7 @@ const fail = (reason, status = 'UNVERIFIED') => ({ status, reason, events: [], e
 // Pipeline A: executed pool effect. Pipeline B's wallet/route attribution is
 // intentionally not consulted; a router is simply an ancestor invocation.
 export function verifyPoolExecutions(tx, signature, market, settlement = 'CONFIRMED') {
+    if (market?.programId === PUMP_PROGRAM) return verifyPumpExecutions(tx,signature,market,settlement);
     try { return verify(tx, signature, market, settlement); }
     catch (e) { return fail(e.message || 'MALFORMED_TRANSACTION'); }
 }

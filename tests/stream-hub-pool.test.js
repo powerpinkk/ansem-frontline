@@ -3,6 +3,7 @@ vi.mock('../worker/src/server-market.js', () => ({ createRpcTransport: () => vi.
 import { resolveServerMarket } from '../worker/src/server-market.js';
 import { StreamHub } from '../worker/src/stream-hub.js';
 import { swapFixture, MINT, signatureFor } from './fixtures/integrity.js';
+import { readFileSync } from 'node:fs';
 afterEach(()=>vi.restoreAllMocks());
 function setup() {
     const stored=new Map([['marketEpoch',7]]),sent=[];
@@ -32,4 +33,35 @@ it('failed and successful log mentions share acquisition, while alien subscripti
     const notification=(subscription,err)=>JSON.stringify({method:'logsNotification',params:{subscription,result:{context:{slot:100},value:{signature:signatureFor(),err}}}});
     hub.handleUpstreamMessage(notification(99,null));expect(observe).not.toHaveBeenCalled();
     hub.handleUpstreamMessage(notification(3,null));hub.handleUpstreamMessage(notification(3,{failed:true}));expect(observe).toHaveBeenCalledTimes(2);hub.ingestion.destroy();
+});
+it('curve completion, unavailable migration pool and AMM adoption rebase without executions',async()=>{
+    const curve=JSON.parse(readFileSync(new URL('./fixtures/public-chain/pump-current-states.json',import.meta.url)))[0];
+    vi.spyOn(Date,'now').mockReturnValue(curve.receivedAt);
+    const {hub,sent}=setup();hub.tokenMint=curve.mint;
+    resolveServerMarket.mockResolvedValueOnce({...curve,pools:[curve.canonicalMarket],selection:{tokenMint:curve.mint},receivedAt:Date.now()});
+    await hub.ensureMarket();const epoch=hub.sourceEpoch,ingestion=hub.ingestion;
+    expect(hub.diagnostics().canonicalValuation.authorityEligible).toBe(true);
+    hub.market.receivedAt=0;
+    resolveServerMarket.mockResolvedValueOnce({canonicalMarket:null,pools:[],selection:{tokenMint:curve.mint},
+        identityFailure:'MIGRATION_POOL_NOT_YET_AVAILABLE',lifecycle:'CURVE_COMPLETE_MIGRATING',refreshIntervalMs:10000,receivedAt:Date.now()});
+    await hub.ensureMarket();expect(hub.sourceEpoch).toBe(epoch+1);expect(hub.ingestion).toBeNull();expect(ingestion.snapshot()).toEqual([]);
+    expect(hub.diagnostics().canonicalValuation).toBeNull();
+    hub.market.receivedAt=0;const amm=market(swapFixture({mint:curve.mint}));amm.canonicalMarket.lifecycle='AMM';
+    // Deterministic migration boundary, not a claimed observed migration price.
+    // Even a large new reserve-derived observation must be a new source basis.
+    amm.nativeValuation={...curve.nativeValuation,marketIdentity:amm.canonicalMarket.address,
+        rawQuoteValue:String(BigInt(curve.nativeValuation.rawQuoteValue)*50n)};
+    amm.quoteUsd=curve.quoteUsd;
+    resolveServerMarket.mockResolvedValueOnce(amm);
+    await hub.ensureMarket();expect(hub.sourceEpoch).toBe(epoch+2);expect(hub.market.canonicalMarket.lifecycle).toBe('AMM');
+    expect(hub.diagnostics().canonicalValuation).toMatchObject({authorityEligible:true,movementCause:'SOURCE_REBASE',sourceEpoch:epoch+2});
+    expect(sent.filter(m=>m.type==='trade'||m.type==='reconcile')).toEqual([]);
+    expect(sent.filter(m=>m.type==='snapshot').every(m=>m.trades.length===0)).toBe(true);
+    hub.ingestion.destroy();
+});
+it('idle teardown removes valuation, ingestion and cursors',async()=>{
+    const {hub}=setup(),f=swapFixture();resolveServerMarket.mockResolvedValueOnce(market(f));await hub.ensureMarket();
+    hub.ctx.getWebSockets=()=>[];hub.lastClientAt=0;hub.cursorByPool.set(f.pool,'cursor');
+    await hub.alarm();expect(hub.market).toBeNull();expect(hub.ingestion).toBeNull();expect(hub.cursorByPool.size).toBe(0);
+    expect(hub.valuationBoundary.snapshot()).toBeNull();
 });

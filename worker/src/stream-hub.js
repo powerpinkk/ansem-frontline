@@ -3,6 +3,7 @@ import { resolveRequestMint } from './token-routing.js';
 import { createEvidenceIngestion } from './evidence-ingestion.js';
 import { createRpcTransport, resolveServerMarket } from './server-market.js';
 import { fetchRecentCandidates } from './recent-trades.js';
+import { canonicalValuation, createCanonicalValuationBoundary } from '../../js/canonical-valuation.js';
 
 export class StreamHub {
     constructor(ctx, env) {
@@ -24,6 +25,7 @@ export class StreamHub {
         this.retryDelay = 1000;
         this.coverageIncomplete = false;
         this.sourceEpoch = 0;
+        this.valuationBoundary = null;
     }
 
     async fetch(request) {
@@ -44,6 +46,7 @@ export class StreamHub {
             await this.schedule();
             return Response.json({ version: 4, source: 'verified-pool-executions', tokenMint: this.tokenMint,
                 canonicalMarket: this.market?.canonicalMarket || null, sourceEpoch: this.sourceEpoch,
+                canonicalValuation:this.valuationBoundary?.snapshot() || null,
                 trades: this.ingestion?.snapshot() || [], pools: this.market?.pools.length || 0,
                 status: this.isDegraded() ? 'degraded' : 'observed', integrity: this.diagnostics() },
             { headers: { 'cache-control': 'no-store' } });
@@ -71,14 +74,15 @@ export class StreamHub {
             await this.ensureMarket();
             await this.ensureUpstream();
             socket.send(JSON.stringify({ type: 'snapshot', version: 4, tokenMint: this.tokenMint,
-                canonicalMarket: this.market?.canonicalMarket || null, sourceEpoch: this.sourceEpoch, trades: this.ingestion?.snapshot() || [] }));
+                canonicalMarket: this.market?.canonicalMarket || null, sourceEpoch: this.sourceEpoch,
+                canonicalValuation:this.valuationBoundary?.snapshot() || null,trades: this.ingestion?.snapshot() || [] }));
             await this.catchUp();
         } catch { this.broadcast({ type: 'status', status: 'degraded', version: 4 }); }
         await this.schedule();
     }
 
     async ensureMarket() {
-        if (this.market && Date.now() - this.market.receivedAt < 60_000) { this.ensureIngestion(); return this.market; }
+        if (this.market && Date.now() - this.market.receivedAt < (this.market.refreshIntervalMs || 60_000)) { this.ensureIngestion(); return this.market; }
         if (this.marketPromise) return this.marketPromise;
         this.marketPromise = resolveServerMarket(this.tokenMint, this.rpc, this.market?.selection)
             .then(async (next) => {
@@ -95,10 +99,18 @@ export class StreamHub {
                     this.sourceEpoch = epoch;
                     if (next.canonicalMarket) next.canonicalMarket.sourceEpoch = epoch;
                 } else if (next.canonicalMarket) next.canonicalMarket.sourceEpoch = this.market.canonicalMarket.sourceEpoch;
+                if (!this.valuationBoundary) this.valuationBoundary = createCanonicalValuationBoundary(this.tokenMint);
+                if (changed) this.valuationBoundary.clear();
+                if (next.nativeValuation && next.canonicalMarket) {
+                    next.nativeValuation.sourceEpoch = next.canonicalMarket.sourceEpoch;
+                    const value = canonicalValuation(next.nativeValuation,next.quoteUsd,next.canonicalMarket,this.valuationBoundary.snapshot());
+                    this.valuationBoundary.accept(value,next.canonicalMarket);
+                } else if (next.valuationFailure) this.valuationBoundary.clear();
                 this.market = next;
                 this.ensureIngestion();
                 if (changed) this.broadcast({ type: 'snapshot', version: 4, tokenMint: this.tokenMint,
-                    canonicalMarket: next.canonicalMarket, sourceEpoch: this.sourceEpoch, trades: [] });
+                    canonicalMarket: next.canonicalMarket, sourceEpoch: this.sourceEpoch,
+                    canonicalValuation:this.valuationBoundary?.snapshot() || null,trades: [] });
                 const addresses = new Set(next.pools.map((p) => p.address));
                 for (const key of this.cursorByPool.keys()) if (!addresses.has(key)) this.cursorByPool.delete(key);
                 return next;
@@ -171,7 +183,8 @@ export class StreamHub {
 
     async alarm() {
         if (!this.ctx.getWebSockets().length && Date.now() - this.lastClientAt > 120_000) {
-            this.closeUpstream(); this.ingestion?.destroy(); this.ingestion = null; return;
+            this.closeUpstream(); this.ingestion?.destroy(); this.ingestion = null;
+            this.market=null;this.valuationBoundary?.clear();this.cursorByPool.clear();return;
         }
         try {
             await this.ensureMarket();
@@ -191,6 +204,7 @@ export class StreamHub {
     diagnostics() {
         return { tokenMint: this.tokenMint, primaryMarket: this.market?.selection || null,
             canonicalMarket: this.market?.canonicalMarket || null, sourceEpoch: this.sourceEpoch, identityFailure: this.market?.identityFailure || null,
+            canonicalValuation:this.valuationBoundary?.snapshot() || null,valuationFailure:this.market?.valuationFailure || null,
             ...this.ingestion?.diagnostics(), coverageIncomplete: this.coverageIncomplete,
             unsupportedPools: this.market?.unsupportedPools || 0, degraded: this.isDegraded() };
     }

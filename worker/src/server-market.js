@@ -1,16 +1,28 @@
 import { selectMarket } from '../../js/market-selection.js';
 import { decodePoolIdentity, verifyPoolVaults } from './pool-identity.js';
+import { probePumpCurve, pumpSwapValuation } from './pump-market.js';
 
 export async function resolveServerMarket(mint, rpc, previous = null, fetchImpl = fetch) {
+    let curve;
+    try { curve = await probePumpCurve(mint, rpc); }
+    catch (e) { return {pools:[],canonicalMarket:null,selection:previous,unsupportedPools:1,identityFailure:e.message,
+        receivedAt:Date.now(),refreshIntervalMs:10_000}; }
+    if (curve && !curve.complete) return {...curve,pools:[curve.canonicalMarket],unsupportedPools:0,identityFailure:null,
+        selection:{tokenMint:mint,pairAddress:curve.canonicalMarket.address,sourceEpoch:1},refreshIntervalMs:10_000};
     // The browser requests a mint. All subscription candidates come from this
     // fixed endpoint and their program owners are checked against fixed adapters.
+    let selected;
+    if (curve?.complete) selected={pools:[{address:curve.migration,quoteMint:curve.quoteMint}],
+        selection:{tokenMint:mint,pairAddress:curve.migration,sourceEpoch:1}};
+    else {
     const response = await fetchImpl(`https://api.dexscreener.com/token-pairs/v1/solana/${encodeURIComponent(mint)}`, {
         headers: { accept: 'application/json' }, signal: AbortSignal.timeout(5000),
     });
     if (!response.ok) throw new Error('DISCOVERY_UNAVAILABLE');
     const payload = await response.json();
-    const selected = selectMarket(Array.isArray(payload) ? payload : payload.pairs, mint, previous);
+    selected = selectMarket(Array.isArray(payload) ? payload : payload.pairs, mint, previous);
     if (!selected) throw new Error('NO_COMPATIBLE_MARKET');
+    }
     // Only the deterministically selected market contributes pressure. Never
     // silently substitute another pool if its on-chain identity is unavailable.
     const primary = selected.pools[0];
@@ -24,7 +36,14 @@ export async function resolveServerMarket(mint, rpc, previous = null, fetchImpl 
         if (vaultResult.context.slot < result.context.slot) throw new Error('VAULT_SLOT_REGRESSION');
         canonicalMarket = { ...verifyPoolVaults(identity, vaultResult.value, vaultResult.context.slot), sourceEpoch: selected.selection.sourceEpoch };
     } catch (e) { identityFailure = e.message; }
-    return { pools: canonicalMarket ? [{ ...primary, ...canonicalMarket }] : [], canonicalMarket,
+    let native = {};
+    if (canonicalMarket?.protocol === 'pumpswap') {
+        try { native = await pumpSwapValuation(canonicalMarket,rpc,canonicalMarket.verifiedAtSlot); }
+        catch(e) { native = {valuationFailure:e.message}; }
+    }
+    return { ...native, pools: canonicalMarket ? [{ ...primary, ...canonicalMarket }] : [], canonicalMarket,
+        lifecycle:curve?.complete&&!canonicalMarket?'CURVE_COMPLETE_MIGRATING':canonicalMarket?.lifecycle,
+        refreshIntervalMs:curve||canonicalMarket?.protocol==='pumpswap'?10_000:60_000,
         selection: selected.selection, unsupportedPools: canonicalMarket ? 0 : 1, identityFailure, receivedAt: Date.now() };
 }
 

@@ -21,6 +21,7 @@ import {
     bindCameraControls,
     setConnectionStatus,
     updateMarketUI,
+    updateValuationUI,
     updateDashboardUI,
     addOnChainTrade,
     addWhaleSpawnEvent,
@@ -151,6 +152,7 @@ function mountRuntime(resolution) {
         if (session.active && currentSession === session) callback(...args);
     };
     session.api = initAPI({
+        onCanonicalValuation: active(() => updateValuationUI()),
         onMarketUpdate: active((market) => {
             updateMarketUI(market);
             updateBattleLogSnapshot(market);

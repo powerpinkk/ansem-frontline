@@ -7,6 +7,15 @@ const USDT = 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB';
 const POOL = '6e7V9eegCHw997T72MxgwwJipZ6GJyZF8NvjkzT1rvpN';
 
 describe('token loading', () => {
+    it('loads an unlisted curve by server identity without a fabricated market price',async()=>{
+        const fetchImpl=vi.fn(async url=>Response.json(url===CONFIG.RELAY_RECENT_URL?{
+            version:4,tokenMint:USDC,canonicalMarket:{address:POOL,tokenMint:USDC,quoteMint:CONFIG.SOL_MINT,
+                lifecycle:'CURVE_ACTIVE',compatibility:'POOL_STATE_AND_VAULTS_VERIFIED',sourceEpoch:1,tokenDecimals:6},
+        }:[]));
+        const result=await resolveTokenInput(USDC,{fetchImpl});
+        expect(result.ok).toBe(true);expect(result.market).toBeNull();expect(result.context.resources.pools[0].address).toBe(POOL);
+        expect(fetchImpl.mock.calls.at(-1)[1].method).toBe('POST');
+    });
     it('adds an indicative SOL/USD quote when the selected token has only stablecoin pools', async () => {
         const fetchImpl = vi.fn(async (url) => Response.json(url.endsWith(CONFIG.SOL_MINT) ? [{
             chainId: 'solana',

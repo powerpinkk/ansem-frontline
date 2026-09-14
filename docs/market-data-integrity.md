@@ -1,6 +1,6 @@
 # Market data integrity — M10.1
 
-**Current status: M10.1 BLOCKED — MATERIAL POOL EXECUTION COVERAGE.** The M10.1c section at the end supersedes the market-pressure assumptions in the historical M10.1/M10.1b audits below. Pool execution and user attribution are now independent. The AMM increment is useful, but bonding-curve execution and terrain valuation remain unresolved. M10.2 is not ready.
+**Current status: M10.1 MARKET DATA INTEGRITY COMPLETE WITH NON-BLOCKING PROTOCOL LIMITATIONS — M10.2 TERRAIN READY.** The M10.1d audit at the end supersedes earlier readiness statements. Standard active Pump curves now have positive execution proof and canonical valuation with independent Pyth USD freshness. Mayhem curve valuation and unsupported quote/extension semantics remain explicitly ineligible. M10.2 may consume only eligible observations; this is not universal token coverage or permission to treat missing evidence as inactivity.
 
 ## A. Baseline
 Started at `bf8ff6a6dc1a4bf664df96862e361bb3d0e62777`, equal to local main and origin/main. The original terrain branch was empty, clean, and had no upstream. Renamed locally to `feat/m10-market-data-integrity` before implementation. No terrain implementation existed. The earlier M10 audit stopped on data integrity.
@@ -400,3 +400,141 @@ The supported selected-AMM path can now consume real market effect without guess
 Those omissions would mislead if pressure were presented as complete or curve inactivity were treated as no trading. They are therefore excluded/degraded, and M10.2 is **not ready**. Independently, canonical valuation authority is not established and remains explicitly false. Next required work is a bounded current curve discovery/execution/lifecycle adapter with measured successful-swap coverage, plus an explicit same-market/epoch valuation authority contract with observation and supply/quote provenance. Neither requires guessing wallet intent.
 
 M10.1 BLOCKED — MATERIAL POOL EXECUTION COVERAGE
+
+## M10.1d — Pump curve and canonical valuation authority, 2026-09-14
+
+### A–C. Baseline, official sources and instruction model
+
+Started from `363a653aec02f3644a90dda3ed7d62c3c7f0e99b` on `feat/m10-market-data-integrity`. The three previous increments remain intact. Baseline: 319 unit tests, 63 applicable E2E passes and 35 device skips, Worker 175.03 KiB. No terrain, bands, ImpactScore, frontiers, combat rules, wallet capability, entitlement or theme implementation is added here.
+
+The bounded adapter is based on official [Pump public documentation and IDLs](https://github.com/pump-fun/pump-public-docs/tree/f216b6724c6ede79d7cef9ce210b741f7e17e93b), revision `f216b6724c6ede79d7cef9ce210b741f7e17e93b`, IDL version 0.1.0; npm `@pump-fun/pump-sdk@2.0.0` and `@pump-fun/pump-swap-sdk@1.20.0`. Tarball SHA512 integrity was verified before executing the reference helpers in an ignored audit directory. Production imports no SDK or new dependency. [pump-authority-provenance.json](pump-authority-provenance.json) retains URLs, revisions, source hashes, package integrity, Pyth metadata and the Anchor argument-prefix reference. These pins describe inspected versions, not automatic compatibility with future upgrades.
+
+Pump program: `6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P`; PumpSwap: `pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA`. The static IDL subset includes current BondingCurve and TradeEvent layouts, quote fields, Mayhem/cashback flags and holder-reward fields. It does not accept remote IDLs or infer an unknown layout from its apparent balances.
+
+### D–I. Identity, lifecycle, versions, quotes and Mayhem
+
+Curve identity derives `['bonding-curve', mint]` with the Pump program, then verifies owner, discriminator, current state, base mint, token program and canonical ATA. The atomic observation rechecks state, base/quote mints, vault authority and Global identity. PDA derivation agrees with 100 independent official Solana SDK vectors. Historical state prefix boundaries are explicit; malformed intermediate lengths fail closed. Completed curves derive the canonical PumpSwap pool through the official pool-authority and index-zero pool seeds. The resolver never substitutes a different ranked DEX pair for that migration destination.
+
+Lifecycle is `CURVE_ACTIVE` → complete/migrating with no eligible market → `AMM`. An absent migration account triggers bounded refresh, clears valuation and retires curve ingestion. Market replacement increments a persisted source epoch and clears the old journal/cursor. The new source is a rebase; it is never emitted as a buy or sell.
+
+| Instruction | Quote support | Positive evidence in this increment |
+| --- | --- | --- |
+| `buy` | Native SOL | Current public transactions |
+| `sell` | Native SOL | Current public transactions and retained Mayhem CPI |
+| `buy_exact_sol_in` | Native SOL | Official SDK instruction/event encoding over deterministic test effects; no positive live example claimed |
+| `buy_v2` | SOL and SPL quote | Retained SOL and current USDC public transactions |
+| `sell_v2` | SOL and SPL quote | Current USDC and retained custom-quote public transactions |
+| `buy_exact_quote_in_v2` | SOL and SPL quote | Current SOL and custom-quote public transactions |
+
+Actual routed V2 exact-input calls include a trailing boolean beyond their declared 24-byte prefix. The parser accepts that observed bounded 25-byte form, consistent with Anchor prefix deserialization, and records suffix length. It does not use the suffix or input/slippage budget as the execution amount. Current events identify this call as `buy_exact_quote_in`, distinct from legacy `buy_exact_sol_in`.
+
+SOL buys require the actual scoped System transfer to the curve. SOL sells combine the successful scoped event and base transfer with exact curve lamport conservation: the program debits its own lamports without a System transfer CPI. Non-SOL quotes use their real mint/program/decimals and quote-vault effects. USDC buys and sells verify; custom quotes can retain raw execution truth but have no invented SOL or USD notional.
+
+Mayhem **trades** remain eligible when execution evidence proves them. Mayhem **curve valuation** is deliberately ineligible: all three retained Mayhem valuation examples have live mint supply `2000000000000000` versus curve/API supply `1000000000000000`. The SDK live-supply helper yields approximately twice the Pump frontend market cap. A fee-tier helper or API convention is insufficient proof of the intended terrain valuation basis. The exact SDK result is retained only as a diagnostic, with `supplyVerified:false`, `MAYHEM_CURVE_SUPPLY_CONVENTION_UNRESOLVED` and `authorityEligible:false`. No silent 1B assumption fixes this discrepancy. PumpSwap Mayhem has a separate explicit SDK convention of `1000000000000000` raw supply units; its deterministic vector is tested, not inferred from curve semantics.
+
+### J–M. Positive proof, cross-checks, execution amounts and fees
+
+Every execution requires a successful supported instruction, correct named canonical accounts, successful runtime frame and ancestors, exactly one correctly scoped Anchor TradeEvent CPI, event authority, matching mint/quote/user/direction, actual base/quote effects and transaction-wide vault conservation. A log string or balance sign alone is insufficient. Events are identified by mint, signature, market and invocation path. A transaction can contain distinct executions; finalization reconciles the same identity.
+
+Base transfer amounts and quote-vault/curve effects are raw integer strings. Input budgets and minimum output arguments are not execution amounts. Native fees, network fee, ATA rent, creator fee, buyback, cashback and holder rewards are not added to trade quote. For example, retained native buy `cgMX4NjunkUd…` proves `6028086214960` base atoms and `3478261` lamports of quote, separately from `33044` protocol and `10435` creator fee atoms and ATA rent. A custom-quote sell proves 25 quote atoms: 23 to user plus actual fee legs; aliases such as holder rewards are not summed twice.
+
+Six examples were re-read as finalized compiled JSON. Separate static/ALT indexing, token-vault subtraction and native curve-lamport subtraction agree with their parsed captures. [pump-crosschecks.json](pump-crosschecks.json) records all checks, raw deltas and hashes. This is a separate representation/read cross-check through public RPC, not independent-provider consensus or a light client. Transfer hooks, unexplained rent/extra curve flows, unrecognized layouts/instructions and unproven nested scopes are excluded. There is no balance-delta fallback.
+
+### N–R. Acquisition, measured coverage and AMM regressions
+
+Unlisted active curves can resolve through the mint-only server `/recent` contract before provider discovery succeeds. Server bootstrap and one canonical address subscription no longer depend on a provider pair or price. Logs, reconnect replay and bounded history enter the existing signature registry; parsed transactions and finalized status reconciliation remain authoritative. A source-generation guard rejects late responses from an old pool. No activity is manufactured by quote refresh, state refresh or graduation.
+
+The new public capture is one 48-mention Pump program page at slot **446771425**, block time **2026-09-13 18:29:07 UTC**, retrieved by 18:32:52 UTC. This single-slot window is intentionally finite and not representative of market-wide volume. All 48 signatures, failed outcomes, identified instructions, successful raw fixtures and replay results are retained in [pump-mainnet-samples.json](pump-mainnet-samples.json).
+
+| New bounded cohort | Count |
+| --- | ---: |
+| Acquired program mentions | 48 |
+| Failed transactions | 37 |
+| Successful identified swaps | 11 |
+| Positively verified executions | 11 |
+| Unsupported identified successful swaps | 0 |
+| Distinct successful-swap mints | 7 |
+| SOL swaps | 8/8 |
+| USDC swaps | 2/2 |
+| Other quote swaps | 1/1 |
+| Mayhem swaps within this cohort | 2/2 |
+
+The instruction distribution is four buys, four exact-quote V2 buys, one V2 buy, one V2 sell and one sell. Three earlier retained curve examples now also verify **3/3**, improving the prior **0/3** result. Neither failed mentions nor non-swaps inflate the swap denominator. The selected page reached its bound: unknown earlier flow stays unknown. Successful execution counts do not establish user attribution or total market capture.
+
+The existing M10.1c public fixtures retain 45/45 identified ANSEM AMM executions across PumpSwap, DLMM, Whirlpool and Raydium CLMM, plus four selected graduated examples. Existing router attribution and all four original failure regressions remain green. These are retained cohort regressions, not a new live resampling of every AMM. Production pressure still uses one selected canonical market.
+
+### S–X. Native valuation, supply, USD and authority
+
+`PROTOCOL_MARKET_CAP` is a separately named Pump protocol definition, not provider circulating MC or FDV. The exact native calculation is integer floor of `effectiveQuoteReserve × applicableSupply / baseReserve`; curve reserves are virtual reserves, whereas PumpSwap effective quote uses actual quote vault **plus signed virtual quote reserves**. SDK reference vectors cover initial state, post-buy/sell, near graduation, large integer reserves, nonstandard supply, non-SOL quote, Mayhem AMM and positive/negative virtual reserves. The API preserves raw quote units and converts to decimal USD strings with BigInt/rational arithmetic, avoiding floating point finance calculations.
+
+Normal curves and normal PumpSwap use the observed initialized mint supply. Burned supply is not replaced with a universal 1B figure: a normal retained curve has `999998183064601` raw mint supply and ANSEM has `997364029286488`. Token-2022 metadata/group extensions are permitted; fee, hook, rebasing, confidential and unknown extensions cannot acquire valuation authority. The custom quote example contains extension types `[18,12,6,25,26,4,14,19]` and is ineligible even though that specific swap's raw transfers verify. Quote safety and base safety both matter.
+
+Native state and quote/USD are separate observations. The existing trusted server RPC reads official Pyth **FULL PriceUpdateV2** push accounts in the same bounded account batch; the actual Pyth publication time is preserved independently of account fetch time. Feed owner, discriminator, fixed feed ID, verification, price, exponent, posted slot, future timestamps and relative confidence are checked. Confidence must be at most 1% of price. Production uses SOL/USD and USDC/USD; USDC is not pegged to 1 in code and a 0.9 observation is tested. Other quotes have no USD authority until a supported source exists.
+
+Pyth source revision: `807ff575a9090cee99b9e1a30dc23edf3522fe1b`; [official Solana push feed documentation](https://docs.pyth.network/price-feeds/core/push-feeds/solana). The shard-zero feed accounts are SOL `7AviUf9nL62mcxNbQGKm4nKDQnPjswo6c5MX4D57HmyE` and USDC `6HAuqASbHEh4w4REJEUUUCginTLfj1kwCh215ZLtMkrT`, owned by receiver `rec2HHDDnjLfj4kE7VyEtFA1HPGQLK33259532cRyHp`. No Hermes API key, premium endpoint, new billing dependency or oracle transaction is required. The trust model is the existing RPC's view of on-chain verified Pyth data, not client-side independent guardian signature verification.
+
+Native freshness TTL is **20 seconds** with a 10-second state refresh. Quote TTL is **90 seconds**, explicitly allowing the documented roughly 55-second push heartbeat while refusing older data. A freshly read account never refreshes an old oracle publication timestamp. Browser freshness expires independently once per second, without another server message. This defines bounded data freshness, not a claim of tick-level USD price precision.
+
+Authority requires canonical mint/address/epoch and verified market compatibility; supported protocol formula/kind; appropriate verified supply; fresh native observation; matching supported FULL/confident quote evidence; fresh quote publication; valid slot; active curve or AMM lifecycle; positive finite output. Missing, stale, regressing or future observations cannot bypass those gates. Server mint-only input, fixed account derivation and server-held observations establish authority; browser/provider fields do not supply it.
+
+### Y–AD. Corroboration, movement, migration and pressure
+
+Provider values remain typed MC/FDV/UNKNOWN and indicative. Neither provider agreement nor a provider ratio determines authority. The UI uses `PUMP MC` only for an eligible protocol valuation; on expiry or a failed gate it uses the existing indicative display or unavailable state. A provider's price and its MC never overwrite canonical native/quote provenance.
+
+The movement model distinguishes `TOKEN_PRICE_UPDATE`, `QUOTE_USD_FX_UPDATE`, combined native/FX movement, `SUPPLY_BASIS_CHANGE`, `SOURCE_REBASE` and unchanged state reconciliation. A 10% SOL/USD change with unchanged native reserves yields a 10% USD change identified as FX, without any new execution or pressure. Supply or source changes reset the valuation basis. No jump-size heuristic suppresses a coherent 100K→600K, 10×, 50× or reversal; provider outliers and stale observations are rejected by evidence, not magnitude.
+
+A live migration was not observed. Four retained completed curve accounts derive their actual canonical PumpSwap destinations. Deterministic state-machine tests cover active curve, absent migration account and AMM adoption with new epochs, retired ingestion and cleared valuation. Even a 50× observation at AMM adoption is classified as `SOURCE_REBASE`, never an execution or token-price shock. Near-graduation native math is separately checked against the official SDK. This proves the boundary behavior; it does not claim the two fixtures were consecutive live reserve states or promise equal MC across protocol migration.
+
+Pressure consumes verified executions only. FX, provider MC, valuation refresh and rebases never enter the trade journal. Non-SOL quote executions remain visible with their actual quote identity, but are excluded from SOL-denominated pressure; completeness is not inferred from zero SOL pressure. No simulated fallback enters production. Synthetic SDK vectors, mocked transport and stress data live exclusively in test/audit code.
+
+### AE–AK. Isolation, security, cost and validation
+
+Every runtime, journal, observation and source epoch remains token-scoped. Teardown clears valuation, ingestion, cursors and pending transport state. Wrong mint/pool/quote/vault/token program, signature replacement, failed ancestors, spoofed/missing events, malformed raw amounts, missing transfers, unexplained conservation and stale observations have negative tests. Public metadata remains inert under the existing E2E security cases. RPC/discovery endpoints stay fixed; no secret, private key, signing action or browser-selected subscription account is introduced.
+
+No render frame queries RPC. At the 10-second refresh interval an active SOL curve uses **2 account RPCs/refresh (12/min)**; non-SOL curve **3 (18/min)**; PumpSwap **4 (24/min)** including the curve probe and atomic valuation. Other AMMs use **3 account reads/minute**, including the new curve probe. FX is inside the valuation batch, not a separate polling service. One canonical logs subscription remains. Existing transaction limits remain 120 reads/minute including finalization, two concurrent fetches, 1,024 records, 128 queued signatures, three retries, 50 statuses/batch on a three-second tick, 90-second provisional deadline and one 12-signature history page per 15 seconds. These limits are per active token Durable Object; no global admission/billing cap is claimed.
+
+Final validation:
+
+- **519 unit tests, 35 files, pass.** This includes 100 independently generated PDA cases, ten exact SDK valuation vectors, 14 public curve executions, seven atomic curve state acquisitions, four actual PumpSwap valuation acquisitions, six instruction variants including the explicitly synthetic legacy exact-SOL case, authority negatives and lifecycle isolation. A previous all-suite run timed out while one test grouped 100 PDA derivations during browser testing; those same checks are now independent cases, with no assertion removed.
+- **Lint and browser production build pass.** Production browser bundle was frozen for the final E2E run. Later changes close the Worker Mayhem supply gate and add tests/audits; no browser behavior changed after that run.
+- **Worker dry-run passes: 227.16 KiB / gzip 48.59 KiB.** No deployment or remote migration occurred.
+- **Complete E2E: 100 definitions, 64 passed, 36 device skips, 10.9 minutes, exit 0.** The extra case proves unlisted curve loading, canonical MC, FX-only refresh and migration. The preceding dedicated run passed four applicable tests with two device skips. Earlier development failures revealed a misplaced UI function boundary and an incorrect stale-oracle test setup; both were corrected before these passing runs. No regression gate was disabled.
+- **60-second soak: 1,021 cycles, 81,680 replay deliveries, 136 rebases, 4,084 FX refreshes, 12,252 mocked RPC reads and 8,168 publications across four services.** Maximum 30 records and 30 journal events per service; final records, cursors held by the harness and pending map empty. Mayhem supply gates remain false throughout. [pump-authority-soak.json](pump-authority-soak.json) records the result. This is real elapsed stress time over retained transaction fixtures and mocked transport/clock, not production uptime or throughput evidence.
+- **M4–M9 E2E regressions pass:** battlefield/WebGL, Pixel/PiP, navigation and token isolation, themes, Theme Studio, Champion lifecycle/entitlements and hostile metadata. Existing unrelated suites remain intact.
+
+### AL. Real valuation samples and discrepancies
+
+[pump-valuation-samples.json](pump-valuation-samples.json) contains full native/quote provenance, raw supply/reserves, market, epoch, slot, separate publication/read times, provider MC/FDV, calculated differences and current gate decisions. Ten observations were captured from **2026-09-13 22:50:31 through 23:15:46 UTC**. Seven normal observations were eligible **at their observation times**; all ten are historical by report time. The replay does not pretend they are currently fresh.
+
+| Mint prefix | State | Canonical/diagnostic USD at capture | Pump API USD | Authority |
+| --- | --- | ---: | ---: | --- |
+| `9cRC…` ANSEM | PumpSwap | 142,256,183.85 | 142,644,287.37 | Eligible |
+| `4N7f…` | PumpSwap | 1,789.99 | 1,785.97 | Eligible |
+| `67QR…` | PumpSwap | 1,811.07 | 1,837.69 | Eligible |
+| `F8rB…` | PumpSwap | 1,775.49 | 1,791.09 | Eligible |
+| `6drE…` | Curve | 2,793.27 | 2,824.35 | Eligible |
+| `J4nq…` | Curve | 2,827.12 | 2,864.20 | Eligible |
+| `7yLg…` | Curve | 11,526.04 | 11,535.35 | Eligible |
+| `GXsZ…`, USDC Mayhem | Curve | 628.83 diagnostic | 314.45 | Supply gate closed |
+| `GLq5…`, USDC Mayhem | Curve | 46.58 diagnostic | 23.29 | Supply gate closed |
+| `Eict…`, SOL Mayhem | Curve | 6.71 diagnostic | 3.36 | Supply gate closed |
+
+Normal curve native quotes agree with API quote MC to integer truncation in these three examples. USD observations are asynchronous and use separate FX sources/times; they are not expected to match exactly. For ANSEM, live burned mint supply explains a supply-basis component versus the API's 1B convention. PumpSwap state and provider observations are likewise not atomic together. All differences are retained, without an authority threshold calibrated to them.
+
+The three fresh PumpSwap accounts actually contain **17,584,505,288 lamports of virtual quote reserves** each, alongside much smaller real quote vault balances. The current SDK's effective-reserve rule is necessary; an older general statement that virtual reserves are zero does not override the observed account. Mayhem curve differences are a distinct approximately 2× supply-definition ambiguity, not dismissed as FX or timestamp noise. Both live USDC examples are Mayhem: USDC execution and oracle observation are proven live, while eligible normal-USDC valuation is a controlled deterministic case, not an extra positive live sample.
+
+### AM–AS. Limits, materiality, artifacts, Git and M10.2 readiness
+
+Remaining limits: Mayhem curve valuation; quote/USD feeds beyond SOL and USDC; unsafe/unknown Token-2022 valuation semantics; unexplained transfer-fee/hook/mixed flows; unknown instruction/event layouts; and the earlier unsupported DEX subtypes. No positive live legacy exact-SOL or live cross-graduation continuity is claimed. History bounds, unavailable RPC and stale quote data can temporarily withdraw authority or leave flow unknown.
+
+These limits are **non-blocking for the supported normal Pump/PumpSwap path**, because they are identifiable gates that fail closed without suppressing other tokens. They matter materially for the affected token: a Mayhem curve cannot provide terrain-authoritative MC, and a custom quote cannot masquerade as SOL pressure. The 2/11 Mayhem executions in one slot and the purposefully selected three Mayhem valuation examples are not estimates of market-wide prevalence. This conclusion depends on explicit per-token degradation, not an assumption that omitted tokens never trade. Standard curve execution, normal supply semantics, fresh available quote/USD and migration/rebase authority are established. There is no remaining blanket exclusion of the launch curve stage.
+
+Production additions: `js/canonical-valuation.js`; Worker `chain-binary`, static `idl/pump-market`, `pump-state`, `pump-market`, `pump-executions` and `quote-usd`. Existing server market/StreamHub, pool dispatch, browser API/state/UI/token loader and stream error handling integrate them. Tests add SDK/public account and transaction fixtures, offline replay, lifecycle coverage and one desktop E2E case. No root package dependency or deployment configuration changes. Scripts `audit-pump-authority.mjs`, `crosscheck-pump-samples.mjs` and `pump-authority-soak.mjs` are audit-only. The offline audit uses committed fixtures; SDK-generated values and separate compiled-RPC cross-check hashes retain independent provenance.
+
+Artifacts: [pump-authority-provenance.json](pump-authority-provenance.json), [pump-mainnet-samples.json](pump-mainnet-samples.json), [pump-valuation-samples.json](pump-valuation-samples.json), [pump-crosschecks.json](pump-crosschecks.json) and [pump-authority-soak.json](pump-authority-soak.json). Public fixture snapshots preserve what was captured; replay uses current production gates, so the Mayhem account captures' preliminary formula observation is never treated as a final authority decision. No prompt or credentials are included.
+
+The fourth local increment follows `363a653aec02f3644a90dda3ed7d62c3c7f0e99b`; `git diff 363a653aec02f3644a90dda3ed7d62c3c7f0e99b HEAD --stat` gives its complete inventory after commit. Prior commits `3a16c4aff2741e63139474ee29951137a19d7fb7`, `c1bb3a8965d3ed7dc2d0ee13e4ad2b763a43e0bc` and `363a653aec02f3644a90dda3ed7d62c3c7f0e99b` are preserved without amendment. The closing response records the fourth SHA and final clean status. No push, PR, merge, deploy, tag or release is authorized or performed.
+
+M10.2 may now be implemented against canonical eligible observations, preserving independent FX/native causes, supply/source rebases and explicit unavailable states. It must not promote Mayhem diagnostics, provider MC/FDV, stale evidence or unsupported quotes. No terrain implementation is part of this increment.
+
+M10.1 MARKET DATA INTEGRITY COMPLETE WITH NON-BLOCKING PROTOCOL LIMITATIONS — M10.2 TERRAIN READY

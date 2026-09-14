@@ -1,0 +1,914 @@
+[
+  {
+    "mint": "GXsZujDj1FsKq2ZFrQsPQMzdMeAcN4Fbk18Hi2c3pump",
+    "observedAt": 1789341330629,
+    "result": {
+      "complete": false,
+      "canonicalMarket": {
+        "address": "Ay5Bn1AijWNr9BKKoim1WBxqWyNLyiwsxH7rTiAav2nB",
+        "poolAddress": "Ay5Bn1AijWNr9BKKoim1WBxqWyNLyiwsxH7rTiAav2nB",
+        "tokenMint": "GXsZujDj1FsKq2ZFrQsPQMzdMeAcN4Fbk18Hi2c3pump",
+        "quoteMint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+        "mints": [
+          "GXsZujDj1FsKq2ZFrQsPQMzdMeAcN4Fbk18Hi2c3pump",
+          "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+        ],
+        "vaults": [
+          "EutJcKnp7b4s7RHKfXzjuhurLLjFTmMQtUzpvT7MkYTV",
+          "oX3rSebekD6dS6zMLqbbvhGmorHySN9TiqaTxrvcUCz"
+        ],
+        "quoteAta": "oX3rSebekD6dS6zMLqbbvhGmorHySN9TiqaTxrvcUCz",
+        "tokenPrograms": [
+          "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+          "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        ],
+        "quoteDecimals": 6,
+        "tokenDecimals": 6,
+        "programId": "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P",
+        "protocol": "pump-curve",
+        "lifecycle": "CURVE_ACTIVE",
+        "identityEvidence": "PUMP_PDA_STATE_AND_VAULTS",
+        "compatibility": "POOL_STATE_AND_VAULTS_VERIFIED",
+        "verifiedAtSlot": 446825833,
+        "sourceEpoch": 1,
+        "globalAddress": "4wTV1YmiEkRvAtNtsSGPtUrqRYQMe5SKy2uB4Jjaxnjf",
+        "eventAuthority": "Ce6TQqeHC9p8KetsN6JsjHK7UTZk7nasjjnr7XxXp9F1",
+        "mayhem": true
+      },
+      "nativeValuation": {
+        "rawQuoteValue": "628907088",
+        "supplyRaw": "2000000000000000",
+        "supplyBasis": "LIVE_MINT_SUPPLY",
+        "effectiveQuoteReserve": "337950506",
+        "tokenMint": "GXsZujDj1FsKq2ZFrQsPQMzdMeAcN4Fbk18Hi2c3pump",
+        "marketIdentity": "Ay5Bn1AijWNr9BKKoim1WBxqWyNLyiwsxH7rTiAav2nB",
+        "sourceEpoch": 1,
+        "quoteMint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+        "quoteDecimals": 6,
+        "kind": "PROTOCOL_MARKET_CAP",
+        "protocolDefinition": "PUMP_PROTOCOL_MARKET_CAP_V1",
+        "source": "ONCHAIN_PUMP_STATE",
+        "slot": 446825833,
+        "observedAt": 1789341329754,
+        "supplyVerified": true,
+        "provenance": {
+          "formula": "pump-sdk@2.0.0:bondingCurveMarketCap",
+          "transport": "TRUSTED_RPC",
+          "observation": "ATOMIC_GET_MULTIPLE_ACCOUNTS",
+          "state": {
+            "curveSupply": "1000000000000000",
+            "mintSupply": "2000000000000000",
+            "mayhem": true,
+            "supplyAgreement": false,
+            "virtualTokenReserves": "1074723157863550",
+            "virtualQuoteReserves": "337950506"
+          },
+          "mintExtensions": [
+            18,
+            19
+          ]
+        }
+      },
+      "quoteUsd": {
+        "quoteMint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+        "price": "99987987",
+        "exponent": -8,
+        "observedAt": 1789341324000,
+        "receivedAt": 1789341329754,
+        "slot": 446825833,
+        "source": "PYTH_ONCHAIN_FULL",
+        "verification": "FULL",
+        "confidenceRaw": "42013",
+        "confidenceAccepted": true,
+        "provenance": {
+          "source": "PYTH_PRICE_UPDATE_V2",
+          "account": "6HAuqASbHEh4w4REJEUUUCginTLfj1kwCh215ZLtMkrT",
+          "feedId": "eaa020c61cc479712813461ce153894a96a6c00b21ed0cfc2798d1f9a9e9c94a",
+          "owner": "rec2HHDDnjLfj4kE7VyEtFA1HPGQLK33259532cRyHp",
+          "postedSlot": "446825822",
+          "transport": "TRUSTED_RPC"
+        }
+      },
+      "valuationFailure": null,
+      "receivedAt": 1789341329754,
+      "pools": [
+        {
+          "address": "Ay5Bn1AijWNr9BKKoim1WBxqWyNLyiwsxH7rTiAav2nB",
+          "poolAddress": "Ay5Bn1AijWNr9BKKoim1WBxqWyNLyiwsxH7rTiAav2nB",
+          "tokenMint": "GXsZujDj1FsKq2ZFrQsPQMzdMeAcN4Fbk18Hi2c3pump",
+          "quoteMint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+          "mints": [
+            "GXsZujDj1FsKq2ZFrQsPQMzdMeAcN4Fbk18Hi2c3pump",
+            "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+          ],
+          "vaults": [
+            "EutJcKnp7b4s7RHKfXzjuhurLLjFTmMQtUzpvT7MkYTV",
+            "oX3rSebekD6dS6zMLqbbvhGmorHySN9TiqaTxrvcUCz"
+          ],
+          "quoteAta": "oX3rSebekD6dS6zMLqbbvhGmorHySN9TiqaTxrvcUCz",
+          "tokenPrograms": [
+            "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+            "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+          ],
+          "quoteDecimals": 6,
+          "tokenDecimals": 6,
+          "programId": "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P",
+          "protocol": "pump-curve",
+          "lifecycle": "CURVE_ACTIVE",
+          "identityEvidence": "PUMP_PDA_STATE_AND_VAULTS",
+          "compatibility": "POOL_STATE_AND_VAULTS_VERIFIED",
+          "verifiedAtSlot": 446825833,
+          "sourceEpoch": 1,
+          "globalAddress": "4wTV1YmiEkRvAtNtsSGPtUrqRYQMe5SKy2uB4Jjaxnjf",
+          "eventAuthority": "Ce6TQqeHC9p8KetsN6JsjHK7UTZk7nasjjnr7XxXp9F1",
+          "mayhem": true
+        }
+      ],
+      "unsupportedPools": 0,
+      "identityFailure": null,
+      "selection": {
+        "tokenMint": "GXsZujDj1FsKq2ZFrQsPQMzdMeAcN4Fbk18Hi2c3pump",
+        "pairAddress": "Ay5Bn1AijWNr9BKKoim1WBxqWyNLyiwsxH7rTiAav2nB",
+        "sourceEpoch": 1
+      },
+      "refreshIntervalMs": 10000
+    },
+    "reads": [
+      {
+        "method": "getMultipleAccounts",
+        "params": [
+          [
+            "Ay5Bn1AijWNr9BKKoim1WBxqWyNLyiwsxH7rTiAav2nB",
+            "GXsZujDj1FsKq2ZFrQsPQMzdMeAcN4Fbk18Hi2c3pump"
+          ],
+          {
+            "encoding": "base64",
+            "commitment": "confirmed"
+          }
+        ],
+        "result": {
+          "context": {
+            "apiVersion": "4.3.0-rc.0",
+            "slot": 446825813
+          },
+          "value": [
+            {
+              "data": [
+                "F7f4N2DYrGB+bA58dNEDACq3JBQAAAAAftT7L+PSAgAEAAAAAAAAAACAxqR+jQMAAB+0JNrjg3yIFYYxPddV/Yiod9eXQePrnlgm4AFXmYgRAQDG+nrzvtutOj1l82qryXQxsbvkwtL24OR8pgIDRS9dYQAAAAAAAAAAAAA=",
+                "base64"
+              ],
+              "executable": false,
+              "lamports": 1285240,
+              "owner": "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P",
+              "rentEpoch": 18446744073709552000,
+              "space": 125
+            },
+            {
+              "data": [
+                "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACNSf0aBwAGAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAARIAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAObH56f9tq10Yt+2u3oZ8qByJ503G1WMbvB0ET9dqgSPEwCiAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA5sfnp/22rXRi37a7ehnyoHInnTcbVYxu8HQRP12qBI8KAAAAVGlnZXIgQ3V0ZQUAAABUaWdlckMAAABodHRwczovL2lwZnMuaW8vaXBmcy9RbVVZN2NVM0g2bjVYMnhEZk5lVXA1TWVwM0UxZkQ4aUx5dkF6eHI3OFE0enpGAAAAAA==",
+                "base64"
+              ],
+              "executable": false,
+              "lamports": 2682240,
+              "owner": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+              "rentEpoch": 18446744073709552000,
+              "space": 400
+            }
+          ]
+        },
+        "receivedAt": 1789341323624
+      },
+      {
+        "method": "getMultipleAccounts",
+        "params": [
+          [
+            "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+          ],
+          {
+            "encoding": "base64",
+            "commitment": "confirmed",
+            "minContextSlot": 446825813
+          }
+        ],
+        "result": {
+          "context": {
+            "apiVersion": "4.3.0-rc.0",
+            "slot": 446825823
+          },
+          "value": [
+            {
+              "data": [
+                "AQAAAJj+huiNm+Lqi8HMpIeLKYjCQPUrhCS/tA7Rot3LXhmbHUMr+XcqHQAGAQEAAABicKqKWcWUBbRShshncubNEm6bil06OFNtN/e0FOi2Zw==",
+                "base64"
+              ],
+              "executable": false,
+              "lamports": 534317173503,
+              "owner": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+              "rentEpoch": 18446744073709552000,
+              "space": 82
+            }
+          ]
+        },
+        "receivedAt": 1789341326452
+      },
+      {
+        "method": "getMultipleAccounts",
+        "params": [
+          [
+            "Ay5Bn1AijWNr9BKKoim1WBxqWyNLyiwsxH7rTiAav2nB",
+            "GXsZujDj1FsKq2ZFrQsPQMzdMeAcN4Fbk18Hi2c3pump",
+            "EutJcKnp7b4s7RHKfXzjuhurLLjFTmMQtUzpvT7MkYTV",
+            "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+            "4wTV1YmiEkRvAtNtsSGPtUrqRYQMe5SKy2uB4Jjaxnjf",
+            "oX3rSebekD6dS6zMLqbbvhGmorHySN9TiqaTxrvcUCz",
+            "6HAuqASbHEh4w4REJEUUUCginTLfj1kwCh215ZLtMkrT"
+          ],
+          {
+            "encoding": "base64",
+            "commitment": "confirmed",
+            "minContextSlot": 446825813
+          }
+        ],
+        "result": {
+          "context": {
+            "apiVersion": "4.3.0-rc.0",
+            "slot": 446825833
+          },
+          "value": [
+            {
+              "data": [
+                "F7f4N2DYrGB+bA58dNEDACq3JBQAAAAAftT7L+PSAgAEAAAAAAAAAACAxqR+jQMAAB+0JNrjg3yIFYYxPddV/Yiod9eXQePrnlgm4AFXmYgRAQDG+nrzvtutOj1l82qryXQxsbvkwtL24OR8pgIDRS9dYQAAAAAAAAAAAAA=",
+                "base64"
+              ],
+              "executable": false,
+              "lamports": 1285240,
+              "owner": "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P",
+              "rentEpoch": 18446744073709552000,
+              "space": 125
+            },
+            {
+              "data": [
+                "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACNSf0aBwAGAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAARIAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAObH56f9tq10Yt+2u3oZ8qByJ503G1WMbvB0ET9dqgSPEwCiAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA5sfnp/22rXRi37a7ehnyoHInnTcbVYxu8HQRP12qBI8KAAAAVGlnZXIgQ3V0ZQUAAABUaWdlckMAAABodHRwczovL2lwZnMuaW8vaXBmcy9RbVVZN2NVM0g2bjVYMnhEZk5lVXA1TWVwM0UxZkQ4aUx5dkF6eHI3OFE0enpGAAAAAA==",
+                "base64"
+              ],
+              "executable": false,
+              "lamports": 2682240,
+              "owner": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+              "rentEpoch": 18446744073709552000,
+              "space": 400
+            },
+            {
+              "data": [
+                "5sfnp/22rXRi37a7ehnyoHInnTcbVYxu8HQRP12qBI+UFnDG5vZEkxmVroIRhcqnGNjUwgWgjyQx8ds+eGwpmH7c/NgPjwMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgcAAAA=",
+                "base64"
+              ],
+              "executable": false,
+              "lamports": 1513840,
+              "owner": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+              "rentEpoch": 18446744073709552000,
+              "space": 170
+            },
+            {
+              "data": [
+                "AQAAAJj+huiNm+Lqi8HMpIeLKYjCQPUrhCS/tA7Rot3LXhmbHUMr+XcqHQAGAQEAAABicKqKWcWUBbRShshncubNEm6bil06OFNtN/e0FOi2Zw==",
+                "base64"
+              ],
+              "executable": false,
+              "lamports": 534317173503,
+              "owner": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+              "rentEpoch": 18446744073709552000,
+              "space": 82
+            },
+            {
+              "data": [
+                "p+joschscn8B07uMqzQc4FKEV/LDgX0yeEQZY9zVX+1YuiTJmd2sAqpKwvjQ3Vy8l+MonBl8tQYqVPPZVrnOblEV+WVnqlyz5gAQ2EfjzwMAAKwj/AYAAAAAeMX7UdECAACAxqR+jQMAXwAAAAAAAAAf6nQ58860xO9Lucx77kChpiYXG2hBX+3tQLeolW+E5wHB4eQAAAAAAAUAAAAAAAAAYIzMHfzpYbQ7d5wZFQWm4tO/RdWk20YYrXbILWF1RTVjg3MADqIssmTTSv9koEte+r+7dN3NBImXsZgVR9fREIOEdCkuZ1qUtDbssKmYiUIyioPdxiM4ApYSZ8XNYRfLjRgaDISfqTem80re0wge+VcAqssMm7PZCaS5FHUnpOutEeak/ClEpPqCUb74FUJuG/soxrZkZndgfGrZ9WamRteqj7Bg2CkbTE1HXa/3Yslr3A2s6zbAEurRLtOpSEFh4ATIfOuY+lzkf4A4Bv0seUXSlSSVmuwA3tl4FPOPeEYf6nQ58860xO9Lucx77kChpiYXG2hBX+3tQLeolW+E5wchXZlAeTaU4RYGbORZuBj9+bugx7QbeD+joSDKQZUyAaKLX9JqtHmmqcxsv2sLI+thiFo3HgEgrKkTvu89E4p46JMUH7GOnxV02BDheOGeMGBOMXWqLkoy38hgByfRBwkBNYRTYlYJT5EoGRJ++k5Ea0MzcheT0Th2+arb89x9C19udQGCIPlCZ3ADI3tNa0U3WbSlxpC1nDXZuxh6CQy9KjOYep67E2eZq1mSWxPl3Iswgd8AXbQnwUePpG/4w0egdOlUPz43otBGInrdy06cd0xEJYxD7fJKqKrh8AIUZlvaTDjNbbdDj1m0CLuew7TKnorR8fJGU8SZtXlsINv5sy3dnuo/ObNyEVxxhHwYRc+lNsaFB04DDkTQId4++eNcTLeA8I7i/uhL7ERqV3gl2mjUOfqKXaOwxc/1D2P0VGsBQ55lEMA9ZfrZMeidBL4Ltw1Rlx9RxBX7NEwH20GfISICI1UWqRcTTGdYjEk4IK4VXulmZVd6wbcY2kfdzyoFDuan4iBou4hkCqV/kJMIxh/vcRoBY/WnVcBwvIYNH2NnIHzs2lvMbLHq8PFtaEBFZrGNVtJIGssxcDJlbpBVHHhElkH4SVjcc6dqhdh1b1XALNrKiboZMnkMNoqxV+ktc8VLlrXJMZQeRupL4uDjESd0T8a3TPtFXv6vi9VxeSztRPwfePlKM9CQnF5rX7AhVwrY262N6P2z0g7RzZnrjk6HcBV+6+tnimVduZs39rEybHZX25DPuKh6vvjHtvLIaYgTAAAAAAAAALnS/wAAAADG+nrzvtutOj1l82qryXQxsbvkwtL24OR8pgIDRS9dYQEsAQAAAAAAAPbjY/aFP8BoR4dSDPaZvZ0/rDjsLVijekDffE1+UZWPAQ==",
+                "base64"
+              ],
+              "executable": false,
+              "lamports": 4089837830,
+              "owner": "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P",
+              "rentEpoch": 18446744073709552000,
+              "space": 1087
+            },
+            {
+              "data": [
+                "xvp6877brTo9ZfNqq8l0MbG75MLS9uDkfKYCA0UvXWGUFnDG5vZEkxmVroIRhcqnGNjUwgWgjyQx8ds+eGwpmAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+                "base64"
+              ],
+              "executable": false,
+              "lamports": 1488440,
+              "owner": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+              "rentEpoch": 18446744073709552000,
+              "space": 165
+            },
+            {
+              "data": [
+                "IvEjY51+9M1Obu8PnqBjv5eIEq7D76ieT8TUJqeUwLMkUfRhMcnEcAHqoCDGHMR5cSgTRhzhU4lKlqbACyHtDPwnmNH5qenJShOy9QUAAAAAHaQAAAAAAAD4////jC6nagAAAACLLqdqAAAAAFus9QUAAAAAL5UAAAAAAABeBaIaAAAAAAA=",
+                "base64"
+              ],
+              "executable": false,
+              "lamports": 1823520,
+              "owner": "rec2HHDDnjLfj4kE7VyEtFA1HPGQLK33259532cRyHp",
+              "rentEpoch": 18446744073709552000,
+              "space": 134
+            }
+          ]
+        },
+        "receivedAt": 1789341329753
+      }
+    ]
+  },
+  {
+    "mint": "GLq5sChb2SeZugRBhnPVwnjzweimbiFauoa4yQYwpump",
+    "observedAt": 1789341340448,
+    "result": {
+      "complete": false,
+      "canonicalMarket": {
+        "address": "3KPyvyya5YHbgDQHr83xBb387xdCXKqWSQ13qw4JStVw",
+        "poolAddress": "3KPyvyya5YHbgDQHr83xBb387xdCXKqWSQ13qw4JStVw",
+        "tokenMint": "GLq5sChb2SeZugRBhnPVwnjzweimbiFauoa4yQYwpump",
+        "quoteMint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+        "mints": [
+          "GLq5sChb2SeZugRBhnPVwnjzweimbiFauoa4yQYwpump",
+          "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+        ],
+        "vaults": [
+          "EqMfj3vnXLSPx4ttmE3UD3Ht7tdZBhWhQyVkLXcv74rF",
+          "2vfEFpRMoB3Wp7E2QS1ANqPBH2TJaXepDJnRTdcWZuwZ"
+        ],
+        "quoteAta": "2vfEFpRMoB3Wp7E2QS1ANqPBH2TJaXepDJnRTdcWZuwZ",
+        "tokenPrograms": [
+          "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+          "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        ],
+        "quoteDecimals": 6,
+        "tokenDecimals": 6,
+        "programId": "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P",
+        "protocol": "pump-curve",
+        "lifecycle": "CURVE_ACTIVE",
+        "identityEvidence": "PUMP_PDA_STATE_AND_VAULTS",
+        "compatibility": "POOL_STATE_AND_VAULTS_VERIFIED",
+        "verifiedAtSlot": 446825863,
+        "sourceEpoch": 1,
+        "globalAddress": "4wTV1YmiEkRvAtNtsSGPtUrqRYQMe5SKy2uB4Jjaxnjf",
+        "eventAuthority": "Ce6TQqeHC9p8KetsN6JsjHK7UTZk7nasjjnr7XxXp9F1",
+        "mayhem": true
+      },
+      "nativeValuation": {
+        "rawQuoteValue": "46588816",
+        "supplyRaw": "2000000000000000",
+        "supplyBasis": "LIVE_MINT_SUPPLY",
+        "effectiveQuoteReserve": "23299632",
+        "tokenMint": "GLq5sChb2SeZugRBhnPVwnjzweimbiFauoa4yQYwpump",
+        "marketIdentity": "3KPyvyya5YHbgDQHr83xBb387xdCXKqWSQ13qw4JStVw",
+        "sourceEpoch": 1,
+        "quoteMint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+        "quoteDecimals": 6,
+        "kind": "PROTOCOL_MARKET_CAP",
+        "protocolDefinition": "PUMP_PROTOCOL_MARKET_CAP_V1",
+        "source": "ONCHAIN_PUMP_STATE",
+        "slot": 446825863,
+        "observedAt": 1789341339796,
+        "supplyVerified": true,
+        "provenance": {
+          "formula": "pump-sdk@2.0.0:bondingCurveMarketCap",
+          "transport": "TRUSTED_RPC",
+          "observation": "ATOMIC_GET_MULTIPLE_ACCOUNTS",
+          "state": {
+            "curveSupply": "1000000000000000",
+            "mintSupply": "2000000000000000",
+            "mayhem": true,
+            "supplyAgreement": false,
+            "virtualTokenReserves": "1000224256631545",
+            "virtualQuoteReserves": "23299632"
+          },
+          "mintExtensions": [
+            18,
+            19
+          ]
+        }
+      },
+      "quoteUsd": {
+        "quoteMint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+        "price": "99987986",
+        "exponent": -8,
+        "observedAt": 1789341334000,
+        "receivedAt": 1789341339796,
+        "slot": 446825863,
+        "source": "PYTH_ONCHAIN_FULL",
+        "verification": "FULL",
+        "confidenceRaw": "37004",
+        "confidenceAccepted": true,
+        "provenance": {
+          "source": "PYTH_PRICE_UPDATE_V2",
+          "account": "6HAuqASbHEh4w4REJEUUUCginTLfj1kwCh215ZLtMkrT",
+          "feedId": "eaa020c61cc479712813461ce153894a96a6c00b21ed0cfc2798d1f9a9e9c94a",
+          "owner": "rec2HHDDnjLfj4kE7VyEtFA1HPGQLK33259532cRyHp",
+          "postedSlot": "446825850",
+          "transport": "TRUSTED_RPC"
+        }
+      },
+      "valuationFailure": null,
+      "receivedAt": 1789341339796,
+      "pools": [
+        {
+          "address": "3KPyvyya5YHbgDQHr83xBb387xdCXKqWSQ13qw4JStVw",
+          "poolAddress": "3KPyvyya5YHbgDQHr83xBb387xdCXKqWSQ13qw4JStVw",
+          "tokenMint": "GLq5sChb2SeZugRBhnPVwnjzweimbiFauoa4yQYwpump",
+          "quoteMint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+          "mints": [
+            "GLq5sChb2SeZugRBhnPVwnjzweimbiFauoa4yQYwpump",
+            "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+          ],
+          "vaults": [
+            "EqMfj3vnXLSPx4ttmE3UD3Ht7tdZBhWhQyVkLXcv74rF",
+            "2vfEFpRMoB3Wp7E2QS1ANqPBH2TJaXepDJnRTdcWZuwZ"
+          ],
+          "quoteAta": "2vfEFpRMoB3Wp7E2QS1ANqPBH2TJaXepDJnRTdcWZuwZ",
+          "tokenPrograms": [
+            "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+            "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+          ],
+          "quoteDecimals": 6,
+          "tokenDecimals": 6,
+          "programId": "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P",
+          "protocol": "pump-curve",
+          "lifecycle": "CURVE_ACTIVE",
+          "identityEvidence": "PUMP_PDA_STATE_AND_VAULTS",
+          "compatibility": "POOL_STATE_AND_VAULTS_VERIFIED",
+          "verifiedAtSlot": 446825863,
+          "sourceEpoch": 1,
+          "globalAddress": "4wTV1YmiEkRvAtNtsSGPtUrqRYQMe5SKy2uB4Jjaxnjf",
+          "eventAuthority": "Ce6TQqeHC9p8KetsN6JsjHK7UTZk7nasjjnr7XxXp9F1",
+          "mayhem": true
+        }
+      ],
+      "unsupportedPools": 0,
+      "identityFailure": null,
+      "selection": {
+        "tokenMint": "GLq5sChb2SeZugRBhnPVwnjzweimbiFauoa4yQYwpump",
+        "pairAddress": "3KPyvyya5YHbgDQHr83xBb387xdCXKqWSQ13qw4JStVw",
+        "sourceEpoch": 1
+      },
+      "refreshIntervalMs": 10000
+    },
+    "reads": [
+      {
+        "method": "getMultipleAccounts",
+        "params": [
+          [
+            "3KPyvyya5YHbgDQHr83xBb387xdCXKqWSQ13qw4JStVw",
+            "GLq5sChb2SeZugRBhnPVwnjzweimbiFauoa4yQYwpump"
+          ],
+          {
+            "encoding": "base64",
+            "commitment": "confirmed"
+          }
+        ],
+        "result": {
+          "context": {
+            "apiVersion": "4.3.0-rc.0",
+            "slot": 446825843
+          },
+          "value": [
+            {
+              "data": [
+                "F7f4N2DYrGD5IoPbso0DADCGYwEAAAAA+YpwjyGPAgACAAAAAAAAAACAxqR+jQMAAFGfCZ+0lXNEhTStdLz0yuQYB32uQ17JttlC6lu7SVPpAQDG+nrzvtutOj1l82qryXQxsbvkwtL24OR8pgIDRS9dYQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+                "base64"
+              ],
+              "executable": false,
+              "lamports": 1417320,
+              "owner": "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P",
+              "rentEpoch": 18446744073709552000,
+              "space": 151
+            },
+            {
+              "data": [
+                "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACNSf0aBwAGAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAARIAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAOPztTiLNAvm53WAZQZl2H2P/ZGo7V+OilWghibKN6NPEwCrAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA4/O1OIs0C+bndYBlBmXYfY/9kajtX46KVaCGJso3o08UAAAAQUkgU1BBQ0UgTUVNRSBMQVVOQ0gEAAAAQVNNTEMAAABodHRwczovL2lwZnMuaW8vaXBmcy9RbWI2MXVtYVVKZG9DTU5FTVJNM3F5WFpEbnBqMTRvR0RDNldOQmZaVXI5cDJpAAAAAA==",
+                "base64"
+              ],
+              "executable": false,
+              "lamports": 2727960,
+              "owner": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+              "rentEpoch": 18446744073709552000,
+              "space": 409
+            }
+          ]
+        },
+        "receivedAt": 1789341333141
+      },
+      {
+        "method": "getMultipleAccounts",
+        "params": [
+          [
+            "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+          ],
+          {
+            "encoding": "base64",
+            "commitment": "confirmed",
+            "minContextSlot": 446825843
+          }
+        ],
+        "result": {
+          "context": {
+            "apiVersion": "4.3.0-rc.0",
+            "slot": 446825853
+          },
+          "value": [
+            {
+              "data": [
+                "AQAAAJj+huiNm+Lqi8HMpIeLKYjCQPUrhCS/tA7Rot3LXhmbHUMr+XcqHQAGAQEAAABicKqKWcWUBbRShshncubNEm6bil06OFNtN/e0FOi2Zw==",
+                "base64"
+              ],
+              "executable": false,
+              "lamports": 534317173503,
+              "owner": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+              "rentEpoch": 18446744073709552000,
+              "space": 82
+            }
+          ]
+        },
+        "receivedAt": 1789341336438
+      },
+      {
+        "method": "getMultipleAccounts",
+        "params": [
+          [
+            "3KPyvyya5YHbgDQHr83xBb387xdCXKqWSQ13qw4JStVw",
+            "GLq5sChb2SeZugRBhnPVwnjzweimbiFauoa4yQYwpump",
+            "EqMfj3vnXLSPx4ttmE3UD3Ht7tdZBhWhQyVkLXcv74rF",
+            "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+            "4wTV1YmiEkRvAtNtsSGPtUrqRYQMe5SKy2uB4Jjaxnjf",
+            "2vfEFpRMoB3Wp7E2QS1ANqPBH2TJaXepDJnRTdcWZuwZ",
+            "6HAuqASbHEh4w4REJEUUUCginTLfj1kwCh215ZLtMkrT"
+          ],
+          {
+            "encoding": "base64",
+            "commitment": "confirmed",
+            "minContextSlot": 446825843
+          }
+        ],
+        "result": {
+          "context": {
+            "apiVersion": "4.3.0-rc.0",
+            "slot": 446825863
+          },
+          "value": [
+            {
+              "data": [
+                "F7f4N2DYrGD5IoPbso0DADCGYwEAAAAA+YpwjyGPAgACAAAAAAAAAACAxqR+jQMAAFGfCZ+0lXNEhTStdLz0yuQYB32uQ17JttlC6lu7SVPpAQDG+nrzvtutOj1l82qryXQxsbvkwtL24OR8pgIDRS9dYQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+                "base64"
+              ],
+              "executable": false,
+              "lamports": 1417320,
+              "owner": "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P",
+              "rentEpoch": 18446744073709552000,
+              "space": 151
+            },
+            {
+              "data": [
+                "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACNSf0aBwAGAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAARIAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAOPztTiLNAvm53WAZQZl2H2P/ZGo7V+OilWghibKN6NPEwCrAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA4/O1OIs0C+bndYBlBmXYfY/9kajtX46KVaCGJso3o08UAAAAQUkgU1BBQ0UgTUVNRSBMQVVOQ0gEAAAAQVNNTEMAAABodHRwczovL2lwZnMuaW8vaXBmcy9RbWI2MXVtYVVKZG9DTU5FTVJNM3F5WFpEbnBqMTRvR0RDNldOQmZaVXI5cDJpAAAAAA==",
+                "base64"
+              ],
+              "executable": false,
+              "lamports": 2727960,
+              "owner": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+              "rentEpoch": 18446744073709552000,
+              "space": 409
+            },
+            {
+              "data": [
+                "4/O1OIs0C+bndYBlBmXYfY/9kajtX46KVaCGJso3o08ibdBSKPPafQa08wBl7BBMItbDKbiSPk8ooJh4+nNxEvmScThOSwMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgcAAAA=",
+                "base64"
+              ],
+              "executable": false,
+              "lamports": 1513840,
+              "owner": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+              "rentEpoch": 18446744073709552000,
+              "space": 170
+            },
+            {
+              "data": [
+                "AQAAAJj+huiNm+Lqi8HMpIeLKYjCQPUrhCS/tA7Rot3LXhmbHUMr+XcqHQAGAQEAAABicKqKWcWUBbRShshncubNEm6bil06OFNtN/e0FOi2Zw==",
+                "base64"
+              ],
+              "executable": false,
+              "lamports": 534317173503,
+              "owner": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+              "rentEpoch": 18446744073709552000,
+              "space": 82
+            },
+            {
+              "data": [
+                "p+joschscn8B07uMqzQc4FKEV/LDgX0yeEQZY9zVX+1YuiTJmd2sAqpKwvjQ3Vy8l+MonBl8tQYqVPPZVrnOblEV+WVnqlyz5gAQ2EfjzwMAAKwj/AYAAAAAeMX7UdECAACAxqR+jQMAXwAAAAAAAAAf6nQ58860xO9Lucx77kChpiYXG2hBX+3tQLeolW+E5wHB4eQAAAAAAAUAAAAAAAAAYIzMHfzpYbQ7d5wZFQWm4tO/RdWk20YYrXbILWF1RTVjg3MADqIssmTTSv9koEte+r+7dN3NBImXsZgVR9fREIOEdCkuZ1qUtDbssKmYiUIyioPdxiM4ApYSZ8XNYRfLjRgaDISfqTem80re0wge+VcAqssMm7PZCaS5FHUnpOutEeak/ClEpPqCUb74FUJuG/soxrZkZndgfGrZ9WamRteqj7Bg2CkbTE1HXa/3Yslr3A2s6zbAEurRLtOpSEFh4ATIfOuY+lzkf4A4Bv0seUXSlSSVmuwA3tl4FPOPeEYf6nQ58860xO9Lucx77kChpiYXG2hBX+3tQLeolW+E5wchXZlAeTaU4RYGbORZuBj9+bugx7QbeD+joSDKQZUyAaKLX9JqtHmmqcxsv2sLI+thiFo3HgEgrKkTvu89E4p46JMUH7GOnxV02BDheOGeMGBOMXWqLkoy38hgByfRBwkBNYRTYlYJT5EoGRJ++k5Ea0MzcheT0Th2+arb89x9C19udQGCIPlCZ3ADI3tNa0U3WbSlxpC1nDXZuxh6CQy9KjOYep67E2eZq1mSWxPl3Iswgd8AXbQnwUePpG/4w0egdOlUPz43otBGInrdy06cd0xEJYxD7fJKqKrh8AIUZlvaTDjNbbdDj1m0CLuew7TKnorR8fJGU8SZtXlsINv5sy3dnuo/ObNyEVxxhHwYRc+lNsaFB04DDkTQId4++eNcTLeA8I7i/uhL7ERqV3gl2mjUOfqKXaOwxc/1D2P0VGsBQ55lEMA9ZfrZMeidBL4Ltw1Rlx9RxBX7NEwH20GfISICI1UWqRcTTGdYjEk4IK4VXulmZVd6wbcY2kfdzyoFDuan4iBou4hkCqV/kJMIxh/vcRoBY/WnVcBwvIYNH2NnIHzs2lvMbLHq8PFtaEBFZrGNVtJIGssxcDJlbpBVHHhElkH4SVjcc6dqhdh1b1XALNrKiboZMnkMNoqxV+ktc8VLlrXJMZQeRupL4uDjESd0T8a3TPtFXv6vi9VxeSztRPwfePlKM9CQnF5rX7AhVwrY262N6P2z0g7RzZnrjk6HcBV+6+tnimVduZs39rEybHZX25DPuKh6vvjHtvLIaYgTAAAAAAAAALnS/wAAAADG+nrzvtutOj1l82qryXQxsbvkwtL24OR8pgIDRS9dYQEsAQAAAAAAAPbjY/aFP8BoR4dSDPaZvZ0/rDjsLVijekDffE1+UZWPAQ==",
+                "base64"
+              ],
+              "executable": false,
+              "lamports": 4089837830,
+              "owner": "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P",
+              "rentEpoch": 18446744073709552000,
+              "space": 1087
+            },
+            {
+              "data": [
+                "xvp6877brTo9ZfNqq8l0MbG75MLS9uDkfKYCA0UvXWEibdBSKPPafQa08wBl7BBMItbDKbiSPk8ooJh4+nNxEgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+                "base64"
+              ],
+              "executable": false,
+              "lamports": 1488440,
+              "owner": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+              "rentEpoch": 18446744073709552000,
+              "space": 165
+            },
+            {
+              "data": [
+                "IvEjY51+9M1Obu8PnqBjv5eIEq7D76ieT8TUJqeUwLMkUfRhMcnEcAHqoCDGHMR5cSgTRhzhU4lKlqbACyHtDPwnmNH5qenJShKy9QUAAAAAjJAAAAAAAAD4////li6nagAAAACVLqdqAAAAAFys9QUAAAAAMZUAAAAAAAB6BaIaAAAAAAA=",
+                "base64"
+              ],
+              "executable": false,
+              "lamports": 1823520,
+              "owner": "rec2HHDDnjLfj4kE7VyEtFA1HPGQLK33259532cRyHp",
+              "rentEpoch": 18446744073709552000,
+              "space": 134
+            }
+          ]
+        },
+        "receivedAt": 1789341339795
+      }
+    ]
+  },
+  {
+    "mint": "EictSphkTzcMpw5WQGxxxiKNzAFAgqRXosjbdM5Epump",
+    "observedAt": 1789341346811,
+    "result": {
+      "complete": false,
+      "canonicalMarket": {
+        "address": "DcMecWDnBRedQsbwL6pMyyaFCo7ingK14LQFHAF2njSF",
+        "poolAddress": "DcMecWDnBRedQsbwL6pMyyaFCo7ingK14LQFHAF2njSF",
+        "tokenMint": "EictSphkTzcMpw5WQGxxxiKNzAFAgqRXosjbdM5Epump",
+        "quoteMint": "So11111111111111111111111111111111111111112",
+        "mints": [
+          "EictSphkTzcMpw5WQGxxxiKNzAFAgqRXosjbdM5Epump",
+          "So11111111111111111111111111111111111111112"
+        ],
+        "vaults": [
+          "FTzYzEiPXhLoJtWiSscqCn9osKfMNZaSyWuwjmed4s9m",
+          "DcMecWDnBRedQsbwL6pMyyaFCo7ingK14LQFHAF2njSF"
+        ],
+        "quoteAta": "5c1ekTpdx4zXVpprLGs7Xx53BPei4XNQo1irCx81hZNc",
+        "tokenPrograms": [
+          "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+          "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        ],
+        "quoteDecimals": 9,
+        "tokenDecimals": 6,
+        "programId": "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P",
+        "protocol": "pump-curve",
+        "lifecycle": "CURVE_ACTIVE",
+        "identityEvidence": "PUMP_PDA_STATE_AND_VAULTS",
+        "compatibility": "POOL_STATE_AND_VAULTS_VERIFIED",
+        "verifiedAtSlot": 446825885,
+        "sourceEpoch": 1,
+        "globalAddress": "4wTV1YmiEkRvAtNtsSGPtUrqRYQMe5SKy2uB4Jjaxnjf",
+        "eventAuthority": "Ce6TQqeHC9p8KetsN6JsjHK7UTZk7nasjjnr7XxXp9F1",
+        "mayhem": true
+      },
+      "nativeValuation": {
+        "rawQuoteValue": "67377756",
+        "supplyRaw": "2000000000000000",
+        "supplyBasis": "LIVE_MINT_SUPPLY",
+        "effectiveQuoteReserve": "55321490",
+        "tokenMint": "EictSphkTzcMpw5WQGxxxiKNzAFAgqRXosjbdM5Epump",
+        "marketIdentity": "DcMecWDnBRedQsbwL6pMyyaFCo7ingK14LQFHAF2njSF",
+        "sourceEpoch": 1,
+        "quoteMint": "So11111111111111111111111111111111111111112",
+        "quoteDecimals": 9,
+        "kind": "PROTOCOL_MARKET_CAP",
+        "protocolDefinition": "PUMP_PROTOCOL_MARKET_CAP_V1",
+        "source": "ONCHAIN_PUMP_STATE",
+        "slot": 446825885,
+        "observedAt": 1789341346387,
+        "supplyVerified": true,
+        "provenance": {
+          "formula": "pump-sdk@2.0.0:bondingCurveMarketCap",
+          "transport": "TRUSTED_RPC",
+          "observation": "ATOMIC_GET_MULTIPLE_ACCOUNTS",
+          "state": {
+            "curveSupply": "1000000000000000",
+            "mintSupply": "2000000000000000",
+            "mayhem": true,
+            "supplyAgreement": false,
+            "virtualTokenReserves": "1642129189906883",
+            "virtualQuoteReserves": "55321490"
+          },
+          "mintExtensions": [
+            18,
+            19
+          ]
+        }
+      },
+      "quoteUsd": {
+        "quoteMint": "So11111111111111111111111111111111111111112",
+        "price": "9962250137",
+        "exponent": -8,
+        "observedAt": 1789341339000,
+        "receivedAt": 1789341346387,
+        "slot": 446825885,
+        "source": "PYTH_ONCHAIN_FULL",
+        "verification": "FULL",
+        "confidenceRaw": "924983",
+        "confidenceAccepted": true,
+        "provenance": {
+          "source": "PYTH_PRICE_UPDATE_V2",
+          "account": "7AviUf9nL62mcxNbQGKm4nKDQnPjswo6c5MX4D57HmyE",
+          "feedId": "ef0d8b6fda2ceba41da15d4095d1da392a0d2f8ed0c6c7bc0f4cfac8c280b56d",
+          "owner": "rec2HHDDnjLfj4kE7VyEtFA1HPGQLK33259532cRyHp",
+          "postedSlot": "446825867",
+          "transport": "TRUSTED_RPC"
+        }
+      },
+      "valuationFailure": null,
+      "receivedAt": 1789341346387,
+      "pools": [
+        {
+          "address": "DcMecWDnBRedQsbwL6pMyyaFCo7ingK14LQFHAF2njSF",
+          "poolAddress": "DcMecWDnBRedQsbwL6pMyyaFCo7ingK14LQFHAF2njSF",
+          "tokenMint": "EictSphkTzcMpw5WQGxxxiKNzAFAgqRXosjbdM5Epump",
+          "quoteMint": "So11111111111111111111111111111111111111112",
+          "mints": [
+            "EictSphkTzcMpw5WQGxxxiKNzAFAgqRXosjbdM5Epump",
+            "So11111111111111111111111111111111111111112"
+          ],
+          "vaults": [
+            "FTzYzEiPXhLoJtWiSscqCn9osKfMNZaSyWuwjmed4s9m",
+            "DcMecWDnBRedQsbwL6pMyyaFCo7ingK14LQFHAF2njSF"
+          ],
+          "quoteAta": "5c1ekTpdx4zXVpprLGs7Xx53BPei4XNQo1irCx81hZNc",
+          "tokenPrograms": [
+            "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+            "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+          ],
+          "quoteDecimals": 9,
+          "tokenDecimals": 6,
+          "programId": "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P",
+          "protocol": "pump-curve",
+          "lifecycle": "CURVE_ACTIVE",
+          "identityEvidence": "PUMP_PDA_STATE_AND_VAULTS",
+          "compatibility": "POOL_STATE_AND_VAULTS_VERIFIED",
+          "verifiedAtSlot": 446825885,
+          "sourceEpoch": 1,
+          "globalAddress": "4wTV1YmiEkRvAtNtsSGPtUrqRYQMe5SKy2uB4Jjaxnjf",
+          "eventAuthority": "Ce6TQqeHC9p8KetsN6JsjHK7UTZk7nasjjnr7XxXp9F1",
+          "mayhem": true
+        }
+      ],
+      "unsupportedPools": 0,
+      "identityFailure": null,
+      "selection": {
+        "tokenMint": "EictSphkTzcMpw5WQGxxxiKNzAFAgqRXosjbdM5Epump",
+        "pairAddress": "DcMecWDnBRedQsbwL6pMyyaFCo7ingK14LQFHAF2njSF",
+        "sourceEpoch": 1
+      },
+      "refreshIntervalMs": 10000
+    },
+    "reads": [
+      {
+        "method": "getMultipleAccounts",
+        "params": [
+          [
+            "DcMecWDnBRedQsbwL6pMyyaFCo7ingK14LQFHAF2njSF",
+            "EictSphkTzcMpw5WQGxxxiKNzAFAgqRXosjbdM5Epump"
+          ],
+          {
+            "encoding": "base64",
+            "commitment": "confirmed"
+          }
+        ],
+        "result": {
+          "context": {
+            "apiVersion": "4.3.0-rc.0",
+            "slot": 446825874
+          },
+          "value": [
+            {
+              "data": [
+                "F7f4N2DYrGDDKQr/gdUFAJIjTAMAAAAAw5H3svDWBACaXAcAAAAAAACAxqR+jQMAAPqdHQdBjTylHoXepK+NcpS7giz+ZUlAkVHxLSrP6U+GAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+                "base64"
+              ],
+              "executable": false,
+              "lamports": 1899778,
+              "owner": "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P",
+              "rentEpoch": 18446744073709552000,
+              "space": 151
+            },
+            {
+              "data": [
+                "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACNSf0aBwAGAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAARIAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAMvRUh1NUdSp+XfSIPH0gurBF8thgLdZC+sZVKTNITgfEwCfAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAy9FSHU1R1Kn5d9Ig8fSC6sEXy2GAt1kL6xlUpM0hOB8IAAAAQ0FURUNPSU4EAAAAJENBVEMAAABodHRwczovL2lwZnMuaW8vaXBmcy9RbVZXUndGZUJlNmZmYksydWNFbkJ3aHRzNnBwdkZhRkR2UGt6ZXZMaWhReWh3AAAAAA==",
+                "base64"
+              ],
+              "executable": false,
+              "lamports": 2667000,
+              "owner": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+              "rentEpoch": 18446744073709552000,
+              "space": 397
+            }
+          ]
+        },
+        "receivedAt": 1789341343113
+      },
+      {
+        "method": "getMultipleAccounts",
+        "params": [
+          [
+            "DcMecWDnBRedQsbwL6pMyyaFCo7ingK14LQFHAF2njSF",
+            "EictSphkTzcMpw5WQGxxxiKNzAFAgqRXosjbdM5Epump",
+            "FTzYzEiPXhLoJtWiSscqCn9osKfMNZaSyWuwjmed4s9m",
+            "So11111111111111111111111111111111111111112",
+            "4wTV1YmiEkRvAtNtsSGPtUrqRYQMe5SKy2uB4Jjaxnjf",
+            "7AviUf9nL62mcxNbQGKm4nKDQnPjswo6c5MX4D57HmyE"
+          ],
+          {
+            "encoding": "base64",
+            "commitment": "confirmed",
+            "minContextSlot": 446825874
+          }
+        ],
+        "result": {
+          "context": {
+            "apiVersion": "4.3.0-rc.0",
+            "slot": 446825885
+          },
+          "value": [
+            {
+              "data": [
+                "F7f4N2DYrGDDKQr/gdUFAJIjTAMAAAAAw5H3svDWBACaXAcAAAAAAACAxqR+jQMAAPqdHQdBjTylHoXepK+NcpS7giz+ZUlAkVHxLSrP6U+GAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+                "base64"
+              ],
+              "executable": false,
+              "lamports": 1899778,
+              "owner": "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P",
+              "rentEpoch": 18446744073709552000,
+              "space": 151
+            },
+            {
+              "data": [
+                "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACNSf0aBwAGAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAARIAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAMvRUh1NUdSp+XfSIPH0gurBF8thgLdZC+sZVKTNITgfEwCfAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAy9FSHU1R1Kn5d9Ig8fSC6sEXy2GAt1kL6xlUpM0hOB8IAAAAQ0FURUNPSU4EAAAAJENBVEMAAABodHRwczovL2lwZnMuaW8vaXBmcy9RbVZXUndGZUJlNmZmYksydWNFbkJ3aHRzNnBwdkZhRkR2UGt6ZXZMaWhReWh3AAAAAA==",
+                "base64"
+              ],
+              "executable": false,
+              "lamports": 2667000,
+              "owner": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+              "rentEpoch": 18446744073709552000,
+              "space": 397
+            },
+            {
+              "data": [
+                "y9FSHU1R1Kn5d9Ig8fSC6sEXy2GAt1kL6xlUpM0hOB+7WuszOU4IO8e0Fcdpp17iEwiegwdVMAo36lGQm8yquMOZ+FsdkwUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgcAAAA=",
+                "base64"
+              ],
+              "executable": false,
+              "lamports": 1513840,
+              "owner": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+              "rentEpoch": 18446744073709552000,
+              "space": 170
+            },
+            {
+              "data": [
+                "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAJAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+                "base64"
+              ],
+              "executable": false,
+              "lamports": 1823364616419,
+              "owner": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+              "rentEpoch": 18446744073709552000,
+              "space": 82
+            },
+            {
+              "data": [
+                "p+joschscn8B07uMqzQc4FKEV/LDgX0yeEQZY9zVX+1YuiTJmd2sAqpKwvjQ3Vy8l+MonBl8tQYqVPPZVrnOblEV+WVnqlyz5gAQ2EfjzwMAAKwj/AYAAAAAeMX7UdECAACAxqR+jQMAXwAAAAAAAAAf6nQ58860xO9Lucx77kChpiYXG2hBX+3tQLeolW+E5wHB4eQAAAAAAAUAAAAAAAAAYIzMHfzpYbQ7d5wZFQWm4tO/RdWk20YYrXbILWF1RTVjg3MADqIssmTTSv9koEte+r+7dN3NBImXsZgVR9fREIOEdCkuZ1qUtDbssKmYiUIyioPdxiM4ApYSZ8XNYRfLjRgaDISfqTem80re0wge+VcAqssMm7PZCaS5FHUnpOutEeak/ClEpPqCUb74FUJuG/soxrZkZndgfGrZ9WamRteqj7Bg2CkbTE1HXa/3Yslr3A2s6zbAEurRLtOpSEFh4ATIfOuY+lzkf4A4Bv0seUXSlSSVmuwA3tl4FPOPeEYf6nQ58860xO9Lucx77kChpiYXG2hBX+3tQLeolW+E5wchXZlAeTaU4RYGbORZuBj9+bugx7QbeD+joSDKQZUyAaKLX9JqtHmmqcxsv2sLI+thiFo3HgEgrKkTvu89E4p46JMUH7GOnxV02BDheOGeMGBOMXWqLkoy38hgByfRBwkBNYRTYlYJT5EoGRJ++k5Ea0MzcheT0Th2+arb89x9C19udQGCIPlCZ3ADI3tNa0U3WbSlxpC1nDXZuxh6CQy9KjOYep67E2eZq1mSWxPl3Iswgd8AXbQnwUePpG/4w0egdOlUPz43otBGInrdy06cd0xEJYxD7fJKqKrh8AIUZlvaTDjNbbdDj1m0CLuew7TKnorR8fJGU8SZtXlsINv5sy3dnuo/ObNyEVxxhHwYRc+lNsaFB04DDkTQId4++eNcTLeA8I7i/uhL7ERqV3gl2mjUOfqKXaOwxc/1D2P0VGsBQ55lEMA9ZfrZMeidBL4Ltw1Rlx9RxBX7NEwH20GfISICI1UWqRcTTGdYjEk4IK4VXulmZVd6wbcY2kfdzyoFDuan4iBou4hkCqV/kJMIxh/vcRoBY/WnVcBwvIYNH2NnIHzs2lvMbLHq8PFtaEBFZrGNVtJIGssxcDJlbpBVHHhElkH4SVjcc6dqhdh1b1XALNrKiboZMnkMNoqxV+ktc8VLlrXJMZQeRupL4uDjESd0T8a3TPtFXv6vi9VxeSztRPwfePlKM9CQnF5rX7AhVwrY262N6P2z0g7RzZnrjk6HcBV+6+tnimVduZs39rEybHZX25DPuKh6vvjHtvLIaYgTAAAAAAAAALnS/wAAAADG+nrzvtutOj1l82qryXQxsbvkwtL24OR8pgIDRS9dYQEsAQAAAAAAAPbjY/aFP8BoR4dSDPaZvZ0/rDjsLVijekDffE1+UZWPAQ==",
+                "base64"
+              ],
+              "executable": false,
+              "lamports": 4089837830,
+              "owner": "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P",
+              "rentEpoch": 18446744073709552000,
+              "space": 1087
+            },
+            {
+              "data": [
+                "IvEjY51+9M1bsRWwDdII6qyfKmvtWLaGyH3c9S5trfFYcCJDMhaezQHvDYtv2izrpB2hXUCV0do5Kg0vjtDGx7wPTPrIwoC1bZnfy1ECAAAANx0OAAAAAAD4////my6nagAAAACaLqdqAAAAAIj7W1UCAAAArBoUAAAAAACLBaIaAAAAAAA=",
+                "base64"
+              ],
+              "executable": false,
+              "lamports": 1823520,
+              "owner": "rec2HHDDnjLfj4kE7VyEtFA1HPGQLK33259532cRyHp",
+              "rentEpoch": 18446744073709552000,
+              "space": 134
+            }
+          ]
+        },
+        "receivedAt": 1789341346386
+      }
+    ]
+  }
+]

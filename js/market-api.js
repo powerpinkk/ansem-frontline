@@ -6,11 +6,13 @@ import { tokenCacheKey, urlWithMint, withTokenResolution } from './token-context
 import { defaultTokenRuntime } from './state.js';
 import { createValuationBoundary, providerValuation } from './market-valuation.js';
 import { activeTrade, createTradeJournal } from './market-evidence.js';
+import { createCanonicalValuationBoundary } from './canonical-valuation.js';
 
 export function initAPI(callbacks = {}, { runtime = defaultTokenRuntime, initialMarket = null } = {}) {
     const { state } = runtime;
     const mint = runtime.context.identity.mint;
     const valuation = createValuationBoundary(mint);
+    const canonicalValuation = createCanonicalValuationBoundary(mint);
     const journal = createTradeJournal(mint);
     const timers = new Set();
     const requests = new Set();
@@ -95,30 +97,44 @@ export function initAPI(callbacks = {}, { runtime = defaultTokenRuntime, initial
         if (epoch === marketEpoch && canonicalMarket?.address === next?.address && canonicalMarket?.sourceEpoch === next?.sourceEpoch) return true;
         const previous = journal.values();
         journal.clear(); canonicalMarket = next || null;
+        canonicalValuation.clear(); state.canonicalValuation = null;
+        emit('onCanonicalValuation',null);
         marketEpoch = epoch;
         state.canonicalMarket = canonicalMarket; state.lastTradeAt = 0;
         pressure();
         for (const event of previous) emit('onTradeReconciliation', {
             ...event, settlement: 'REJECTED', reconciliationReason: 'MARKET_REBASE',
         }, [], event);
+        configureStream();
         return true;
     }
     function configureStream() {
-        if (stream || !CONFIG.STREAM_URL || !state.trackedPools.length) return;
+        if (stream || !CONFIG.STREAM_URL || !state.trackedPools.length && !canonicalMarket) return;
         stream = connectTradeStream(urlWithMint(CONFIG.STREAM_URL, runtime.context), {
             getConfiguration: () => ({ token: { mint, chain: 'solana' } }),
             onTrade: (event) => receive(event),
             onReconcile: (event) => receive(event),
             onSnapshot: (snapshot) => {
-                if (snapshot.tokenMint === mint && bindMarket(snapshot.canonicalMarket, snapshot.sourceEpoch)) for (const event of snapshot.trades || []) receive(event, true);
+                if (snapshot.tokenMint === mint && bindMarket(snapshot.canonicalMarket, snapshot.sourceEpoch)) {
+                    acceptCanonicalValuation(snapshot.canonicalValuation);
+                    for (const event of snapshot.trades || []) receive(event, true);
+                }
             },
             onIntegrity: (diagnostics) => {
                 if (diagnostics.tokenMint !== mint) return;
                 if (!bindMarket(diagnostics.canonicalMarket, diagnostics.sourceEpoch)) return;
+                acceptCanonicalValuation(diagnostics.canonicalValuation);
                 state.integrity = diagnostics; providerDegraded = diagnostics.degraded; connection();
             },
             onStatus: (status) => { if (status !== 'online') providerDegraded = true; connection(); },
         });
+    }
+    function acceptCanonicalValuation(value) {
+        if (value === null) { canonicalValuation.clear();state.canonicalValuation=null;emit('onCanonicalValuation',null);return; }
+        const accepted = canonicalValuation.accept(value,canonicalMarket);
+        if (!accepted) return;
+        state.canonicalValuation = accepted;
+        emit('onCanonicalValuation',accepted);
     }
     function applyMarket(market, sequence, cached = false) {
         if (destroyed || sequence < appliedSequence || !market || !(Number(market.price) > 0) || !Number.isFinite(Number(market.price))) return;
@@ -212,6 +228,7 @@ export function initAPI(callbacks = {}, { runtime = defaultTokenRuntime, initial
                 if (!bindMarket(snapshot.canonicalMarket, snapshot.sourceEpoch)) return;
                 providerDegraded = snapshot.status === 'degraded';
                 state.integrity = snapshot.integrity || null;
+                acceptCanonicalValuation(snapshot.integrity?.canonicalValuation ?? snapshot.canonicalValuation);
                 // All updates, including invalidations, use the same identity path.
                 for (const event of snapshot.trades) receive(event, true);
                 state.tradesFailures = 0;
@@ -236,7 +253,10 @@ export function initAPI(callbacks = {}, { runtime = defaultTokenRuntime, initial
     async function tradeLoop() { if (historyStarted) await refreshRecent(); schedule(tradeLoop, Math.min(45_000, 8000 * 1.5 ** state.tradesFailures)); }
     function freshnessLoop() {
         const previousFreshness = state.valuation?.freshness;
+        const previousAuthority = state.canonicalValuation?.authorityEligible;
         state.valuation = valuation.snapshot();
+        state.canonicalValuation = canonicalValuation.snapshot();
+        if (previousAuthority !== state.canonicalValuation?.authorityEligible) emit('onCanonicalValuation',state.canonicalValuation);
         if (latestMarket && previousFreshness !== state.valuation?.freshness) {
             latestMarket = { ...latestMarket, valuation: state.valuation };
             emit('onMarketUpdate', latestMarket);
@@ -261,6 +281,9 @@ export function initAPI(callbacks = {}, { runtime = defaultTokenRuntime, initial
         } catch { /* discard untrusted/legacy caches */ }
     }
     schedule(marketLoop, initialMarket ? 5000 : 0);
+    // Server identity/curve ingestion must not depend on provider listing/price.
+    configureStream();
+    if (!historyStarted) { historyStarted = true; schedule(refreshRecent,0); }
     schedule(tradeLoop, 8000);
     schedule(freshnessLoop, 1000);
     return {
@@ -270,10 +293,10 @@ export function initAPI(callbacks = {}, { runtime = defaultTokenRuntime, initial
             destroyed = true; stream?.stop(); stream = null;
             for (const timer of timers) window.clearTimeout(timer);
             for (const controller of requests) controller.abort();
-            timers.clear(); requests.clear(); journal.clear();
+            timers.clear(); requests.clear(); journal.clear(); canonicalValuation.clear();
         },
         getDiagnostics: () => ({ mint, namespace: runtime.namespace, destroyed, timers: timers.size, requests: requests.size,
             streamActive: !!stream, bootstrapPending: !!recentPromise, selection: state.marketSelection, canonicalMarket,
-            valuation: state.valuation, journal: journal.diagnostics(), integrity: state.integrity }),
+            valuation: state.valuation, canonicalValuation:state.canonicalValuation, journal: journal.diagnostics(), integrity: state.integrity }),
     };
 }

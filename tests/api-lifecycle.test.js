@@ -22,7 +22,7 @@ describe('token API teardown', () => {
 
     it('clears scheduled market and trade polling timers', () => {
         const api = initAPI({}, { runtime: createTokenRuntime(DEFAULT_TOKEN_CONTEXT) });
-        expect(api.getDiagnostics().timers).toBe(3);
+        expect(api.getDiagnostics().timers).toBe(4);
         api.destroy();
         expect(api.getDiagnostics()).toMatchObject({ destroyed: true, timers: 0, requests: 0, streamActive: false });
     });
@@ -39,7 +39,7 @@ describe('token API teardown', () => {
         })));
         const api = initAPI({}, { runtime: createTokenRuntime(DEFAULT_TOKEN_CONTEXT) });
         await vi.advanceTimersByTimeAsync(0);
-        expect(signals).toHaveLength(2);
+        expect(signals).toHaveLength(3); // provider pair + fallback + server curve bootstrap
         api.destroy();
         expect(signals.every((signal) => signal.aborted)).toBe(true);
         await Promise.resolve();

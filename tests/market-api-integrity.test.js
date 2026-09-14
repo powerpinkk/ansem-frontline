@@ -7,6 +7,7 @@ import { canonicalEvent, swapFixture, MINT, USDC } from './fixtures/integrity.js
 let api;
 beforeEach(() => {
     vi.useFakeTimers();
+    vi.stubGlobal('WebSocket', class { static OPEN=1; static CONNECTING=0; readyState=0; addEventListener() {} close() {this.readyState=3;} });
     vi.stubGlobal('window', { setTimeout, clearTimeout, location: { search: '' },
         localStorage: { getItem: () => null, setItem: vi.fn() } });
 });

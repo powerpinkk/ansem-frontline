@@ -48,7 +48,7 @@ export function connectTradeStream(url, handlers) {
             window.clearTimeout(heartbeatTimer);
             reconnect();
         });
-        nextSocket.addEventListener('error', () => nextSocket.close());
+        nextSocket.addEventListener('error', () => nextSocket.close(), { once: true });
     };
 
     const reconnect = () => {
