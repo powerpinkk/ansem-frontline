@@ -1,0 +1,2600 @@
+{
+  "observedAt": 1789321466922,
+  "scope": "BOUNDED_ADDRESS_MENTIONS; NO MARKET-WIDE COVERAGE CLAIM",
+  "cohorts": [
+    {
+      "market": {
+        "address": "FnzKY6x7entQ1eR3D225dQyT7ybfka4PskBMQhb8L3CC",
+        "poolAddress": "FnzKY6x7entQ1eR3D225dQyT7ybfka4PskBMQhb8L3CC",
+        "tokenMint": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+        "quoteMint": "So11111111111111111111111111111111111111112",
+        "mints": [
+          "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+          "So11111111111111111111111111111111111111112"
+        ],
+        "vaults": [
+          "BmCXK8QFCHgjiqGm7peAtBbZpFPJNsp5fYP5rSRazMS8",
+          "DaXhQ3pfN3J5dQnXxVU8YqW9bwA3RUVxXvq2iBjTDVt4"
+        ],
+        "programId": "pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA",
+        "protocol": "pumpswap",
+        "lifecycle": "AMM",
+        "identityEvidence": "POOL_STATE_AND_VAULTS",
+        "stateLayout": "pumpswap-account-v1",
+        "tokenPrograms": [
+          "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+          "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        ],
+        "verifiedAtSlot": 446702036,
+        "compatibility": "POOL_STATE_AND_VAULTS_VERIFIED",
+        "sourceEpoch": 1
+      },
+      "observedAt": 1789302225343,
+      "limit": 32,
+      "acquisitionPageFull": true,
+      "mentions": 32,
+      "available": 32,
+      "failed": 1,
+      "nonSwapTransactions": 9,
+      "actualSwapCandidates": 22,
+      "verifiedExecutions": 22,
+      "verifiedSwapFraction": 1,
+      "minSlot": 446701786,
+      "maxSlot": 446702038,
+      "records": [
+        {
+          "signature": "3sEkaehmxgzm3UXpoSkpX7RWpWDFDBBNKEeBezKRutLqknKLFdyBuxgihA7ai3FgcknTwGk548JCdpLKWLe9AhhA",
+          "file": "pumpswap-3sEkaehmxgzm.json",
+          "available": true,
+          "slot": 446702038,
+          "blockTime": 1789302222,
+          "sha256": "a64e18546bfff07d78e02db682ca3715053f1563caa5955e746e5af3f966b1ca",
+          "status": "VERIFIED",
+          "reason": null,
+          "nonSwaps": 0,
+          "unclassified": 0,
+          "executions": [
+            {
+              "protocol": "pumpswap",
+              "instruction": "sell",
+              "invocationPath": "4.outer",
+              "status": "VERIFIED",
+              "reason": null,
+              "eventId": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump:3sEkaehmxgzm3UXpoSkpX7RWpWDFDBBNKEeBezKRutLqknKLFdyBuxgihA7ai3FgcknTwGk548JCdpLKWLe9AhhA:FnzKY6x7entQ1eR3D225dQyT7ybfka4PskBMQhb8L3CC:4.outer:pool-v1"
+            }
+          ],
+          "events": [
+            {
+              "id": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump:3sEkaehmxgzm3UXpoSkpX7RWpWDFDBBNKEeBezKRutLqknKLFdyBuxgihA7ai3FgcknTwGk548JCdpLKWLe9AhhA:FnzKY6x7entQ1eR3D225dQyT7ybfka4PskBMQhb8L3CC:4.outer:pool-v1",
+              "isBuy": false,
+              "rawTokenAmount": "18513951",
+              "rawQuoteAmount": "30531404",
+              "invocationPath": "4.outer",
+              "routeKind": "DIRECT"
+            }
+          ]
+        },
+        {
+          "signature": "nY11vZeMHQPL3g2FQNoX7xbtSpXMNbfUNb4LfysMSY9aktk6AHFrWWYtezXSQK46fbfhHmmT9r5CY2hGtMGcNyy",
+          "file": "pumpswap-nY11vZeMHQPL.json",
+          "available": true,
+          "slot": 446702025,
+          "blockTime": 1789302218,
+          "sha256": "86adbcc886e26c96520e05726ccdfaada41de5ba28e206a4a8bd305ebf10ff1c",
+          "status": "VERIFIED",
+          "reason": null,
+          "nonSwaps": 0,
+          "unclassified": 0,
+          "executions": [
+            {
+              "protocol": "pumpswap",
+              "instruction": "sell",
+              "invocationPath": "4.8",
+              "status": "VERIFIED",
+              "reason": null,
+              "eventId": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump:nY11vZeMHQPL3g2FQNoX7xbtSpXMNbfUNb4LfysMSY9aktk6AHFrWWYtezXSQK46fbfhHmmT9r5CY2hGtMGcNyy:FnzKY6x7entQ1eR3D225dQyT7ybfka4PskBMQhb8L3CC:4.8:pool-v1"
+            }
+          ],
+          "events": [
+            {
+              "id": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump:nY11vZeMHQPL3g2FQNoX7xbtSpXMNbfUNb4LfysMSY9aktk6AHFrWWYtezXSQK46fbfhHmmT9r5CY2hGtMGcNyy:FnzKY6x7entQ1eR3D225dQyT7ybfka4PskBMQhb8L3CC:4.8:pool-v1",
+              "isBuy": false,
+              "rawTokenAmount": "148525659",
+              "rawQuoteAmount": "244939834",
+              "invocationPath": "4.8",
+              "routeKind": "CPI"
+            }
+          ]
+        },
+        {
+          "signature": "4sYKQhH1L93ZqybSASa71iERxbJ4E1rkxn2WdZ2dbY6xoFmRM1E2ERKb5p7vtKo4mSYgoXNidYomdx1CMhoxoLP5",
+          "file": "pumpswap-4sYKQhH1L93Z.json",
+          "available": true,
+          "slot": 446702024,
+          "blockTime": 1789302217,
+          "sha256": "54541bf8c9257676108d7eb635daf7050096467fcdbcd17304a62e780337d77a",
+          "status": "VERIFIED",
+          "reason": null,
+          "nonSwaps": 0,
+          "unclassified": 0,
+          "executions": [
+            {
+              "protocol": "pumpswap",
+              "instruction": "sell",
+              "invocationPath": "2.19",
+              "status": "VERIFIED",
+              "reason": null,
+              "eventId": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump:4sYKQhH1L93ZqybSASa71iERxbJ4E1rkxn2WdZ2dbY6xoFmRM1E2ERKb5p7vtKo4mSYgoXNidYomdx1CMhoxoLP5:FnzKY6x7entQ1eR3D225dQyT7ybfka4PskBMQhb8L3CC:2.19:pool-v1"
+            }
+          ],
+          "events": [
+            {
+              "id": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump:4sYKQhH1L93ZqybSASa71iERxbJ4E1rkxn2WdZ2dbY6xoFmRM1E2ERKb5p7vtKo4mSYgoXNidYomdx1CMhoxoLP5:FnzKY6x7entQ1eR3D225dQyT7ybfka4PskBMQhb8L3CC:2.19:pool-v1",
+              "isBuy": false,
+              "rawTokenAmount": "60599",
+              "rawQuoteAmount": "99937",
+              "invocationPath": "2.19",
+              "routeKind": "CPI"
+            }
+          ]
+        },
+        {
+          "signature": "59ysMs1X6q55yAYiBrdLXRKhGrGDYVZb7erBXAadAxoqdhMNVEiyxong26rYx3MiuTxJGxJWGjfZbmeyyGatFciD",
+          "file": "pumpswap-59ysMs1X6q55.json",
+          "available": true,
+          "slot": 446702024,
+          "blockTime": 1789302217,
+          "sha256": "e4f5d9fa7a3870aed2cff66af21b5866d1bb2400af5311fe1654276a0f9b6422",
+          "status": "VERIFIED",
+          "reason": null,
+          "nonSwaps": 0,
+          "unclassified": 0,
+          "executions": [
+            {
+              "protocol": "pumpswap",
+              "instruction": "sell",
+              "invocationPath": "3.20",
+              "status": "VERIFIED",
+              "reason": null,
+              "eventId": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump:59ysMs1X6q55yAYiBrdLXRKhGrGDYVZb7erBXAadAxoqdhMNVEiyxong26rYx3MiuTxJGxJWGjfZbmeyyGatFciD:FnzKY6x7entQ1eR3D225dQyT7ybfka4PskBMQhb8L3CC:3.20:pool-v1"
+            }
+          ],
+          "events": [
+            {
+              "id": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump:59ysMs1X6q55yAYiBrdLXRKhGrGDYVZb7erBXAadAxoqdhMNVEiyxong26rYx3MiuTxJGxJWGjfZbmeyyGatFciD:FnzKY6x7entQ1eR3D225dQyT7ybfka4PskBMQhb8L3CC:3.20:pool-v1",
+              "isBuy": false,
+              "rawTokenAmount": "1917033",
+              "rawQuoteAmount": "3161525",
+              "invocationPath": "3.20",
+              "routeKind": "CPI"
+            }
+          ]
+        },
+        {
+          "signature": "57QJZkxx3EvncHuXDv8DeA4qnZvLrp3gNwpeQjn1Mm49veiemYe7F4qUSy12UDpt4dLQ6zPTXuQxnWPFw2fft46Z",
+          "file": "pumpswap-57QJZkxx3Evn.json",
+          "available": true,
+          "slot": 446702020,
+          "blockTime": 1789302216,
+          "sha256": "4550e59d7ad927e3dfe7d4d489b65b1087ba75e3668e851e5c47e43c3314048f",
+          "status": "VERIFIED",
+          "reason": null,
+          "nonSwaps": 0,
+          "unclassified": 0,
+          "executions": [
+            {
+              "protocol": "pumpswap",
+              "instruction": "sell",
+              "invocationPath": "2.5",
+              "status": "VERIFIED",
+              "reason": null,
+              "eventId": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump:57QJZkxx3EvncHuXDv8DeA4qnZvLrp3gNwpeQjn1Mm49veiemYe7F4qUSy12UDpt4dLQ6zPTXuQxnWPFw2fft46Z:FnzKY6x7entQ1eR3D225dQyT7ybfka4PskBMQhb8L3CC:2.5:pool-v1"
+            }
+          ],
+          "events": [
+            {
+              "id": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump:57QJZkxx3EvncHuXDv8DeA4qnZvLrp3gNwpeQjn1Mm49veiemYe7F4qUSy12UDpt4dLQ6zPTXuQxnWPFw2fft46Z:FnzKY6x7entQ1eR3D225dQyT7ybfka4PskBMQhb8L3CC:2.5:pool-v1",
+              "isBuy": false,
+              "rawTokenAmount": "61079325",
+              "rawQuoteAmount": "100731494",
+              "invocationPath": "2.5",
+              "routeKind": "CPI"
+            }
+          ]
+        },
+        {
+          "signature": "3q6kodbesWVQviX1LaTZkKtVAYfPXBKNUoforoGFi6533Rtc9mKqD3J8qdxhf9px71DwKxjg4B62gyAmgVFPUynW",
+          "file": "pumpswap-3q6kodbesWVQ.json",
+          "available": true,
+          "slot": 446702017,
+          "blockTime": 1789302215,
+          "sha256": "1bda159eff1a266034723814a5baf1394b2d33805dfeb071171966cfa927fb41",
+          "status": "VERIFIED",
+          "reason": null,
+          "nonSwaps": 0,
+          "unclassified": 0,
+          "executions": [
+            {
+              "protocol": "pumpswap",
+              "instruction": "sell",
+              "invocationPath": "2.12",
+              "status": "VERIFIED",
+              "reason": null,
+              "eventId": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump:3q6kodbesWVQviX1LaTZkKtVAYfPXBKNUoforoGFi6533Rtc9mKqD3J8qdxhf9px71DwKxjg4B62gyAmgVFPUynW:FnzKY6x7entQ1eR3D225dQyT7ybfka4PskBMQhb8L3CC:2.12:pool-v1"
+            }
+          ],
+          "events": [
+            {
+              "id": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump:3q6kodbesWVQviX1LaTZkKtVAYfPXBKNUoforoGFi6533Rtc9mKqD3J8qdxhf9px71DwKxjg4B62gyAmgVFPUynW:FnzKY6x7entQ1eR3D225dQyT7ybfka4PskBMQhb8L3CC:2.12:pool-v1",
+              "isBuy": false,
+              "rawTokenAmount": "49884",
+              "rawQuoteAmount": "82268",
+              "invocationPath": "2.12",
+              "routeKind": "CPI"
+            }
+          ]
+        },
+        {
+          "signature": "2tFM66Rro3PLGe3QHtSh43tyD6BEUf6rBWsmtZoYCPyp6pH7YXsUvKhhQXisHwkpESaZoeXG3BF7pPtYyg6rVX3L",
+          "file": "pumpswap-2tFM66Rro3PL.json",
+          "available": true,
+          "slot": 446702016,
+          "blockTime": 1789302215,
+          "sha256": "2131039c00be35ec60e16fd293778ce62ec2e6fa697b877be98a8dbabfd66b1d",
+          "status": "VERIFIED",
+          "reason": null,
+          "nonSwaps": 0,
+          "unclassified": 0,
+          "executions": [
+            {
+              "protocol": "pumpswap",
+              "instruction": "sell",
+              "invocationPath": "5.0",
+              "status": "VERIFIED",
+              "reason": null,
+              "eventId": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump:2tFM66Rro3PLGe3QHtSh43tyD6BEUf6rBWsmtZoYCPyp6pH7YXsUvKhhQXisHwkpESaZoeXG3BF7pPtYyg6rVX3L:FnzKY6x7entQ1eR3D225dQyT7ybfka4PskBMQhb8L3CC:5.0:pool-v1"
+            }
+          ],
+          "events": [
+            {
+              "id": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump:2tFM66Rro3PLGe3QHtSh43tyD6BEUf6rBWsmtZoYCPyp6pH7YXsUvKhhQXisHwkpESaZoeXG3BF7pPtYyg6rVX3L:FnzKY6x7entQ1eR3D225dQyT7ybfka4PskBMQhb8L3CC:5.0:pool-v1",
+              "isBuy": false,
+              "rawTokenAmount": "724267932",
+              "rawQuoteAmount": "1194588925",
+              "invocationPath": "5.0",
+              "routeKind": "CPI"
+            }
+          ]
+        },
+        {
+          "signature": "5H1brNXWoY4X2xxN6HKxTd1cXJD4ksLagdd7d1YzaMo66JdvsBhwGC1JuaQYE7q5Y4BEcjmnmhSHcQXuVEp7Rmqy",
+          "file": "pumpswap-5H1brNXWoY4X.json",
+          "available": true,
+          "slot": 446702014,
+          "blockTime": 1789302214,
+          "sha256": "9fad59b044ee01254ae0126bc3e9ca2f55c9811982cdfee12ed8277571c50bda",
+          "status": "VERIFIED",
+          "reason": null,
+          "nonSwaps": 0,
+          "unclassified": 0,
+          "executions": [
+            {
+              "protocol": "pumpswap",
+              "instruction": "sell",
+              "invocationPath": "3.10",
+              "status": "VERIFIED",
+              "reason": null,
+              "eventId": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump:5H1brNXWoY4X2xxN6HKxTd1cXJD4ksLagdd7d1YzaMo66JdvsBhwGC1JuaQYE7q5Y4BEcjmnmhSHcQXuVEp7Rmqy:FnzKY6x7entQ1eR3D225dQyT7ybfka4PskBMQhb8L3CC:3.10:pool-v1"
+            }
+          ],
+          "events": [
+            {
+              "id": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump:5H1brNXWoY4X2xxN6HKxTd1cXJD4ksLagdd7d1YzaMo66JdvsBhwGC1JuaQYE7q5Y4BEcjmnmhSHcQXuVEp7Rmqy:FnzKY6x7entQ1eR3D225dQyT7ybfka4PskBMQhb8L3CC:3.10:pool-v1",
+              "isBuy": false,
+              "rawTokenAmount": "246860",
+              "rawQuoteAmount": "407205",
+              "invocationPath": "3.10",
+              "routeKind": "CPI"
+            }
+          ]
+        },
+        {
+          "signature": "5FrvvuczsgCJTHC3SAD2aTZ5zDZNUbrYHFfJB8USjtw7jQcguUD2XwHxsnBW92zoRJLHAddfboJd66kxjF4qDcDf",
+          "file": "pumpswap-5FrvvuczsgCJ.json",
+          "available": true,
+          "slot": 446702009,
+          "blockTime": 1789302212,
+          "sha256": "deda8f60acbb419cc10fdf69b5563f33ee6de1839e173a41546dfaadcb750a1d",
+          "status": "VERIFIED",
+          "reason": null,
+          "nonSwaps": 0,
+          "unclassified": 0,
+          "executions": [
+            {
+              "protocol": "pumpswap",
+              "instruction": "sell",
+              "invocationPath": "2.9",
+              "status": "VERIFIED",
+              "reason": null,
+              "eventId": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump:5FrvvuczsgCJTHC3SAD2aTZ5zDZNUbrYHFfJB8USjtw7jQcguUD2XwHxsnBW92zoRJLHAddfboJd66kxjF4qDcDf:FnzKY6x7entQ1eR3D225dQyT7ybfka4PskBMQhb8L3CC:2.9:pool-v1"
+            }
+          ],
+          "events": [
+            {
+              "id": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump:5FrvvuczsgCJTHC3SAD2aTZ5zDZNUbrYHFfJB8USjtw7jQcguUD2XwHxsnBW92zoRJLHAddfboJd66kxjF4qDcDf:FnzKY6x7entQ1eR3D225dQyT7ybfka4PskBMQhb8L3CC:2.9:pool-v1",
+              "isBuy": false,
+              "rawTokenAmount": "26101040",
+              "rawQuoteAmount": "43054958",
+              "invocationPath": "2.9",
+              "routeKind": "CPI"
+            }
+          ]
+        },
+        {
+          "signature": "j53fq98AnVHQ62PqogFWCfoo4UfcLxPMsMQsaqf6D1QtsYa3tJuA597YqfwXeBLGuP5v4xPQLh7fYHG5Gzs45Lj",
+          "file": "pumpswap-j53fq98AnVHQ.json",
+          "available": true,
+          "slot": 446702009,
+          "blockTime": 1789302212,
+          "sha256": "48c26484034c2197f65fac2c1ca5fe9af5960ffd730a0fcc541cf6dfa5c4c994",
+          "status": "FAILED",
+          "reason": "TRANSACTION_FAILED",
+          "nonSwaps": 0,
+          "unclassified": 0,
+          "executions": [],
+          "events": []
+        },
+        {
+          "signature": "5v26CGWYcChqsVsujy8kryhzDnqpdu7sN2PjZNUvytUmfhR3KtehLDP8qVqr7qqVDJLPMnziGuyyqSwVSSHLvBiS",
+          "file": "pumpswap-5v26CGWYcChq.json",
+          "available": true,
+          "slot": 446702009,
+          "blockTime": 1789302212,
+          "sha256": "338cd16db446d2685e3e343a8e6c2d72e2df236955ce441147b1d7c6098c7a6a",
+          "status": "VERIFIED",
+          "reason": null,
+          "nonSwaps": 0,
+          "unclassified": 0,
+          "executions": [
+            {
+              "protocol": "pumpswap",
+              "instruction": "sell",
+              "invocationPath": "4.5",
+              "status": "VERIFIED",
+              "reason": null,
+              "eventId": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump:5v26CGWYcChqsVsujy8kryhzDnqpdu7sN2PjZNUvytUmfhR3KtehLDP8qVqr7qqVDJLPMnziGuyyqSwVSSHLvBiS:FnzKY6x7entQ1eR3D225dQyT7ybfka4PskBMQhb8L3CC:4.5:pool-v1"
+            }
+          ],
+          "events": [
+            {
+              "id": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump:5v26CGWYcChqsVsujy8kryhzDnqpdu7sN2PjZNUvytUmfhR3KtehLDP8qVqr7qqVDJLPMnziGuyyqSwVSSHLvBiS:FnzKY6x7entQ1eR3D225dQyT7ybfka4PskBMQhb8L3CC:4.5:pool-v1",
+              "isBuy": false,
+              "rawTokenAmount": "74332714",
+              "rawQuoteAmount": "122617235",
+              "invocationPath": "4.5",
+              "routeKind": "CPI"
+            }
+          ]
+        },
+        {
+          "signature": "35xHZgV7wHPDn1zy6eR5tgKt5shrgmh7ynoipb9jWoCpb3SBERHaJbZJXxpk9CnB6nLWhXvsc3D1xo2mLA89D5gT",
+          "file": "pumpswap-35xHZgV7wHPD.json",
+          "available": true,
+          "slot": 446702009,
+          "blockTime": 1789302212,
+          "sha256": "2d9020dd244f6f7def5298ade3ad5f93d2c4dfca9de786771c6a1b1798eabd9c",
+          "status": "VERIFIED",
+          "reason": null,
+          "nonSwaps": 0,
+          "unclassified": 0,
+          "executions": [
+            {
+              "protocol": "pumpswap",
+              "instruction": "buy_exact_quote_in",
+              "invocationPath": "5.2",
+              "status": "VERIFIED",
+              "reason": null,
+              "eventId": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump:35xHZgV7wHPDn1zy6eR5tgKt5shrgmh7ynoipb9jWoCpb3SBERHaJbZJXxpk9CnB6nLWhXvsc3D1xo2mLA89D5gT:FnzKY6x7entQ1eR3D225dQyT7ybfka4PskBMQhb8L3CC:5.2:pool-v1"
+            }
+          ],
+          "events": [
+            {
+              "id": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump:35xHZgV7wHPDn1zy6eR5tgKt5shrgmh7ynoipb9jWoCpb3SBERHaJbZJXxpk9CnB6nLWhXvsc3D1xo2mLA89D5gT:FnzKY6x7entQ1eR3D225dQyT7ybfka4PskBMQhb8L3CC:5.2:pool-v1",
+              "isBuy": true,
+              "rawTokenAmount": "6241635949",
+              "rawQuoteAmount": "10328268624",
+              "invocationPath": "5.2",
+              "routeKind": "CPI"
+            }
+          ]
+        },
+        {
+          "signature": "NT6ZvXEjfac42GDeLkcXaTJbWkuPeJtq98U8iCJ4CPAHwZaW9kUaUbXrKMiTuKqMJr8KWg3Sw8ubMjLxU5e1Jop",
+          "file": "pumpswap-NT6ZvXEjfac4.json",
+          "available": true,
+          "slot": 446702008,
+          "blockTime": 1789302212,
+          "sha256": "49384717b968c3ca5197650063b0d67d3ffd2e7468b674dbfccd8967ffed30e9",
+          "status": "VERIFIED",
+          "reason": null,
+          "nonSwaps": 0,
+          "unclassified": 0,
+          "executions": [
+            {
+              "protocol": "pumpswap",
+              "instruction": "sell",
+              "invocationPath": "2.19",
+              "status": "VERIFIED",
+              "reason": null,
+              "eventId": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump:NT6ZvXEjfac42GDeLkcXaTJbWkuPeJtq98U8iCJ4CPAHwZaW9kUaUbXrKMiTuKqMJr8KWg3Sw8ubMjLxU5e1Jop:FnzKY6x7entQ1eR3D225dQyT7ybfka4PskBMQhb8L3CC:2.19:pool-v1"
+            }
+          ],
+          "events": [
+            {
+              "id": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump:NT6ZvXEjfac42GDeLkcXaTJbWkuPeJtq98U8iCJ4CPAHwZaW9kUaUbXrKMiTuKqMJr8KWg3Sw8ubMjLxU5e1Jop:FnzKY6x7entQ1eR3D225dQyT7ybfka4PskBMQhb8L3CC:2.19:pool-v1",
+              "isBuy": false,
+              "rawTokenAmount": "60738",
+              "rawQuoteAmount": "100015",
+              "invocationPath": "2.19",
+              "routeKind": "CPI"
+            }
+          ]
+        },
+        {
+          "signature": "52JLrR3HpQBdrw9XgScf4eQJ6yR8iB7ZVmKST825XQq52y7G7NhmnaqBneK8huqqJnFBKrdvEddJFavA9iq8ZkUv",
+          "file": "pumpswap-52JLrR3HpQBd.json",
+          "available": true,
+          "slot": 446702008,
+          "blockTime": 1789302212,
+          "sha256": "bf6904a9e6554bff1d51830fd1d2815580e4fdbc8151a1a23edccf6e26cb27dd",
+          "status": "VERIFIED",
+          "reason": null,
+          "nonSwaps": 0,
+          "unclassified": 0,
+          "executions": [
+            {
+              "protocol": "pumpswap",
+              "instruction": "sell",
+              "invocationPath": "3.0",
+              "status": "VERIFIED",
+              "reason": null,
+              "eventId": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump:52JLrR3HpQBdrw9XgScf4eQJ6yR8iB7ZVmKST825XQq52y7G7NhmnaqBneK8huqqJnFBKrdvEddJFavA9iq8ZkUv:FnzKY6x7entQ1eR3D225dQyT7ybfka4PskBMQhb8L3CC:3.0:pool-v1"
+            }
+          ],
+          "events": [
+            {
+              "id": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump:52JLrR3HpQBdrw9XgScf4eQJ6yR8iB7ZVmKST825XQq52y7G7NhmnaqBneK8huqqJnFBKrdvEddJFavA9iq8ZkUv:FnzKY6x7entQ1eR3D225dQyT7ybfka4PskBMQhb8L3CC:3.0:pool-v1",
+              "isBuy": false,
+              "rawTokenAmount": "686177",
+              "rawQuoteAmount": "1129911",
+              "invocationPath": "3.0",
+              "routeKind": "CPI"
+            }
+          ]
+        },
+        {
+          "signature": "2FCzaTyKUJcW6MYakt49GAMHAQ1tDgB8WsqkkDZbCa2AJQsstKvkPyi5g6Vp3deTEzG2pGLZ9c5hcnx2omK4MQZ2",
+          "file": "pumpswap-2FCzaTyKUJcW.json",
+          "available": true,
+          "slot": 446701994,
+          "blockTime": 1789302207,
+          "sha256": "51dc4909e4316d8b6e8f46f9c50faf112cb2116ee5c5fbe9130b5f8617756794",
+          "status": "VERIFIED",
+          "reason": null,
+          "nonSwaps": 0,
+          "unclassified": 0,
+          "executions": [
+            {
+              "protocol": "pumpswap",
+              "instruction": "sell",
+              "invocationPath": "3.3",
+              "status": "VERIFIED",
+              "reason": null,
+              "eventId": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump:2FCzaTyKUJcW6MYakt49GAMHAQ1tDgB8WsqkkDZbCa2AJQsstKvkPyi5g6Vp3deTEzG2pGLZ9c5hcnx2omK4MQZ2:FnzKY6x7entQ1eR3D225dQyT7ybfka4PskBMQhb8L3CC:3.3:pool-v1"
+            }
+          ],
+          "events": [
+            {
+              "id": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump:2FCzaTyKUJcW6MYakt49GAMHAQ1tDgB8WsqkkDZbCa2AJQsstKvkPyi5g6Vp3deTEzG2pGLZ9c5hcnx2omK4MQZ2:FnzKY6x7entQ1eR3D225dQyT7ybfka4PskBMQhb8L3CC:3.3:pool-v1",
+              "isBuy": false,
+              "rawTokenAmount": "6585497",
+              "rawQuoteAmount": "10844200",
+              "invocationPath": "3.3",
+              "routeKind": "CPI"
+            }
+          ]
+        },
+        {
+          "signature": "5Jp7ZKBkG3WejUAFL1aMD9tuhC2X9LYjszvzFCFsNhewAzWkvYTnBdLMDQkmtCdRwt1PvNn76n5Ct6RHDDsLmQoG",
+          "file": "pumpswap-5Jp7ZKBkG3We.json",
+          "available": true,
+          "slot": 446701990,
+          "blockTime": 1789302206,
+          "sha256": "b0d7db85573934437c8b17e2aa3c2c1e08a3ff7afb41be4f991f90afff65e0c2",
+          "status": "NON_SWAP",
+          "reason": "NO_IDENTIFIED_POOL_SWAP",
+          "nonSwaps": 0,
+          "unclassified": 0,
+          "executions": [],
+          "events": []
+        },
+        {
+          "signature": "5bUzFUafTwAY34ZKsXqGXrNW7FcLgfj8ic92kBA1C3ieWnsTSDrec4n6bQ6Rk9cB3RgkUXrDJZGKT6XtvapAnpji",
+          "file": "pumpswap-5bUzFUafTwAY.json",
+          "available": true,
+          "slot": 446701989,
+          "blockTime": 1789302206,
+          "sha256": "7f98e71ef2bc29c9d8ebc59d9682f9888256f89acbbf2fe4f79df3bd0fdc807e",
+          "status": "VERIFIED",
+          "reason": null,
+          "nonSwaps": 0,
+          "unclassified": 0,
+          "executions": [
+            {
+              "protocol": "pumpswap",
+              "instruction": "sell",
+              "invocationPath": "4.3",
+              "status": "VERIFIED",
+              "reason": null,
+              "eventId": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump:5bUzFUafTwAY34ZKsXqGXrNW7FcLgfj8ic92kBA1C3ieWnsTSDrec4n6bQ6Rk9cB3RgkUXrDJZGKT6XtvapAnpji:FnzKY6x7entQ1eR3D225dQyT7ybfka4PskBMQhb8L3CC:4.3:pool-v1"
+            }
+          ],
+          "events": [
+            {
+              "id": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump:5bUzFUafTwAY34ZKsXqGXrNW7FcLgfj8ic92kBA1C3ieWnsTSDrec4n6bQ6Rk9cB3RgkUXrDJZGKT6XtvapAnpji:FnzKY6x7entQ1eR3D225dQyT7ybfka4PskBMQhb8L3CC:4.3:pool-v1",
+              "isBuy": false,
+              "rawTokenAmount": "6586350",
+              "rawQuoteAmount": "10845625",
+              "invocationPath": "4.3",
+              "routeKind": "CPI"
+            }
+          ]
+        },
+        {
+          "signature": "3V7MpwrcRMPbhJCbELvaeMmMqbabrcrR4UYuS15MKzqq8NQUeYA46TT3XNGNwNFnFV8xk19stTGaXNgLorJAv7wz",
+          "file": "pumpswap-3V7MpwrcRMPb.json",
+          "available": true,
+          "slot": 446701974,
+          "blockTime": 1789302201,
+          "sha256": "dc98b6848d877a4a9ab7c1a7777c084877f90ff9684d6a457a3590705972b32e",
+          "status": "NON_SWAP",
+          "reason": "NO_IDENTIFIED_POOL_SWAP",
+          "nonSwaps": 0,
+          "unclassified": 0,
+          "executions": [],
+          "events": []
+        },
+        {
+          "signature": "4y4UpGEfotJPmDn6V5eXFcnJbAePTRnXhjBREcAPKoxCzJVwdpne9Ar6v4q8LRZPsXdpfLpgGty96qXLtYbZBwwf",
+          "file": "pumpswap-4y4UpGEfotJP.json",
+          "available": true,
+          "slot": 446701974,
+          "blockTime": 1789302201,
+          "sha256": "fd5093872564c5c6320212e1e8eabdce0f773ff89e2a1efaddc7a3f39eaeb48c",
+          "status": "NON_SWAP",
+          "reason": "NO_IDENTIFIED_POOL_SWAP",
+          "nonSwaps": 0,
+          "unclassified": 0,
+          "executions": [],
+          "events": []
+        },
+        {
+          "signature": "2Zft2FKz7sAjCQu81inVZbdRhdFb6xC2XAXVFKXWBfFbsRs9zJQcrexPMKFi32hyX4C5UFrY1ngSgMkZk7BWHjW2",
+          "file": "pumpswap-2Zft2FKz7sAj.json",
+          "available": true,
+          "slot": 446701974,
+          "blockTime": 1789302201,
+          "sha256": "a19030b0f99be26f9cdd4f04680cbdd73fd75c4f14a44036bde2ecab22f399e1",
+          "status": "NON_SWAP",
+          "reason": "NO_IDENTIFIED_POOL_SWAP",
+          "nonSwaps": 0,
+          "unclassified": 0,
+          "executions": [],
+          "events": []
+        },
+        {
+          "signature": "3ZTFxvJdPDesrKXkqsnaLtwsT8w9exSFHiQiJn9gsfUWCa6tjQvikjK2LLEh9nBQf7Th8oobHEufQ3oHJwKkMebH",
+          "file": "pumpswap-3ZTFxvJdPDes.json",
+          "available": true,
+          "slot": 446701944,
+          "blockTime": 1789302192,
+          "sha256": "7dd0636460f30f74d8290762fd8c76716cd13b7647efbcf2a2ec6f4fd715bf3a",
+          "status": "VERIFIED",
+          "reason": null,
+          "nonSwaps": 0,
+          "unclassified": 0,
+          "executions": [
+            {
+              "protocol": "pumpswap",
+              "instruction": "sell",
+              "invocationPath": "3.8",
+              "status": "VERIFIED",
+              "reason": null,
+              "eventId": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump:3ZTFxvJdPDesrKXkqsnaLtwsT8w9exSFHiQiJn9gsfUWCa6tjQvikjK2LLEh9nBQf7Th8oobHEufQ3oHJwKkMebH:FnzKY6x7entQ1eR3D225dQyT7ybfka4PskBMQhb8L3CC:3.8:pool-v1"
+            }
+          ],
+          "events": [
+            {
+              "id": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump:3ZTFxvJdPDesrKXkqsnaLtwsT8w9exSFHiQiJn9gsfUWCa6tjQvikjK2LLEh9nBQf7Th8oobHEufQ3oHJwKkMebH:FnzKY6x7entQ1eR3D225dQyT7ybfka4PskBMQhb8L3CC:3.8:pool-v1",
+              "isBuy": false,
+              "rawTokenAmount": "84919403",
+              "rawQuoteAmount": "139837074",
+              "invocationPath": "3.8",
+              "routeKind": "CPI"
+            }
+          ]
+        },
+        {
+          "signature": "4YnDRw91PzpzZXna2NKTNBEHAivFgcf2yxSZguV2PQ7P62fMf9QtDZsuHLdjripLw9E2grGKFkN5jHNnH4xZTNbt",
+          "file": "pumpswap-4YnDRw91Pzpz.json",
+          "available": true,
+          "slot": 446701923,
+          "blockTime": 1789302185,
+          "sha256": "7fdd542ace55257383e524e065f68dfa32956fe65edfc017fc4af7088c8cd149",
+          "status": "VERIFIED",
+          "reason": null,
+          "nonSwaps": 0,
+          "unclassified": 0,
+          "executions": [
+            {
+              "protocol": "pumpswap",
+              "instruction": "buy_exact_quote_in",
+              "invocationPath": "4.0",
+              "status": "VERIFIED",
+              "reason": null,
+              "eventId": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump:4YnDRw91PzpzZXna2NKTNBEHAivFgcf2yxSZguV2PQ7P62fMf9QtDZsuHLdjripLw9E2grGKFkN5jHNnH4xZTNbt:FnzKY6x7entQ1eR3D225dQyT7ybfka4PskBMQhb8L3CC:4.0:pool-v1"
+            }
+          ],
+          "events": [
+            {
+              "id": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump:4YnDRw91PzpzZXna2NKTNBEHAivFgcf2yxSZguV2PQ7P62fMf9QtDZsuHLdjripLw9E2grGKFkN5jHNnH4xZTNbt:FnzKY6x7entQ1eR3D225dQyT7ybfka4PskBMQhb8L3CC:4.0:pool-v1",
+              "isBuy": true,
+              "rawTokenAmount": "622365397",
+              "rawQuoteAmount": "1028880517",
+              "invocationPath": "4.0",
+              "routeKind": "CPI"
+            }
+          ]
+        },
+        {
+          "signature": "3CSaJCHZEwkbZHg99BkkpTWWj7JeV3D7ea8z8jP1dEM3Knj98VRP9M6tnPJL6QVnpbhgvUZzX9cNL3gk3WmLUHH2",
+          "file": "pumpswap-3CSaJCHZEwkb.json",
+          "available": true,
+          "slot": 446701923,
+          "blockTime": 1789302185,
+          "sha256": "8e8a95ec850d1741cdbf206611b80dda0e11f80d5e9cc4b2ac84c77458897a63",
+          "status": "VERIFIED",
+          "reason": null,
+          "nonSwaps": 0,
+          "unclassified": 0,
+          "executions": [
+            {
+              "protocol": "pumpswap",
+              "instruction": "buy_exact_quote_in",
+              "invocationPath": "4.0",
+              "status": "VERIFIED",
+              "reason": null,
+              "eventId": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump:3CSaJCHZEwkbZHg99BkkpTWWj7JeV3D7ea8z8jP1dEM3Knj98VRP9M6tnPJL6QVnpbhgvUZzX9cNL3gk3WmLUHH2:FnzKY6x7entQ1eR3D225dQyT7ybfka4PskBMQhb8L3CC:4.0:pool-v1"
+            }
+          ],
+          "events": [
+            {
+              "id": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump:3CSaJCHZEwkbZHg99BkkpTWWj7JeV3D7ea8z8jP1dEM3Knj98VRP9M6tnPJL6QVnpbhgvUZzX9cNL3gk3WmLUHH2:FnzKY6x7entQ1eR3D225dQyT7ybfka4PskBMQhb8L3CC:4.0:pool-v1",
+              "isBuy": true,
+              "rawTokenAmount": "564109937",
+              "rawQuoteAmount": "932417334",
+              "invocationPath": "4.0",
+              "routeKind": "CPI"
+            }
+          ]
+        },
+        {
+          "signature": "3Vnj2ny96PuNAVwcLgLeUUww745gnVpwJGHBp2wGNGbymfRJXnkuSuK8zFYqksaXrssSsFSNPep6UvfdWD8yFcRT",
+          "file": "pumpswap-3Vnj2ny96PuN.json",
+          "available": true,
+          "slot": 446701923,
+          "blockTime": 1789302185,
+          "sha256": "fad1b43bb98337e9019be1d9deea4b807480072290a160b15a1802fb90a3ce0f",
+          "status": "VERIFIED",
+          "reason": null,
+          "nonSwaps": 0,
+          "unclassified": 0,
+          "executions": [
+            {
+              "protocol": "pumpswap",
+              "instruction": "buy_exact_quote_in",
+              "invocationPath": "4.0",
+              "status": "VERIFIED",
+              "reason": null,
+              "eventId": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump:3Vnj2ny96PuNAVwcLgLeUUww745gnVpwJGHBp2wGNGbymfRJXnkuSuK8zFYqksaXrssSsFSNPep6UvfdWD8yFcRT:FnzKY6x7entQ1eR3D225dQyT7ybfka4PskBMQhb8L3CC:4.0:pool-v1"
+            }
+          ],
+          "events": [
+            {
+              "id": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump:3Vnj2ny96PuNAVwcLgLeUUww745gnVpwJGHBp2wGNGbymfRJXnkuSuK8zFYqksaXrssSsFSNPep6UvfdWD8yFcRT:FnzKY6x7entQ1eR3D225dQyT7ybfka4PskBMQhb8L3CC:4.0:pool-v1",
+              "isBuy": true,
+              "rawTokenAmount": "608571552",
+              "rawQuoteAmount": "1005741027",
+              "invocationPath": "4.0",
+              "routeKind": "CPI"
+            }
+          ]
+        },
+        {
+          "signature": "4Zu3xRax74ms1nysViYUZoYhEN3n5T2vE9EkXkyP61rVfByNTqa691fJo26JhJZcYQHAnB6DNMksuHc4CUcjSG6c",
+          "file": "pumpswap-4Zu3xRax74ms.json",
+          "available": true,
+          "slot": 446701909,
+          "blockTime": 1789302180,
+          "sha256": "b7b39d46bb5270584135df03d9078b48ba7b90a1d8dea7b21ec3aa576e9d6bb1",
+          "status": "VERIFIED",
+          "reason": null,
+          "nonSwaps": 0,
+          "unclassified": 0,
+          "executions": [
+            {
+              "protocol": "pumpswap",
+              "instruction": "buy_exact_quote_in",
+              "invocationPath": "4.0",
+              "status": "VERIFIED",
+              "reason": null,
+              "eventId": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump:4Zu3xRax74ms1nysViYUZoYhEN3n5T2vE9EkXkyP61rVfByNTqa691fJo26JhJZcYQHAnB6DNMksuHc4CUcjSG6c:FnzKY6x7entQ1eR3D225dQyT7ybfka4PskBMQhb8L3CC:4.0:pool-v1"
+            }
+          ],
+          "events": [
+            {
+              "id": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump:4Zu3xRax74ms1nysViYUZoYhEN3n5T2vE9EkXkyP61rVfByNTqa691fJo26JhJZcYQHAnB6DNMksuHc4CUcjSG6c:FnzKY6x7entQ1eR3D225dQyT7ybfka4PskBMQhb8L3CC:4.0:pool-v1",
+              "isBuy": true,
+              "rawTokenAmount": "149628400",
+              "rawQuoteAmount": "247253240",
+              "invocationPath": "4.0",
+              "routeKind": "CPI"
+            }
+          ]
+        },
+        {
+          "signature": "2PaLtx8EtqFMok6e2D8ek6ZSaojNDMcgmFae9tci2p3n3h2jn6WdJGz4q4pvJjNdumftF5fafxUkboGYgf79nBdt",
+          "file": "pumpswap-2PaLtx8EtqFM.json",
+          "available": true,
+          "slot": 446701856,
+          "blockTime": 1789302162,
+          "sha256": "62826cc9a03563aa37bc14962eff5cddebdd2edc73427fffa0e7db414e0e7fa4",
+          "status": "VERIFIED",
+          "reason": null,
+          "nonSwaps": 0,
+          "unclassified": 0,
+          "executions": [
+            {
+              "protocol": "pumpswap",
+              "instruction": "sell",
+              "invocationPath": "4.0",
+              "status": "VERIFIED",
+              "reason": null,
+              "eventId": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump:2PaLtx8EtqFMok6e2D8ek6ZSaojNDMcgmFae9tci2p3n3h2jn6WdJGz4q4pvJjNdumftF5fafxUkboGYgf79nBdt:FnzKY6x7entQ1eR3D225dQyT7ybfka4PskBMQhb8L3CC:4.0:pool-v1"
+            }
+          ],
+          "events": [
+            {
+              "id": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump:2PaLtx8EtqFMok6e2D8ek6ZSaojNDMcgmFae9tci2p3n3h2jn6WdJGz4q4pvJjNdumftF5fafxUkboGYgf79nBdt:FnzKY6x7entQ1eR3D225dQyT7ybfka4PskBMQhb8L3CC:4.0:pool-v1",
+              "isBuy": false,
+              "rawTokenAmount": "894897",
+              "rawQuoteAmount": "1472836",
+              "invocationPath": "4.0",
+              "routeKind": "CPI"
+            }
+          ]
+        },
+        {
+          "signature": "4en9J4E1bEwSyeY1iyq8zh6hjC2S3eq6faHyHGD6ZrSsDpzeZxFdw1R4xsrwKg27F2mkXw47Z5PwG62XsVhXZb75",
+          "file": "pumpswap-4en9J4E1bEwS.json",
+          "available": true,
+          "slot": 446701849,
+          "blockTime": 1789302160,
+          "sha256": "0e16986c19605231773186424f8800ed4a08c15f521631e5e31873696ccd72ba",
+          "status": "NON_SWAP",
+          "reason": "NO_IDENTIFIED_POOL_SWAP",
+          "nonSwaps": 0,
+          "unclassified": 0,
+          "executions": [],
+          "events": []
+        },
+        {
+          "signature": "4BmEJgephL3DTrKtfivYqZonrkSzdswCTXZXHdMox3pLCEWsD5Y4sTpeZZr1gaFZvp4iXuzu5nHYHxRyt91Bhr8q",
+          "file": "pumpswap-4BmEJgephL3D.json",
+          "available": true,
+          "slot": 446701849,
+          "blockTime": 1789302160,
+          "sha256": "474f8557f5ffd0382ad15754e69985bda7beef7bc22bfe9125d55028bfe3c2b6",
+          "status": "NON_SWAP",
+          "reason": "NO_IDENTIFIED_POOL_SWAP",
+          "nonSwaps": 0,
+          "unclassified": 0,
+          "executions": [],
+          "events": []
+        },
+        {
+          "signature": "3nkUzRA7RWA2JSHzXcdGPGkF5JSpiQePyemFtpSzSX8AVP8mzALtLuJZteHTWyb6rdSP4ftUSmQWWY1NwsHxS3u",
+          "file": "pumpswap-3nkUzRA7RWA2.json",
+          "available": true,
+          "slot": 446701849,
+          "blockTime": 1789302160,
+          "sha256": "74bf73347d6133f82394d8cbec52bfc453cca46e197c86009766ab8784839a15",
+          "status": "NON_SWAP",
+          "reason": "NO_IDENTIFIED_POOL_SWAP",
+          "nonSwaps": 0,
+          "unclassified": 0,
+          "executions": [],
+          "events": []
+        },
+        {
+          "signature": "qHcppyX5qKbTtH5bJ5tou6c9tREkxPESZLDUX9pKKZv4qusCKr76cNL7MmCrv57r55LpyaU7MxhbZp9K4QCwigu",
+          "file": "pumpswap-qHcppyX5qKbT.json",
+          "available": true,
+          "slot": 446701832,
+          "blockTime": 1789302155,
+          "sha256": "8493f9c9abd639b4bbab5e14de6d31144fde5593b99198ee0eb94131196527bc",
+          "status": "VERIFIED",
+          "reason": null,
+          "nonSwaps": 0,
+          "unclassified": 0,
+          "executions": [
+            {
+              "protocol": "pumpswap",
+              "instruction": "sell",
+              "invocationPath": "5.0",
+              "status": "VERIFIED",
+              "reason": null,
+              "eventId": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump:qHcppyX5qKbTtH5bJ5tou6c9tREkxPESZLDUX9pKKZv4qusCKr76cNL7MmCrv57r55LpyaU7MxhbZp9K4QCwigu:FnzKY6x7entQ1eR3D225dQyT7ybfka4PskBMQhb8L3CC:5.0:pool-v1"
+            }
+          ],
+          "events": [
+            {
+              "id": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump:qHcppyX5qKbTtH5bJ5tou6c9tREkxPESZLDUX9pKKZv4qusCKr76cNL7MmCrv57r55LpyaU7MxhbZp9K4QCwigu:FnzKY6x7entQ1eR3D225dQyT7ybfka4PskBMQhb8L3CC:5.0:pool-v1",
+              "isBuy": false,
+              "rawTokenAmount": "35306784",
+              "rawQuoteAmount": "58108814",
+              "invocationPath": "5.0",
+              "routeKind": "CPI"
+            }
+          ]
+        },
+        {
+          "signature": "i7JEP7W74XrmaSzCFacvYWVgBZmENuEaLCy8pJbwJEWNpjXgdzyfoMHc7GSP1Zz3KM3fL5T5Guk9m6CY8weLL1N",
+          "file": "pumpswap-i7JEP7W74Xrm.json",
+          "available": true,
+          "slot": 446701786,
+          "blockTime": 1789302141,
+          "sha256": "012444ebe3f408ab9829dc70a0bb7f7d4ca36b17057a2fa42538628bdc7c043b",
+          "status": "NON_SWAP",
+          "reason": "NO_IDENTIFIED_POOL_SWAP",
+          "nonSwaps": 0,
+          "unclassified": 0,
+          "executions": [],
+          "events": []
+        },
+        {
+          "signature": "5GWtAZBkgVngGzXBsR6sXQLzG6eB6opLyFnXCbD96SWbBMEQ6457VZM8CtohyLWcCL6KLe7kFpwu4sUfHEbt3Bxq",
+          "file": "pumpswap-5GWtAZBkgVng.json",
+          "available": true,
+          "slot": 446701786,
+          "blockTime": 1789302141,
+          "sha256": "27dfe8cdcf9928fa91bbe888d459705d44746f545d4c62abb562a0b2053739a3",
+          "status": "NON_SWAP",
+          "reason": "NO_IDENTIFIED_POOL_SWAP",
+          "nonSwaps": 0,
+          "unclassified": 0,
+          "executions": [],
+          "events": []
+        }
+      ]
+    },
+    {
+      "market": {
+        "address": "6e7V9eegCHw997T72MxgwwJipZ6GJyZF8NvjkzT1rvpN",
+        "poolAddress": "6e7V9eegCHw997T72MxgwwJipZ6GJyZF8NvjkzT1rvpN",
+        "tokenMint": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+        "quoteMint": "So11111111111111111111111111111111111111112",
+        "mints": [
+          "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+          "So11111111111111111111111111111111111111112"
+        ],
+        "vaults": [
+          "GnyzhweyVAeGhdD9nLrzCUr6T4ZBvnbJoyBEBgN6i5da",
+          "BprsHVMgdCPP1s8KkwUCx9tkszrHmAEMdJFkynP3NW7N"
+        ],
+        "programId": "LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo",
+        "protocol": "meteora-dlmm",
+        "lifecycle": "AMM",
+        "identityEvidence": "POOL_STATE_AND_VAULTS",
+        "stateLayout": "meteora-dlmm-account-v1",
+        "tokenPrograms": [
+          "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+          "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        ],
+        "verifiedAtSlot": 446702404,
+        "compatibility": "POOL_STATE_AND_VAULTS_VERIFIED",
+        "sourceEpoch": 1
+      },
+      "observedAt": 1789302341209,
+      "limit": 12,
+      "acquisitionPageFull": true,
+      "mentions": 12,
+      "available": 12,
+      "failed": 0,
+      "nonSwapTransactions": 11,
+      "actualSwapCandidates": 1,
+      "verifiedExecutions": 1,
+      "verifiedSwapFraction": 1,
+      "minSlot": 446702331,
+      "maxSlot": 446702415,
+      "records": [
+        {
+          "signature": "5DuvGvUXhHf1diRUhxsC8oYQLW5DT4zcfQznAMwfPkZL4wNmTrDq2hmxDyZonRRgmpmxY2DsMRVEyJkjguxLkM2y",
+          "file": "meteora-dlmm-5DuvGvUXhHf1.json",
+          "available": true,
+          "slot": 446702415,
+          "blockTime": 1789302340,
+          "sha256": "42780dca68324e7d985dc6304fa7841a2a9e99181bd1ac97ed0fbbf90c08830c",
+          "status": "NON_SWAP",
+          "reason": "NO_IDENTIFIED_POOL_SWAP",
+          "nonSwaps": 0,
+          "unclassified": 0,
+          "executions": [],
+          "events": []
+        },
+        {
+          "signature": "XnrrwZ8f9jj9FaWnaRYbwT1XHnHFg71axfkqCcjDSzbvdMQMRegS2YHtFXXgpFFQjbm8yS3Dd6erec9tSDUcWxW",
+          "file": "meteora-dlmm-XnrrwZ8f9jj9.json",
+          "available": true,
+          "slot": 446702414,
+          "blockTime": 1789302340,
+          "sha256": "0f4cf09af8737e722441410536f1245ad6aff96f55968d1c9a485fa0115ae861",
+          "status": "NON_SWAP",
+          "reason": "NO_IDENTIFIED_POOL_SWAP",
+          "nonSwaps": 0,
+          "unclassified": 0,
+          "executions": [],
+          "events": []
+        },
+        {
+          "signature": "3uzC2WSEC8gRbKFPtquzBKtCfsGFzNsUuoST2EDN2K67tmcVqmxPmaCZDePgTuCSWWEYf3PxDZJUJGWKVzdY4q5",
+          "file": "meteora-dlmm-3uzC2WSEC8gR.json",
+          "available": true,
+          "slot": 446702397,
+          "blockTime": 1789302334,
+          "sha256": "a3eaf2799beb94844a0e050f0c4ebd92e8c4ea9114528415391bf5836f997c24",
+          "status": "NON_SWAP",
+          "reason": "NO_IDENTIFIED_POOL_SWAP",
+          "nonSwaps": 0,
+          "unclassified": 0,
+          "executions": [],
+          "events": []
+        },
+        {
+          "signature": "nHFwYnRjhXcc5FC5aMsHUELW9V591Nbf5x8zSWMizLRSHpuzGNp1epviZPvpsNkvinDe2vuqEexaZ4REofpMvSX",
+          "file": "meteora-dlmm-nHFwYnRjhXcc.json",
+          "available": true,
+          "slot": 446702366,
+          "blockTime": 1789302325,
+          "sha256": "2fb3db27666a4f6c2d0cd39ebb8b74165290c902bf3093aae87278596bf32c6f",
+          "status": "NON_SWAP",
+          "reason": "NO_IDENTIFIED_POOL_SWAP",
+          "nonSwaps": 0,
+          "unclassified": 0,
+          "executions": [],
+          "events": []
+        },
+        {
+          "signature": "3VKbiDe64i9SdDTB1ovVRymqgVAWmMsSP3H5jjVyJG2ij5ufFtT1FM7savHMQQYxofZV8AcreZ19phLfrPfbjLgT",
+          "file": "meteora-dlmm-3VKbiDe64i9S.json",
+          "available": true,
+          "slot": 446702363,
+          "blockTime": 1789302324,
+          "sha256": "905e002618372a2f10be7527574d9e66faf2ecdefd19154bc0dad53abd94892a",
+          "status": "NON_SWAP",
+          "reason": "NO_IDENTIFIED_POOL_SWAP",
+          "nonSwaps": 0,
+          "unclassified": 0,
+          "executions": [],
+          "events": []
+        },
+        {
+          "signature": "2oKHXWf9rsZNiy7dhEeEwxaSnvmL6aem8XSh4YQUd3UwzBygZWkmNSQFHHG68dDCtBJjvpWc3wAnApYJbTKu89kC",
+          "file": "meteora-dlmm-2oKHXWf9rsZN.json",
+          "available": true,
+          "slot": 446702359,
+          "blockTime": 1789302323,
+          "sha256": "d6a8b3f93bbd6e7fa7054bf2560459fcbc2f37ad8ebd64bd57f809a3bd6c66f0",
+          "status": "NON_SWAP",
+          "reason": "NO_IDENTIFIED_POOL_SWAP",
+          "nonSwaps": 0,
+          "unclassified": 0,
+          "executions": [],
+          "events": []
+        },
+        {
+          "signature": "5jXXByjxWVfRLbzAtDD7Jq2fA6sBi7QRg8bnUKaXkJcyzqzTkQTjkKRBFeiUeoKkrVUWo5EpYoM5PhyAdXGKgbcz",
+          "file": "meteora-dlmm-5jXXByjxWVfR.json",
+          "available": true,
+          "slot": 446702359,
+          "blockTime": 1789302323,
+          "sha256": "c2e989339b9b39e36d9b06d8c5b086bff8395ba7ad4bee87a189eeabd48dd24a",
+          "status": "NON_SWAP",
+          "reason": "NO_IDENTIFIED_POOL_SWAP",
+          "nonSwaps": 0,
+          "unclassified": 0,
+          "executions": [],
+          "events": []
+        },
+        {
+          "signature": "3v5ePt9QEDywUwqnyz9hgjEUJzvXBAzfUtmwm144k4tXenCN5dE6uUzwCp8dxArvFYA19REfwN34LaFnSXNv68bY",
+          "file": "meteora-dlmm-3v5ePt9QEDyw.json",
+          "available": true,
+          "slot": 446702358,
+          "blockTime": 1789302323,
+          "sha256": "40a097ff0a12a0c81d118589e37626bf2770da1f587a2c22d3abf0d17bee32d3",
+          "status": "NON_SWAP",
+          "reason": "NO_IDENTIFIED_POOL_SWAP",
+          "nonSwaps": 0,
+          "unclassified": 0,
+          "executions": [],
+          "events": []
+        },
+        {
+          "signature": "5E5tNm5Gt5suvdAnwV8t1gU3SGsxTuLvQ6FEwYPZfhHtNE7S3uURA662WffdRzyPsBoydeoij7DZZhqLw1h97CPB",
+          "file": "meteora-dlmm-5E5tNm5Gt5su.json",
+          "available": true,
+          "slot": 446702356,
+          "blockTime": 1789302322,
+          "sha256": "d1591b50a2df22a5c5d555f6b3d35fca12e8bef18feda87ecc6204fbaf347171",
+          "status": "NON_SWAP",
+          "reason": "NO_IDENTIFIED_POOL_SWAP",
+          "nonSwaps": 0,
+          "unclassified": 0,
+          "executions": [],
+          "events": []
+        },
+        {
+          "signature": "2inaD6ke6xXPZ5kiwWcRi2CR3Z1i23ZqRhosdSKT35yJKbDdo36dQaXkqXQxDH1v7bSCzCCd1FsMXRwZ7bUNE6xY",
+          "file": "meteora-dlmm-2inaD6ke6xXP.json",
+          "available": true,
+          "slot": 446702341,
+          "blockTime": 1789302317,
+          "sha256": "850343b2c513da1174d4ce96a194c7e8e1bc3f4180eb88735b14ab82d76c43d1",
+          "status": "NON_SWAP",
+          "reason": "NO_IDENTIFIED_POOL_SWAP",
+          "nonSwaps": 0,
+          "unclassified": 0,
+          "executions": [],
+          "events": []
+        },
+        {
+          "signature": "3A7XcW2Sy8fSq4veNPMV3GUdDhvwrahsLaCV61L3v6BAi4QDh71fWw2oMRDyzTauR824GfHwqivoJ6mk8DJjtkdV",
+          "file": "meteora-dlmm-3A7XcW2Sy8fS.json",
+          "available": true,
+          "slot": 446702337,
+          "blockTime": 1789302316,
+          "sha256": "9c09e9caef6bd90c81ac3cf3c09d080e03d80f74cdc1a3e7464de7700633b0db",
+          "status": "NON_SWAP",
+          "reason": "NO_IDENTIFIED_POOL_SWAP",
+          "nonSwaps": 0,
+          "unclassified": 0,
+          "executions": [],
+          "events": []
+        },
+        {
+          "signature": "5XBJwQZSPFM9fme2YQTmMyVAp5SvvrLCkswrEGivXXzywdiwu3nr3qAc4vuWP8AyDkXPRjMSDBBNEyKaYdqTLprx",
+          "file": "meteora-dlmm-5XBJwQZSPFM9.json",
+          "available": true,
+          "slot": 446702331,
+          "blockTime": 1789302314,
+          "sha256": "7cf71b33d75303fcf3d4afadcb55041cbb9206a7e14ddcc54d59b50574a46368",
+          "status": "VERIFIED",
+          "reason": null,
+          "nonSwaps": 0,
+          "unclassified": 0,
+          "executions": [
+            {
+              "protocol": "meteora-dlmm",
+              "instruction": "swap2",
+              "invocationPath": "5.0",
+              "status": "VERIFIED",
+              "reason": null,
+              "eventId": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump:5XBJwQZSPFM9fme2YQTmMyVAp5SvvrLCkswrEGivXXzywdiwu3nr3qAc4vuWP8AyDkXPRjMSDBBNEyKaYdqTLprx:6e7V9eegCHw997T72MxgwwJipZ6GJyZF8NvjkzT1rvpN:5.0:pool-v1"
+            }
+          ],
+          "events": [
+            {
+              "id": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump:5XBJwQZSPFM9fme2YQTmMyVAp5SvvrLCkswrEGivXXzywdiwu3nr3qAc4vuWP8AyDkXPRjMSDBBNEyKaYdqTLprx:6e7V9eegCHw997T72MxgwwJipZ6GJyZF8NvjkzT1rvpN:5.0:pool-v1",
+              "isBuy": true,
+              "rawTokenAmount": "19656914",
+              "rawQuoteAmount": "32457510",
+              "invocationPath": "5.0",
+              "routeKind": "CPI"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "market": {
+        "address": "2oStJEcUckQgX2aGUE3L8w8d5phxcuceDHwTfTGg33SN",
+        "poolAddress": "2oStJEcUckQgX2aGUE3L8w8d5phxcuceDHwTfTGg33SN",
+        "tokenMint": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+        "quoteMint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+        "mints": [
+          "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+          "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+        ],
+        "vaults": [
+          "3QYpcgkRv3cvHKPa6DgrKCU7jYgxr5PnJgxUdAWWfYPL",
+          "FMwjyFJmEBRR6BYmjH7XPnrcTzkrQBaCMwQrb5qUs9Dc"
+        ],
+        "programId": "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc",
+        "protocol": "orca-whirlpool",
+        "lifecycle": "AMM",
+        "identityEvidence": "POOL_STATE_AND_VAULTS",
+        "stateLayout": "orca-whirlpool-account-v1",
+        "tokenPrograms": [
+          "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+          "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        ],
+        "verifiedAtSlot": 446702555,
+        "compatibility": "POOL_STATE_AND_VAULTS_VERIFIED",
+        "sourceEpoch": 1
+      },
+      "observedAt": 1789302388902,
+      "limit": 12,
+      "acquisitionPageFull": true,
+      "mentions": 12,
+      "available": 12,
+      "failed": 0,
+      "nonSwapTransactions": 2,
+      "actualSwapCandidates": 10,
+      "verifiedExecutions": 10,
+      "verifiedSwapFraction": 1,
+      "minSlot": 446701040,
+      "maxSlot": 446701836,
+      "records": [
+        {
+          "signature": "52vq8P6uTnRshU3AshnLSaqtLvtJy2ZKgf9d29KVGAoBA2VWGynh1YWbJrE8VWpvwqgEhoz4fefLAcoTHtZR5VYp",
+          "file": "orca-whirlpool-52vq8P6uTnRs.json",
+          "available": true,
+          "slot": 446701836,
+          "blockTime": 1789302156,
+          "sha256": "4e54f4e6e4addb11659d97e6a9577204bb33cd16fbe382d2f3702158393023b4",
+          "status": "VERIFIED",
+          "reason": null,
+          "nonSwaps": 0,
+          "unclassified": 0,
+          "executions": [
+            {
+              "protocol": "orca-whirlpool",
+              "instruction": "swap_v2",
+              "invocationPath": "4.0",
+              "status": "VERIFIED",
+              "reason": null,
+              "eventId": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump:52vq8P6uTnRshU3AshnLSaqtLvtJy2ZKgf9d29KVGAoBA2VWGynh1YWbJrE8VWpvwqgEhoz4fefLAcoTHtZR5VYp:2oStJEcUckQgX2aGUE3L8w8d5phxcuceDHwTfTGg33SN:4.0:pool-v1"
+            }
+          ],
+          "events": [
+            {
+              "id": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump:52vq8P6uTnRshU3AshnLSaqtLvtJy2ZKgf9d29KVGAoBA2VWGynh1YWbJrE8VWpvwqgEhoz4fefLAcoTHtZR5VYp:2oStJEcUckQgX2aGUE3L8w8d5phxcuceDHwTfTGg33SN:4.0:pool-v1",
+              "isBuy": true,
+              "rawTokenAmount": "271375770",
+              "rawQuoteAmount": "45000000",
+              "invocationPath": "4.0",
+              "routeKind": "CPI"
+            }
+          ]
+        },
+        {
+          "signature": "4Hg6aeEjyPHLo54ahjGD6u7pn1rsGkuQUGN79F5E1gvbvWFH1umP8dWSUzwb5tGZkYU9Sj4VBbmmwopmSxZYoJ6i",
+          "file": "orca-whirlpool-4Hg6aeEjyPHL.json",
+          "available": true,
+          "slot": 446701393,
+          "blockTime": 1789302016,
+          "sha256": "37e7134dc8e77539ec9c20a4c94e1890886d25ddb4c48cc3c8475b577cfa7c26",
+          "status": "VERIFIED",
+          "reason": null,
+          "nonSwaps": 0,
+          "unclassified": 0,
+          "executions": [
+            {
+              "protocol": "orca-whirlpool",
+              "instruction": "swap_v2",
+              "invocationPath": "4.0",
+              "status": "VERIFIED",
+              "reason": null,
+              "eventId": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump:4Hg6aeEjyPHLo54ahjGD6u7pn1rsGkuQUGN79F5E1gvbvWFH1umP8dWSUzwb5tGZkYU9Sj4VBbmmwopmSxZYoJ6i:2oStJEcUckQgX2aGUE3L8w8d5phxcuceDHwTfTGg33SN:4.0:pool-v1"
+            }
+          ],
+          "events": [
+            {
+              "id": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump:4Hg6aeEjyPHLo54ahjGD6u7pn1rsGkuQUGN79F5E1gvbvWFH1umP8dWSUzwb5tGZkYU9Sj4VBbmmwopmSxZYoJ6i:2oStJEcUckQgX2aGUE3L8w8d5phxcuceDHwTfTGg33SN:4.0:pool-v1",
+              "isBuy": true,
+              "rawTokenAmount": "278699205",
+              "rawQuoteAmount": "46141973",
+              "invocationPath": "4.0",
+              "routeKind": "CPI"
+            }
+          ]
+        },
+        {
+          "signature": "4B9fz2MaJ4Vczs7f1NvsvLBd9ALtHjU9SF7K2s63s39iRzvbPzCYN6gkaAc2xaxkUL9a9bgvQTQUpnkp79sMEEao",
+          "file": "orca-whirlpool-4B9fz2MaJ4Vc.json",
+          "available": true,
+          "slot": 446701366,
+          "blockTime": 1789302007,
+          "sha256": "7c70b8feb7795f29c35041885f7bebb63e39386b612f66ea1490e79cf710e560",
+          "status": "VERIFIED",
+          "reason": null,
+          "nonSwaps": 0,
+          "unclassified": 0,
+          "executions": [
+            {
+              "protocol": "orca-whirlpool",
+              "instruction": "swap_v2",
+              "invocationPath": "4.0",
+              "status": "VERIFIED",
+              "reason": null,
+              "eventId": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump:4B9fz2MaJ4Vczs7f1NvsvLBd9ALtHjU9SF7K2s63s39iRzvbPzCYN6gkaAc2xaxkUL9a9bgvQTQUpnkp79sMEEao:2oStJEcUckQgX2aGUE3L8w8d5phxcuceDHwTfTGg33SN:4.0:pool-v1"
+            }
+          ],
+          "events": [
+            {
+              "id": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump:4B9fz2MaJ4Vczs7f1NvsvLBd9ALtHjU9SF7K2s63s39iRzvbPzCYN6gkaAc2xaxkUL9a9bgvQTQUpnkp79sMEEao:2oStJEcUckQgX2aGUE3L8w8d5phxcuceDHwTfTGg33SN:4.0:pool-v1",
+              "isBuy": true,
+              "rawTokenAmount": "605699155",
+              "rawQuoteAmount": "100000000",
+              "invocationPath": "4.0",
+              "routeKind": "CPI"
+            }
+          ]
+        },
+        {
+          "signature": "3btvkHbF2WXHvjbDqaJwSDQekqCdDqZ4bDzvHCspRWFTJ1HnacsWTRnQuK1AaYQSTzr64okR9H4GsqL54vvwwpMu",
+          "file": "orca-whirlpool-3btvkHbF2WXH.json",
+          "available": true,
+          "slot": 446701353,
+          "blockTime": 1789302003,
+          "sha256": "02a6a5cc808f03183f23530ecb490b6fda30c37c3478eff8d925a7c0a1334ca9",
+          "status": "VERIFIED",
+          "reason": null,
+          "nonSwaps": 0,
+          "unclassified": 0,
+          "executions": [
+            {
+              "protocol": "orca-whirlpool",
+              "instruction": "swap_v2",
+              "invocationPath": "5.3",
+              "status": "VERIFIED",
+              "reason": null,
+              "eventId": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump:3btvkHbF2WXHvjbDqaJwSDQekqCdDqZ4bDzvHCspRWFTJ1HnacsWTRnQuK1AaYQSTzr64okR9H4GsqL54vvwwpMu:2oStJEcUckQgX2aGUE3L8w8d5phxcuceDHwTfTGg33SN:5.3:pool-v1"
+            }
+          ],
+          "events": [
+            {
+              "id": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump:3btvkHbF2WXHvjbDqaJwSDQekqCdDqZ4bDzvHCspRWFTJ1HnacsWTRnQuK1AaYQSTzr64okR9H4GsqL54vvwwpMu:2oStJEcUckQgX2aGUE3L8w8d5phxcuceDHwTfTGg33SN:5.3:pool-v1",
+              "isBuy": true,
+              "rawTokenAmount": "151064881",
+              "rawQuoteAmount": "24880870",
+              "invocationPath": "5.3",
+              "routeKind": "CPI"
+            }
+          ]
+        },
+        {
+          "signature": "5Hq1DqDy6kvapy55ELcrXtsQooFTWDDpFt3Jxe5bPbkongAuHA7N3f8eBAJaq2Ywr55Xaw79bKLiSFivxRtQQYnN",
+          "file": "orca-whirlpool-5Hq1DqDy6kva.json",
+          "available": true,
+          "slot": 446701183,
+          "blockTime": 1789301950,
+          "sha256": "328e565bf2a12185779e3c5490b7e4ee1f07c109395884456162b1b5b2ac20ad",
+          "status": "VERIFIED",
+          "reason": null,
+          "nonSwaps": 0,
+          "unclassified": 0,
+          "executions": [
+            {
+              "protocol": "orca-whirlpool",
+              "instruction": "swap_v2",
+              "invocationPath": "6.12",
+              "status": "VERIFIED",
+              "reason": null,
+              "eventId": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump:5Hq1DqDy6kvapy55ELcrXtsQooFTWDDpFt3Jxe5bPbkongAuHA7N3f8eBAJaq2Ywr55Xaw79bKLiSFivxRtQQYnN:2oStJEcUckQgX2aGUE3L8w8d5phxcuceDHwTfTGg33SN:6.12:pool-v1"
+            }
+          ],
+          "events": [
+            {
+              "id": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump:5Hq1DqDy6kvapy55ELcrXtsQooFTWDDpFt3Jxe5bPbkongAuHA7N3f8eBAJaq2Ywr55Xaw79bKLiSFivxRtQQYnN:2oStJEcUckQgX2aGUE3L8w8d5phxcuceDHwTfTGg33SN:6.12:pool-v1",
+              "isBuy": true,
+              "rawTokenAmount": "222966448",
+              "rawQuoteAmount": "36705973",
+              "invocationPath": "6.12",
+              "routeKind": "CPI"
+            }
+          ]
+        },
+        {
+          "signature": "Ym9BJubC6yBENawkRX6YFvutchdT2ybiNhyxDooBtvhxdXVmP6XWmgBos55aNo2x68UBYomvEZvzA3LuTn6iikh",
+          "file": "orca-whirlpool-Ym9BJubC6yBE.json",
+          "available": true,
+          "slot": 446701182,
+          "blockTime": 1789301949,
+          "sha256": "e0bf73aac879d791cceaf48a8c0977c9f529539e5738bb9f2f3f9a9374877499",
+          "status": "VERIFIED",
+          "reason": null,
+          "nonSwaps": 0,
+          "unclassified": 0,
+          "executions": [
+            {
+              "protocol": "orca-whirlpool",
+              "instruction": "swap_v2",
+              "invocationPath": "7.3",
+              "status": "VERIFIED",
+              "reason": null,
+              "eventId": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump:Ym9BJubC6yBENawkRX6YFvutchdT2ybiNhyxDooBtvhxdXVmP6XWmgBos55aNo2x68UBYomvEZvzA3LuTn6iikh:2oStJEcUckQgX2aGUE3L8w8d5phxcuceDHwTfTGg33SN:7.3:pool-v1"
+            }
+          ],
+          "events": [
+            {
+              "id": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump:Ym9BJubC6yBENawkRX6YFvutchdT2ybiNhyxDooBtvhxdXVmP6XWmgBos55aNo2x68UBYomvEZvzA3LuTn6iikh:2oStJEcUckQgX2aGUE3L8w8d5phxcuceDHwTfTGg33SN:7.3:pool-v1",
+              "isBuy": true,
+              "rawTokenAmount": "1206925",
+              "rawQuoteAmount": "198550",
+              "invocationPath": "7.3",
+              "routeKind": "CPI"
+            }
+          ]
+        },
+        {
+          "signature": "4w7vPdN2UBA8zHNh5wTpEr7y6xnZBqGSrVDHwLxjWnrTEfZjfx3quxd9gqKUbgiUJe9tLqex3VjJHUeVspXrcdkz",
+          "file": "orca-whirlpool-4w7vPdN2UBA8.json",
+          "available": true,
+          "slot": 446701174,
+          "blockTime": 1789301947,
+          "sha256": "b53da235d12e491bd84753f2ddd181c59c3c0822cf8e9b19cfde8ac71db10f95",
+          "status": "VERIFIED",
+          "reason": null,
+          "nonSwaps": 0,
+          "unclassified": 0,
+          "executions": [
+            {
+              "protocol": "orca-whirlpool",
+              "instruction": "swap_v2",
+              "invocationPath": "2.4",
+              "status": "VERIFIED",
+              "reason": null,
+              "eventId": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump:4w7vPdN2UBA8zHNh5wTpEr7y6xnZBqGSrVDHwLxjWnrTEfZjfx3quxd9gqKUbgiUJe9tLqex3VjJHUeVspXrcdkz:2oStJEcUckQgX2aGUE3L8w8d5phxcuceDHwTfTGg33SN:2.4:pool-v1"
+            }
+          ],
+          "events": [
+            {
+              "id": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump:4w7vPdN2UBA8zHNh5wTpEr7y6xnZBqGSrVDHwLxjWnrTEfZjfx3quxd9gqKUbgiUJe9tLqex3VjJHUeVspXrcdkz:2oStJEcUckQgX2aGUE3L8w8d5phxcuceDHwTfTGg33SN:2.4:pool-v1",
+              "isBuy": true,
+              "rawTokenAmount": "60292892",
+              "rawQuoteAmount": "9916788",
+              "invocationPath": "2.4",
+              "routeKind": "CPI"
+            }
+          ]
+        },
+        {
+          "signature": "5VYpC1F6Ks4Ygzb77WQrEprNAHia2vdoEdaNQVvMw9yrN3CTPdQr8crdXpV9RJftD13QMcVSxs966u1NgC5eh8yH",
+          "file": "orca-whirlpool-5VYpC1F6Ks4Y.json",
+          "available": true,
+          "slot": 446701096,
+          "blockTime": 1789301922,
+          "sha256": "07a20fe4d30a827be67ee9817af60a97b9bea3794cd8e4bcd1cc12237fb0636c",
+          "status": "VERIFIED",
+          "reason": null,
+          "nonSwaps": 0,
+          "unclassified": 0,
+          "executions": [
+            {
+              "protocol": "orca-whirlpool",
+              "instruction": "swap_v2",
+              "invocationPath": "1.13",
+              "status": "VERIFIED",
+              "reason": null,
+              "eventId": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump:5VYpC1F6Ks4Ygzb77WQrEprNAHia2vdoEdaNQVvMw9yrN3CTPdQr8crdXpV9RJftD13QMcVSxs966u1NgC5eh8yH:2oStJEcUckQgX2aGUE3L8w8d5phxcuceDHwTfTGg33SN:1.13:pool-v1"
+            }
+          ],
+          "events": [
+            {
+              "id": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump:5VYpC1F6Ks4Ygzb77WQrEprNAHia2vdoEdaNQVvMw9yrN3CTPdQr8crdXpV9RJftD13QMcVSxs966u1NgC5eh8yH:2oStJEcUckQgX2aGUE3L8w8d5phxcuceDHwTfTGg33SN:1.13:pool-v1",
+              "isBuy": true,
+              "rawTokenAmount": "120215712",
+              "rawQuoteAmount": "19817835",
+              "invocationPath": "1.13",
+              "routeKind": "CPI"
+            }
+          ]
+        },
+        {
+          "signature": "4tMxECCT1E6rztnJ4HkMjrAWujdk1VKy6hGZuNfqBXUSBg2izMhtZnbGKe6WzrvCpMKT4mqidw5Zqgwdr2ujsxaZ",
+          "file": "orca-whirlpool-4tMxECCT1E6r.json",
+          "available": true,
+          "slot": 446701093,
+          "blockTime": 1789301922,
+          "sha256": "ae2d680af3c3d670a4922a22f724bfaf53b69d324f63578940647ce3c534a13f",
+          "status": "VERIFIED",
+          "reason": null,
+          "nonSwaps": 0,
+          "unclassified": 0,
+          "executions": [
+            {
+              "protocol": "orca-whirlpool",
+              "instruction": "swap_v2",
+              "invocationPath": "5.7",
+              "status": "VERIFIED",
+              "reason": null,
+              "eventId": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump:4tMxECCT1E6rztnJ4HkMjrAWujdk1VKy6hGZuNfqBXUSBg2izMhtZnbGKe6WzrvCpMKT4mqidw5Zqgwdr2ujsxaZ:2oStJEcUckQgX2aGUE3L8w8d5phxcuceDHwTfTGg33SN:5.7:pool-v1"
+            }
+          ],
+          "events": [
+            {
+              "id": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump:4tMxECCT1E6rztnJ4HkMjrAWujdk1VKy6hGZuNfqBXUSBg2izMhtZnbGKe6WzrvCpMKT4mqidw5Zqgwdr2ujsxaZ:2oStJEcUckQgX2aGUE3L8w8d5phxcuceDHwTfTGg33SN:5.7:pool-v1",
+              "isBuy": true,
+              "rawTokenAmount": "230779",
+              "rawQuoteAmount": "38031",
+              "invocationPath": "5.7",
+              "routeKind": "CPI"
+            }
+          ]
+        },
+        {
+          "signature": "5TVSAWkA6oFS2DQmexnszJjDeNVkW95Ncwd2BmydujUJFBomHA6sDayNwHWDYEazpK5kRYtSE7QMhHevtEDaPdnA",
+          "file": "orca-whirlpool-5TVSAWkA6oFS.json",
+          "available": true,
+          "slot": 446701075,
+          "blockTime": 1789301916,
+          "sha256": "0ef903d641f9f7be39ebdf43bed5d5290a39db3177e3015d047e25270c960919",
+          "status": "VERIFIED",
+          "reason": null,
+          "nonSwaps": 0,
+          "unclassified": 0,
+          "executions": [
+            {
+              "protocol": "orca-whirlpool",
+              "instruction": "swap_v2",
+              "invocationPath": "5.6",
+              "status": "VERIFIED",
+              "reason": null,
+              "eventId": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump:5TVSAWkA6oFS2DQmexnszJjDeNVkW95Ncwd2BmydujUJFBomHA6sDayNwHWDYEazpK5kRYtSE7QMhHevtEDaPdnA:2oStJEcUckQgX2aGUE3L8w8d5phxcuceDHwTfTGg33SN:5.6:pool-v1"
+            }
+          ],
+          "events": [
+            {
+              "id": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump:5TVSAWkA6oFS2DQmexnszJjDeNVkW95Ncwd2BmydujUJFBomHA6sDayNwHWDYEazpK5kRYtSE7QMhHevtEDaPdnA:2oStJEcUckQgX2aGUE3L8w8d5phxcuceDHwTfTGg33SN:5.6:pool-v1",
+              "isBuy": true,
+              "rawTokenAmount": "90898397",
+              "rawQuoteAmount": "14974651",
+              "invocationPath": "5.6",
+              "routeKind": "CPI"
+            }
+          ]
+        },
+        {
+          "signature": "3RWqCAi3YWWp4sAdKqwXQJZx31coFscjWZ9BWnRS7aVVzVvhvXYWx74r5joCr4d94X5ZEffNKjaTs3YxqbeThUSQ",
+          "file": "orca-whirlpool-3RWqCAi3YWWp.json",
+          "available": true,
+          "slot": 446701041,
+          "blockTime": 1789301905,
+          "sha256": "1bf78f8808c14b71babac3c00ebb901cc78e37db06833d6ac353ede08f76c5b8",
+          "status": "NON_SWAP",
+          "reason": "NO_IDENTIFIED_POOL_SWAP",
+          "nonSwaps": 0,
+          "unclassified": 0,
+          "executions": [],
+          "events": []
+        },
+        {
+          "signature": "3q8bnxYzj5ygtt1hM4awF2N1t9WXa93fGY7gPas5B5TmCJpA1eifkVDyMFeFx2dnxLSHyBtmHyLkisgN6d2qQuv3",
+          "file": "orca-whirlpool-3q8bnxYzj5yg.json",
+          "available": true,
+          "slot": 446701040,
+          "blockTime": 1789301905,
+          "sha256": "de82baa6b67b4552a2d9c21689acc90a4b479f76f2ab7eede2a4bb5b9330852a",
+          "status": "NON_SWAP",
+          "reason": "NO_IDENTIFIED_POOL_SWAP",
+          "nonSwaps": 0,
+          "unclassified": 0,
+          "executions": [],
+          "events": []
+        }
+      ]
+    },
+    {
+      "market": {
+        "address": "H76FDoKbidtHPk8D6swx9mksaAGHuUxVN9PZPSKNU7b7",
+        "poolAddress": "H76FDoKbidtHPk8D6swx9mksaAGHuUxVN9PZPSKNU7b7",
+        "tokenMint": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+        "quoteMint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+        "mints": [
+          "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+          "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+        ],
+        "vaults": [
+          "Doi7KKrpLtdqoFQDNuWa6ZsR3cV8cgNDdjw19RrA9iUE",
+          "3mXPuXPLiXbbYXRWaBLnDvThcPGsPuTvq7dWi5fA4A2N"
+        ],
+        "programId": "CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK",
+        "protocol": "raydium-clmm",
+        "lifecycle": "AMM",
+        "identityEvidence": "POOL_STATE_AND_VAULTS",
+        "stateLayout": "raydium-clmm-account-v1",
+        "tokenPrograms": [
+          "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+          "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        ],
+        "verifiedAtSlot": 446702708,
+        "compatibility": "POOL_STATE_AND_VAULTS_VERIFIED",
+        "sourceEpoch": 1
+      },
+      "observedAt": 1789302436650,
+      "limit": 12,
+      "acquisitionPageFull": true,
+      "mentions": 12,
+      "available": 12,
+      "failed": 0,
+      "nonSwapTransactions": 0,
+      "actualSwapCandidates": 12,
+      "verifiedExecutions": 12,
+      "verifiedSwapFraction": 1,
+      "minSlot": 446701600,
+      "maxSlot": 446702292,
+      "records": [
+        {
+          "signature": "312FsAXov1JLWipBzYQh2ioXt4Gu1DjPqNYHsFvtq2LvSMgkeEKXoNRNwnz3yvTzxUaSMMnUHkop6siRWkMMxrt5",
+          "file": "raydium-clmm-312FsAXov1JL.json",
+          "available": true,
+          "slot": 446702292,
+          "blockTime": 1789302302,
+          "sha256": "f675a64b9222fc8b994899bf0b43d781b0978f6680faa03179b135a649cfcc59",
+          "status": "VERIFIED",
+          "reason": null,
+          "nonSwaps": 0,
+          "unclassified": 0,
+          "executions": [
+            {
+              "protocol": "raydium-clmm",
+              "instruction": "swap_v2",
+              "invocationPath": "2.8",
+              "status": "VERIFIED",
+              "reason": null,
+              "eventId": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump:312FsAXov1JLWipBzYQh2ioXt4Gu1DjPqNYHsFvtq2LvSMgkeEKXoNRNwnz3yvTzxUaSMMnUHkop6siRWkMMxrt5:H76FDoKbidtHPk8D6swx9mksaAGHuUxVN9PZPSKNU7b7:2.8:pool-v1"
+            }
+          ],
+          "events": [
+            {
+              "id": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump:312FsAXov1JLWipBzYQh2ioXt4Gu1DjPqNYHsFvtq2LvSMgkeEKXoNRNwnz3yvTzxUaSMMnUHkop6siRWkMMxrt5:H76FDoKbidtHPk8D6swx9mksaAGHuUxVN9PZPSKNU7b7:2.8:pool-v1",
+              "isBuy": false,
+              "rawTokenAmount": "479",
+              "rawQuoteAmount": "78",
+              "invocationPath": "2.8",
+              "routeKind": "CPI"
+            }
+          ]
+        },
+        {
+          "signature": "5YWKBfEHGbdLfhAeV2Lr6L7s9fbe1YcoNYvzLgxjaTcjyVvaDBkTWT7akpvzcNzyXPEx1kTTPcynNkHzZKrufXiy",
+          "file": "raydium-clmm-5YWKBfEHGbdL.json",
+          "available": true,
+          "slot": 446702067,
+          "blockTime": 1789302231,
+          "sha256": "14c44e5867f6e8fbd7b9b5f652336d416007c71023788a09f112a39ec7bc32c1",
+          "status": "VERIFIED",
+          "reason": null,
+          "nonSwaps": 0,
+          "unclassified": 0,
+          "executions": [
+            {
+              "protocol": "raydium-clmm",
+              "instruction": "swap_v2",
+              "invocationPath": "2.13",
+              "status": "VERIFIED",
+              "reason": null,
+              "eventId": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump:5YWKBfEHGbdLfhAeV2Lr6L7s9fbe1YcoNYvzLgxjaTcjyVvaDBkTWT7akpvzcNzyXPEx1kTTPcynNkHzZKrufXiy:H76FDoKbidtHPk8D6swx9mksaAGHuUxVN9PZPSKNU7b7:2.13:pool-v1"
+            }
+          ],
+          "events": [
+            {
+              "id": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump:5YWKBfEHGbdLfhAeV2Lr6L7s9fbe1YcoNYvzLgxjaTcjyVvaDBkTWT7akpvzcNzyXPEx1kTTPcynNkHzZKrufXiy:H76FDoKbidtHPk8D6swx9mksaAGHuUxVN9PZPSKNU7b7:2.13:pool-v1",
+              "isBuy": false,
+              "rawTokenAmount": "28691",
+              "rawQuoteAmount": "4703",
+              "invocationPath": "2.13",
+              "routeKind": "CPI"
+            }
+          ]
+        },
+        {
+          "signature": "3r5yr4JgJo9tUXBNLd5jkZXpYrqkn7gT8yjyusLMH91WdKyLMrDs1VogZoeSm5o98gWSRsoYu8KAcVi93bx6eFch",
+          "file": "raydium-clmm-3r5yr4JgJo9t.json",
+          "available": true,
+          "slot": 446701940,
+          "blockTime": 1789302190,
+          "sha256": "9a8fb9ac27f86f0f9f214da09642a30f07954eaa9c0305e9a3879c86ac3fdbc8",
+          "status": "VERIFIED",
+          "reason": null,
+          "nonSwaps": 0,
+          "unclassified": 0,
+          "executions": [
+            {
+              "protocol": "raydium-clmm",
+              "instruction": "swap_v2",
+              "invocationPath": "2.9",
+              "status": "VERIFIED",
+              "reason": null,
+              "eventId": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump:3r5yr4JgJo9tUXBNLd5jkZXpYrqkn7gT8yjyusLMH91WdKyLMrDs1VogZoeSm5o98gWSRsoYu8KAcVi93bx6eFch:H76FDoKbidtHPk8D6swx9mksaAGHuUxVN9PZPSKNU7b7:2.9:pool-v1"
+            }
+          ],
+          "events": [
+            {
+              "id": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump:3r5yr4JgJo9tUXBNLd5jkZXpYrqkn7gT8yjyusLMH91WdKyLMrDs1VogZoeSm5o98gWSRsoYu8KAcVi93bx6eFch:H76FDoKbidtHPk8D6swx9mksaAGHuUxVN9PZPSKNU7b7:2.9:pool-v1",
+              "isBuy": false,
+              "rawTokenAmount": "1158",
+              "rawQuoteAmount": "189",
+              "invocationPath": "2.9",
+              "routeKind": "CPI"
+            }
+          ]
+        },
+        {
+          "signature": "41udqbXd1z7VbyrnGg3iesZBEqfUEYGjkqZxD6pr2FTPap6LvSwhTKdPVXjrF3oAVHYyQEphqZ292txwitJR8WeQ",
+          "file": "raydium-clmm-41udqbXd1z7V.json",
+          "available": true,
+          "slot": 446701803,
+          "blockTime": 1789302146,
+          "sha256": "3ed560a82fc15b419b96432fc5d44a98bf4b282c0aaac47e900567842689cb3b",
+          "status": "VERIFIED",
+          "reason": null,
+          "nonSwaps": 0,
+          "unclassified": 0,
+          "executions": [
+            {
+              "protocol": "raydium-clmm",
+              "instruction": "swap_v2",
+              "invocationPath": "2.9",
+              "status": "VERIFIED",
+              "reason": null,
+              "eventId": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump:41udqbXd1z7VbyrnGg3iesZBEqfUEYGjkqZxD6pr2FTPap6LvSwhTKdPVXjrF3oAVHYyQEphqZ292txwitJR8WeQ:H76FDoKbidtHPk8D6swx9mksaAGHuUxVN9PZPSKNU7b7:2.9:pool-v1"
+            }
+          ],
+          "events": [
+            {
+              "id": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump:41udqbXd1z7VbyrnGg3iesZBEqfUEYGjkqZxD6pr2FTPap6LvSwhTKdPVXjrF3oAVHYyQEphqZ292txwitJR8WeQ:H76FDoKbidtHPk8D6swx9mksaAGHuUxVN9PZPSKNU7b7:2.9:pool-v1",
+              "isBuy": false,
+              "rawTokenAmount": "1158",
+              "rawQuoteAmount": "189",
+              "invocationPath": "2.9",
+              "routeKind": "CPI"
+            }
+          ]
+        },
+        {
+          "signature": "2tzr8Dt2mwzXk8JC2JP4jj2MtLSUUv4oEFYoNfVYk2beUHTMSGbiyiTVJ8KmCxjjpVx7UdRrq642FWMrP63ejZhH",
+          "file": "raydium-clmm-2tzr8Dt2mwzX.json",
+          "available": true,
+          "slot": 446701765,
+          "blockTime": 1789302134,
+          "sha256": "aff769baf1b4e4bb35987901e12a54e9c7213c346e88debb1f2c59e4c1955390",
+          "status": "VERIFIED",
+          "reason": null,
+          "nonSwaps": 0,
+          "unclassified": 0,
+          "executions": [
+            {
+              "protocol": "raydium-clmm",
+              "instruction": "swap_v2",
+              "invocationPath": "2.9",
+              "status": "VERIFIED",
+              "reason": null,
+              "eventId": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump:2tzr8Dt2mwzXk8JC2JP4jj2MtLSUUv4oEFYoNfVYk2beUHTMSGbiyiTVJ8KmCxjjpVx7UdRrq642FWMrP63ejZhH:H76FDoKbidtHPk8D6swx9mksaAGHuUxVN9PZPSKNU7b7:2.9:pool-v1"
+            }
+          ],
+          "events": [
+            {
+              "id": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump:2tzr8Dt2mwzXk8JC2JP4jj2MtLSUUv4oEFYoNfVYk2beUHTMSGbiyiTVJ8KmCxjjpVx7UdRrq642FWMrP63ejZhH:H76FDoKbidtHPk8D6swx9mksaAGHuUxVN9PZPSKNU7b7:2.9:pool-v1",
+              "isBuy": false,
+              "rawTokenAmount": "1160",
+              "rawQuoteAmount": "190",
+              "invocationPath": "2.9",
+              "routeKind": "CPI"
+            }
+          ]
+        },
+        {
+          "signature": "5BkGggSGBvaRF5ShL2Doorc1w9gRSAsGfZ61Qe5zCqLLQusAoLYTTmNoDLqtjn92pZbQeNzxVGMn2jBxaAH4AcHk",
+          "file": "raydium-clmm-5BkGggSGBvaR.json",
+          "available": true,
+          "slot": 446701701,
+          "blockTime": 1789302114,
+          "sha256": "590e0556cbae4397f13eb235772ffd446901aea793ba7630fe3e5d5789423192",
+          "status": "VERIFIED",
+          "reason": null,
+          "nonSwaps": 0,
+          "unclassified": 0,
+          "executions": [
+            {
+              "protocol": "raydium-clmm",
+              "instruction": "swap_v2",
+              "invocationPath": "2.9",
+              "status": "VERIFIED",
+              "reason": null,
+              "eventId": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump:5BkGggSGBvaRF5ShL2Doorc1w9gRSAsGfZ61Qe5zCqLLQusAoLYTTmNoDLqtjn92pZbQeNzxVGMn2jBxaAH4AcHk:H76FDoKbidtHPk8D6swx9mksaAGHuUxVN9PZPSKNU7b7:2.9:pool-v1"
+            }
+          ],
+          "events": [
+            {
+              "id": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump:5BkGggSGBvaRF5ShL2Doorc1w9gRSAsGfZ61Qe5zCqLLQusAoLYTTmNoDLqtjn92pZbQeNzxVGMn2jBxaAH4AcHk:H76FDoKbidtHPk8D6swx9mksaAGHuUxVN9PZPSKNU7b7:2.9:pool-v1",
+              "isBuy": false,
+              "rawTokenAmount": "1155",
+              "rawQuoteAmount": "189",
+              "invocationPath": "2.9",
+              "routeKind": "CPI"
+            }
+          ]
+        },
+        {
+          "signature": "5x8beUYZ3s7hgyWY4VssTdTCkqevuqD1KRgxybW6MrXJ5z7c2pw21eJJ3u4NeKD4NzoEPQnup7D99Aw4jqLiUm1x",
+          "file": "raydium-clmm-5x8beUYZ3s7h.json",
+          "available": true,
+          "slot": 446701676,
+          "blockTime": 1789302107,
+          "sha256": "8d7152bd5ea68e20c762be28411cc9f85df5a0619690c213e5417217027e4da2",
+          "status": "VERIFIED",
+          "reason": null,
+          "nonSwaps": 0,
+          "unclassified": 0,
+          "executions": [
+            {
+              "protocol": "raydium-clmm",
+              "instruction": "swap_v2",
+              "invocationPath": "2.9",
+              "status": "VERIFIED",
+              "reason": null,
+              "eventId": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump:5x8beUYZ3s7hgyWY4VssTdTCkqevuqD1KRgxybW6MrXJ5z7c2pw21eJJ3u4NeKD4NzoEPQnup7D99Aw4jqLiUm1x:H76FDoKbidtHPk8D6swx9mksaAGHuUxVN9PZPSKNU7b7:2.9:pool-v1"
+            }
+          ],
+          "events": [
+            {
+              "id": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump:5x8beUYZ3s7hgyWY4VssTdTCkqevuqD1KRgxybW6MrXJ5z7c2pw21eJJ3u4NeKD4NzoEPQnup7D99Aw4jqLiUm1x:H76FDoKbidtHPk8D6swx9mksaAGHuUxVN9PZPSKNU7b7:2.9:pool-v1",
+              "isBuy": false,
+              "rawTokenAmount": "1156",
+              "rawQuoteAmount": "189",
+              "invocationPath": "2.9",
+              "routeKind": "CPI"
+            }
+          ]
+        },
+        {
+          "signature": "3JR2uTQx6yJG2igLJJx9zQCG8bTfY1eR2YMqEUNNr29XfC5P8vXcu9YFYmpxfaKivT2uRBS7uMbMyVGE6VkaM64Q",
+          "file": "raydium-clmm-3JR2uTQx6yJG.json",
+          "available": true,
+          "slot": 446701664,
+          "blockTime": 1789302102,
+          "sha256": "bb20e2300e65bf62508143262610e430b6d012cddf5bff2254f6cf11a55601ee",
+          "status": "VERIFIED",
+          "reason": null,
+          "nonSwaps": 0,
+          "unclassified": 0,
+          "executions": [
+            {
+              "protocol": "raydium-clmm",
+              "instruction": "swap_v2",
+              "invocationPath": "2.13",
+              "status": "VERIFIED",
+              "reason": null,
+              "eventId": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump:3JR2uTQx6yJG2igLJJx9zQCG8bTfY1eR2YMqEUNNr29XfC5P8vXcu9YFYmpxfaKivT2uRBS7uMbMyVGE6VkaM64Q:H76FDoKbidtHPk8D6swx9mksaAGHuUxVN9PZPSKNU7b7:2.13:pool-v1"
+            }
+          ],
+          "events": [
+            {
+              "id": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump:3JR2uTQx6yJG2igLJJx9zQCG8bTfY1eR2YMqEUNNr29XfC5P8vXcu9YFYmpxfaKivT2uRBS7uMbMyVGE6VkaM64Q:H76FDoKbidtHPk8D6swx9mksaAGHuUxVN9PZPSKNU7b7:2.13:pool-v1",
+              "isBuy": false,
+              "rawTokenAmount": "1150",
+              "rawQuoteAmount": "188",
+              "invocationPath": "2.13",
+              "routeKind": "CPI"
+            }
+          ]
+        },
+        {
+          "signature": "2eT4mRxWRc8ukeL3QFzj3XKp3LQ73vf5cDZgtrsup28Hw9Sg59K6M8srQaHk6tt9ytM7LMw3sccUM4VWMxULDiRY",
+          "file": "raydium-clmm-2eT4mRxWRc8u.json",
+          "available": true,
+          "slot": 446701652,
+          "blockTime": 1789302098,
+          "sha256": "73da06f4ca00d1770bbba67992a0569ab35209038224103ac49dd096417d70c4",
+          "status": "VERIFIED",
+          "reason": null,
+          "nonSwaps": 0,
+          "unclassified": 0,
+          "executions": [
+            {
+              "protocol": "raydium-clmm",
+              "instruction": "swap_v2",
+              "invocationPath": "2.13",
+              "status": "VERIFIED",
+              "reason": null,
+              "eventId": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump:2eT4mRxWRc8ukeL3QFzj3XKp3LQ73vf5cDZgtrsup28Hw9Sg59K6M8srQaHk6tt9ytM7LMw3sccUM4VWMxULDiRY:H76FDoKbidtHPk8D6swx9mksaAGHuUxVN9PZPSKNU7b7:2.13:pool-v1"
+            }
+          ],
+          "events": [
+            {
+              "id": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump:2eT4mRxWRc8ukeL3QFzj3XKp3LQ73vf5cDZgtrsup28Hw9Sg59K6M8srQaHk6tt9ytM7LMw3sccUM4VWMxULDiRY:H76FDoKbidtHPk8D6swx9mksaAGHuUxVN9PZPSKNU7b7:2.13:pool-v1",
+              "isBuy": false,
+              "rawTokenAmount": "1150",
+              "rawQuoteAmount": "188",
+              "invocationPath": "2.13",
+              "routeKind": "CPI"
+            }
+          ]
+        },
+        {
+          "signature": "2d6NQdhszUxwEZAsJmeawXXY2FnDQudtSGRHduFiGdT3SpwuHVYw2sgUdi3z7bHne4h71QaQimPLtfF27pcJGaiF",
+          "file": "raydium-clmm-2d6NQdhszUxw.json",
+          "available": true,
+          "slot": 446701627,
+          "blockTime": 1789302091,
+          "sha256": "b791e9e6cbecb672cef4b484aff1424c0f331573176d4f65e70fa18f48a6ed27",
+          "status": "VERIFIED",
+          "reason": null,
+          "nonSwaps": 0,
+          "unclassified": 0,
+          "executions": [
+            {
+              "protocol": "raydium-clmm",
+              "instruction": "swap_v2",
+              "invocationPath": "2.13",
+              "status": "VERIFIED",
+              "reason": null,
+              "eventId": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump:2d6NQdhszUxwEZAsJmeawXXY2FnDQudtSGRHduFiGdT3SpwuHVYw2sgUdi3z7bHne4h71QaQimPLtfF27pcJGaiF:H76FDoKbidtHPk8D6swx9mksaAGHuUxVN9PZPSKNU7b7:2.13:pool-v1"
+            }
+          ],
+          "events": [
+            {
+              "id": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump:2d6NQdhszUxwEZAsJmeawXXY2FnDQudtSGRHduFiGdT3SpwuHVYw2sgUdi3z7bHne4h71QaQimPLtfF27pcJGaiF:H76FDoKbidtHPk8D6swx9mksaAGHuUxVN9PZPSKNU7b7:2.13:pool-v1",
+              "isBuy": false,
+              "rawTokenAmount": "1151",
+              "rawQuoteAmount": "188",
+              "invocationPath": "2.13",
+              "routeKind": "CPI"
+            }
+          ]
+        },
+        {
+          "signature": "5bUPJabXjBAa94ayZddYjUYAvewrF5hjzQqKq7K7UQYbkWU1HWMLg9vhmgeb9qjRXZLpCNBjwKTwBYGTNVNtDZHx",
+          "file": "raydium-clmm-5bUPJabXjBAa.json",
+          "available": true,
+          "slot": 446701613,
+          "blockTime": 1789302086,
+          "sha256": "4d9c42b2df07609fe9d62837c2045d70b6a70d418293e6675bf1751e4760cb66",
+          "status": "VERIFIED",
+          "reason": null,
+          "nonSwaps": 0,
+          "unclassified": 0,
+          "executions": [
+            {
+              "protocol": "raydium-clmm",
+              "instruction": "swap_v2",
+              "invocationPath": "2.13",
+              "status": "VERIFIED",
+              "reason": null,
+              "eventId": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump:5bUPJabXjBAa94ayZddYjUYAvewrF5hjzQqKq7K7UQYbkWU1HWMLg9vhmgeb9qjRXZLpCNBjwKTwBYGTNVNtDZHx:H76FDoKbidtHPk8D6swx9mksaAGHuUxVN9PZPSKNU7b7:2.13:pool-v1"
+            }
+          ],
+          "events": [
+            {
+              "id": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump:5bUPJabXjBAa94ayZddYjUYAvewrF5hjzQqKq7K7UQYbkWU1HWMLg9vhmgeb9qjRXZLpCNBjwKTwBYGTNVNtDZHx:H76FDoKbidtHPk8D6swx9mksaAGHuUxVN9PZPSKNU7b7:2.13:pool-v1",
+              "isBuy": false,
+              "rawTokenAmount": "1151",
+              "rawQuoteAmount": "188",
+              "invocationPath": "2.13",
+              "routeKind": "CPI"
+            }
+          ]
+        },
+        {
+          "signature": "24T8Axb9vAdVpAvVM93Nt6DUp2ZF3ww1ftoiPtvnijKyuczmsUY1cpcgag1ghwDAmJ4hRNhNh1MncThRgNnZiVuC",
+          "file": "raydium-clmm-24T8Axb9vAdV.json",
+          "available": true,
+          "slot": 446701600,
+          "blockTime": 1789302082,
+          "sha256": "3bb1016203636444761665f4a6efb116b75a8cbea0c5ebfefe3ea02774933f81",
+          "status": "VERIFIED",
+          "reason": null,
+          "nonSwaps": 0,
+          "unclassified": 0,
+          "executions": [
+            {
+              "protocol": "raydium-clmm",
+              "instruction": "swap_v2",
+              "invocationPath": "2.13",
+              "status": "VERIFIED",
+              "reason": null,
+              "eventId": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump:24T8Axb9vAdVpAvVM93Nt6DUp2ZF3ww1ftoiPtvnijKyuczmsUY1cpcgag1ghwDAmJ4hRNhNh1MncThRgNnZiVuC:H76FDoKbidtHPk8D6swx9mksaAGHuUxVN9PZPSKNU7b7:2.13:pool-v1"
+            }
+          ],
+          "events": [
+            {
+              "id": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump:24T8Axb9vAdVpAvVM93Nt6DUp2ZF3ww1ftoiPtvnijKyuczmsUY1cpcgag1ghwDAmJ4hRNhNh1MncThRgNnZiVuC:H76FDoKbidtHPk8D6swx9mksaAGHuUxVN9PZPSKNU7b7:2.13:pool-v1",
+              "isBuy": false,
+              "rawTokenAmount": "1151",
+              "rawQuoteAmount": "188",
+              "invocationPath": "2.13",
+              "routeKind": "CPI"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "fresh": [
+    {
+      "market": {
+        "address": "CLBMvshnwBsCYKEm1HMPEt4acocom65cbeAezRCNf7yX",
+        "poolAddress": "CLBMvshnwBsCYKEm1HMPEt4acocom65cbeAezRCNf7yX",
+        "tokenMint": "4N7fcsLHFCdUuMHu9LcFfBBvEr5B8hp8dg17Wf26pump",
+        "quoteMint": "So11111111111111111111111111111111111111112",
+        "mints": [
+          "4N7fcsLHFCdUuMHu9LcFfBBvEr5B8hp8dg17Wf26pump",
+          "So11111111111111111111111111111111111111112"
+        ],
+        "vaults": [
+          "BKvcVMtMBVowPxssNWmakVcwmW6MiTQYCvXk8LaApQfS",
+          "Y5HxWAmQuEExjLPL11HkSJADdfbtZy9T6fW37jzMTcq"
+        ],
+        "programId": "pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA",
+        "protocol": "pumpswap",
+        "lifecycle": "AMM",
+        "identityEvidence": "POOL_STATE_AND_VAULTS",
+        "stateLayout": "pumpswap-account-v1",
+        "tokenPrograms": [
+          "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+          "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        ],
+        "verifiedAtSlot": 446703443,
+        "compatibility": "POOL_STATE_AND_VAULTS_VERIFIED",
+        "sourceEpoch": 1
+      },
+      "signature": "2GQNF37KAqTcNx6pwmw78mbcTzyYohardmuqvfu633iAdfLWH3Hx7enKBCSbsuRCWoAZy4nQVegDtD2ukz8uqC3h",
+      "observedAt": 1789302666168,
+      "providerPairCreatedAt": 1789258838000,
+      "providerPoolAgeHours": 12.174491111111111,
+      "actualSwapCandidates": 1,
+      "verifiedExecutions": 1,
+      "sha256": "51f01893b4ca7a1594d40dad9d4d0bb07ff7cc58dcd64c4b338d144b3dadb44f",
+      "poolAccount": {
+        "data": [
+          "8ZptBBGxbbz/AAAIQ+kNaMViNFui5qLD6omtuZTN+cWEZzQemlDpMAsfxzH7y3t7Aomrz6oK08Gshhlfo5HuPrWUCkL681ByVOm/BpuIV/6rgYT7aH9jRhjANdrEOdwa6ztVmKDwAAAAAAEAUKJHUB/Em+TVPx7eQyZE+yXWkeJJT3/mpy4urkg2Uplt8WaTTLtmvlduEZFrY90duGf1R7vFIIkZPvS6SPa5B/XbxKkP7su1JSq0T96YI4CCKq1vb2nWhqVqT+ccFTbsQmtZ0AMAAI52hHVRWH/vBcEYwrhQMt42SQSq1pOv1R2/h5u8Xb/YAADIQR4YBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+          "base64"
+        ],
+        "executable": false,
+        "lamports": 2179320,
+        "owner": "pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA",
+        "rentEpoch": 18446744073709552000,
+        "space": 301
+      },
+      "vaultAccounts": {
+        "context": {
+          "apiVersion": "4.3.0-rc.0",
+          "slot": 446703443
+        },
+        "value": [
+          {
+            "data": [
+              "MfvLe3sCiavPqgrTwayGGV+jke4+tZQKQvrzUHJU6b+oWk59nh5W27xM7LuXn8QFphtq4ZMxRHfi08MtilMNRir5RH0EAgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgcAAAA=",
+              "base64"
+            ],
+            "executable": false,
+            "lamports": 1513840,
+            "owner": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+            "rentEpoch": 18446744073709552000,
+            "space": 170
+          },
+          {
+            "data": [
+              "BpuIV/6rgYT7aH9jRhjANdrEOdwa6ztVmKDwAAAAAAGoWk59nh5W27xM7LuXn8QFphtq4ZMxRHfi08MtilMNRrzTBDM5BwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQEAAAA4thYAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+              "base64"
+            ],
+            "executable": false,
+            "lamports": 7942251973108,
+            "owner": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+            "rentEpoch": 18446744073709552000,
+            "space": 165
+          }
+        ]
+      }
+    },
+    {
+      "market": {
+        "address": "DNzx81DpSybnZNaHipBBNeyDHfyJdEoy6ymW5BJtiEty",
+        "poolAddress": "DNzx81DpSybnZNaHipBBNeyDHfyJdEoy6ymW5BJtiEty",
+        "tokenMint": "67QR3aSt4MU4htHb8sNsaSsG6Wf9HQtXqBJkqxwgpump",
+        "quoteMint": "So11111111111111111111111111111111111111112",
+        "mints": [
+          "67QR3aSt4MU4htHb8sNsaSsG6Wf9HQtXqBJkqxwgpump",
+          "So11111111111111111111111111111111111111112"
+        ],
+        "vaults": [
+          "BEk6gDzhpPEWMwb4cogotwEK3YPfDnyax5KEUapCRRe8",
+          "DA6W8nKuwcmtiaUT8knzemePB379a5VeahLfFWkqYKcb"
+        ],
+        "programId": "pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA",
+        "protocol": "pumpswap",
+        "lifecycle": "AMM",
+        "identityEvidence": "POOL_STATE_AND_VAULTS",
+        "stateLayout": "pumpswap-account-v1",
+        "tokenPrograms": [
+          "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+          "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        ],
+        "verifiedAtSlot": 446703475,
+        "compatibility": "POOL_STATE_AND_VAULTS_VERIFIED",
+        "sourceEpoch": 1
+      },
+      "signature": "JCht9fGofLAqKN1wGnFFQ4AMACKYShisfZkP23r8VSNvPEPeWCTX7crQtbTsubLJ5yt7qJ1P8j3r1At7SGmJrhG",
+      "observedAt": 1789302676336,
+      "providerPairCreatedAt": 1789299832000,
+      "providerPoolAgeHours": 0.7900933333333333,
+      "actualSwapCandidates": 1,
+      "verifiedExecutions": 1,
+      "sha256": "b93cfc45e4ad22eb5cc0e587c40201608d371e128d32319ff89cdbb5f4d3d645",
+      "poolAccount": {
+        "data": [
+          "8ZptBBGxbbz/AADaLAwb2bvPvse3KZMw6h/i+SvT9sZA0PLo1uZWL41KMEvuZPg4WTyLqYWkCeTeDTg+FHEeDJHvmbz2QuRvsAy/BpuIV/6rgYT7aH9jRhjANdrEOdwa6ztVmKDwAAAAAAHL5Bdglc1lZ07VvqJwKXrTziO2/5EVpnNmWqRvn+5FbpgaJpPwwNpp7ncoi77AkFGRJ9UAUypcoa8FXKDBwCJZtKCxH0JyYFkpGwq38/JYgGaQizJXUe504SFtOhH8aJDsQmtZ0AMAAJk5qvzf7u/uu9R9NQ35AdcatR0WcPAbhh3BIRL+wKKgAADIQR4YBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+          "base64"
+        ],
+        "executable": false,
+        "lamports": 2179320,
+        "owner": "pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA",
+        "rentEpoch": 18446744073709552000,
+        "space": 301
+      },
+      "vaultAccounts": {
+        "context": {
+          "apiVersion": "4.3.0-rc.0",
+          "slot": 446703475
+        },
+        "value": [
+          {
+            "data": [
+              "S+5k+DhZPIuphaQJ5N4NOD4UcR4Mke+ZvPZC5G+wDL+37vb8K7+c1RXRJjlANntxphc67n8/RvpVvQBDO5dWUqJxQul+BwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgcAAAA=",
+              "base64"
+            ],
+            "executable": false,
+            "lamports": 1513840,
+            "owner": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+            "rentEpoch": 18446744073709552000,
+            "space": 170
+          },
+          {
+            "data": [
+              "BpuIV/6rgYT7aH9jRhjANdrEOdwa6ztVmKDwAAAAAAG37vb8K7+c1RXRJjlANntxphc67n8/RvpVvQBDO5dWUlQmacTtAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQEAAAA4thYAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+              "base64"
+            ],
+            "executable": false,
+            "lamports": 2120715590796,
+            "owner": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+            "rentEpoch": 18446744073709552000,
+            "space": 165
+          }
+        ]
+      }
+    },
+    {
+      "market": {
+        "address": "DiG86gt1CiTjBGgEb94LiAZHHiuF7n8t2j9V56iJMJCP",
+        "poolAddress": "DiG86gt1CiTjBGgEb94LiAZHHiuF7n8t2j9V56iJMJCP",
+        "tokenMint": "F8rBqHYGou7jimo6rz4QULGKzjb9NeXiNziexWr2pump",
+        "quoteMint": "So11111111111111111111111111111111111111112",
+        "mints": [
+          "F8rBqHYGou7jimo6rz4QULGKzjb9NeXiNziexWr2pump",
+          "So11111111111111111111111111111111111111112"
+        ],
+        "vaults": [
+          "DZNhLhA8njM98PSWL9erq2epvzDPhbcsdbZQZMVkpcoZ",
+          "Di7ZRKkvkrdZYGeDb35mi3YaQhq4W4s73YzXxijgohpL"
+        ],
+        "programId": "pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA",
+        "protocol": "pumpswap",
+        "lifecycle": "AMM",
+        "identityEvidence": "POOL_STATE_AND_VAULTS",
+        "stateLayout": "pumpswap-account-v1",
+        "tokenPrograms": [
+          "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+          "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        ],
+        "verifiedAtSlot": 446703561,
+        "compatibility": "POOL_STATE_AND_VAULTS_VERIFIED",
+        "sourceEpoch": 1
+      },
+      "signature": "xpHzYah8jEcrQubRjJXFyy1ZjLUaGUaPTXVaj9Apvzhmd1rSgicyexXNT53iXrCD3Pbh58CWttUsmkcMA3XWPcV",
+      "observedAt": 1789302703465,
+      "providerPairCreatedAt": 1789298454000,
+      "providerPoolAgeHours": 1.1804069444444445,
+      "actualSwapCandidates": 1,
+      "verifiedExecutions": 1,
+      "sha256": "61b35a2ef7b5df2943e356b2dbc65322d8d2cc611c3bac5cd9c8ab5f434e1a4f",
+      "poolAccount": {
+        "data": [
+          "8ZptBBGxbbz/AACxU/tuEf+yoe8RYPgVTgilu+svRfgkbgnASWuXxzkaPdIGTFyScRMHASzMJtCqG/J05EgnM0YMJSCtOKn0gDU/BpuIV/6rgYT7aH9jRhjANdrEOdwa6ztVmKDwAAAAAAGb83dN3wD1j38anM7GbMTE64RYd+js1M5wEXGH90VgcbqXXDXdGmSMW+x4tV7pUxIIWxcbD2FO/ou8Gmzcmp8AvNR49zLzxqc5sXoARHOKIWjKVDXUVEWDnvo9Q71MCvnsQmtZ0AMAANn3Dl2Af7SsOwBXMnHELttFKIPnjksSsXWjmA/UDQ0oAADIQR4YBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+          "base64"
+        ],
+        "executable": false,
+        "lamports": 2179320,
+        "owner": "pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA",
+        "rentEpoch": 18446744073709552000,
+        "space": 301
+      },
+      "vaultAccounts": {
+        "context": {
+          "apiVersion": "4.3.0-rc.0",
+          "slot": 446703561
+        },
+        "value": [
+          {
+            "data": [
+              "0gZMXJJxEwcBLMwm0Kob8nTkSCczRgwlIK04qfSANT+83ie8YwmCW/GNVj4HuRPLB8W4uQE3xfYlCFJGhbA3CEX2iJwaGgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgcAAAA=",
+              "base64"
+            ],
+            "executable": false,
+            "lamports": 1513840,
+            "owner": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+            "rentEpoch": 18446744073709552000,
+            "space": 170
+          },
+          {
+            "data": [
+              "BpuIV/6rgYT7aH9jRhjANdrEOdwa6ztVmKDwAAAAAAG83ie8YwmCW/GNVj4HuRPLB8W4uQE3xfYlCFJGhbA3CJ41IACLAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQEAAAA4thYAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+              "base64"
+            ],
+            "executable": false,
+            "lamports": 597004053462,
+            "owner": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+            "rentEpoch": 18446744073709552000,
+            "space": 165
+          }
+        ]
+      }
+    },
+    {
+      "market": {
+        "address": "7eQrBLRuXhG2nY7RN4kGbMQyX7ZsHopfLpaSBPFrp9qp",
+        "poolAddress": "7eQrBLRuXhG2nY7RN4kGbMQyX7ZsHopfLpaSBPFrp9qp",
+        "tokenMint": "F46H2QLqv9JznhJsMS2PgUFosPUVRVWDtQf94ynGpump",
+        "quoteMint": "So11111111111111111111111111111111111111112",
+        "mints": [
+          "F46H2QLqv9JznhJsMS2PgUFosPUVRVWDtQf94ynGpump",
+          "So11111111111111111111111111111111111111112"
+        ],
+        "vaults": [
+          "6aa2QMXD3A1QzXcdBa5dBskJCgvMpvjbraUzKRsV23yF",
+          "TK1sZS8rfiA5efMQsTMbW9YstznxmYZEDPz3uboeKDj"
+        ],
+        "programId": "pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA",
+        "protocol": "pumpswap",
+        "lifecycle": "AMM",
+        "identityEvidence": "POOL_STATE_AND_VAULTS",
+        "stateLayout": "pumpswap-account-v1",
+        "tokenPrograms": [
+          "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+          "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        ],
+        "verifiedAtSlot": 446703593,
+        "compatibility": "POOL_STATE_AND_VAULTS_VERIFIED",
+        "sourceEpoch": 1
+      },
+      "signature": "3wL4UZjAEgc5959pZv1PiiJ1L3JrG7oqYGj6W3zshhWsFc1P59s4q3bAVpxjtRTfLXy8X2V6VUSCZo8qJ4SVaB9",
+      "observedAt": 1789302713661,
+      "providerPairCreatedAt": 1789302459000,
+      "providerPoolAgeHours": 0.07073916666666667,
+      "actualSwapCandidates": 1,
+      "verifiedExecutions": 1,
+      "sha256": "8ac9a270ad8c25644717c1a06aefbb745b2ffb960df8b54aa21659da1fa34d59",
+      "poolAccount": {
+        "data": [
+          "8ZptBBGxbbz9AACskr05O69mxLjAYkKLK5SBBevJ/ypzHVRtI2Xs5tHvQtDOU0ccP/CU66GDE6FO2YU/nFgRR8yAh2JBXqOwxElfBpuIV/6rgYT7aH9jRhjANdrEOdwa6ztVmKDwAAAAAAEm2esMhOF4sUuwX3wu/3p6lzbY49Zu7+P2scZdSPvL1VLj8SADd1rZ1rffQsC++FXeY2Y/k8a++9x3xiAuPr4uBr14f3Mw9VcE2p8GV3Z2wRajtwLk8YlGDXBH11R5VlI+YmtZ0AMAAGS0RwLs7drhJUjulsAbGox/O2eh41a2JX22q54BNN0nAAALQh4YBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+          "base64"
+        ],
+        "executable": false,
+        "lamports": 2179320,
+        "owner": "pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA",
+        "rentEpoch": 18446744073709552000,
+        "space": 301
+      },
+      "vaultAccounts": {
+        "context": {
+          "apiVersion": "4.3.0-rc.0",
+          "slot": 446703593
+        },
+        "value": [
+          {
+            "data": [
+              "0M5TRxw/8JTroYMToU7ZhT+cWBFHzICHYkFeo7DESV9iu5OO9leozeQY1EV/N9TjiPX6O6mg9SivJgAXtpsp1zuejTW/ggAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+              "base64"
+            ],
+            "executable": false,
+            "lamports": 1488440,
+            "owner": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+            "rentEpoch": 18446744073709552000,
+            "space": 165
+          },
+          {
+            "data": [
+              "BpuIV/6rgYT7aH9jRhjANdrEOdwa6ztVmKDwAAAAAAFiu5OO9leozeQY1EV/N9TjiPX6O6mg9SivJgAXtpsp13wk7D8aAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQEAAAA4thYAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+              "base64"
+            ],
+            "executable": false,
+            "lamports": 112743078580,
+            "owner": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+            "rentEpoch": 18446744073709552000,
+            "space": 165
+          }
+        ]
+      }
+    }
+  ],
+  "curve": {
+    "mentions": 10,
+    "failedTransactions": 8,
+    "successfulSwapCandidates": 1,
+    "verifiedExecutions": 0,
+    "records": [
+      {
+        "signature": "3RLJrb5MBfKiLvmLDJn11ME1juwCae23aNZcViDKobS2wUCf9tFwTj2MP4df2RBV4Ec9KKvbwFn4gmK4Pn8cRm2E",
+        "file": "curve-3RLJrb5MBfKi.json",
+        "slot": 446702861,
+        "blockTime": 1789302480,
+        "failed": true,
+        "instructions": [
+          {
+            "kind": "SWAP",
+            "name": "buy_exact_sol_in"
+          }
+        ],
+        "sha256": "f043c862f7340f1c6ec1c2f9cfaefeca684250c760a859c56efa7a90bc50bf40"
+      },
+      {
+        "signature": "536Us991Wh7aPfpeqGSdDsigVhKhHsLhyyPYYN45z3MDss8Qsu4pUZkV87J9GV1b9Sds7R2HMrn9Bq8ngtr3XcG2",
+        "file": "curve-536Us991Wh7a.json",
+        "slot": 446702861,
+        "blockTime": 1789302480,
+        "failed": true,
+        "instructions": [
+          {
+            "kind": "SWAP",
+            "name": "buy_exact_sol_in"
+          }
+        ],
+        "sha256": "f7bc91bc29f70f096ab56d352712143e3d530994adaa22c040eae1ea0e17bf02"
+      },
+      {
+        "signature": "44yLq7qA97UxZrDecfJw3DjGna4mV7HL2hntYeCiBVRhhkozP3ZtGFNftZfanMvqT8axEvKuLBWB4KqeR94WcqAM",
+        "file": "curve-44yLq7qA97Ux.json",
+        "slot": 446702861,
+        "blockTime": 1789302480,
+        "failed": true,
+        "instructions": [
+          {
+            "kind": "SWAP",
+            "name": "buy_exact_sol_in"
+          }
+        ],
+        "sha256": "c64c933b264c43205fd52b33b0e032fa35b8a8a2a9195b565cf3c9e1918bdbc6"
+      },
+      {
+        "signature": "5PLzrxBbYJ7vbTckVgkxVdU4eZLyq48yoHvEkSFZbamJKnhoLRbHsNhiich1PZkUVcL48sqD7xSgWUG8MWjVTXoU",
+        "file": "curve-5PLzrxBbYJ7v.json",
+        "slot": 446702861,
+        "blockTime": 1789302480,
+        "failed": false,
+        "instructions": [
+          {
+            "kind": "SWAP",
+            "name": "sell_v2"
+          },
+          {
+            "kind": "UNCLASSIFIED",
+            "name": null
+          }
+        ],
+        "sha256": "071f256a77a029ae23d565a01be05feb4b97cd5d257e865d73245531be8dff00"
+      },
+      {
+        "signature": "4TChEveyWCPMDm7thCoUD6xKY4ikd19X3qfCLrcZTnYnWZPwETbJbP6tobxk1rUiXN4yHM99whhgeqx9HyHAcWDo",
+        "file": "curve-4TChEveyWCPM.json",
+        "slot": 446702861,
+        "blockTime": 1789302480,
+        "failed": true,
+        "instructions": [
+          {
+            "kind": "SWAP",
+            "name": "buy_exact_sol_in"
+          }
+        ],
+        "sha256": "c064183289e630bf0f0bfdeeec4473af09e48b7ed4bd64d4d6bf4dfc5131eee2"
+      },
+      {
+        "signature": "EXkEg3J1BLUTunQVpYTAmhaGHpjtNagH2qkUJCgwwx7MrsUSYoWCvXnDs1V3pjGVjtBDMFo5MznLwTPntP1CPKW",
+        "file": "curve-EXkEg3J1BLUT.json",
+        "slot": 446702861,
+        "blockTime": 1789302480,
+        "failed": true,
+        "instructions": [
+          {
+            "kind": "SWAP",
+            "name": "buy_exact_sol_in"
+          }
+        ],
+        "sha256": "cbdd718812e2aa841943c3326df0ad83e6657025cf6431266fd6a11c2d254142"
+      },
+      {
+        "signature": "oTKuWqwvrToxzWsFVDyo9au3QpSW4118oovYTEH38QNjybKt5fLbMZotowD4VR5zZo9KWtc1AnRo11nwa5nia2y",
+        "file": "curve-oTKuWqwvrTox.json",
+        "slot": 446702861,
+        "blockTime": 1789302480,
+        "failed": true,
+        "instructions": [
+          {
+            "kind": "SWAP",
+            "name": "buy_exact_sol_in"
+          }
+        ],
+        "sha256": "dbbc5f77e5ed427a2c61f3ec9114a9a50ce962392d7305a094dfbe7a1363cb41"
+      },
+      {
+        "signature": "BnY9CezrZ2QP7fMp9mXxWAJTyzLWM3iuPznMjKTReMkdMF4ugrzGDBLdfg31jV9hZV6ifrEe5if2uw85yHEDZ9E",
+        "file": "curve-BnY9CezrZ2QP.json",
+        "slot": 446702861,
+        "blockTime": 1789302480,
+        "failed": true,
+        "instructions": [
+          {
+            "kind": "SWAP",
+            "name": "buy_exact_sol_in"
+          }
+        ],
+        "sha256": "379f0360074eb4943a213a7d7c6b29bbb288cea8c6acaf61c6368d33f5fc7153"
+      },
+      {
+        "signature": "5QJVw5M6vUoNWrQreUSpd1g9DmKhkLFLPEo96kEcD6zqSygxwkqteQcJoU4Z9PER79NnAMRjFvep2eGEcpV7ZBVh",
+        "file": "curve-5QJVw5M6vUoN.json",
+        "slot": 446702861,
+        "blockTime": 1789302480,
+        "failed": true,
+        "instructions": [
+          {
+            "kind": "SWAP",
+            "name": "buy_exact_sol_in"
+          }
+        ],
+        "sha256": "b4dabd4544d05b2d005ec4037535ceaaaaa1e781ffe1c1d2f603459b95b6bffa"
+      },
+      {
+        "signature": "kcXth4fUNczqVhq8P4G7BJhxa3ZMa8a84HUeNohsMyfxJx2EBxb9q5HJsiV6puWg2wVi1JBmDcBzasLfTUjCppM",
+        "file": "curve-kcXth4fUNczq.json",
+        "slot": 446702861,
+        "blockTime": 1789302480,
+        "failed": false,
+        "instructions": [
+          {
+            "kind": "NON_SWAP",
+            "name": "collect_creator_fee"
+          }
+        ],
+        "sha256": "c530b494a31cf2a5fd0d19ae79c1482eddd30722eebbdb5b5ce00d79378c3f33"
+      }
+    ],
+    "states": [
+      {
+        "file": "curve-5PLzrxBbYJ7v.json",
+        "signature": "5PLzrxBbYJ7vbTckVgkxVdU4eZLyq48yoHvEkSFZbamJKnhoLRbHsNhiich1PZkUVcL48sqD7xSgWUG8MWjVTXoU",
+        "mint": "4Q1U6xAMZ43TMQHFnbfM3mVWubVuUJ1LDx5pwLRUckTH",
+        "curve": "4qR3PjoZWWpwZmMx8yt2VyipDidbvp34YsgBwPLCLofR",
+        "vault": "6MtPHuwpN5Soihc8yCMU3BfHs6WfyaVqCEmE5HVNmpp3",
+        "state": {
+          "context": {
+            "apiVersion": "4.3.0-rc.0",
+            "slot": 446703388
+          },
+          "value": [
+            {
+              "data": [
+                "F7f4N2DYrGBkjRsyDWwDAKRjezQAAAAAZPUI5nttAgB2e14FAAAAAACAxqR+jQMAAJsrRZs7QcrRebJ4yrvjPBs8waFTlp4aHIUBWndmBMooAAAGf3Kzwbp5vVZXOwfMSCxZT0gWPiWpriYI0S0l787sJSwBAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+                "base64"
+              ],
+              "executable": false,
+              "lamports": 1417320,
+              "owner": "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P",
+              "rentEpoch": 18446744073709552000,
+              "space": 151
+            },
+            {
+              "data": [
+                "Mnfyn7+aZuSH6RnhpKPECQcGICRLqErFQclMTkAiBug4+h+Frz48ASTIE7rwvNVVfAbMlnOpXc6rqKfTgUARNGT9CY+oKQMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgcAAAA=",
+                "base64"
+              ],
+              "executable": false,
+              "lamports": 1513840,
+              "owner": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+              "rentEpoch": 18446744073709552000,
+              "space": 170
+            }
+          ]
+        },
+        "complete": false,
+        "curveOwner": "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P",
+        "vaultMint": "4Q1U6xAMZ43TMQHFnbfM3mVWubVuUJ1LDx5pwLRUckTH"
+      }
+    ]
+  },
+  "graduation": [
+    {
+      "mint": "4N7fcsLHFCdUuMHu9LcFfBBvEr5B8hp8dg17Wf26pump",
+      "pool": "CLBMvshnwBsCYKEm1HMPEt4acocom65cbeAezRCNf7yX",
+      "curve": "FFunDcMEsEicQXARzWCmdEkvxQicYieSLfL4Thszqh8t",
+      "poolAuthority": "ZGKfhhYkvCJ9VDtiwNR77RiSCYgyqibc3UJofJAeKWv",
+      "canonicalMigrationPdasVerified": true,
+      "complete": true,
+      "checkedAt": 1789303236860,
+      "slot": 446705262,
+      "account": {
+        "data": [
+          "F7f4N2DYrGAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAxqR+jQMAAY52hHVRWH/vBcEYwrhQMt42SQSq1pOv1R2/h5u8Xb/YAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+          "base64"
+        ],
+        "executable": false,
+        "lamports": 1285240,
+        "owner": "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P",
+        "rentEpoch": 18446744073709552000,
+        "space": 125
+      }
+    },
+    {
+      "mint": "67QR3aSt4MU4htHb8sNsaSsG6Wf9HQtXqBJkqxwgpump",
+      "pool": "DNzx81DpSybnZNaHipBBNeyDHfyJdEoy6ymW5BJtiEty",
+      "curve": "7UTsSoG34MnkxVgnXPHp5H72sHfhjyZq1fAqf4EgZbdQ",
+      "poolAuthority": "FgeqMo1hXKyAzMeSA4wAwGkwuiBSAh26CsWx9FtTsixf",
+      "canonicalMigrationPdasVerified": true,
+      "complete": true,
+      "checkedAt": 1789303240508,
+      "slot": 446705274,
+      "account": {
+        "data": [
+          "F7f4N2DYrGAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAxqR+jQMAAZk5qvzf7u/uu9R9NQ35AdcatR0WcPAbhh3BIRL+wKKgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+          "base64"
+        ],
+        "executable": false,
+        "lamports": 1285240,
+        "owner": "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P",
+        "rentEpoch": 18446744073709552000,
+        "space": 125
+      }
+    },
+    {
+      "mint": "F8rBqHYGou7jimo6rz4QULGKzjb9NeXiNziexWr2pump",
+      "pool": "DiG86gt1CiTjBGgEb94LiAZHHiuF7n8t2j9V56iJMJCP",
+      "curve": "5QeTZcxAXJ4Cee5gdkgcWq4mvv91byB4MM8Ke7UFy7r",
+      "poolAuthority": "CwDSLCVbcUkQWwSC7wqjVjaap9syMnfdY9sBf4EWZ92t",
+      "canonicalMigrationPdasVerified": true,
+      "complete": true,
+      "checkedAt": 1789303244238,
+      "slot": 446705285,
+      "account": {
+        "data": [
+          "F7f4N2DYrGAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAxqR+jQMAAdn3Dl2Af7SsOwBXMnHELttFKIPnjksSsXWjmA/UDQ0oAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+          "base64"
+        ],
+        "executable": false,
+        "lamports": 1285240,
+        "owner": "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P",
+        "rentEpoch": 18446744073709552000,
+        "space": 125
+      }
+    },
+    {
+      "mint": "F46H2QLqv9JznhJsMS2PgUFosPUVRVWDtQf94ynGpump",
+      "pool": "7eQrBLRuXhG2nY7RN4kGbMQyX7ZsHopfLpaSBPFrp9qp",
+      "curve": "5FKZkJjrXPe5AGoUXYDpxSAMd38JT6ffRbrVNDtZ9dzv",
+      "poolAuthority": "CceuFWyxxGMwwnxuvb5mASdvHujCigpT9qxy1d8Fdvuf",
+      "canonicalMigrationPdasVerified": true,
+      "complete": true,
+      "checkedAt": 1789303247876,
+      "slot": 446705297,
+      "account": {
+        "data": [
+          "F7f4N2DYrGAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAxqR+jQMAAWS0RwLs7drhJUjulsAbGox/O2eh41a2JX22q54BNN0nAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+          "base64"
+        ],
+        "executable": false,
+        "lamports": 1417320,
+        "owner": "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P",
+        "rentEpoch": 18446744073709552000,
+        "space": 151
+      }
+    }
+  ],
+  "freshSelections": [
+    {
+      "mint": "4N7fcsLHFCdUuMHu9LcFfBBvEr5B8hp8dg17Wf26pump",
+      "observedAt": 1789303782543,
+      "executedPool": "CLBMvshnwBsCYKEm1HMPEt4acocom65cbeAezRCNf7yX",
+      "selection": {
+        "tokenMint": "4N7fcsLHFCdUuMHu9LcFfBBvEr5B8hp8dg17Wf26pump",
+        "pairAddress": "CLBMvshnwBsCYKEm1HMPEt4acocom65cbeAezRCNf7yX",
+        "dexId": "pumpswap",
+        "baseMint": "4N7fcsLHFCdUuMHu9LcFfBBvEr5B8hp8dg17Wf26pump",
+        "quoteMint": "So11111111111111111111111111111111111111112",
+        "liquidityUsd": 1600834.99,
+        "selectionReason": "BEST_AVAILABLE",
+        "selectedAt": 1789303782542,
+        "source": "dexscreener",
+        "sourceEpoch": 1,
+        "evidenceLevel": "PROVIDER_INDICATIVE"
+      },
+      "canonicalMatches": true
+    },
+    {
+      "mint": "67QR3aSt4MU4htHb8sNsaSsG6Wf9HQtXqBJkqxwgpump",
+      "observedAt": 1789303782618,
+      "executedPool": "DNzx81DpSybnZNaHipBBNeyDHfyJdEoy6ymW5BJtiEty",
+      "selection": {
+        "tokenMint": "67QR3aSt4MU4htHb8sNsaSsG6Wf9HQtXqBJkqxwgpump",
+        "pairAddress": "DNzx81DpSybnZNaHipBBNeyDHfyJdEoy6ymW5BJtiEty",
+        "dexId": "pumpswap",
+        "baseMint": "67QR3aSt4MU4htHb8sNsaSsG6Wf9HQtXqBJkqxwgpump",
+        "quoteMint": "So11111111111111111111111111111111111111112",
+        "liquidityUsd": 428257.75,
+        "selectionReason": "BEST_AVAILABLE",
+        "selectedAt": 1789303782618,
+        "source": "dexscreener",
+        "sourceEpoch": 1,
+        "evidenceLevel": "PROVIDER_INDICATIVE"
+      },
+      "canonicalMatches": true
+    },
+    {
+      "mint": "F8rBqHYGou7jimo6rz4QULGKzjb9NeXiNziexWr2pump",
+      "observedAt": 1789303782783,
+      "executedPool": "DiG86gt1CiTjBGgEb94LiAZHHiuF7n8t2j9V56iJMJCP",
+      "selection": {
+        "tokenMint": "F8rBqHYGou7jimo6rz4QULGKzjb9NeXiNziexWr2pump",
+        "pairAddress": "DiG86gt1CiTjBGgEb94LiAZHHiuF7n8t2j9V56iJMJCP",
+        "dexId": "pumpswap",
+        "baseMint": "F8rBqHYGou7jimo6rz4QULGKzjb9NeXiNziexWr2pump",
+        "quoteMint": "So11111111111111111111111111111111111111112",
+        "liquidityUsd": 125964.81,
+        "selectionReason": "BEST_AVAILABLE",
+        "selectedAt": 1789303782783,
+        "source": "dexscreener",
+        "sourceEpoch": 1,
+        "evidenceLevel": "PROVIDER_INDICATIVE"
+      },
+      "canonicalMatches": true
+    },
+    {
+      "mint": "F46H2QLqv9JznhJsMS2PgUFosPUVRVWDtQf94ynGpump",
+      "observedAt": 1789303782864,
+      "executedPool": "7eQrBLRuXhG2nY7RN4kGbMQyX7ZsHopfLpaSBPFrp9qp",
+      "selection": {
+        "tokenMint": "F46H2QLqv9JznhJsMS2PgUFosPUVRVWDtQf94ynGpump",
+        "pairAddress": "7eQrBLRuXhG2nY7RN4kGbMQyX7ZsHopfLpaSBPFrp9qp",
+        "dexId": "pumpswap",
+        "baseMint": "F46H2QLqv9JznhJsMS2PgUFosPUVRVWDtQf94ynGpump",
+        "quoteMint": "So11111111111111111111111111111111111111112",
+        "liquidityUsd": 2621.63,
+        "selectionReason": "BEST_AVAILABLE",
+        "selectedAt": 1789303782863,
+        "source": "dexscreener",
+        "sourceEpoch": 1,
+        "evidenceLevel": "PROVIDER_INDICATIVE"
+      },
+      "canonicalMatches": true
+    }
+  ]
+}

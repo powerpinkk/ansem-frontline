@@ -2,6 +2,8 @@ import { CONFIG } from './config.js';
 import { deriveBattleTactics } from './market.js';
 import { state } from './state.js';
 import { ANSEM_THEME } from './theme-presets.js';
+import { valuationLabel } from './market-valuation.js';
+import { formatQuote, formatUsdEstimate } from './notional.js';
 
 const DOM = {};
 let miniChartCtx = null;
@@ -115,13 +117,24 @@ export function setConnectionStatus(status) {
     DOM.connectionLabel.textContent = CONNECTION_LABELS[status] || status.toUpperCase();
 }
 
-export function updateMarketUI({ price, mcap, chg, pools, coverage, referencePool }) {
+export function updateValuationUI(provider = state.valuation) {
+    const valuation = state.canonicalValuation?.authorityEligible ? state.canonicalValuation : provider;
     if (DOM.mcapValue) {
+        const mcap = valuation?.valueUsd;
+        document.querySelector('#mcap-box .info-label').textContent = valuation?.kind==='PROTOCOL_MARKET_CAP'?'PUMP MC':valuationLabel(valuation);
+        DOM.mcapValue.title = valuation?.kind==='PROTOCOL_MARKET_CAP'
+            ? `Pump protocol market cap · ${valuation.supplyBasis} · on-chain state + Pyth USD quote · ${valuation.freshness}`
+            : `${valuation?.source || 'unavailable'} · ${valuation?.freshness || 'UNAVAILABLE'} · provider indicative`;
+        if (!(mcap > 0) || valuation?.kind === 'UNKNOWN') DOM.mcapValue.textContent = '—';
+        else
         DOM.mcapValue.textContent = mcap > 1_000_000
             ? `$${(mcap / 1_000_000).toFixed(2)}M`
             : `$${(mcap / 1000).toFixed(1)}K`;
     }
+}
 
+export function updateMarketUI({ price, valuation, chg, pools, coverage, referencePool }) {
+    updateValuationUI(valuation);
     if (DOM.price) {
         DOM.price.textContent = `$${price.toFixed(6)}`;
     }
@@ -193,7 +206,8 @@ export function updateDashboardUI() {
         sceneCallbacks.setFrontlineState(frontlineState);
         if (DOM.pressureVolume) {
             setText(DOM.pressureVolume, `${formatSol(state.buySol60s)} / ${formatSol(state.sellSol60s)} SOL`);
-            DOM.pressureVolume.title = 'Verified buy SOL / sell SOL in the rolling 60-second window';
+            const coverage = state.integrity?.coverage;
+            DOM.pressureVolume.title = `Confirmed/finalized SOL swap flow in 60s; ${state.pressureCoverage?.excludedNonSol || 0} non-SOL swaps excluded. Verification: ${coverage?.confidence || 'UNKNOWN'}; ${coverage?.verifiedExecutions ?? '?'} / ${coverage?.actualSwapCandidates ?? '?'} identified pool swaps; ${coverage?.mentions ?? '?'} acquired mentions (bounded 5-minute sample). USD estimates never weight pressure.`;
         }
         updateBattleState();
     });
@@ -235,12 +249,16 @@ export function resolveBattleStateLabel(tacticalState, copy) {
 }
 
 function formatSol(value) {
+    if (!Number.isFinite(value)) return '—';
     if (value >= 100) return Math.round(value).toLocaleString();
     if (value >= 10) return value.toFixed(1);
     return value.toFixed(2);
 }
 
 export function addOnChainTrade(trade) {
+    for (const existing of DOM.tradesfeed.querySelectorAll('.trade-item')) {
+        if (existing.dataset.eventId === trade.id) existing.remove();
+    }
     const empty = DOM.tradesfeed.querySelector('.trades-empty');
     if (empty) empty.remove();
 
@@ -249,20 +267,21 @@ export function addOnChainTrade(trade) {
     row.href = `https://solscan.io/tx/${encodeURIComponent(trade.txHash)}`;
     row.target = '_blank';
     row.rel = 'noopener noreferrer';
-    row.title = `Verify on Solscan · ${trade.dexId}`;
+    row.title = `${trade.settlement || 'UNVERIFIED'} · ${trade.dexId} · ${trade.economicScope === 'ROUTER_ECONOMIC_ENDPOINTS' ? 'executed route endpoint quote' : 'pool quote'}; USD unavailable unless separately estimated`;
+    row.dataset.eventId = trade.id;
     row.dataset.timestamp = String(trade.timestamp);
     const time = document.createElement('span');
     time.className = 'trade-time';
-    time.textContent = new Date(trade.timestamp).toLocaleTimeString();
+    time.textContent = trade.timestamp === null ? '—' : new Date(trade.timestamp).toLocaleTimeString();
     const side = document.createElement('span');
     side.className = trade.isBuy ? 'trade-buy' : 'trade-sell';
     side.textContent = trade.isBuy ? 'BUY' : 'SELL';
     const amount = document.createElement('span');
     amount.className = 'trade-amount';
-    amount.textContent = `${trade.solValue.toFixed(trade.solValue >= 10 ? 1 : 2)} SOL`;
+    amount.textContent = formatQuote(trade);
     const value = document.createElement('span');
     value.className = 'trade-usd';
-    value.textContent = ` · $${trade.usdValue.toLocaleString(undefined, { maximumFractionDigits: 0 })} · ${trade.dexId}`;
+    value.textContent = ` · ${formatUsdEstimate(trade)} · ${trade.dexId}`;
     row.append(time, side, amount, value);
     const rows = DOM.tradesfeed.querySelectorAll('.trade-item');
     let insertionPoint = null;
@@ -274,6 +293,13 @@ export function addOnChainTrade(trade) {
     }
     DOM.tradesfeed.insertBefore(row, insertionPoint);
     trimFeed(DOM.tradesfeed, CONFIG.MAX_TRADES_FEED);
+}
+
+export function removeTradeFromFeed(eventId) {
+    for (const row of DOM.tradesfeed.querySelectorAll('.trade-item')) {
+        if (row.dataset.eventId === eventId) row.remove();
+    }
+    if (DOM.fieldTradeSignal) DOM.fieldTradeSignal.textContent = 'Market data reconciled';
 }
 
 export function showBattleLogSyncing() {
@@ -310,7 +336,7 @@ export function showFieldTradeSignal(trade) {
     window.clearTimeout(signalTimer);
     const side = trade.isBuy ? 'BUY' : 'SELL';
     const scale = trade.isWhale ? 'GIANT ' : '';
-    DOM.fieldTradeSignal.textContent = `${scale}${side} · ${formatSol(trade.solValue)} SOL · ${String(trade.dexId || 'ON-CHAIN').toUpperCase()}`;
+    DOM.fieldTradeSignal.textContent = `${scale}${side} · ${formatQuote(trade)} · ${String(trade.dexId || 'ON-CHAIN').toUpperCase()}`;
     DOM.fieldTradeSignal.className = `field-trade-signal ${trade.isBuy ? 'buy' : 'sell'}`;
     void DOM.fieldTradeSignal.offsetWidth;
     DOM.fieldTradeSignal.classList.add('show');
@@ -339,8 +365,8 @@ export function showUnitInspector(entity) {
     DOM.unitInspector.hidden = false;
     DOM.unitInspector.className = `unit-inspector ${trade.isBuy ? 'buy' : 'sell'}`;
     updateInspectorTitle(trade);
-    DOM.unitInspectorSol.textContent = `${formatSol(trade.solValue)} SOL`;
-    DOM.unitInspectorUsd.textContent = `$${Math.round(trade.usdValue).toLocaleString()}`;
+    DOM.unitInspectorSol.textContent = formatQuote(trade);
+    DOM.unitInspectorUsd.textContent = formatUsdEstimate(trade);
     DOM.unitInspectorPool.textContent = String(trade.dexId || 'unknown').toUpperCase();
     DOM.unitInspectorPool.title = `${trade.dexId || 'unknown'} · ${trade.quoteSymbol || '—'}`;
     DOM.unitInspectorAge.textContent = formatAge(Date.now() - trade.timestamp);
@@ -407,7 +433,7 @@ export function addWhaleSpawnEvent(type, solValue, usdValue) {
     const row = document.createElement('div');
     row.className = `kill-item whale-event ${type === 'bear' ? 'bear' : ''}`;
     const copy = activeThemePresentation.copy;
-    row.textContent = `${new Date().toLocaleTimeString()} ${type === 'bull' ? copy.buyEmoji : copy.sellEmoji} GIANT ${type === 'bull' ? 'BUY' : 'SELL'} · ${solValue.toFixed(1)} SOL · $${Math.round(usdValue).toLocaleString()}`;
+    row.textContent = `${new Date().toLocaleTimeString()} ${type === 'bull' ? copy.buyEmoji : copy.sellEmoji} GIANT ${type === 'bull' ? 'BUY' : 'SELL'} · ${formatSol(solValue)} SOL · ${Number.isFinite(usdValue) ? `≈ $${Math.round(usdValue).toLocaleString()}` : 'USD —'}`;
     DOM.killfeed.prepend(row);
     trimFeed(DOM.killfeed, CONFIG.MAX_KILLFEED);
 }

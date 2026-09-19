@@ -1,38 +1,14 @@
-import { describe, expect, it } from 'vitest';
+import { expect, it } from 'vitest';
 import { parseTransaction } from '../worker/src/parser.js';
-import { DEFAULT_TOKEN_CONTEXT } from '../js/token-presets.js';
-
-describe('Helius transaction parser', () => {
-    it('uses the exact native SOL spent for a buy', () => {
-        const parsed = parseTransaction(transaction({ beforeTokens: 0, afterTokens: 10_000, beforeSol: 30, afterSol: 4.999995 }), 'signature', pool('SOL'), DEFAULT_TOKEN_CONTEXT.identity.mint, market());
-        expect(parsed).toMatchObject({
-            isBuy: true,
-            tokenAmount: 10_000,
-            solValue: 25,
-            isWhale: true,
-            provider: 'helius',
-            tokenMint: DEFAULT_TOKEN_CONTEXT.identity.mint,
-        });
-    });
-
-    it('normalizes a stablecoin-pool sell using verified token balance changes', () => {
-        const parsed = parseTransaction(transaction({ beforeTokens: 10_000, afterTokens: 0, beforeSol: 2, afterSol: 2 }), 'signature', pool('USDC'), DEFAULT_TOKEN_CONTEXT.identity.mint, market());
-        expect(parsed).toMatchObject({ isBuy: false, tokenAmount: 10_000, usdValue: 2500, solValue: 25, isWhale: true });
-    });
+import { swapFixture, USDC } from './fixtures/integrity.js';
+it('returns actual SOL pool transfers independent of native fees or client price', () => {
+    const f = swapFixture();
+    expect(parseTransaction(f.transaction, f.signature, null, f.mint, { tokenPriceUsd: 999 }))
+        .toMatchObject({ isBuy: true, rawQuoteAmount: '25000000000', solValue: 25,
+            usdValue: null, slot: 100, settlement: 'CONFIRMED', evidenceLevel: 'CHAIN_VERIFIED' });
 });
-
-function transaction({ beforeTokens, afterTokens, beforeSol, afterSol }) {
-    const tokenBalance = (amount) => ({ mint: DEFAULT_TOKEN_CONTEXT.identity.mint, owner: 'wallet', uiTokenAmount: { uiAmountString: String(amount) } });
-    return {
-        blockTime: 1_787_500_000,
-        transaction: { message: { accountKeys: [{ pubkey: 'wallet', signer: true }] } },
-        meta: {
-            err: null, fee: 5000,
-            preBalances: [beforeSol * 1_000_000_000], postBalances: [afterSol * 1_000_000_000],
-            preTokenBalances: [tokenBalance(beforeTokens)], postTokenBalances: [tokenBalance(afterTokens)],
-        },
-    };
-}
-
-function pool(quoteSymbol) { return { address: 'pool', dexId: 'dex', quoteSymbol }; }
-function market() { return { tokenPriceUsd: 0.25, solPriceUsd: 100 }; }
+it('stablecoin quotes retain their units and never invent equivalent SOL', () => {
+    const f = swapFixture({ quoteMint: USDC, isBuy: false, rawQuote: '2500000000' });
+    expect(parseTransaction(f.transaction, f.signature, null, f.mint, { solPriceUsd: 100 }))
+        .toMatchObject({ isBuy: false, quoteAmount: 2500, quoteSymbol: 'USDC', solValue: null, usdValue: null });
+});

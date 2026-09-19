@@ -1,0 +1,4509 @@
+{
+  "capturedOnly": true,
+  "interpretation": "Address mentions are candidates, not a known true-trade denominator. No USD or missing-volume extrapolation.",
+  "cohorts": [
+    {
+      "name": "ANSEM_POOLS",
+      "trackedMint": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+      "manifest": {
+        "startedAt": "2026-09-13T00:55:21.365Z",
+        "endpoint": "https://api.mainnet-beta.solana.com",
+        "limitPerPool": 20,
+        "pools": [
+          "FnzKY6x7entQ1eR3D225dQyT7ybfka4PskBMQhb8L3CC",
+          "6e7V9eegCHw997T72MxgwwJipZ6GJyZF8NvjkzT1rvpN",
+          "CNTPTpytHK9txrsPCvaEnc3PoN9ZVWDDcSnFSZZonMue"
+        ],
+        "candidates": [
+          {
+            "pool": "FnzKY6x7entQ1eR3D225dQyT7ybfka4PskBMQhb8L3CC",
+            "blockTime": 1789260915,
+            "confirmationStatus": "finalized",
+            "err": null,
+            "memo": null,
+            "signature": "3auimSn9AtFRDJKwx32GLjKCCffzCeKVSRMdK5NufQJz7M2pCJJmoxrzENWkvhmzX3sdcpw8cqZQEN871871NYDn",
+            "slot": 446570992,
+            "transactionIndex": 1125,
+            "duplicate": false,
+            "available": true
+          },
+          {
+            "pool": "FnzKY6x7entQ1eR3D225dQyT7ybfka4PskBMQhb8L3CC",
+            "blockTime": 1789260915,
+            "confirmationStatus": "finalized",
+            "err": null,
+            "memo": null,
+            "signature": "DCJmZar34iy4td8DneDrsQzpLdeGMU9PWrFBjRf4mcVAc7amPkrsqreUt4LT2VPrN4obErxpCBMvmPRv8svvMhN",
+            "slot": 446570992,
+            "transactionIndex": 1023,
+            "duplicate": false,
+            "available": true
+          },
+          {
+            "pool": "FnzKY6x7entQ1eR3D225dQyT7ybfka4PskBMQhb8L3CC",
+            "blockTime": 1789260915,
+            "confirmationStatus": "finalized",
+            "err": null,
+            "memo": null,
+            "signature": "3K8g26mUnf8jwm3qrUaXYctkJYaxGRfcN61WuBYAJeg7KKdydtDf9dYnS9YaEE1kn4CKsDK1HhFyD99986LdBBKM",
+            "slot": 446570992,
+            "transactionIndex": 1022,
+            "duplicate": false,
+            "available": true
+          },
+          {
+            "pool": "FnzKY6x7entQ1eR3D225dQyT7ybfka4PskBMQhb8L3CC",
+            "blockTime": 1789260915,
+            "confirmationStatus": "finalized",
+            "err": null,
+            "memo": null,
+            "signature": "5hRiZLhftp95c25Au35DcDKnvb8tiEbwejnfQ3Z8iEMinPFHXapL9jwxUAnNk2ScCJE7woSf43LyeCuqqzpttXcN",
+            "slot": 446570992,
+            "transactionIndex": 1018,
+            "duplicate": false,
+            "available": true
+          },
+          {
+            "pool": "FnzKY6x7entQ1eR3D225dQyT7ybfka4PskBMQhb8L3CC",
+            "blockTime": 1789260915,
+            "confirmationStatus": "finalized",
+            "err": {
+              "InstructionError": [
+                4,
+                {
+                  "Custom": 81
+                }
+              ]
+            },
+            "memo": null,
+            "signature": "3e33mj13sXoe1FVQZkKF9tDttXpEEKTLviomrMu3bQwgYRoxCnqMsQwM67ir2aYk2rnhrAufUjwF9fAy5hCUZdsK",
+            "slot": 446570992,
+            "transactionIndex": 951,
+            "duplicate": false,
+            "available": true
+          },
+          {
+            "pool": "FnzKY6x7entQ1eR3D225dQyT7ybfka4PskBMQhb8L3CC",
+            "blockTime": 1789260915,
+            "confirmationStatus": "finalized",
+            "err": {
+              "InstructionError": [
+                4,
+                {
+                  "Custom": 81
+                }
+              ]
+            },
+            "memo": null,
+            "signature": "3R78kxWojYxKUEeHMG1sGTaQhXxfxgZLERNLq4HL65PS8VChtCX1VwXBNjV37k4mzrmCyiR5VMtyyrUxrNGYSLVK",
+            "slot": 446570992,
+            "transactionIndex": 940,
+            "duplicate": false,
+            "available": true
+          },
+          {
+            "pool": "FnzKY6x7entQ1eR3D225dQyT7ybfka4PskBMQhb8L3CC",
+            "blockTime": 1789260915,
+            "confirmationStatus": "finalized",
+            "err": {
+              "InstructionError": [
+                4,
+                {
+                  "Custom": 81
+                }
+              ]
+            },
+            "memo": null,
+            "signature": "4TLArzvdWG3fJERxeq9Fjngjkq4Zyx7kn8aevB2KDcWpLbG8Jj6FXZbSbhkq7rVhcdY4ak1Yhji7ExqRDuVRZBf2",
+            "slot": 446570992,
+            "transactionIndex": 939,
+            "duplicate": false,
+            "available": true
+          },
+          {
+            "pool": "FnzKY6x7entQ1eR3D225dQyT7ybfka4PskBMQhb8L3CC",
+            "blockTime": 1789260915,
+            "confirmationStatus": "finalized",
+            "err": null,
+            "memo": null,
+            "signature": "2WMxdSJoRLaWiWDFiKv9M4zpKv6ZvprU8YAySRk2ZfxrvEQtoQ5BYY541cEh8LggBMVJjEVx7yrRJSuAr2c59pUf",
+            "slot": 446570992,
+            "transactionIndex": 705,
+            "duplicate": false,
+            "available": true
+          },
+          {
+            "pool": "FnzKY6x7entQ1eR3D225dQyT7ybfka4PskBMQhb8L3CC",
+            "blockTime": 1789260915,
+            "confirmationStatus": "finalized",
+            "err": null,
+            "memo": null,
+            "signature": "4p9TXY58rFYM4Mis4F3m99t1qK69eCWazEajkXgHAyfkhPT2seQ8yKVUtKCSmEgN5ENRew9xp1yTaeua8qyT7tWx",
+            "slot": 446570992,
+            "transactionIndex": 315,
+            "duplicate": false,
+            "available": true
+          },
+          {
+            "pool": "FnzKY6x7entQ1eR3D225dQyT7ybfka4PskBMQhb8L3CC",
+            "blockTime": 1789260915,
+            "confirmationStatus": "finalized",
+            "err": null,
+            "memo": null,
+            "signature": "4HCLGBnLXuATD5zDdUwdWRySxEigkmsKZHXPvGPB9uR1QpgNxMKk9VUZ1FoEgH5h4ZH1xmqsKceCYr6LmjbADL6E",
+            "slot": 446570992,
+            "transactionIndex": 218,
+            "duplicate": false,
+            "available": true
+          },
+          {
+            "pool": "FnzKY6x7entQ1eR3D225dQyT7ybfka4PskBMQhb8L3CC",
+            "blockTime": 1789260914,
+            "confirmationStatus": "finalized",
+            "err": null,
+            "memo": null,
+            "signature": "3rWCTkEQxsveoTqofD4ggvbpvZFafZZBvbyHnQ6q2gubWmYxCo3tCiPh1teS4qh5d5VfPrBGqVKfwCQRivERhciq",
+            "slot": 446570991,
+            "transactionIndex": 1071,
+            "duplicate": false,
+            "available": true
+          },
+          {
+            "pool": "FnzKY6x7entQ1eR3D225dQyT7ybfka4PskBMQhb8L3CC",
+            "blockTime": 1789260914,
+            "confirmationStatus": "finalized",
+            "err": null,
+            "memo": null,
+            "signature": "aiSxrYAYtsxxPr1LojCcNuGQqEG1of9Uhs5J3rqBKvAmP9kQruuCdwPhoEvwEZT9QqE7vG35yJgoKUNPtTW54F1",
+            "slot": 446570991,
+            "transactionIndex": 358,
+            "duplicate": false,
+            "available": true
+          },
+          {
+            "pool": "FnzKY6x7entQ1eR3D225dQyT7ybfka4PskBMQhb8L3CC",
+            "blockTime": 1789260914,
+            "confirmationStatus": "finalized",
+            "err": null,
+            "memo": null,
+            "signature": "5EyeKxRH2LDqwyNYGfeaURqmfMAZV9Gk9ctrjGfajm4yqPF3PBcqLRbSXwrSPD6G2XCghGRhUu5NN3c3pvtWdccZ",
+            "slot": 446570991,
+            "transactionIndex": 351,
+            "duplicate": false,
+            "available": true
+          },
+          {
+            "pool": "FnzKY6x7entQ1eR3D225dQyT7ybfka4PskBMQhb8L3CC",
+            "blockTime": 1789260914,
+            "confirmationStatus": "finalized",
+            "err": null,
+            "memo": null,
+            "signature": "RKzPoxBAqFd5RJ1jhUT3VV7esUsKfxfoi59LPC6PJZYV4VFJzbcLJvRNLK76PcTmG9qsaimzmTTb9XC7yhFrCz3",
+            "slot": 446570990,
+            "transactionIndex": 814,
+            "duplicate": false,
+            "available": true
+          },
+          {
+            "pool": "FnzKY6x7entQ1eR3D225dQyT7ybfka4PskBMQhb8L3CC",
+            "blockTime": 1789260914,
+            "confirmationStatus": "finalized",
+            "err": null,
+            "memo": null,
+            "signature": "26Le88cMFMrdghAn19YAcmtjvse6UebF5j6xK9iHX2YDG5TySKu8i83niS1Mdpbmd5D1pRwp4eashVtEHZ3bmDEc",
+            "slot": 446570990,
+            "transactionIndex": 357,
+            "duplicate": false,
+            "available": true
+          },
+          {
+            "pool": "FnzKY6x7entQ1eR3D225dQyT7ybfka4PskBMQhb8L3CC",
+            "blockTime": 1789260914,
+            "confirmationStatus": "finalized",
+            "err": null,
+            "memo": null,
+            "signature": "3mR5jSQm1ZQAbAoKHF34AKVMgF6xCCE8pzbF9jhTZgSZrt4eK3U6HbgH4FmZPqEypqAmgrg4SAAyi6tFubXSF9Dt",
+            "slot": 446570990,
+            "transactionIndex": 304,
+            "duplicate": false,
+            "available": true
+          },
+          {
+            "pool": "FnzKY6x7entQ1eR3D225dQyT7ybfka4PskBMQhb8L3CC",
+            "blockTime": 1789260914,
+            "confirmationStatus": "finalized",
+            "err": null,
+            "memo": null,
+            "signature": "29ZnQ3qoWdu3Vh9CAdcoqc1HAsfmvHqCB8dR38BSTbTtVtHLPELwAaTYnZW79zRSRaLGUH1yJQRVx7VmcPHYwQiX",
+            "slot": 446570990,
+            "transactionIndex": 219,
+            "duplicate": false,
+            "available": true
+          },
+          {
+            "pool": "FnzKY6x7entQ1eR3D225dQyT7ybfka4PskBMQhb8L3CC",
+            "blockTime": 1789260914,
+            "confirmationStatus": "finalized",
+            "err": null,
+            "memo": null,
+            "signature": "41NNpmvrFSoiyHFLtx8Emq7TXHmT9ajXeE54qpypnudGAvyp6Qe7hL4Eg2taVPdc6A7gQ8H95xovvwvVVYH1ADYn",
+            "slot": 446570990,
+            "transactionIndex": 216,
+            "duplicate": false,
+            "available": true
+          },
+          {
+            "pool": "FnzKY6x7entQ1eR3D225dQyT7ybfka4PskBMQhb8L3CC",
+            "blockTime": 1789260914,
+            "confirmationStatus": "finalized",
+            "err": {
+              "InsufficientFundsForRent": {
+                "account_index": 0
+              }
+            },
+            "memo": null,
+            "signature": "EMeqy41SBAFcUp5RNFB8i2XQiwTVtLqZEBWWtRYPaP7JvXUBUezM6drjkS9zqmmBoFS5DV7JgBqnju26r7ki3vh",
+            "slot": 446570990,
+            "transactionIndex": 133,
+            "duplicate": false,
+            "available": true
+          },
+          {
+            "pool": "FnzKY6x7entQ1eR3D225dQyT7ybfka4PskBMQhb8L3CC",
+            "blockTime": 1789260914,
+            "confirmationStatus": "finalized",
+            "err": {
+              "InstructionError": [
+                3,
+                {
+                  "Custom": 1
+                }
+              ]
+            },
+            "memo": null,
+            "signature": "3tpP9679qik5FcWAsTYtcQqZY8CUTwiiWE4JbeNBBCPQin7Er3r3nsaAkuM1LQZKnZWjoesMMCRsrWDCauUwzCkS",
+            "slot": 446570989,
+            "transactionIndex": 418,
+            "duplicate": false,
+            "available": true
+          },
+          {
+            "pool": "6e7V9eegCHw997T72MxgwwJipZ6GJyZF8NvjkzT1rvpN",
+            "blockTime": 1789260986,
+            "confirmationStatus": "finalized",
+            "err": null,
+            "memo": null,
+            "signature": "4mJRoDGp9EEtEUm9oqJD49zeTf8Aq1mfww8L58G8HF68Vo5pzk6ZxnGZdEm45wBUwmV8P2pwB7iN53L7GzjWcCKb",
+            "slot": 446571219,
+            "transactionIndex": 1218,
+            "duplicate": false,
+            "available": true
+          },
+          {
+            "pool": "6e7V9eegCHw997T72MxgwwJipZ6GJyZF8NvjkzT1rvpN",
+            "blockTime": 1789260986,
+            "confirmationStatus": "finalized",
+            "err": null,
+            "memo": null,
+            "signature": "XXc1EAFo9FUdQBvsjqpmCAEAXWk2Xjg3pyARynC4ki9N1C9q3NKYHdHz7zZQo9F8Xzg8zdawaKWP8Axw6pvznXF",
+            "slot": 446571219,
+            "transactionIndex": 1194,
+            "duplicate": false,
+            "available": true
+          },
+          {
+            "pool": "6e7V9eegCHw997T72MxgwwJipZ6GJyZF8NvjkzT1rvpN",
+            "blockTime": 1789260986,
+            "confirmationStatus": "finalized",
+            "err": null,
+            "memo": null,
+            "signature": "4ytKnbJyU8fB8euoubzBjb5bg3DnmpU8iEXMZhsxnEWFLsgkvtAEZZZfwfuCeEr4B7r8bPMMw8sB4AqbiqmY97zR",
+            "slot": 446571219,
+            "transactionIndex": 1193,
+            "duplicate": false,
+            "available": true
+          },
+          {
+            "pool": "6e7V9eegCHw997T72MxgwwJipZ6GJyZF8NvjkzT1rvpN",
+            "blockTime": 1789260986,
+            "confirmationStatus": "finalized",
+            "err": null,
+            "memo": null,
+            "signature": "2mMcE4rF8c6SDCqB687ANKMBfazizsWCpbe18jwvLrhUSECgYpk3XtBPZ9ys4HhhQ2pC7fspJao2D9u9nAg1Vv1U",
+            "slot": 446571219,
+            "transactionIndex": 1179,
+            "duplicate": false,
+            "available": true
+          },
+          {
+            "pool": "6e7V9eegCHw997T72MxgwwJipZ6GJyZF8NvjkzT1rvpN",
+            "blockTime": 1789260986,
+            "confirmationStatus": "finalized",
+            "err": null,
+            "memo": null,
+            "signature": "4TRX5V2Y7Lhx9ZHTidR1pcFRu7vmFgrhvg3w6tfcqW3PXuhBAcS9jrH2hrJNHKx5zmVGXmvCLDQ6MHT8S7KTr6DL",
+            "slot": 446571219,
+            "transactionIndex": 1173,
+            "duplicate": false,
+            "available": true
+          },
+          {
+            "pool": "6e7V9eegCHw997T72MxgwwJipZ6GJyZF8NvjkzT1rvpN",
+            "blockTime": 1789260986,
+            "confirmationStatus": "finalized",
+            "err": {
+              "InstructionError": [
+                4,
+                {
+                  "Custom": 0
+                }
+              ]
+            },
+            "memo": null,
+            "signature": "5EoNjoBq2btPYy9RcuodxHnmCFdpET34asNsdzYXq152NNiCf9N6Y9m9nTxEXmew6k6YQ73G63cvko4oeY1aPFdk",
+            "slot": 446571219,
+            "transactionIndex": 1169,
+            "duplicate": false,
+            "available": true
+          },
+          {
+            "pool": "6e7V9eegCHw997T72MxgwwJipZ6GJyZF8NvjkzT1rvpN",
+            "blockTime": 1789260986,
+            "confirmationStatus": "finalized",
+            "err": {
+              "InstructionError": [
+                4,
+                {
+                  "Custom": 9
+                }
+              ]
+            },
+            "memo": null,
+            "signature": "4BAto1QYZCokfbLwPzUFYDML9eMt2GXDRz8d1nmWXPNtBesRHsniHjFUsgKnB8SZRNX5bRbkSp3WPKSZrWv4AgEY",
+            "slot": 446571219,
+            "transactionIndex": 1150,
+            "duplicate": false,
+            "available": true
+          },
+          {
+            "pool": "6e7V9eegCHw997T72MxgwwJipZ6GJyZF8NvjkzT1rvpN",
+            "blockTime": 1789260986,
+            "confirmationStatus": "finalized",
+            "err": null,
+            "memo": null,
+            "signature": "28EccimUqG4ppZjYHotNNNZ1Cm7sVXe4sFK3fu9BuWLmZ2UFurCaC23SwXUJHrRzdzKZuaUBwEkgko7AZuqcrPmg",
+            "slot": 446571219,
+            "transactionIndex": 1138,
+            "duplicate": false,
+            "available": true
+          },
+          {
+            "pool": "6e7V9eegCHw997T72MxgwwJipZ6GJyZF8NvjkzT1rvpN",
+            "blockTime": 1789260986,
+            "confirmationStatus": "finalized",
+            "err": null,
+            "memo": null,
+            "signature": "2r1CTbQQzTw5j16JpGTjFwwgHMhEtUh6RN6hn4pj7Ymd4Bt4QSC4awfNGEPiqgqGKh2ZZpo6pjMZgbQDzcs5tdYv",
+            "slot": 446571219,
+            "transactionIndex": 1137,
+            "duplicate": false,
+            "available": true
+          },
+          {
+            "pool": "6e7V9eegCHw997T72MxgwwJipZ6GJyZF8NvjkzT1rvpN",
+            "blockTime": 1789260986,
+            "confirmationStatus": "finalized",
+            "err": {
+              "InstructionError": [
+                4,
+                {
+                  "Custom": 9
+                }
+              ]
+            },
+            "memo": null,
+            "signature": "4hcWhtL5iZc1sBLwPEsSf4qKBcVmWFKcT8S1V5vdAiYvZz4EuKcgH1C7Dczxj3ttZZ4d3EfHTaaByS95FqKdd14z",
+            "slot": 446571219,
+            "transactionIndex": 1136,
+            "duplicate": false,
+            "available": true
+          },
+          {
+            "pool": "6e7V9eegCHw997T72MxgwwJipZ6GJyZF8NvjkzT1rvpN",
+            "blockTime": 1789260986,
+            "confirmationStatus": "finalized",
+            "err": null,
+            "memo": null,
+            "signature": "2CJzeKK6v8cDYETzQUyusPqZMERHj8LL6zTgn1XpHUvZkscdUiUWhJHN4TJTdAnarrV7FxkBuTSPt3FpSkq4HTeD",
+            "slot": 446571219,
+            "transactionIndex": 1134,
+            "duplicate": false,
+            "available": true
+          },
+          {
+            "pool": "6e7V9eegCHw997T72MxgwwJipZ6GJyZF8NvjkzT1rvpN",
+            "blockTime": 1789260986,
+            "confirmationStatus": "finalized",
+            "err": null,
+            "memo": null,
+            "signature": "2hr5o6ruPY4rUFpzoBnCaAU1EKXwdSUUaTo4nrQya72ABsUbsnkn1GHddPK7j7sRqXPyVicixj2r7TuXAMYYSbM2",
+            "slot": 446571219,
+            "transactionIndex": 1133,
+            "duplicate": false,
+            "available": true
+          },
+          {
+            "pool": "6e7V9eegCHw997T72MxgwwJipZ6GJyZF8NvjkzT1rvpN",
+            "blockTime": 1789260986,
+            "confirmationStatus": "finalized",
+            "err": {
+              "InstructionError": [
+                4,
+                {
+                  "Custom": 9
+                }
+              ]
+            },
+            "memo": null,
+            "signature": "4tBR76smV2fBo5YSur8eToiTvPrsECJwfUP6cV9eQDbhVq3zjkPYxzjfzjbpfmhuozMTzAj8pqfjUQBiCvxUvjmJ",
+            "slot": 446571219,
+            "transactionIndex": 1132,
+            "duplicate": false,
+            "available": true
+          },
+          {
+            "pool": "6e7V9eegCHw997T72MxgwwJipZ6GJyZF8NvjkzT1rvpN",
+            "blockTime": 1789260986,
+            "confirmationStatus": "finalized",
+            "err": null,
+            "memo": null,
+            "signature": "5bcxh5hfpi35oP7JmYWZ5vw6GTGXDkZvdJseRG9Kav1twBoAp6i21NjUUvfmsKPqnsYWzWKgbg6kVoFR4THHjTX9",
+            "slot": 446571219,
+            "transactionIndex": 1131,
+            "duplicate": false,
+            "available": true
+          },
+          {
+            "pool": "6e7V9eegCHw997T72MxgwwJipZ6GJyZF8NvjkzT1rvpN",
+            "blockTime": 1789260986,
+            "confirmationStatus": "finalized",
+            "err": null,
+            "memo": null,
+            "signature": "FjK8JPqexgoyZpuVdpNYF4NwMZc6XppqGewLSGxDMDj2v9N1PQFaBzTWbwV7ZaVnnx5WAKdJ7goRbRu917JcDvK",
+            "slot": 446571219,
+            "transactionIndex": 1119,
+            "duplicate": false,
+            "available": true
+          },
+          {
+            "pool": "6e7V9eegCHw997T72MxgwwJipZ6GJyZF8NvjkzT1rvpN",
+            "blockTime": 1789260986,
+            "confirmationStatus": "finalized",
+            "err": {
+              "InstructionError": [
+                4,
+                {
+                  "Custom": 9
+                }
+              ]
+            },
+            "memo": null,
+            "signature": "2NWPMScBFofdpNEMDzTA2r7tFE2pDGAaxCwuCtyMWdUp2efNWksKDWFwjYucPTR5wVKMSgTXX91XQrJcFKWpTior",
+            "slot": 446571219,
+            "transactionIndex": 1082,
+            "duplicate": false,
+            "available": true
+          },
+          {
+            "pool": "6e7V9eegCHw997T72MxgwwJipZ6GJyZF8NvjkzT1rvpN",
+            "blockTime": 1789260986,
+            "confirmationStatus": "finalized",
+            "err": {
+              "InstructionError": [
+                4,
+                {
+                  "Custom": 9
+                }
+              ]
+            },
+            "memo": null,
+            "signature": "2HtP7xGhzypAEtDaiCo1c2pyr7cGNnqHWdgSDw1yDmQAM9D814vzkV3bvrpsgiJ6KTh2KPF4UKV7TVCySNdANVXo",
+            "slot": 446571219,
+            "transactionIndex": 1063,
+            "duplicate": false,
+            "available": true
+          },
+          {
+            "pool": "6e7V9eegCHw997T72MxgwwJipZ6GJyZF8NvjkzT1rvpN",
+            "blockTime": 1789260986,
+            "confirmationStatus": "finalized",
+            "err": null,
+            "memo": null,
+            "signature": "eKoyxgYDXMarYp1PbP87LvCRakJw234FEFDAXXr6JzvsvfRk8WkiVKYU9MroP1YmLtvFjeGV98npHgPHAHHELcm",
+            "slot": 446571219,
+            "transactionIndex": 1037,
+            "duplicate": false,
+            "available": true
+          },
+          {
+            "pool": "6e7V9eegCHw997T72MxgwwJipZ6GJyZF8NvjkzT1rvpN",
+            "blockTime": 1789260986,
+            "confirmationStatus": "finalized",
+            "err": {
+              "InstructionError": [
+                4,
+                {
+                  "Custom": 9
+                }
+              ]
+            },
+            "memo": null,
+            "signature": "5xH8QY3G1Hm5FfcNwBunLrEuoFPJxy29nqnRWc4KipCUQGPuj3XyE1HGK7AJMtznAyeBB73jXTPzn9ikV2QcawVd",
+            "slot": 446571219,
+            "transactionIndex": 1028,
+            "duplicate": false,
+            "available": true
+          },
+          {
+            "pool": "6e7V9eegCHw997T72MxgwwJipZ6GJyZF8NvjkzT1rvpN",
+            "blockTime": 1789260986,
+            "confirmationStatus": "finalized",
+            "err": null,
+            "memo": null,
+            "signature": "3Dmt7b4ArV2LfnE3Lg4a1FNsU7oZA7ysAGcyAuggqcF1Qxau1SvrMqjHUTWZmmTvXWccUTWoqq32P1ynnXb48hXQ",
+            "slot": 446571219,
+            "transactionIndex": 902,
+            "duplicate": false,
+            "available": true
+          },
+          {
+            "pool": "CNTPTpytHK9txrsPCvaEnc3PoN9ZVWDDcSnFSZZonMue",
+            "blockTime": 1789261057,
+            "confirmationStatus": "finalized",
+            "err": {
+              "InstructionError": [
+                5,
+                {
+                  "Custom": 1
+                }
+              ]
+            },
+            "memo": null,
+            "signature": "4LrVxjJYk3cQUtoZfAeai6Yc931kk8U5VaYtsBCwHvDwsiufe3upmGjeLfTNV67QcfUxg2N4xaZ3otof3fuv2EfZ",
+            "slot": 446571442,
+            "transactionIndex": 1006,
+            "duplicate": false,
+            "available": true
+          },
+          {
+            "pool": "CNTPTpytHK9txrsPCvaEnc3PoN9ZVWDDcSnFSZZonMue",
+            "blockTime": 1789261057,
+            "confirmationStatus": "finalized",
+            "err": null,
+            "memo": null,
+            "signature": "3eYY29FsW2HTZdMd9LqdYoNxGuVBfnSQbTyvDjKFLwBT4bXV3GDqEMwRs67gfdenptPTy4pe6KQ4n3chFYcySDdc",
+            "slot": 446571442,
+            "transactionIndex": 81,
+            "duplicate": false,
+            "available": true
+          },
+          {
+            "pool": "CNTPTpytHK9txrsPCvaEnc3PoN9ZVWDDcSnFSZZonMue",
+            "blockTime": 1789261056,
+            "confirmationStatus": "finalized",
+            "err": {
+              "InstructionError": [
+                5,
+                {
+                  "Custom": 1
+                }
+              ]
+            },
+            "memo": null,
+            "signature": "PqkoLi1vYRqgASTp9GW1jTmSgWbgKFPpcz8xKzLPQHU74W83wz9JuPeGXURRBUEA88JM35WoYefYhGTxYtekyzM",
+            "slot": 446571441,
+            "transactionIndex": 469,
+            "duplicate": false,
+            "available": true
+          },
+          {
+            "pool": "CNTPTpytHK9txrsPCvaEnc3PoN9ZVWDDcSnFSZZonMue",
+            "blockTime": 1789261056,
+            "confirmationStatus": "finalized",
+            "err": null,
+            "memo": null,
+            "signature": "3Z5qUobATreBu6zDBHCHvhx3iJ4YEBvHGMKP9Tb79EGe1648zs8ESLkoG4KdnnwPbQ5cYZXB6wk7A1LNDdYMARMS",
+            "slot": 446571441,
+            "transactionIndex": 343,
+            "duplicate": false,
+            "available": true
+          },
+          {
+            "pool": "CNTPTpytHK9txrsPCvaEnc3PoN9ZVWDDcSnFSZZonMue",
+            "blockTime": 1789261056,
+            "confirmationStatus": "finalized",
+            "err": null,
+            "memo": null,
+            "signature": "3LJS2SsJvVKCfbUXiyacCgDC2yYku58xHJpNwF8Mo5bXgtwtoxhbq8sG71aSKnyRxLktEzCneJ8TxhMRctYwpGoc",
+            "slot": 446571441,
+            "transactionIndex": 292,
+            "duplicate": false,
+            "available": true
+          },
+          {
+            "pool": "CNTPTpytHK9txrsPCvaEnc3PoN9ZVWDDcSnFSZZonMue",
+            "blockTime": 1789261056,
+            "confirmationStatus": "finalized",
+            "err": {
+              "InstructionError": [
+                5,
+                {
+                  "Custom": 1
+                }
+              ]
+            },
+            "memo": null,
+            "signature": "VBoctA61vTo7wkYvXXzBahzcpbGYACUwyyH4wNSKgTZutWTH7R2bV99xUopXQhTrm1qpjzTEG78LASLCfkLU5vq",
+            "slot": 446571441,
+            "transactionIndex": 76,
+            "duplicate": false,
+            "available": true
+          },
+          {
+            "pool": "CNTPTpytHK9txrsPCvaEnc3PoN9ZVWDDcSnFSZZonMue",
+            "blockTime": 1789261056,
+            "confirmationStatus": "finalized",
+            "err": {
+              "InstructionError": [
+                5,
+                {
+                  "Custom": 1
+                }
+              ]
+            },
+            "memo": null,
+            "signature": "4NVTSpwQGLwd6hs17UpUY4pCAERqCLUXxG3zeP59qt5M58unM53jCLSsM4FEd8roVBRE3VLxnhpptrEvzK5r2Byq",
+            "slot": 446571441,
+            "transactionIndex": 67,
+            "duplicate": false,
+            "available": true
+          },
+          {
+            "pool": "CNTPTpytHK9txrsPCvaEnc3PoN9ZVWDDcSnFSZZonMue",
+            "blockTime": 1789261056,
+            "confirmationStatus": "finalized",
+            "err": null,
+            "memo": null,
+            "signature": "3kfiZSXo6AVt7V2eNfWHMgHU58ZjzWjbfVu1wfC3qZnXxSWkBAJmYszTneGHepH3dPpt1x59BYsne6GDpGatfFAA",
+            "slot": 446571439,
+            "transactionIndex": 110,
+            "duplicate": false,
+            "available": true
+          },
+          {
+            "pool": "CNTPTpytHK9txrsPCvaEnc3PoN9ZVWDDcSnFSZZonMue",
+            "blockTime": 1789261056,
+            "confirmationStatus": "finalized",
+            "err": null,
+            "memo": null,
+            "signature": "Xksi7EjLrK1K9zS4pFoUiPLFE735YNPpiHEYWKeuHwXHaTh9dtthwoJQZJ9esNaJymYJ7SYmy2jkDt2wyKhaGzY",
+            "slot": 446571439,
+            "transactionIndex": 109,
+            "duplicate": false,
+            "available": true
+          },
+          {
+            "pool": "CNTPTpytHK9txrsPCvaEnc3PoN9ZVWDDcSnFSZZonMue",
+            "blockTime": 1789261055,
+            "confirmationStatus": "finalized",
+            "err": {
+              "InstructionError": [
+                5,
+                {
+                  "Custom": 1
+                }
+              ]
+            },
+            "memo": null,
+            "signature": "GZMbRjkoVjm9Tygb5gRbJZqd1WbfT8duKvpRiygEqMjXnTzm9uBrt5GFTEyMfi3wQVba7iSfDU5kNomjQHBQubC",
+            "slot": 446571438,
+            "transactionIndex": 574,
+            "duplicate": false,
+            "available": true
+          },
+          {
+            "pool": "CNTPTpytHK9txrsPCvaEnc3PoN9ZVWDDcSnFSZZonMue",
+            "blockTime": 1789261055,
+            "confirmationStatus": "finalized",
+            "err": null,
+            "memo": null,
+            "signature": "46GJTGA3mVoGgkMPW5WHEt5zMa7J85cXkWER3GqADH992t49d2HQmWN6zCPnaLqrbn1SCZpZV5yskqVYc72fdXUS",
+            "slot": 446571438,
+            "transactionIndex": 297,
+            "duplicate": false,
+            "available": true
+          },
+          {
+            "pool": "CNTPTpytHK9txrsPCvaEnc3PoN9ZVWDDcSnFSZZonMue",
+            "blockTime": 1789261055,
+            "confirmationStatus": "finalized",
+            "err": null,
+            "memo": null,
+            "signature": "BZMj9w2CwX4cmeSKvcwH2q245xpvPQ9dHRjcWL6vguyG2txXhQLocJgmdChSNAPTDu1iGSHgxdpx6Qv7uXaX6ph",
+            "slot": 446571438,
+            "transactionIndex": 237,
+            "duplicate": false,
+            "available": true
+          },
+          {
+            "pool": "CNTPTpytHK9txrsPCvaEnc3PoN9ZVWDDcSnFSZZonMue",
+            "blockTime": 1789261055,
+            "confirmationStatus": "finalized",
+            "err": null,
+            "memo": null,
+            "signature": "5jexUFAiX5UW3HeQmfJzzbQhcqufnXYAAgh5UZuoQLDQk7edQiU5HmD5UjmXKvAh118CDFZSrziBQ1Khn29EdaKR",
+            "slot": 446571438,
+            "transactionIndex": 214,
+            "duplicate": false,
+            "available": true
+          },
+          {
+            "pool": "CNTPTpytHK9txrsPCvaEnc3PoN9ZVWDDcSnFSZZonMue",
+            "blockTime": 1789261055,
+            "confirmationStatus": "finalized",
+            "err": {
+              "InstructionError": [
+                5,
+                {
+                  "Custom": 1
+                }
+              ]
+            },
+            "memo": null,
+            "signature": "4qmZSVAQYzmagPK6fvBj6c8Y7o5MH96XDr3XcUhpbDCCwm1A73qEmnrmj74vUsyipGkh3u5QpVDYEMCBdqsxFWET",
+            "slot": 446571438,
+            "transactionIndex": 135,
+            "duplicate": false,
+            "available": true
+          },
+          {
+            "pool": "CNTPTpytHK9txrsPCvaEnc3PoN9ZVWDDcSnFSZZonMue",
+            "blockTime": 1789261055,
+            "confirmationStatus": "finalized",
+            "err": null,
+            "memo": null,
+            "signature": "5QL25aGYqXRwmvT4LSYMQANNfxYJcFyQZMotLfbVmKzrwuXDibTrbPpvyFMvaNTMaJxNJPMa4jhRikEfkhSYDmkf",
+            "slot": 446571437,
+            "transactionIndex": 558,
+            "duplicate": false,
+            "available": true
+          },
+          {
+            "pool": "CNTPTpytHK9txrsPCvaEnc3PoN9ZVWDDcSnFSZZonMue",
+            "blockTime": 1789261055,
+            "confirmationStatus": "finalized",
+            "err": null,
+            "memo": null,
+            "signature": "3qYspRQwToDJySyDSVvuT2pSKCAzY6vjACa3HacpumKfgF4z7tCQ6jBrNjHca24VffMXCZuzvhLyFb4VqXMrHZ9a",
+            "slot": 446571437,
+            "transactionIndex": 553,
+            "duplicate": false,
+            "available": true
+          },
+          {
+            "pool": "CNTPTpytHK9txrsPCvaEnc3PoN9ZVWDDcSnFSZZonMue",
+            "blockTime": 1789261055,
+            "confirmationStatus": "finalized",
+            "err": {
+              "InstructionError": [
+                5,
+                {
+                  "Custom": 1
+                }
+              ]
+            },
+            "memo": null,
+            "signature": "5FuHftKMrei2jvKfRxVLdQ2wLgJ54d6vo3sAuN1GekobRa8tmoEvxoMV1uP9kyxaWYB79khypZVxPR4e7NDe94nK",
+            "slot": 446571437,
+            "transactionIndex": 543,
+            "duplicate": false,
+            "available": true
+          },
+          {
+            "pool": "CNTPTpytHK9txrsPCvaEnc3PoN9ZVWDDcSnFSZZonMue",
+            "blockTime": 1789261055,
+            "confirmationStatus": "finalized",
+            "err": {
+              "InstructionError": [
+                5,
+                {
+                  "Custom": 1
+                }
+              ]
+            },
+            "memo": null,
+            "signature": "4iW46J7xGDhaphwPm79eDi8HzEv3V1ABQy6vzE9aiHGnu6oJD1CdkmawQg7rXvKq2k4dn6hzcZc48769MC5mmPzk",
+            "slot": 446571437,
+            "transactionIndex": 540,
+            "duplicate": false,
+            "available": true
+          },
+          {
+            "pool": "CNTPTpytHK9txrsPCvaEnc3PoN9ZVWDDcSnFSZZonMue",
+            "blockTime": 1789261055,
+            "confirmationStatus": "finalized",
+            "err": null,
+            "memo": null,
+            "signature": "2mADFU2bQJwJ7G77UXMkjXXckaT3Npdgmf5BxQMb9ixbAcUjeERKs6QHDURMnJjn85FSFJZ4ihfeE9mkRpSnVTuC",
+            "slot": 446571437,
+            "transactionIndex": 535,
+            "duplicate": false,
+            "available": true
+          },
+          {
+            "pool": "CNTPTpytHK9txrsPCvaEnc3PoN9ZVWDDcSnFSZZonMue",
+            "blockTime": 1789261055,
+            "confirmationStatus": "finalized",
+            "err": null,
+            "memo": null,
+            "signature": "3JMTBdQ9Ca85JgLnrxx2PHa6cKfLvXF6NiLbdCHNBTjBwU2hU7enJ5wh41zTt2DWChJDBMMtRgYqM6UkcjAQ3hcX",
+            "slot": 446571437,
+            "transactionIndex": 272,
+            "duplicate": false,
+            "available": true
+          }
+        ],
+        "errors": [],
+        "finishedAt": "2026-09-13T00:58:55.463Z"
+      },
+      "coverage": {
+        "candidates": 60,
+        "evaluated": 60,
+        "pendingUnavailable": 0,
+        "verifiedDirect": 0,
+        "verifiedRouted": 0,
+        "unsupportedRouterVersion": 11,
+        "ambiguousAttribution": 0,
+        "failedInvalid": 20,
+        "intermediateOnly": 0,
+        "notInvolved": 0,
+        "noSwapEvidence": 29,
+        "rawVerifiedTrackedAmount": "0",
+        "rawAmountCoverage": null,
+        "usdCoverage": null,
+        "verifiedCandidateFraction": 0,
+        "confidence": "DEGRADED",
+        "scope": "FIXED_CAPTURE_COHORT"
+      },
+      "rows": [
+        {
+          "signature": "26Le88cMFMrdghAn19YAcmtjvse6UebF5j6xK9iHX2YDG5TySKu8i83niS1Mdpbmd5D1pRwp4eashVtEHZ3bmDEc",
+          "slot": 446570990,
+          "blockTime": 1789260914,
+          "fetchedAt": "2026-09-13T00:56:16.243Z",
+          "tokenMint": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+          "topLevelPrograms": [
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "FLASHX8DrLbgeR8FcfNV1F5krxYcYMUdBkrP1EPBtxB9",
+            "FLASHX8DrLbgeR8FcfNV1F5krxYcYMUdBkrP1EPBtxB9",
+            "FLASHX8DrLbgeR8FcfNV1F5krxYcYMUdBkrP1EPBtxB9",
+            "FLASHX8DrLbgeR8FcfNV1F5krxYcYMUdBkrP1EPBtxB9",
+            "11111111111111111111111111111111"
+          ],
+          "routers": [],
+          "classification": "UNVERIFIED",
+          "reason": "UNSUPPORTED_ROUTER",
+          "category": "unsupportedRouterVersion",
+          "authority": null,
+          "trackedTokenRole": "UNKNOWN",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": null,
+          "rawQuote": null,
+          "rawResponseSha256": "ff4efd7daf466a27c9e377ad00f24528063830d1315cc1ee2ad9aa7e034f3338"
+        },
+        {
+          "signature": "28EccimUqG4ppZjYHotNNNZ1Cm7sVXe4sFK3fu9BuWLmZ2UFurCaC23SwXUJHrRzdzKZuaUBwEkgko7AZuqcrPmg",
+          "slot": 446571219,
+          "blockTime": 1789260986,
+          "fetchedAt": "2026-09-13T00:57:03.967Z",
+          "tokenMint": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+          "topLevelPrograms": [
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "DDsnwb7dxKSjzTYDFjU8F6rpYNZa1sp7Fmfb2nGDAMEo"
+          ],
+          "routers": [],
+          "classification": "UNVERIFIED",
+          "reason": "NO_POSITIVE_SWAP_EVIDENCE",
+          "category": "noSwapEvidence",
+          "authority": null,
+          "trackedTokenRole": "UNKNOWN",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": null,
+          "rawQuote": null,
+          "rawResponseSha256": "91b4756422a509b0d564cc536057d441119eb3786148c68ca81bbd93a3187df0"
+        },
+        {
+          "signature": "29ZnQ3qoWdu3Vh9CAdcoqc1HAsfmvHqCB8dR38BSTbTtVtHLPELwAaTYnZW79zRSRaLGUH1yJQRVx7VmcPHYwQiX",
+          "slot": 446570990,
+          "blockTime": 1789260914,
+          "fetchedAt": "2026-09-13T00:56:23.061Z",
+          "tokenMint": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+          "topLevelPrograms": [
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "FLASHX8DrLbgeR8FcfNV1F5krxYcYMUdBkrP1EPBtxB9",
+            "FLASHX8DrLbgeR8FcfNV1F5krxYcYMUdBkrP1EPBtxB9",
+            "FLASHX8DrLbgeR8FcfNV1F5krxYcYMUdBkrP1EPBtxB9",
+            "FLASHX8DrLbgeR8FcfNV1F5krxYcYMUdBkrP1EPBtxB9",
+            "11111111111111111111111111111111"
+          ],
+          "routers": [],
+          "classification": "UNVERIFIED",
+          "reason": "UNSUPPORTED_ROUTER",
+          "category": "unsupportedRouterVersion",
+          "authority": null,
+          "trackedTokenRole": "UNKNOWN",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": null,
+          "rawQuote": null,
+          "rawResponseSha256": "82ca52c878b07bd610c2858e7b3329dbc3ad279a7f3313f86a755791a0d78688"
+        },
+        {
+          "signature": "2CJzeKK6v8cDYETzQUyusPqZMERHj8LL6zTgn1XpHUvZkscdUiUWhJHN4TJTdAnarrV7FxkBuTSPt3FpSkq4HTeD",
+          "slot": 446571219,
+          "blockTime": 1789260986,
+          "fetchedAt": "2026-09-13T00:57:14.081Z",
+          "tokenMint": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+          "topLevelPrograms": [
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "DDsnwb7dxKSjzTYDFjU8F6rpYNZa1sp7Fmfb2nGDAMEo"
+          ],
+          "routers": [],
+          "classification": "UNVERIFIED",
+          "reason": "NO_POSITIVE_SWAP_EVIDENCE",
+          "category": "noSwapEvidence",
+          "authority": null,
+          "trackedTokenRole": "UNKNOWN",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": null,
+          "rawQuote": null,
+          "rawResponseSha256": "b0d77ccf0d6eee276c92544c0fe152d3104056866d7bb671d33cc4bd0fea9317"
+        },
+        {
+          "signature": "2HtP7xGhzypAEtDaiCo1c2pyr7cGNnqHWdgSDw1yDmQAM9D814vzkV3bvrpsgiJ6KTh2KPF4UKV7TVCySNdANVXo",
+          "slot": 446571219,
+          "blockTime": 1789260986,
+          "fetchedAt": "2026-09-13T00:57:34.326Z",
+          "tokenMint": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+          "topLevelPrograms": [
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "11111111111111111111111111111111",
+            "DDsnwb7dxKSjzTYDFjU8F6rpYNZa1sp7Fmfb2nGDAMEo"
+          ],
+          "routers": [],
+          "classification": "FAILED",
+          "reason": "TRANSACTION_FAILED",
+          "category": "failedInvalid",
+          "authority": null,
+          "trackedTokenRole": "UNKNOWN",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": null,
+          "rawQuote": null,
+          "rawResponseSha256": "0b3c0d519186f5d7394be7058641fae20fc463d644e73445e02cd63019894c34"
+        },
+        {
+          "signature": "2NWPMScBFofdpNEMDzTA2r7tFE2pDGAaxCwuCtyMWdUp2efNWksKDWFwjYucPTR5wVKMSgTXX91XQrJcFKWpTior",
+          "slot": 446571219,
+          "blockTime": 1789260986,
+          "fetchedAt": "2026-09-13T00:57:30.959Z",
+          "tokenMint": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+          "topLevelPrograms": [
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "11111111111111111111111111111111",
+            "DDsnwb7dxKSjzTYDFjU8F6rpYNZa1sp7Fmfb2nGDAMEo"
+          ],
+          "routers": [],
+          "classification": "FAILED",
+          "reason": "TRANSACTION_FAILED",
+          "category": "failedInvalid",
+          "authority": null,
+          "trackedTokenRole": "UNKNOWN",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": null,
+          "rawQuote": null,
+          "rawResponseSha256": "33ddf8bcab6882f6bfec175c97444ba5c65398a561cd5aa760f6d2a55b77f411"
+        },
+        {
+          "signature": "2WMxdSJoRLaWiWDFiKv9M4zpKv6ZvprU8YAySRk2ZfxrvEQtoQ5BYY541cEh8LggBMVJjEVx7yrRJSuAr2c59pUf",
+          "slot": 446570992,
+          "blockTime": 1789260915,
+          "fetchedAt": "2026-09-13T00:55:52.500Z",
+          "tokenMint": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+          "topLevelPrograms": [
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "FLASHX8DrLbgeR8FcfNV1F5krxYcYMUdBkrP1EPBtxB9",
+            "FLASHX8DrLbgeR8FcfNV1F5krxYcYMUdBkrP1EPBtxB9",
+            "FLASHX8DrLbgeR8FcfNV1F5krxYcYMUdBkrP1EPBtxB9",
+            "FLASHX8DrLbgeR8FcfNV1F5krxYcYMUdBkrP1EPBtxB9",
+            "11111111111111111111111111111111"
+          ],
+          "routers": [],
+          "classification": "UNVERIFIED",
+          "reason": "UNSUPPORTED_ROUTER",
+          "category": "unsupportedRouterVersion",
+          "authority": null,
+          "trackedTokenRole": "UNKNOWN",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": null,
+          "rawQuote": null,
+          "rawResponseSha256": "569c5b78a2749677e751e76cb7c47f68bca6109192bd46d2caca4ceba4080b5c"
+        },
+        {
+          "signature": "2hr5o6ruPY4rUFpzoBnCaAU1EKXwdSUUaTo4nrQya72ABsUbsnkn1GHddPK7j7sRqXPyVicixj2r7TuXAMYYSbM2",
+          "slot": 446571219,
+          "blockTime": 1789260986,
+          "fetchedAt": "2026-09-13T00:57:17.464Z",
+          "tokenMint": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+          "topLevelPrograms": [
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "DDsnwb7dxKSjzTYDFjU8F6rpYNZa1sp7Fmfb2nGDAMEo"
+          ],
+          "routers": [],
+          "classification": "UNVERIFIED",
+          "reason": "NO_POSITIVE_SWAP_EVIDENCE",
+          "category": "noSwapEvidence",
+          "authority": null,
+          "trackedTokenRole": "UNKNOWN",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": null,
+          "rawQuote": null,
+          "rawResponseSha256": "7fc76ea17b873a770b14d128033d6ec47667e008cb1b7ee560e4084a2945e95e"
+        },
+        {
+          "signature": "2mADFU2bQJwJ7G77UXMkjXXckaT3Npdgmf5BxQMb9ixbAcUjeERKs6QHDURMnJjn85FSFJZ4ihfeE9mkRpSnVTuC",
+          "slot": 446571437,
+          "blockTime": 1789261055,
+          "fetchedAt": "2026-09-13T00:58:52.034Z",
+          "tokenMint": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+          "topLevelPrograms": [
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "11111111111111111111111111111111",
+            "9L1qqo7q7vq7sKuMsBGKPF81z6GK7N4orWGgGFwwqqDF"
+          ],
+          "routers": [],
+          "classification": "UNVERIFIED",
+          "reason": "NO_POSITIVE_SWAP_EVIDENCE",
+          "category": "noSwapEvidence",
+          "authority": null,
+          "trackedTokenRole": "UNKNOWN",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": null,
+          "rawQuote": null,
+          "rawResponseSha256": "5e9d40494905fd8915fdac84535e6e322266b1d3bc54ee882ce2914cd7cc05a8"
+        },
+        {
+          "signature": "2mMcE4rF8c6SDCqB687ANKMBfazizsWCpbe18jwvLrhUSECgYpk3XtBPZ9ys4HhhQ2pC7fspJao2D9u9nAg1Vv1U",
+          "slot": 446571219,
+          "blockTime": 1789260986,
+          "fetchedAt": "2026-09-13T00:56:50.360Z",
+          "tokenMint": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+          "topLevelPrograms": [
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "4bwVxjN2sFQyejtoa9ieiD1rRpPY798QGTKVDcmnotWu",
+            "11111111111111111111111111111111"
+          ],
+          "routers": [],
+          "classification": "UNVERIFIED",
+          "reason": "NO_POSITIVE_SWAP_EVIDENCE",
+          "category": "noSwapEvidence",
+          "authority": null,
+          "trackedTokenRole": "UNKNOWN",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": null,
+          "rawQuote": null,
+          "rawResponseSha256": "4e441e251c13ed4a9f777f64dfb6f8d0e993afc3f7cac155bef9d84a1b0e0c6b"
+        },
+        {
+          "signature": "2r1CTbQQzTw5j16JpGTjFwwgHMhEtUh6RN6hn4pj7Ymd4Bt4QSC4awfNGEPiqgqGKh2ZZpo6pjMZgbQDzcs5tdYv",
+          "slot": 446571219,
+          "blockTime": 1789260986,
+          "fetchedAt": "2026-09-13T00:57:07.335Z",
+          "tokenMint": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+          "topLevelPrograms": [
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "DDsnwb7dxKSjzTYDFjU8F6rpYNZa1sp7Fmfb2nGDAMEo"
+          ],
+          "routers": [],
+          "classification": "UNVERIFIED",
+          "reason": "NO_POSITIVE_SWAP_EVIDENCE",
+          "category": "noSwapEvidence",
+          "authority": null,
+          "trackedTokenRole": "UNKNOWN",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": null,
+          "rawQuote": null,
+          "rawResponseSha256": "bec5b33aee34d97d4a003c770ca04c8f7264892806fc61222d86e3e39725fe73"
+        },
+        {
+          "signature": "3Dmt7b4ArV2LfnE3Lg4a1FNsU7oZA7ysAGcyAuggqcF1Qxau1SvrMqjHUTWZmmTvXWccUTWoqq32P1ynnXb48hXQ",
+          "slot": 446571219,
+          "blockTime": 1789260986,
+          "fetchedAt": "2026-09-13T00:57:44.476Z",
+          "tokenMint": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+          "topLevelPrograms": [
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "11111111111111111111111111111111",
+            "4Qv3mbzcq1bKmrhGG4voS3EemfPd7f838FLUU7wBHSyi"
+          ],
+          "routers": [],
+          "classification": "UNVERIFIED",
+          "reason": "NO_POSITIVE_SWAP_EVIDENCE",
+          "category": "noSwapEvidence",
+          "authority": null,
+          "trackedTokenRole": "UNKNOWN",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": null,
+          "rawQuote": null,
+          "rawResponseSha256": "6a1fd5dd8b0b7288bf5373b306d64d76713a4fcf831b32215a9a204033fa70c2"
+        },
+        {
+          "signature": "3JMTBdQ9Ca85JgLnrxx2PHa6cKfLvXF6NiLbdCHNBTjBwU2hU7enJ5wh41zTt2DWChJDBMMtRgYqM6UkcjAQ3hcX",
+          "slot": 446571437,
+          "blockTime": 1789261055,
+          "fetchedAt": "2026-09-13T00:58:55.461Z",
+          "tokenMint": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+          "topLevelPrograms": [
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "11111111111111111111111111111111",
+            "9L1qqo7q7vq7sKuMsBGKPF81z6GK7N4orWGgGFwwqqDF"
+          ],
+          "routers": [],
+          "classification": "UNVERIFIED",
+          "reason": "NO_POSITIVE_SWAP_EVIDENCE",
+          "category": "noSwapEvidence",
+          "authority": null,
+          "trackedTokenRole": "UNKNOWN",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": null,
+          "rawQuote": null,
+          "rawResponseSha256": "459c46e93981bdf1093efe05feec6f883d9f9e969b360952384a9b8b46f98041"
+        },
+        {
+          "signature": "3K8g26mUnf8jwm3qrUaXYctkJYaxGRfcN61WuBYAJeg7KKdydtDf9dYnS9YaEE1kn4CKsDK1HhFyD99986LdBBKM",
+          "slot": 446570992,
+          "blockTime": 1789260915,
+          "fetchedAt": "2026-09-13T00:55:35.504Z",
+          "tokenMint": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+          "topLevelPrograms": [
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "FLASHX8DrLbgeR8FcfNV1F5krxYcYMUdBkrP1EPBtxB9",
+            "FLASHX8DrLbgeR8FcfNV1F5krxYcYMUdBkrP1EPBtxB9",
+            "FLASHX8DrLbgeR8FcfNV1F5krxYcYMUdBkrP1EPBtxB9",
+            "FLASHX8DrLbgeR8FcfNV1F5krxYcYMUdBkrP1EPBtxB9",
+            "11111111111111111111111111111111"
+          ],
+          "routers": [],
+          "classification": "UNVERIFIED",
+          "reason": "UNSUPPORTED_ROUTER",
+          "category": "unsupportedRouterVersion",
+          "authority": null,
+          "trackedTokenRole": "UNKNOWN",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": null,
+          "rawQuote": null,
+          "rawResponseSha256": "4a206bb64c91ce8b59fb7ad97cadadbb03285e5b430585820311b4ec5a31741c"
+        },
+        {
+          "signature": "3LJS2SsJvVKCfbUXiyacCgDC2yYku58xHJpNwF8Mo5bXgtwtoxhbq8sG71aSKnyRxLktEzCneJ8TxhMRctYwpGoc",
+          "slot": 446571441,
+          "blockTime": 1789261056,
+          "fetchedAt": "2026-09-13T00:58:04.705Z",
+          "tokenMint": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+          "topLevelPrograms": [
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "9L1qqo7q7vq7sKuMsBGKPF81z6GK7N4orWGgGFwwqqDF"
+          ],
+          "routers": [],
+          "classification": "UNVERIFIED",
+          "reason": "NO_POSITIVE_SWAP_EVIDENCE",
+          "category": "noSwapEvidence",
+          "authority": null,
+          "trackedTokenRole": "UNKNOWN",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": null,
+          "rawQuote": null,
+          "rawResponseSha256": "062b941dddbb13713543d0ad016290ed80ea6746d8d3132451659f21e7b5c5be"
+        },
+        {
+          "signature": "3R78kxWojYxKUEeHMG1sGTaQhXxfxgZLERNLq4HL65PS8VChtCX1VwXBNjV37k4mzrmCyiR5VMtyyrUxrNGYSLVK",
+          "slot": 446570992,
+          "blockTime": 1789260915,
+          "fetchedAt": "2026-09-13T00:55:45.692Z",
+          "tokenMint": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+          "topLevelPrograms": [
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",
+            "4Qv3mbzcq1bKmrhGG4voS3EemfPd7f838FLUU7wBHSyi",
+            "11111111111111111111111111111111"
+          ],
+          "routers": [],
+          "classification": "FAILED",
+          "reason": "TRANSACTION_FAILED",
+          "category": "failedInvalid",
+          "authority": null,
+          "trackedTokenRole": "UNKNOWN",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": null,
+          "rawQuote": null,
+          "rawResponseSha256": "232a416f1d9ea229329b41897430ccc5a84a3101b7b411c71abc7012e257f314"
+        },
+        {
+          "signature": "3Z5qUobATreBu6zDBHCHvhx3iJ4YEBvHGMKP9Tb79EGe1648zs8ESLkoG4KdnnwPbQ5cYZXB6wk7A1LNDdYMARMS",
+          "slot": 446571441,
+          "blockTime": 1789261056,
+          "fetchedAt": "2026-09-13T00:58:01.324Z",
+          "tokenMint": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+          "topLevelPrograms": [
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "9L1qqo7q7vq7sKuMsBGKPF81z6GK7N4orWGgGFwwqqDF"
+          ],
+          "routers": [],
+          "classification": "UNVERIFIED",
+          "reason": "NO_POSITIVE_SWAP_EVIDENCE",
+          "category": "noSwapEvidence",
+          "authority": null,
+          "trackedTokenRole": "UNKNOWN",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": null,
+          "rawQuote": null,
+          "rawResponseSha256": "ceb2bbff2db9c12bbb605581c5cbda4f6095b1ae9c8f9d6339872ef1e3182a55"
+        },
+        {
+          "signature": "3auimSn9AtFRDJKwx32GLjKCCffzCeKVSRMdK5NufQJz7M2pCJJmoxrzENWkvhmzX3sdcpw8cqZQEN871871NYDn",
+          "slot": 446570992,
+          "blockTime": 1789260915,
+          "fetchedAt": "2026-09-13T00:55:28.681Z",
+          "tokenMint": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+          "topLevelPrograms": [
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "FLASHX8DrLbgeR8FcfNV1F5krxYcYMUdBkrP1EPBtxB9",
+            "FLASHX8DrLbgeR8FcfNV1F5krxYcYMUdBkrP1EPBtxB9",
+            "FLASHX8DrLbgeR8FcfNV1F5krxYcYMUdBkrP1EPBtxB9",
+            "FLASHX8DrLbgeR8FcfNV1F5krxYcYMUdBkrP1EPBtxB9",
+            "11111111111111111111111111111111"
+          ],
+          "routers": [],
+          "classification": "UNVERIFIED",
+          "reason": "UNSUPPORTED_ROUTER",
+          "category": "unsupportedRouterVersion",
+          "authority": null,
+          "trackedTokenRole": "UNKNOWN",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": null,
+          "rawQuote": null,
+          "rawResponseSha256": "98d52785ca5aedf1b118f7f9b9b566afbc8b3c8cc7db474b3118d4e2df5c887b"
+        },
+        {
+          "signature": "3e33mj13sXoe1FVQZkKF9tDttXpEEKTLviomrMu3bQwgYRoxCnqMsQwM67ir2aYk2rnhrAufUjwF9fAy5hCUZdsK",
+          "slot": 446570992,
+          "blockTime": 1789260915,
+          "fetchedAt": "2026-09-13T00:55:42.298Z",
+          "tokenMint": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+          "topLevelPrograms": [
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",
+            "4Qv3mbzcq1bKmrhGG4voS3EemfPd7f838FLUU7wBHSyi",
+            "11111111111111111111111111111111"
+          ],
+          "routers": [],
+          "classification": "FAILED",
+          "reason": "TRANSACTION_FAILED",
+          "category": "failedInvalid",
+          "authority": null,
+          "trackedTokenRole": "UNKNOWN",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": null,
+          "rawQuote": null,
+          "rawResponseSha256": "858936bed48765d16fd974f7808a47e5ed175c9efcb8fe96dca19a35d4a599bd"
+        },
+        {
+          "signature": "3eYY29FsW2HTZdMd9LqdYoNxGuVBfnSQbTyvDjKFLwBT4bXV3GDqEMwRs67gfdenptPTy4pe6KQ4n3chFYcySDdc",
+          "slot": 446571442,
+          "blockTime": 1789261057,
+          "fetchedAt": "2026-09-13T00:57:54.580Z",
+          "tokenMint": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+          "topLevelPrograms": [
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "9L1qqo7q7vq7sKuMsBGKPF81z6GK7N4orWGgGFwwqqDF"
+          ],
+          "routers": [],
+          "classification": "UNVERIFIED",
+          "reason": "NO_POSITIVE_SWAP_EVIDENCE",
+          "category": "noSwapEvidence",
+          "authority": null,
+          "trackedTokenRole": "UNKNOWN",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": null,
+          "rawQuote": null,
+          "rawResponseSha256": "04ae04590fdb1fcd2b7117c51a4f037d9520ef5e8316fbd8d0579bcd7e72d395"
+        },
+        {
+          "signature": "3kfiZSXo6AVt7V2eNfWHMgHU58ZjzWjbfVu1wfC3qZnXxSWkBAJmYszTneGHepH3dPpt1x59BYsne6GDpGatfFAA",
+          "slot": 446571439,
+          "blockTime": 1789261056,
+          "fetchedAt": "2026-09-13T00:58:14.858Z",
+          "tokenMint": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+          "topLevelPrograms": [
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "9L1qqo7q7vq7sKuMsBGKPF81z6GK7N4orWGgGFwwqqDF"
+          ],
+          "routers": [],
+          "classification": "UNVERIFIED",
+          "reason": "NO_POSITIVE_SWAP_EVIDENCE",
+          "category": "noSwapEvidence",
+          "authority": null,
+          "trackedTokenRole": "UNKNOWN",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": null,
+          "rawQuote": null,
+          "rawResponseSha256": "66e7c9343e1529daa585d6206dd90c8744ab51f49eb03d4648aef3d97c238473"
+        },
+        {
+          "signature": "3mR5jSQm1ZQAbAoKHF34AKVMgF6xCCE8pzbF9jhTZgSZrt4eK3U6HbgH4FmZPqEypqAmgrg4SAAyi6tFubXSF9Dt",
+          "slot": 446570990,
+          "blockTime": 1789260914,
+          "fetchedAt": "2026-09-13T00:56:19.645Z",
+          "tokenMint": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+          "topLevelPrograms": [
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "FLASHX8DrLbgeR8FcfNV1F5krxYcYMUdBkrP1EPBtxB9",
+            "FLASHX8DrLbgeR8FcfNV1F5krxYcYMUdBkrP1EPBtxB9",
+            "FLASHX8DrLbgeR8FcfNV1F5krxYcYMUdBkrP1EPBtxB9",
+            "11111111111111111111111111111111"
+          ],
+          "routers": [],
+          "classification": "UNVERIFIED",
+          "reason": "UNSUPPORTED_ROUTER",
+          "category": "unsupportedRouterVersion",
+          "authority": null,
+          "trackedTokenRole": "UNKNOWN",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": null,
+          "rawQuote": null,
+          "rawResponseSha256": "029fcc6bd4b5a8923df70d52a710ae37c361b09dbfdbde5421545381ed86bee0"
+        },
+        {
+          "signature": "3qYspRQwToDJySyDSVvuT2pSKCAzY6vjACa3HacpumKfgF4z7tCQ6jBrNjHca24VffMXCZuzvhLyFb4VqXMrHZ9a",
+          "slot": 446571437,
+          "blockTime": 1789261055,
+          "fetchedAt": "2026-09-13T00:58:41.895Z",
+          "tokenMint": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+          "topLevelPrograms": [
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "9L1qqo7q7vq7sKuMsBGKPF81z6GK7N4orWGgGFwwqqDF"
+          ],
+          "routers": [],
+          "classification": "UNVERIFIED",
+          "reason": "NO_POSITIVE_SWAP_EVIDENCE",
+          "category": "noSwapEvidence",
+          "authority": null,
+          "trackedTokenRole": "UNKNOWN",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": null,
+          "rawQuote": null,
+          "rawResponseSha256": "0abc64538d5eb7b75b7d902a16dc0b2c18339a9b861c0dbdfec574f46c0e3e60"
+        },
+        {
+          "signature": "3rWCTkEQxsveoTqofD4ggvbpvZFafZZBvbyHnQ6q2gubWmYxCo3tCiPh1teS4qh5d5VfPrBGqVKfwCQRivERhciq",
+          "slot": 446570991,
+          "blockTime": 1789260914,
+          "fetchedAt": "2026-09-13T00:56:02.657Z",
+          "tokenMint": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+          "topLevelPrograms": [
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "FLASHX8DrLbgeR8FcfNV1F5krxYcYMUdBkrP1EPBtxB9",
+            "FLASHX8DrLbgeR8FcfNV1F5krxYcYMUdBkrP1EPBtxB9",
+            "FLASHX8DrLbgeR8FcfNV1F5krxYcYMUdBkrP1EPBtxB9",
+            "11111111111111111111111111111111"
+          ],
+          "routers": [],
+          "classification": "UNVERIFIED",
+          "reason": "UNSUPPORTED_ROUTER",
+          "category": "unsupportedRouterVersion",
+          "authority": null,
+          "trackedTokenRole": "UNKNOWN",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": null,
+          "rawQuote": null,
+          "rawResponseSha256": "b6e05c9847f9f4d523ffdab2ff2a99efecd4a5a4520c3ae496092b9dec1a9c4a"
+        },
+        {
+          "signature": "3tpP9679qik5FcWAsTYtcQqZY8CUTwiiWE4JbeNBBCPQin7Er3r3nsaAkuM1LQZKnZWjoesMMCRsrWDCauUwzCkS",
+          "slot": 446570989,
+          "blockTime": 1789260914,
+          "fetchedAt": "2026-09-13T00:56:33.280Z",
+          "tokenMint": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+          "topLevelPrograms": [
+            "FLASHX8DrLbgeR8FcfNV1F5krxYcYMUdBkrP1EPBtxB9",
+            "FLASHX8DrLbgeR8FcfNV1F5krxYcYMUdBkrP1EPBtxB9",
+            "FLASHX8DrLbgeR8FcfNV1F5krxYcYMUdBkrP1EPBtxB9",
+            "FLASHX8DrLbgeR8FcfNV1F5krxYcYMUdBkrP1EPBtxB9",
+            "11111111111111111111111111111111"
+          ],
+          "routers": [],
+          "classification": "FAILED",
+          "reason": "TRANSACTION_FAILED",
+          "category": "failedInvalid",
+          "authority": null,
+          "trackedTokenRole": "UNKNOWN",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": null,
+          "rawQuote": null,
+          "rawResponseSha256": "88d7a44e11a87be89c08ae0e16c9e65fdbc4109ca35fd1557ed9e9cc6cab9320"
+        },
+        {
+          "signature": "41NNpmvrFSoiyHFLtx8Emq7TXHmT9ajXeE54qpypnudGAvyp6Qe7hL4Eg2taVPdc6A7gQ8H95xovvwvVVYH1ADYn",
+          "slot": 446570990,
+          "blockTime": 1789260914,
+          "fetchedAt": "2026-09-13T00:56:26.458Z",
+          "tokenMint": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+          "topLevelPrograms": [
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "11111111111111111111111111111111",
+            "DDsnwb7dxKSjzTYDFjU8F6rpYNZa1sp7Fmfb2nGDAMEo"
+          ],
+          "routers": [],
+          "classification": "UNVERIFIED",
+          "reason": "NO_POSITIVE_SWAP_EVIDENCE",
+          "category": "noSwapEvidence",
+          "authority": null,
+          "trackedTokenRole": "UNKNOWN",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": null,
+          "rawQuote": null,
+          "rawResponseSha256": "ff99a723da2666d8024fb120491b77315cafaa3e1bd94a608e33af44d54500fa"
+        },
+        {
+          "signature": "46GJTGA3mVoGgkMPW5WHEt5zMa7J85cXkWER3GqADH992t49d2HQmWN6zCPnaLqrbn1SCZpZV5yskqVYc72fdXUS",
+          "slot": 446571438,
+          "blockTime": 1789261055,
+          "fetchedAt": "2026-09-13T00:58:24.990Z",
+          "tokenMint": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+          "topLevelPrograms": [
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "9L1qqo7q7vq7sKuMsBGKPF81z6GK7N4orWGgGFwwqqDF"
+          ],
+          "routers": [],
+          "classification": "UNVERIFIED",
+          "reason": "NO_POSITIVE_SWAP_EVIDENCE",
+          "category": "noSwapEvidence",
+          "authority": null,
+          "trackedTokenRole": "UNKNOWN",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": null,
+          "rawQuote": null,
+          "rawResponseSha256": "ed34222e6a81a913f62d63aa7cb67da8817952c1d1f7d1582400271dbf2bacc1"
+        },
+        {
+          "signature": "4BAto1QYZCokfbLwPzUFYDML9eMt2GXDRz8d1nmWXPNtBesRHsniHjFUsgKnB8SZRNX5bRbkSp3WPKSZrWv4AgEY",
+          "slot": 446571219,
+          "blockTime": 1789260986,
+          "fetchedAt": "2026-09-13T00:57:00.591Z",
+          "tokenMint": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+          "topLevelPrograms": [
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "11111111111111111111111111111111",
+            "DDsnwb7dxKSjzTYDFjU8F6rpYNZa1sp7Fmfb2nGDAMEo"
+          ],
+          "routers": [],
+          "classification": "FAILED",
+          "reason": "TRANSACTION_FAILED",
+          "category": "failedInvalid",
+          "authority": null,
+          "trackedTokenRole": "UNKNOWN",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": null,
+          "rawQuote": null,
+          "rawResponseSha256": "d00f94f50c2921da5dd4d27f59dc7d27cdda18113faa1dbb35c71fd75d5bd603"
+        },
+        {
+          "signature": "4HCLGBnLXuATD5zDdUwdWRySxEigkmsKZHXPvGPB9uR1QpgNxMKk9VUZ1FoEgH5h4ZH1xmqsKceCYr6LmjbADL6E",
+          "slot": 446570992,
+          "blockTime": 1789260915,
+          "fetchedAt": "2026-09-13T00:55:59.265Z",
+          "tokenMint": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+          "topLevelPrograms": [
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "FLASHX8DrLbgeR8FcfNV1F5krxYcYMUdBkrP1EPBtxB9",
+            "FLASHX8DrLbgeR8FcfNV1F5krxYcYMUdBkrP1EPBtxB9",
+            "FLASHX8DrLbgeR8FcfNV1F5krxYcYMUdBkrP1EPBtxB9",
+            "11111111111111111111111111111111"
+          ],
+          "routers": [],
+          "classification": "UNVERIFIED",
+          "reason": "UNSUPPORTED_ROUTER",
+          "category": "unsupportedRouterVersion",
+          "authority": null,
+          "trackedTokenRole": "UNKNOWN",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": null,
+          "rawQuote": null,
+          "rawResponseSha256": "db827284741a69b77e2805ac13e72bccad50f409b2fbfd935edf733909d359b5"
+        },
+        {
+          "signature": "4LrVxjJYk3cQUtoZfAeai6Yc931kk8U5VaYtsBCwHvDwsiufe3upmGjeLfTNV67QcfUxg2N4xaZ3otof3fuv2EfZ",
+          "slot": 446571442,
+          "blockTime": 1789261057,
+          "fetchedAt": "2026-09-13T00:57:51.204Z",
+          "tokenMint": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+          "topLevelPrograms": [
+            "11111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "11111111111111111111111111111111",
+            "9L1qqo7q7vq7sKuMsBGKPF81z6GK7N4orWGgGFwwqqDF"
+          ],
+          "routers": [],
+          "classification": "FAILED",
+          "reason": "TRANSACTION_FAILED",
+          "category": "failedInvalid",
+          "authority": null,
+          "trackedTokenRole": "UNKNOWN",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": null,
+          "rawQuote": null,
+          "rawResponseSha256": "e22612d28e09d69af2dffb461d0290a893d99252642be9b94533a2e64ca38fea"
+        },
+        {
+          "signature": "4NVTSpwQGLwd6hs17UpUY4pCAERqCLUXxG3zeP59qt5M58unM53jCLSsM4FEd8roVBRE3VLxnhpptrEvzK5r2Byq",
+          "slot": 446571441,
+          "blockTime": 1789261056,
+          "fetchedAt": "2026-09-13T00:58:11.482Z",
+          "tokenMint": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+          "topLevelPrograms": [
+            "11111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "11111111111111111111111111111111",
+            "9L1qqo7q7vq7sKuMsBGKPF81z6GK7N4orWGgGFwwqqDF"
+          ],
+          "routers": [],
+          "classification": "FAILED",
+          "reason": "TRANSACTION_FAILED",
+          "category": "failedInvalid",
+          "authority": null,
+          "trackedTokenRole": "UNKNOWN",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": null,
+          "rawQuote": null,
+          "rawResponseSha256": "febd202fbf4ccd27c20aaa534ee11bd90a3caf26b2f67942b56e025ec1a595bf"
+        },
+        {
+          "signature": "4TLArzvdWG3fJERxeq9Fjngjkq4Zyx7kn8aevB2KDcWpLbG8Jj6FXZbSbhkq7rVhcdY4ak1Yhji7ExqRDuVRZBf2",
+          "slot": 446570992,
+          "blockTime": 1789260915,
+          "fetchedAt": "2026-09-13T00:55:49.081Z",
+          "tokenMint": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+          "topLevelPrograms": [
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",
+            "4Qv3mbzcq1bKmrhGG4voS3EemfPd7f838FLUU7wBHSyi",
+            "11111111111111111111111111111111"
+          ],
+          "routers": [],
+          "classification": "FAILED",
+          "reason": "TRANSACTION_FAILED",
+          "category": "failedInvalid",
+          "authority": null,
+          "trackedTokenRole": "UNKNOWN",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": null,
+          "rawQuote": null,
+          "rawResponseSha256": "a8b0b10383b7d70b05b3901986565a5e1aceab6096a0a2b512d3318d43198823"
+        },
+        {
+          "signature": "4TRX5V2Y7Lhx9ZHTidR1pcFRu7vmFgrhvg3w6tfcqW3PXuhBAcS9jrH2hrJNHKx5zmVGXmvCLDQ6MHT8S7KTr6DL",
+          "slot": 446571219,
+          "blockTime": 1789260986,
+          "fetchedAt": "2026-09-13T00:56:53.833Z",
+          "tokenMint": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+          "topLevelPrograms": [
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "11111111111111111111111111111111",
+            "DDsnwb7dxKSjzTYDFjU8F6rpYNZa1sp7Fmfb2nGDAMEo"
+          ],
+          "routers": [],
+          "classification": "UNVERIFIED",
+          "reason": "NO_POSITIVE_SWAP_EVIDENCE",
+          "category": "noSwapEvidence",
+          "authority": null,
+          "trackedTokenRole": "UNKNOWN",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": null,
+          "rawQuote": null,
+          "rawResponseSha256": "4dd8abfd64d8383ba8cdb3050f793bc4fbea2791352cd14e6e9fcb72dff53da6"
+        },
+        {
+          "signature": "4hcWhtL5iZc1sBLwPEsSf4qKBcVmWFKcT8S1V5vdAiYvZz4EuKcgH1C7Dczxj3ttZZ4d3EfHTaaByS95FqKdd14z",
+          "slot": 446571219,
+          "blockTime": 1789260986,
+          "fetchedAt": "2026-09-13T00:57:10.712Z",
+          "tokenMint": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+          "topLevelPrograms": [
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "11111111111111111111111111111111",
+            "DDsnwb7dxKSjzTYDFjU8F6rpYNZa1sp7Fmfb2nGDAMEo"
+          ],
+          "routers": [],
+          "classification": "FAILED",
+          "reason": "TRANSACTION_FAILED",
+          "category": "failedInvalid",
+          "authority": null,
+          "trackedTokenRole": "UNKNOWN",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": null,
+          "rawQuote": null,
+          "rawResponseSha256": "dc842a52f6449ce878b9d682814f57a436406cdf143c92209122bf68edd57bac"
+        },
+        {
+          "signature": "4iW46J7xGDhaphwPm79eDi8HzEv3V1ABQy6vzE9aiHGnu6oJD1CdkmawQg7rXvKq2k4dn6hzcZc48769MC5mmPzk",
+          "slot": 446571437,
+          "blockTime": 1789261055,
+          "fetchedAt": "2026-09-13T00:58:48.649Z",
+          "tokenMint": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+          "topLevelPrograms": [
+            "11111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "11111111111111111111111111111111",
+            "9L1qqo7q7vq7sKuMsBGKPF81z6GK7N4orWGgGFwwqqDF"
+          ],
+          "routers": [],
+          "classification": "FAILED",
+          "reason": "TRANSACTION_FAILED",
+          "category": "failedInvalid",
+          "authority": null,
+          "trackedTokenRole": "UNKNOWN",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": null,
+          "rawQuote": null,
+          "rawResponseSha256": "cbd4984fdd3069e7d5b35d7bd792e2532bc67b1c64eb3dd2c6413a268e0d083b"
+        },
+        {
+          "signature": "4mJRoDGp9EEtEUm9oqJD49zeTf8Aq1mfww8L58G8HF68Vo5pzk6ZxnGZdEm45wBUwmV8P2pwB7iN53L7GzjWcCKb",
+          "slot": 446571219,
+          "blockTime": 1789260986,
+          "fetchedAt": "2026-09-13T00:56:40.022Z",
+          "tokenMint": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+          "topLevelPrograms": [
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "DDsnwb7dxKSjzTYDFjU8F6rpYNZa1sp7Fmfb2nGDAMEo"
+          ],
+          "routers": [],
+          "classification": "UNVERIFIED",
+          "reason": "NO_POSITIVE_SWAP_EVIDENCE",
+          "category": "noSwapEvidence",
+          "authority": null,
+          "trackedTokenRole": "UNKNOWN",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": null,
+          "rawQuote": null,
+          "rawResponseSha256": "63adac98c693810aa45abd8b0e8507c73612dcd5b2fa7d5335a090f8b4f9573c"
+        },
+        {
+          "signature": "4p9TXY58rFYM4Mis4F3m99t1qK69eCWazEajkXgHAyfkhPT2seQ8yKVUtKCSmEgN5ENRew9xp1yTaeua8qyT7tWx",
+          "slot": 446570992,
+          "blockTime": 1789260915,
+          "fetchedAt": "2026-09-13T00:55:55.883Z",
+          "tokenMint": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+          "topLevelPrograms": [
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "4Qv3mbzcq1bKmrhGG4voS3EemfPd7f838FLUU7wBHSyi"
+          ],
+          "routers": [],
+          "classification": "UNVERIFIED",
+          "reason": "NO_POSITIVE_SWAP_EVIDENCE",
+          "category": "noSwapEvidence",
+          "authority": null,
+          "trackedTokenRole": "UNKNOWN",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": null,
+          "rawQuote": null,
+          "rawResponseSha256": "8b02c6fa8dcea38e1d03f000ed9af387f39149eec4342d328fe1232b278502a9"
+        },
+        {
+          "signature": "4qmZSVAQYzmagPK6fvBj6c8Y7o5MH96XDr3XcUhpbDCCwm1A73qEmnrmj74vUsyipGkh3u5QpVDYEMCBdqsxFWET",
+          "slot": 446571438,
+          "blockTime": 1789261055,
+          "fetchedAt": "2026-09-13T00:58:35.152Z",
+          "tokenMint": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+          "topLevelPrograms": [
+            "11111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "11111111111111111111111111111111",
+            "9L1qqo7q7vq7sKuMsBGKPF81z6GK7N4orWGgGFwwqqDF"
+          ],
+          "routers": [],
+          "classification": "FAILED",
+          "reason": "TRANSACTION_FAILED",
+          "category": "failedInvalid",
+          "authority": null,
+          "trackedTokenRole": "UNKNOWN",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": null,
+          "rawQuote": null,
+          "rawResponseSha256": "942ea106febe58244701ffa85e5583812906bb33e474617c9a152cd29342ac9c"
+        },
+        {
+          "signature": "4tBR76smV2fBo5YSur8eToiTvPrsECJwfUP6cV9eQDbhVq3zjkPYxzjfzjbpfmhuozMTzAj8pqfjUQBiCvxUvjmJ",
+          "slot": 446571219,
+          "blockTime": 1789260986,
+          "fetchedAt": "2026-09-13T00:57:20.829Z",
+          "tokenMint": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+          "topLevelPrograms": [
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "11111111111111111111111111111111",
+            "DDsnwb7dxKSjzTYDFjU8F6rpYNZa1sp7Fmfb2nGDAMEo"
+          ],
+          "routers": [],
+          "classification": "FAILED",
+          "reason": "TRANSACTION_FAILED",
+          "category": "failedInvalid",
+          "authority": null,
+          "trackedTokenRole": "UNKNOWN",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": null,
+          "rawQuote": null,
+          "rawResponseSha256": "6a5bb59c445bc50c421d6f8a0115e31ca5c91418d89f2442b32fa52a7bb5faee"
+        },
+        {
+          "signature": "4ytKnbJyU8fB8euoubzBjb5bg3DnmpU8iEXMZhsxnEWFLsgkvtAEZZZfwfuCeEr4B7r8bPMMw8sB4AqbiqmY97zR",
+          "slot": 446571219,
+          "blockTime": 1789260986,
+          "fetchedAt": "2026-09-13T00:56:46.983Z",
+          "tokenMint": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+          "topLevelPrograms": [
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "4bwVxjN2sFQyejtoa9ieiD1rRpPY798QGTKVDcmnotWu",
+            "11111111111111111111111111111111"
+          ],
+          "routers": [],
+          "classification": "UNVERIFIED",
+          "reason": "NO_POSITIVE_SWAP_EVIDENCE",
+          "category": "noSwapEvidence",
+          "authority": null,
+          "trackedTokenRole": "UNKNOWN",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": null,
+          "rawQuote": null,
+          "rawResponseSha256": "e928bd479e0f941a4d1658e031e4a95be8d45af2a19c1d7335659d80dfc8d570"
+        },
+        {
+          "signature": "5EoNjoBq2btPYy9RcuodxHnmCFdpET34asNsdzYXq152NNiCf9N6Y9m9nTxEXmew6k6YQ73G63cvko4oeY1aPFdk",
+          "slot": 446571219,
+          "blockTime": 1789260986,
+          "fetchedAt": "2026-09-13T00:56:57.208Z",
+          "tokenMint": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+          "topLevelPrograms": [
+            "11111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "11111111111111111111111111111111",
+            "NA777pkN8YYSsQKk1zvwKgJmThtuWbmhonzJxRARQm5",
+            "ComputeBudget111111111111111111111111111111"
+          ],
+          "routers": [],
+          "classification": "FAILED",
+          "reason": "TRANSACTION_FAILED",
+          "category": "failedInvalid",
+          "authority": null,
+          "trackedTokenRole": "UNKNOWN",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": null,
+          "rawQuote": null,
+          "rawResponseSha256": "82101f68555ea27d2c95f1b97b68a2dfd82f19abaf6d66ad411bd9a37b09ae25"
+        },
+        {
+          "signature": "5EyeKxRH2LDqwyNYGfeaURqmfMAZV9Gk9ctrjGfajm4yqPF3PBcqLRbSXwrSPD6G2XCghGRhUu5NN3c3pvtWdccZ",
+          "slot": 446570991,
+          "blockTime": 1789260914,
+          "fetchedAt": "2026-09-13T00:56:09.453Z",
+          "tokenMint": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+          "topLevelPrograms": [
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "FLASHX8DrLbgeR8FcfNV1F5krxYcYMUdBkrP1EPBtxB9",
+            "FLASHX8DrLbgeR8FcfNV1F5krxYcYMUdBkrP1EPBtxB9",
+            "FLASHX8DrLbgeR8FcfNV1F5krxYcYMUdBkrP1EPBtxB9",
+            "11111111111111111111111111111111"
+          ],
+          "routers": [],
+          "classification": "UNVERIFIED",
+          "reason": "UNSUPPORTED_ROUTER",
+          "category": "unsupportedRouterVersion",
+          "authority": null,
+          "trackedTokenRole": "UNKNOWN",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": null,
+          "rawQuote": null,
+          "rawResponseSha256": "9152da372d1964f0354ee74ed3d0652e21098aa568b029b5668d4dd124c2ce5b"
+        },
+        {
+          "signature": "5FuHftKMrei2jvKfRxVLdQ2wLgJ54d6vo3sAuN1GekobRa8tmoEvxoMV1uP9kyxaWYB79khypZVxPR4e7NDe94nK",
+          "slot": 446571437,
+          "blockTime": 1789261055,
+          "fetchedAt": "2026-09-13T00:58:45.274Z",
+          "tokenMint": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+          "topLevelPrograms": [
+            "11111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "11111111111111111111111111111111",
+            "9L1qqo7q7vq7sKuMsBGKPF81z6GK7N4orWGgGFwwqqDF"
+          ],
+          "routers": [],
+          "classification": "FAILED",
+          "reason": "TRANSACTION_FAILED",
+          "category": "failedInvalid",
+          "authority": null,
+          "trackedTokenRole": "UNKNOWN",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": null,
+          "rawQuote": null,
+          "rawResponseSha256": "9da3aba13c53d3167dcd858e0a1f077273fdba9f250de2446c7820d60a77424d"
+        },
+        {
+          "signature": "5QL25aGYqXRwmvT4LSYMQANNfxYJcFyQZMotLfbVmKzrwuXDibTrbPpvyFMvaNTMaJxNJPMa4jhRikEfkhSYDmkf",
+          "slot": 446571437,
+          "blockTime": 1789261055,
+          "fetchedAt": "2026-09-13T00:58:38.532Z",
+          "tokenMint": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+          "topLevelPrograms": [
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "9L1qqo7q7vq7sKuMsBGKPF81z6GK7N4orWGgGFwwqqDF"
+          ],
+          "routers": [],
+          "classification": "UNVERIFIED",
+          "reason": "NO_POSITIVE_SWAP_EVIDENCE",
+          "category": "noSwapEvidence",
+          "authority": null,
+          "trackedTokenRole": "UNKNOWN",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": null,
+          "rawQuote": null,
+          "rawResponseSha256": "8fe056ba486e2699dd47beed811b6f0f1b65f94d3ebe6a88e598deb4b8071fae"
+        },
+        {
+          "signature": "5bcxh5hfpi35oP7JmYWZ5vw6GTGXDkZvdJseRG9Kav1twBoAp6i21NjUUvfmsKPqnsYWzWKgbg6kVoFR4THHjTX9",
+          "slot": 446571219,
+          "blockTime": 1789260986,
+          "fetchedAt": "2026-09-13T00:57:24.207Z",
+          "tokenMint": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+          "topLevelPrograms": [
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "DDsnwb7dxKSjzTYDFjU8F6rpYNZa1sp7Fmfb2nGDAMEo"
+          ],
+          "routers": [],
+          "classification": "UNVERIFIED",
+          "reason": "NO_POSITIVE_SWAP_EVIDENCE",
+          "category": "noSwapEvidence",
+          "authority": null,
+          "trackedTokenRole": "UNKNOWN",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": null,
+          "rawQuote": null,
+          "rawResponseSha256": "c54daa636493099a3138399cf75f770b7ba2f60fe8b6e3a6b44685039eaedb07"
+        },
+        {
+          "signature": "5hRiZLhftp95c25Au35DcDKnvb8tiEbwejnfQ3Z8iEMinPFHXapL9jwxUAnNk2ScCJE7woSf43LyeCuqqzpttXcN",
+          "slot": 446570992,
+          "blockTime": 1789260915,
+          "fetchedAt": "2026-09-13T00:55:38.915Z",
+          "tokenMint": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+          "topLevelPrograms": [
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "FLASHX8DrLbgeR8FcfNV1F5krxYcYMUdBkrP1EPBtxB9",
+            "FLASHX8DrLbgeR8FcfNV1F5krxYcYMUdBkrP1EPBtxB9",
+            "FLASHX8DrLbgeR8FcfNV1F5krxYcYMUdBkrP1EPBtxB9",
+            "FLASHX8DrLbgeR8FcfNV1F5krxYcYMUdBkrP1EPBtxB9",
+            "11111111111111111111111111111111"
+          ],
+          "routers": [],
+          "classification": "UNVERIFIED",
+          "reason": "UNSUPPORTED_ROUTER",
+          "category": "unsupportedRouterVersion",
+          "authority": null,
+          "trackedTokenRole": "UNKNOWN",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": null,
+          "rawQuote": null,
+          "rawResponseSha256": "2e7112815ab9fe8d9e12b1d098df670ac133970d11c0972c02a6419ae0aaeda9"
+        },
+        {
+          "signature": "5jexUFAiX5UW3HeQmfJzzbQhcqufnXYAAgh5UZuoQLDQk7edQiU5HmD5UjmXKvAh118CDFZSrziBQ1Khn29EdaKR",
+          "slot": 446571438,
+          "blockTime": 1789261055,
+          "fetchedAt": "2026-09-13T00:58:31.774Z",
+          "tokenMint": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+          "topLevelPrograms": [
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "11111111111111111111111111111111",
+            "9L1qqo7q7vq7sKuMsBGKPF81z6GK7N4orWGgGFwwqqDF"
+          ],
+          "routers": [],
+          "classification": "UNVERIFIED",
+          "reason": "NO_POSITIVE_SWAP_EVIDENCE",
+          "category": "noSwapEvidence",
+          "authority": null,
+          "trackedTokenRole": "UNKNOWN",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": null,
+          "rawQuote": null,
+          "rawResponseSha256": "eeb45c6007e57f194122554c7032ef2e74a9891caf9b12a345ecc08e3f8fa3e5"
+        },
+        {
+          "signature": "5xH8QY3G1Hm5FfcNwBunLrEuoFPJxy29nqnRWc4KipCUQGPuj3XyE1HGK7AJMtznAyeBB73jXTPzn9ikV2QcawVd",
+          "slot": 446571219,
+          "blockTime": 1789260986,
+          "fetchedAt": "2026-09-13T00:57:41.085Z",
+          "tokenMint": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+          "topLevelPrograms": [
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "11111111111111111111111111111111",
+            "SoLSzZ1g1d8JpJyer4e4i1mS4sMirdjvRbwfjsaAVk4"
+          ],
+          "routers": [],
+          "classification": "FAILED",
+          "reason": "TRANSACTION_FAILED",
+          "category": "failedInvalid",
+          "authority": null,
+          "trackedTokenRole": "UNKNOWN",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": null,
+          "rawQuote": null,
+          "rawResponseSha256": "d255c617cbe7f1a1a73fa3ee3cdc314ba28421db89280202940d264642246362"
+        },
+        {
+          "signature": "BZMj9w2CwX4cmeSKvcwH2q245xpvPQ9dHRjcWL6vguyG2txXhQLocJgmdChSNAPTDu1iGSHgxdpx6Qv7uXaX6ph",
+          "slot": 446571438,
+          "blockTime": 1789261055,
+          "fetchedAt": "2026-09-13T00:58:28.375Z",
+          "tokenMint": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+          "topLevelPrograms": [
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "9L1qqo7q7vq7sKuMsBGKPF81z6GK7N4orWGgGFwwqqDF"
+          ],
+          "routers": [],
+          "classification": "UNVERIFIED",
+          "reason": "NO_POSITIVE_SWAP_EVIDENCE",
+          "category": "noSwapEvidence",
+          "authority": null,
+          "trackedTokenRole": "UNKNOWN",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": null,
+          "rawQuote": null,
+          "rawResponseSha256": "fddfd1883bc508b3bbc7dc32e5bade5bd75b292f77038209ff66ec680901b62e"
+        },
+        {
+          "signature": "DCJmZar34iy4td8DneDrsQzpLdeGMU9PWrFBjRf4mcVAc7amPkrsqreUt4LT2VPrN4obErxpCBMvmPRv8svvMhN",
+          "slot": 446570992,
+          "blockTime": 1789260915,
+          "fetchedAt": "2026-09-13T00:55:32.088Z",
+          "tokenMint": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+          "topLevelPrograms": [
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "FLASHX8DrLbgeR8FcfNV1F5krxYcYMUdBkrP1EPBtxB9",
+            "FLASHX8DrLbgeR8FcfNV1F5krxYcYMUdBkrP1EPBtxB9",
+            "FLASHX8DrLbgeR8FcfNV1F5krxYcYMUdBkrP1EPBtxB9",
+            "FLASHX8DrLbgeR8FcfNV1F5krxYcYMUdBkrP1EPBtxB9",
+            "11111111111111111111111111111111"
+          ],
+          "routers": [],
+          "classification": "UNVERIFIED",
+          "reason": "UNSUPPORTED_ROUTER",
+          "category": "unsupportedRouterVersion",
+          "authority": null,
+          "trackedTokenRole": "UNKNOWN",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": null,
+          "rawQuote": null,
+          "rawResponseSha256": "6b82246d3fb96eae54fe2afda4ad1c25d34cdb01930faf97c2ab2e66ebb99f26"
+        },
+        {
+          "signature": "EMeqy41SBAFcUp5RNFB8i2XQiwTVtLqZEBWWtRYPaP7JvXUBUezM6drjkS9zqmmBoFS5DV7JgBqnju26r7ki3vh",
+          "slot": 446570990,
+          "blockTime": 1789260914,
+          "fetchedAt": "2026-09-13T00:56:29.880Z",
+          "tokenMint": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+          "topLevelPrograms": [
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "FLASHX8DrLbgeR8FcfNV1F5krxYcYMUdBkrP1EPBtxB9",
+            "FLASHX8DrLbgeR8FcfNV1F5krxYcYMUdBkrP1EPBtxB9",
+            "FLASHX8DrLbgeR8FcfNV1F5krxYcYMUdBkrP1EPBtxB9",
+            "FLASHX8DrLbgeR8FcfNV1F5krxYcYMUdBkrP1EPBtxB9",
+            "11111111111111111111111111111111"
+          ],
+          "routers": [],
+          "classification": "FAILED",
+          "reason": "TRANSACTION_FAILED",
+          "category": "failedInvalid",
+          "authority": null,
+          "trackedTokenRole": "UNKNOWN",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": null,
+          "rawQuote": null,
+          "rawResponseSha256": "b1e659f9a3f565188f70a93b5c3ba22051c0975bf6eed3e7075bf31ddc8d2e1c"
+        },
+        {
+          "signature": "FjK8JPqexgoyZpuVdpNYF4NwMZc6XppqGewLSGxDMDj2v9N1PQFaBzTWbwV7ZaVnnx5WAKdJ7goRbRu917JcDvK",
+          "slot": 446571219,
+          "blockTime": 1789260986,
+          "fetchedAt": "2026-09-13T00:57:27.583Z",
+          "tokenMint": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+          "topLevelPrograms": [
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "DDsnwb7dxKSjzTYDFjU8F6rpYNZa1sp7Fmfb2nGDAMEo"
+          ],
+          "routers": [],
+          "classification": "UNVERIFIED",
+          "reason": "NO_POSITIVE_SWAP_EVIDENCE",
+          "category": "noSwapEvidence",
+          "authority": null,
+          "trackedTokenRole": "UNKNOWN",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": null,
+          "rawQuote": null,
+          "rawResponseSha256": "da7d61edf78636fff9cb8769b4978758265e22022d81a26852a577f3615f71c8"
+        },
+        {
+          "signature": "GZMbRjkoVjm9Tygb5gRbJZqd1WbfT8duKvpRiygEqMjXnTzm9uBrt5GFTEyMfi3wQVba7iSfDU5kNomjQHBQubC",
+          "slot": 446571438,
+          "blockTime": 1789261055,
+          "fetchedAt": "2026-09-13T00:58:21.616Z",
+          "tokenMint": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+          "topLevelPrograms": [
+            "11111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "11111111111111111111111111111111",
+            "9L1qqo7q7vq7sKuMsBGKPF81z6GK7N4orWGgGFwwqqDF"
+          ],
+          "routers": [],
+          "classification": "FAILED",
+          "reason": "TRANSACTION_FAILED",
+          "category": "failedInvalid",
+          "authority": null,
+          "trackedTokenRole": "UNKNOWN",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": null,
+          "rawQuote": null,
+          "rawResponseSha256": "bff03bad0822721df33f6ab8fe1ef98ba4e852b9ba671142ce439c8d343c8b96"
+        },
+        {
+          "signature": "PqkoLi1vYRqgASTp9GW1jTmSgWbgKFPpcz8xKzLPQHU74W83wz9JuPeGXURRBUEA88JM35WoYefYhGTxYtekyzM",
+          "slot": 446571441,
+          "blockTime": 1789261056,
+          "fetchedAt": "2026-09-13T00:57:57.944Z",
+          "tokenMint": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+          "topLevelPrograms": [
+            "11111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "11111111111111111111111111111111",
+            "9L1qqo7q7vq7sKuMsBGKPF81z6GK7N4orWGgGFwwqqDF"
+          ],
+          "routers": [],
+          "classification": "FAILED",
+          "reason": "TRANSACTION_FAILED",
+          "category": "failedInvalid",
+          "authority": null,
+          "trackedTokenRole": "UNKNOWN",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": null,
+          "rawQuote": null,
+          "rawResponseSha256": "1d4848baf5c76cff0f55a6fbe29d53d9ed889d3acaa6b2a7b92aa6914d34a01f"
+        },
+        {
+          "signature": "RKzPoxBAqFd5RJ1jhUT3VV7esUsKfxfoi59LPC6PJZYV4VFJzbcLJvRNLK76PcTmG9qsaimzmTTb9XC7yhFrCz3",
+          "slot": 446570990,
+          "blockTime": 1789260914,
+          "fetchedAt": "2026-09-13T00:56:12.823Z",
+          "tokenMint": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+          "topLevelPrograms": [
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "4Qv3mbzcq1bKmrhGG4voS3EemfPd7f838FLUU7wBHSyi"
+          ],
+          "routers": [],
+          "classification": "UNVERIFIED",
+          "reason": "NO_POSITIVE_SWAP_EVIDENCE",
+          "category": "noSwapEvidence",
+          "authority": null,
+          "trackedTokenRole": "UNKNOWN",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": null,
+          "rawQuote": null,
+          "rawResponseSha256": "187f779c394eff3747923f36f077c926befe95a3b58900638888219a6acc4dea"
+        },
+        {
+          "signature": "VBoctA61vTo7wkYvXXzBahzcpbGYACUwyyH4wNSKgTZutWTH7R2bV99xUopXQhTrm1qpjzTEG78LASLCfkLU5vq",
+          "slot": 446571441,
+          "blockTime": 1789261056,
+          "fetchedAt": "2026-09-13T00:58:08.083Z",
+          "tokenMint": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+          "topLevelPrograms": [
+            "11111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "11111111111111111111111111111111",
+            "9L1qqo7q7vq7sKuMsBGKPF81z6GK7N4orWGgGFwwqqDF"
+          ],
+          "routers": [],
+          "classification": "FAILED",
+          "reason": "TRANSACTION_FAILED",
+          "category": "failedInvalid",
+          "authority": null,
+          "trackedTokenRole": "UNKNOWN",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": null,
+          "rawQuote": null,
+          "rawResponseSha256": "55a42426694e9b3ba8787badc031c744d714bcb6460b2623c164f816af2ffdb6"
+        },
+        {
+          "signature": "XXc1EAFo9FUdQBvsjqpmCAEAXWk2Xjg3pyARynC4ki9N1C9q3NKYHdHz7zZQo9F8Xzg8zdawaKWP8Axw6pvznXF",
+          "slot": 446571219,
+          "blockTime": 1789260986,
+          "fetchedAt": "2026-09-13T00:56:43.591Z",
+          "tokenMint": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+          "topLevelPrograms": [
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "4bwVxjN2sFQyejtoa9ieiD1rRpPY798QGTKVDcmnotWu",
+            "11111111111111111111111111111111"
+          ],
+          "routers": [],
+          "classification": "UNVERIFIED",
+          "reason": "NO_POSITIVE_SWAP_EVIDENCE",
+          "category": "noSwapEvidence",
+          "authority": null,
+          "trackedTokenRole": "UNKNOWN",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": null,
+          "rawQuote": null,
+          "rawResponseSha256": "1c09b1b97692c2ec7d32234f9bd009abcb58088b174ae39b6b13e8c6c256a488"
+        },
+        {
+          "signature": "Xksi7EjLrK1K9zS4pFoUiPLFE735YNPpiHEYWKeuHwXHaTh9dtthwoJQZJ9esNaJymYJ7SYmy2jkDt2wyKhaGzY",
+          "slot": 446571439,
+          "blockTime": 1789261056,
+          "fetchedAt": "2026-09-13T00:58:18.242Z",
+          "tokenMint": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+          "topLevelPrograms": [
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "11111111111111111111111111111111",
+            "9L1qqo7q7vq7sKuMsBGKPF81z6GK7N4orWGgGFwwqqDF"
+          ],
+          "routers": [],
+          "classification": "UNVERIFIED",
+          "reason": "NO_POSITIVE_SWAP_EVIDENCE",
+          "category": "noSwapEvidence",
+          "authority": null,
+          "trackedTokenRole": "UNKNOWN",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": null,
+          "rawQuote": null,
+          "rawResponseSha256": "1bcad0fa472ec394b9e1abcbd2b0589b9d78655075beb1dd851f6b35c7d9309a"
+        },
+        {
+          "signature": "aiSxrYAYtsxxPr1LojCcNuGQqEG1of9Uhs5J3rqBKvAmP9kQruuCdwPhoEvwEZT9QqE7vG35yJgoKUNPtTW54F1",
+          "slot": 446570991,
+          "blockTime": 1789260914,
+          "fetchedAt": "2026-09-13T00:56:06.049Z",
+          "tokenMint": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+          "topLevelPrograms": [
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "11111111111111111111111111111111",
+            "SoLSzZ1g1d8JpJyer4e4i1mS4sMirdjvRbwfjsaAVk4"
+          ],
+          "routers": [],
+          "classification": "UNVERIFIED",
+          "reason": "NO_POSITIVE_SWAP_EVIDENCE",
+          "category": "noSwapEvidence",
+          "authority": null,
+          "trackedTokenRole": "UNKNOWN",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": null,
+          "rawQuote": null,
+          "rawResponseSha256": "045b9a7e71963d10153ba79aa8802926ad60bd4ee0e21bd0205ca69d02294fb3"
+        },
+        {
+          "signature": "eKoyxgYDXMarYp1PbP87LvCRakJw234FEFDAXXr6JzvsvfRk8WkiVKYU9MroP1YmLtvFjeGV98npHgPHAHHELcm",
+          "slot": 446571219,
+          "blockTime": 1789260986,
+          "fetchedAt": "2026-09-13T00:57:37.717Z",
+          "tokenMint": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+          "topLevelPrograms": [
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "11111111111111111111111111111111",
+            "9L1qqo7q7vq7sKuMsBGKPF81z6GK7N4orWGgGFwwqqDF"
+          ],
+          "routers": [],
+          "classification": "UNVERIFIED",
+          "reason": "NO_POSITIVE_SWAP_EVIDENCE",
+          "category": "noSwapEvidence",
+          "authority": null,
+          "trackedTokenRole": "UNKNOWN",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": null,
+          "rawQuote": null,
+          "rawResponseSha256": "ff49dc9fac7d4233ccd7f4d84716691e0aed7cefe3e1207abbf834900bc71c21"
+        }
+      ]
+    },
+    {
+      "name": "JUPITER_PROGRAM",
+      "trackedMint": null,
+      "manifest": {
+        "startedAt": "2026-09-13T03:04:29.593Z",
+        "endpoint": "https://api.mainnet-beta.solana.com",
+        "limitPerPool": 20,
+        "pools": [
+          "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4"
+        ],
+        "candidates": [
+          {
+            "pool": "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4",
+            "blockTime": 1789268662,
+            "confirmationStatus": "finalized",
+            "err": null,
+            "memo": null,
+            "signature": "4q1w4NPupvMeVnNLrnegbSy5uCje99DXTSKADBqCtML6UUX3FMk62kVWqLketeJyAwuc7rrfwrshgDg4jyysY3DJ",
+            "slot": 446595530,
+            "transactionIndex": 1112,
+            "duplicate": false,
+            "available": true
+          },
+          {
+            "pool": "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4",
+            "blockTime": 1789268662,
+            "confirmationStatus": "finalized",
+            "err": null,
+            "memo": null,
+            "signature": "3FJcgkLgQgpRwpi135kFDYqMYGk5Dadwr1CEWdCYpQumwZ5BA4pPNN1kTMmDW1L9kM55FYuzJV2xUe74rFrag8hm",
+            "slot": 446595530,
+            "transactionIndex": 1111,
+            "duplicate": false,
+            "available": true
+          },
+          {
+            "pool": "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4",
+            "blockTime": 1789268662,
+            "confirmationStatus": "finalized",
+            "err": null,
+            "memo": null,
+            "signature": "2ZfyGQ1ZnbtigGYymKTwFetoSTjM12VVCEAmQQENJ8fFaPxRKUqwnHUpCgRMbnmsjY3QZZBHUCQgNE37YpyKP5ta",
+            "slot": 446595530,
+            "transactionIndex": 923,
+            "duplicate": false,
+            "available": true
+          },
+          {
+            "pool": "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4",
+            "blockTime": 1789268662,
+            "confirmationStatus": "finalized",
+            "err": {
+              "InstructionError": [
+                6,
+                {
+                  "Custom": 6001
+                }
+              ]
+            },
+            "memo": null,
+            "signature": "5LNpymgy3EcjsN4t4TLyfLZCefAZvTdzWCRT2BW1WN4RiLgAA33MpZZD42dhFqwc9LzYWe5BLvgRMk1f4mjmyKYx",
+            "slot": 446595530,
+            "transactionIndex": 921,
+            "duplicate": false,
+            "available": true
+          },
+          {
+            "pool": "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4",
+            "blockTime": 1789268662,
+            "confirmationStatus": "finalized",
+            "err": null,
+            "memo": null,
+            "signature": "4yrLVqMJ4F31Qy7HtA7595nL4zwxvGxnDNi45kuaoLeFnCVWZHMj3Eui6xQ1bB8MeGyheN94F1zjqoJdxykKcY3z",
+            "slot": 446595530,
+            "transactionIndex": 920,
+            "duplicate": false,
+            "available": true
+          },
+          {
+            "pool": "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4",
+            "blockTime": 1789268662,
+            "confirmationStatus": "finalized",
+            "err": null,
+            "memo": null,
+            "signature": "2KhBNizbxMtg251Hjh1up6ayMpnicwCqthhpFe9Cix2QJP8HXaD93qSdfHoX3bmEe6jGmzHvLLhtbupv8jPmYpTt",
+            "slot": 446595530,
+            "transactionIndex": 911,
+            "duplicate": false,
+            "available": true
+          },
+          {
+            "pool": "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4",
+            "blockTime": 1789268662,
+            "confirmationStatus": "finalized",
+            "err": {
+              "InstructionError": [
+                6,
+                {
+                  "Custom": 6001
+                }
+              ]
+            },
+            "memo": null,
+            "signature": "5TMkJvPGVbaTpfANsKzgf5STSqxemsVcehKiU5y5UWu7VcJqCzjqEE62AUYoWrsXJ7CVnmeMS2Xy8zZRfu2BW16V",
+            "slot": 446595530,
+            "transactionIndex": 907,
+            "duplicate": false,
+            "available": true
+          },
+          {
+            "pool": "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4",
+            "blockTime": 1789268662,
+            "confirmationStatus": "finalized",
+            "err": {
+              "InstructionError": [
+                3,
+                {
+                  "Custom": 6001
+                }
+              ]
+            },
+            "memo": null,
+            "signature": "3pANJ4Le15RxNgGBNiYUxKyzTVPJCzSNJZDFYes83kXxkzJg3XccFjxhR7NjBTaWzgR6XDzavUbeQ3aJf1fjEWem",
+            "slot": 446595530,
+            "transactionIndex": 886,
+            "duplicate": false,
+            "available": true
+          },
+          {
+            "pool": "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4",
+            "blockTime": 1789268662,
+            "confirmationStatus": "finalized",
+            "err": {
+              "InstructionError": [
+                3,
+                {
+                  "Custom": 6001
+                }
+              ]
+            },
+            "memo": null,
+            "signature": "gEH85T4QSkPBzFXcUuWX8Witc9Vem6gg8BtBA6J4WQuct3wXsrhis2YTcn35tgdV9dTf1UUbcD4YszPVvGVbHTp",
+            "slot": 446595530,
+            "transactionIndex": 884,
+            "duplicate": false,
+            "available": true
+          },
+          {
+            "pool": "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4",
+            "blockTime": 1789268662,
+            "confirmationStatus": "finalized",
+            "err": {
+              "InstructionError": [
+                3,
+                {
+                  "Custom": 6001
+                }
+              ]
+            },
+            "memo": null,
+            "signature": "37BM2DRzYhN68eBCgs9XCRy3vZ6Z1P8m34HXJApanK1WUeU7TAXFmSfHhbtRcvZE6hNRopiKFjdCfMTtZABmxfu9",
+            "slot": 446595530,
+            "transactionIndex": 882,
+            "duplicate": false,
+            "available": true
+          },
+          {
+            "pool": "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4",
+            "blockTime": 1789268662,
+            "confirmationStatus": "finalized",
+            "err": null,
+            "memo": null,
+            "signature": "5YVSFJrq4Gjr79U1M9R7dd3PiwAnvTP6mh51EZhhh84EwSempC8fFhRfBfAEyP2AGKVaFGcuRCEZqR19hXGS34Sq",
+            "slot": 446595530,
+            "transactionIndex": 880,
+            "duplicate": false,
+            "available": true
+          },
+          {
+            "pool": "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4",
+            "blockTime": 1789268662,
+            "confirmationStatus": "finalized",
+            "err": {
+              "InstructionError": [
+                3,
+                {
+                  "Custom": 6001
+                }
+              ]
+            },
+            "memo": null,
+            "signature": "31wGbwwfAjXn1nMZ5on5jSAprKx1Vm89KRP2y2dXZtEfNcTX3B4f6Bf7vaXxgqxaunFJw5cPFTKtrNmftgndahH3",
+            "slot": 446595530,
+            "transactionIndex": 851,
+            "duplicate": false,
+            "available": true
+          },
+          {
+            "pool": "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4",
+            "blockTime": 1789268662,
+            "confirmationStatus": "finalized",
+            "err": {
+              "InstructionError": [
+                4,
+                {
+                  "Custom": 6001
+                }
+              ]
+            },
+            "memo": "[129] 3zpf8aZeoyTeAQVavSJUUCNRNMoNSU7THcifJceLP1qTGNECSWqsPZigtb14Xh1kMFb9fWZ6ZgMKYETGun1zbDrU,446595530,4907489932,500015517|s=T|r=ams",
+            "signature": "6NgPk2tvYtaE33k4ZCB7MSKsCPHAQU84UhFmRxVuFN7oRSraTQqqoZxGyQx9ZwZmm3c5aeG26Sen4snXjMPVGYY",
+            "slot": 446595530,
+            "transactionIndex": 850,
+            "duplicate": false,
+            "available": true
+          },
+          {
+            "pool": "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4",
+            "blockTime": 1789268662,
+            "confirmationStatus": "finalized",
+            "err": null,
+            "memo": null,
+            "signature": "5HWSxDrK6s8YPvgM9uVwi9jh4DVKRovbZiHqy1QA3rYR3VJv3WsiA8jFBcTWSGZRm3KhLYdMAk9qaCHKJLouoqyn",
+            "slot": 446595530,
+            "transactionIndex": 841,
+            "duplicate": false,
+            "available": true
+          },
+          {
+            "pool": "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4",
+            "blockTime": 1789268662,
+            "confirmationStatus": "finalized",
+            "err": null,
+            "memo": null,
+            "signature": "5XqGbVwV27rXVWKn9x25qXmGy93vcnc8h3DcoX2S8hXJVwD1SRb6xubw5UkBCzwTuwC9mPGmsqex9bDWchpp65bg",
+            "slot": 446595530,
+            "transactionIndex": 837,
+            "duplicate": false,
+            "available": true
+          },
+          {
+            "pool": "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4",
+            "blockTime": 1789268662,
+            "confirmationStatus": "finalized",
+            "err": {
+              "InstructionError": [
+                3,
+                {
+                  "Custom": 6001
+                }
+              ]
+            },
+            "memo": "[2] 2s",
+            "signature": "4GgdgRqCmfPHsGuseg4c2PUpmtekPRLdbfrWz193EiEHCoKcTbKMcBzy67TBZqVtquXhEy8engkXoMCnSoetYoeA",
+            "slot": 446595530,
+            "transactionIndex": 649,
+            "duplicate": false,
+            "available": true
+          },
+          {
+            "pool": "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4",
+            "blockTime": 1789268662,
+            "confirmationStatus": "finalized",
+            "err": null,
+            "memo": null,
+            "signature": "2u7g4mtZHTmBW5f5WX1YMrWmZNNbnsT4wC8c1YDwKUJHAdcYxv7sKzoZSmxuQMRb7fRvkWdFyxPZgHXFuB9vkXrt",
+            "slot": 446595530,
+            "transactionIndex": 645,
+            "duplicate": false,
+            "available": true
+          },
+          {
+            "pool": "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4",
+            "blockTime": 1789268662,
+            "confirmationStatus": "finalized",
+            "err": null,
+            "memo": null,
+            "signature": "3WA9ctuw5fewEDr5Y3nBXm3y7tfMsSWGdEHJ4bri2PBZBeEyg4Y5Yy5W5AbjQ2YG9FdaA6rUVV1CHQLgJLof6x68",
+            "slot": 446595530,
+            "transactionIndex": 608,
+            "duplicate": false,
+            "available": true
+          },
+          {
+            "pool": "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4",
+            "blockTime": 1789268662,
+            "confirmationStatus": "finalized",
+            "err": {
+              "InstructionError": [
+                4,
+                {
+                  "Custom": 6001
+                }
+              ]
+            },
+            "memo": "[130] 4wTKWksjtJ73q5kx8iYfZr4d8jkPpEZ2D4y9Zz7yGNBLbwmAB7PtjTq5tknP6mxmphheUuzYT2aYXKHJd7vcEfkN,446595530,9814979864,1000021583|s=T|r=ams",
+            "signature": "5VZzczGRmVs464aGMVviKrQ8xwBmKFQE2xNW8FtfUzap3WkrXq6KzH7KgaBVpG2iDtRgMrx8zMTFgM7XFyGV1Dn6",
+            "slot": 446595530,
+            "transactionIndex": 604,
+            "duplicate": false,
+            "available": true
+          },
+          {
+            "pool": "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4",
+            "blockTime": 1789268662,
+            "confirmationStatus": "finalized",
+            "err": {
+              "InstructionError": [
+                5,
+                {
+                  "Custom": 6001
+                }
+              ]
+            },
+            "memo": null,
+            "signature": "3NGpat4EMDkLpunWkZBKLzGMzZ6G1WGveyzFnFB7ouRBjqNDVQDHE3cfgkAqc9UA7nb7QuhsSyYK7FmedTvteRYA",
+            "slot": 446595530,
+            "transactionIndex": 505,
+            "duplicate": false,
+            "available": true
+          }
+        ],
+        "errors": [],
+        "finishedAt": "2026-09-13T03:05:36.555Z"
+      },
+      "coverage": {
+        "candidates": 20,
+        "evaluated": 20,
+        "pendingUnavailable": 0,
+        "verifiedDirect": 0,
+        "verifiedRouted": 0,
+        "unsupportedRouterVersion": 8,
+        "ambiguousAttribution": 2,
+        "failedInvalid": 10,
+        "intermediateOnly": 0,
+        "notInvolved": 0,
+        "noSwapEvidence": 0,
+        "rawVerifiedTrackedAmount": null,
+        "rawAmountCoverage": null,
+        "usdCoverage": null,
+        "verifiedCandidateFraction": 0,
+        "confidence": "DEGRADED",
+        "scope": "FIXED_CAPTURE_COHORT"
+      },
+      "rows": [
+        {
+          "signature": "2KhBNizbxMtg251Hjh1up6ayMpnicwCqthhpFe9Cix2QJP8HXaD93qSdfHoX3bmEe6jGmzHvLLhtbupv8jPmYpTt",
+          "slot": 446595530,
+          "blockTime": 1789268662,
+          "fetchedAt": "2026-09-13T03:04:52.095Z",
+          "tokenMint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+          "topLevelPrograms": [
+            "11111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4",
+            "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4",
+            "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4",
+            "11111111111111111111111111111111"
+          ],
+          "routers": [
+            {
+              "outerIndex": 3,
+              "unsupported": "UNSUPPORTED_ROUTER_VERSION"
+            },
+            {
+              "outerIndex": 4,
+              "instruction": "route",
+              "authority": "shakRDxyKwaBbduqZTZt8Q4etTALbDLnAANStv9TLH3",
+              "inputMint": "So11111111111111111111111111111111111111112",
+              "outputMint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+              "source": "8Uz5Bz4wYkvAz4mMpg9a8K4kqGtS5JLMwdrE2z24eoXc",
+              "destination": "EaouumxDiXRFn2iUjkrvNj2ivra4CqcDqWV5gCQ915m9",
+              "shared": false,
+              "mode": "EXACT_IN",
+              "intentAmount": "19632634909",
+              "quotedAmount": "1",
+              "platformFeeBps": 0,
+              "routePlan": [
+                {
+                  "swap": {
+                    "name": "Flux",
+                    "swap_id": "1789268662",
+                    "base_to_quote": 1
+                  },
+                  "percent": 100,
+                  "input_index": 0,
+                  "output_index": 1
+                }
+              ],
+              "observedSourceAccountDelta": "124051",
+              "observedDestinationAccountDelta": "0",
+              "observationCaveat": "Whole-transaction account deltas are cross-check context, not canonical executed amounts."
+            },
+            {
+              "outerIndex": 5,
+              "unsupported": "UNSUPPORTED_ROUTER_VERSION"
+            }
+          ],
+          "classification": "UNVERIFIED",
+          "reason": "AMBIGUOUS_ECONOMIC_ROUTE",
+          "category": "ambiguousAttribution",
+          "authority": "shakRDxyKwaBbduqZTZt8Q4etTALbDLnAANStv9TLH3",
+          "trackedTokenRole": "UNKNOWN",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": null,
+          "rawQuote": null,
+          "rawResponseSha256": "911609685d0003da239ada5af3b29a9e2e5a0a90f42a82546a971a9c2d209012"
+        },
+        {
+          "signature": "2ZfyGQ1ZnbtigGYymKTwFetoSTjM12VVCEAmQQENJ8fFaPxRKUqwnHUpCgRMbnmsjY3QZZBHUCQgNE37YpyKP5ta",
+          "slot": 446595530,
+          "blockTime": 1789268662,
+          "fetchedAt": "2026-09-13T03:04:42.536Z",
+          "tokenMint": "7tFbGa9wt4Q4yxNAdaDcTKahv4WPrJtXh6ty7gjWyKx3",
+          "topLevelPrograms": [
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",
+            "11111111111111111111111111111111",
+            "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+            "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4",
+            "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+          ],
+          "routers": [
+            {
+              "outerIndex": 5,
+              "instruction": "shared_accounts_route_v2",
+              "authority": "BB6ZSkRSLCcSUWqLyunHjmeqw273XMTeKPsmuHAZJ4S1",
+              "inputMint": "So11111111111111111111111111111111111111112",
+              "outputMint": "7tFbGa9wt4Q4yxNAdaDcTKahv4WPrJtXh6ty7gjWyKx3",
+              "source": "H3rDXvSKvy89kxwP8CfheJVWnuxzAnFT1roZ5QQZ8XfV",
+              "destination": "BgHTSBkoXu8PQuBDdQbMsuCsfWMpBRE94TMNPFEAPuca",
+              "shared": true,
+              "mode": "EXACT_IN",
+              "intentAmount": "490868376",
+              "quotedAmount": "83657155465",
+              "platformFeeBps": 10,
+              "routePlan": [
+                {
+                  "swap": {
+                    "name": "BisonFiV2",
+                    "a_to_b": 1
+                  },
+                  "bps": 10000,
+                  "input_index": 0,
+                  "output_index": 1
+                },
+                {
+                  "swap": {
+                    "name": "GoonFiV3",
+                    "is_bid": 1
+                  },
+                  "bps": 10000,
+                  "input_index": 1,
+                  "output_index": 2
+                },
+                {
+                  "swap": {
+                    "name": "RaydiumCP"
+                  },
+                  "bps": 10000,
+                  "input_index": 2,
+                  "output_index": 3
+                }
+              ],
+              "observedSourceAccountDelta": null,
+              "observedDestinationAccountDelta": "83660804198",
+              "observationCaveat": "Whole-transaction account deltas are cross-check context, not canonical executed amounts."
+            }
+          ],
+          "classification": "UNVERIFIED",
+          "reason": "UNSUPPORTED_ROUTE_LEG",
+          "category": "unsupportedRouterVersion",
+          "authority": "BB6ZSkRSLCcSUWqLyunHjmeqw273XMTeKPsmuHAZJ4S1",
+          "trackedTokenRole": "UNKNOWN",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": null,
+          "rawQuote": null,
+          "rawResponseSha256": "15235a567d543779b8b9c074c71dc6d6d25cd57c3d14f2ddce91211f56d6f587"
+        },
+        {
+          "signature": "2u7g4mtZHTmBW5f5WX1YMrWmZNNbnsT4wC8c1YDwKUJHAdcYxv7sKzoZSmxuQMRb7fRvkWdFyxPZgHXFuB9vkXrt",
+          "slot": 446595530,
+          "blockTime": 1789268662,
+          "fetchedAt": "2026-09-13T03:05:27.036Z",
+          "tokenMint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+          "topLevelPrograms": [
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4",
+            "3RXx9nfJbLmUfau59X7hqEzFK54CK8k2fY865xnsB18T"
+          ],
+          "routers": [
+            {
+              "outerIndex": 2,
+              "instruction": "route",
+              "authority": "FfAJbv3prDQUybTNkS3EGaoSbkkbSLy1Eahe5MMxMG9t",
+              "inputMint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+              "outputMint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+              "source": "BbEX41SNf3yLSuN8fC5zwc3j8TAusiYAhivhj6MQQZf7",
+              "destination": "F582P5BYuYRZ9g8qftgXRzwbtkxCB5JPanEgtkXSPPr4",
+              "shared": false,
+              "mode": "EXACT_IN",
+              "intentAmount": "350000000",
+              "quotedAmount": "350000877",
+              "platformFeeBps": 0,
+              "routePlan": [
+                {
+                  "swap": {
+                    "name": "HumidiFiV2",
+                    "swap_id": "7035225611973183943",
+                    "is_base_to_quote": 0
+                  },
+                  "percent": 100,
+                  "input_index": 0,
+                  "output_index": 1
+                },
+                {
+                  "swap": {
+                    "name": "Quantum",
+                    "side": {
+                      "name": "Bid"
+                    }
+                  },
+                  "percent": 100,
+                  "input_index": 1,
+                  "output_index": 2
+                }
+              ],
+              "observedSourceAccountDelta": "1974",
+              "observedDestinationAccountDelta": "0",
+              "observationCaveat": "Whole-transaction account deltas are cross-check context, not canonical executed amounts."
+            }
+          ],
+          "classification": "UNVERIFIED",
+          "reason": "UNSUPPORTED_ROUTE_LEG",
+          "category": "unsupportedRouterVersion",
+          "authority": "FfAJbv3prDQUybTNkS3EGaoSbkkbSLy1Eahe5MMxMG9t",
+          "trackedTokenRole": "UNKNOWN",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": null,
+          "rawQuote": null,
+          "rawResponseSha256": "e2a5deb1f90f7253e4837788d940b97932f5a078da6fe5ec73cd88def3f0aed3"
+        },
+        {
+          "signature": "31wGbwwfAjXn1nMZ5on5jSAprKx1Vm89KRP2y2dXZtEfNcTX3B4f6Bf7vaXxgqxaunFJw5cPFTKtrNmftgndahH3",
+          "slot": 446595530,
+          "blockTime": 1789268662,
+          "fetchedAt": "2026-09-13T03:05:11.140Z",
+          "tokenMint": "HNg5PYJmtqcmzXrv6S9zP1CDKk5BgDuyFBxbvNApump",
+          "topLevelPrograms": [
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4",
+            "FrLmhMwyYQJVivt2EsVZwEEVspxoVhYj22Cxxst4hWVf",
+            "11111111111111111111111111111111"
+          ],
+          "routers": [
+            {
+              "outerIndex": 3,
+              "instruction": "route",
+              "authority": "GJvewfRjqTUPtx6WsBSUnaFbdgXwgXnWfpDyLm65T4YA",
+              "inputMint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+              "outputMint": "HNg5PYJmtqcmzXrv6S9zP1CDKk5BgDuyFBxbvNApump",
+              "source": "FobTCGutAgcBo93ryhp4W64jzyHSsjbHKR6dufEoB3en",
+              "destination": "4YAHJA34pRh1hcQge6gp4j2LBewAqw887Nhv7unprns4",
+              "shared": false,
+              "mode": "EXACT_IN",
+              "intentAmount": "133184666",
+              "quotedAmount": "2901457807",
+              "platformFeeBps": 0,
+              "routePlan": [
+                {
+                  "swap": {
+                    "name": "MeteoraDlmm"
+                  },
+                  "percent": 100,
+                  "input_index": 0,
+                  "output_index": 1
+                },
+                {
+                  "swap": {
+                    "name": "RaydiumV2"
+                  },
+                  "percent": 100,
+                  "input_index": 1,
+                  "output_index": 2
+                }
+              ],
+              "observedSourceAccountDelta": "0",
+              "observedDestinationAccountDelta": "0",
+              "observationCaveat": "Whole-transaction account deltas are cross-check context, not canonical executed amounts."
+            }
+          ],
+          "classification": "FAILED",
+          "reason": "TRANSACTION_FAILED",
+          "category": "failedInvalid",
+          "authority": "GJvewfRjqTUPtx6WsBSUnaFbdgXwgXnWfpDyLm65T4YA",
+          "trackedTokenRole": "UNKNOWN",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": null,
+          "rawQuote": null,
+          "rawResponseSha256": "7347e3023df5d84f5d7221b412257796ee2ef4e1ea3c8b8d0dc3acd4753b9e3e"
+        },
+        {
+          "signature": "37BM2DRzYhN68eBCgs9XCRy3vZ6Z1P8m34HXJApanK1WUeU7TAXFmSfHhbtRcvZE6hNRopiKFjdCfMTtZABmxfu9",
+          "slot": 446595530,
+          "blockTime": 1789268662,
+          "fetchedAt": "2026-09-13T03:05:04.782Z",
+          "tokenMint": "HNg5PYJmtqcmzXrv6S9zP1CDKk5BgDuyFBxbvNApump",
+          "topLevelPrograms": [
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4",
+            "FrLmhMwyYQJVivt2EsVZwEEVspxoVhYj22Cxxst4hWVf",
+            "11111111111111111111111111111111"
+          ],
+          "routers": [
+            {
+              "outerIndex": 3,
+              "instruction": "route",
+              "authority": "GJvewfRjqTUPtx6WsBSUnaFbdgXwgXnWfpDyLm65T4YA",
+              "inputMint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+              "outputMint": "HNg5PYJmtqcmzXrv6S9zP1CDKk5BgDuyFBxbvNApump",
+              "source": "FobTCGutAgcBo93ryhp4W64jzyHSsjbHKR6dufEoB3en",
+              "destination": "4YAHJA34pRh1hcQge6gp4j2LBewAqw887Nhv7unprns4",
+              "shared": false,
+              "mode": "EXACT_IN",
+              "intentAmount": "400007734",
+              "quotedAmount": "8711253389",
+              "platformFeeBps": 0,
+              "routePlan": [
+                {
+                  "swap": {
+                    "name": "BisonFiV2",
+                    "a_to_b": 0
+                  },
+                  "percent": 100,
+                  "input_index": 0,
+                  "output_index": 1
+                },
+                {
+                  "swap": {
+                    "name": "RaydiumV2"
+                  },
+                  "percent": 100,
+                  "input_index": 1,
+                  "output_index": 2
+                }
+              ],
+              "observedSourceAccountDelta": "0",
+              "observedDestinationAccountDelta": "0",
+              "observationCaveat": "Whole-transaction account deltas are cross-check context, not canonical executed amounts."
+            }
+          ],
+          "classification": "FAILED",
+          "reason": "TRANSACTION_FAILED",
+          "category": "failedInvalid",
+          "authority": "GJvewfRjqTUPtx6WsBSUnaFbdgXwgXnWfpDyLm65T4YA",
+          "trackedTokenRole": "UNKNOWN",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": null,
+          "rawQuote": null,
+          "rawResponseSha256": "67c427692cca5fd50ee3923c68fa003446637449460e85f339885df7cca63300"
+        },
+        {
+          "signature": "3FJcgkLgQgpRwpi135kFDYqMYGk5Dadwr1CEWdCYpQumwZ5BA4pPNN1kTMmDW1L9kM55FYuzJV2xUe74rFrag8hm",
+          "slot": 446595530,
+          "blockTime": 1789268662,
+          "fetchedAt": "2026-09-13T03:04:39.356Z",
+          "tokenMint": null,
+          "topLevelPrograms": [
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4",
+            "DF1ow4tspfHX9JwWJsAb9epbkA8hmpSEAtxXy1V27QBH",
+            "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4",
+            "11111111111111111111111111111111"
+          ],
+          "routers": [
+            {
+              "outerIndex": 2,
+              "unsupported": "UNSUPPORTED_ROUTER_VERSION"
+            },
+            {
+              "outerIndex": 4,
+              "unsupported": "UNSUPPORTED_ROUTER_VERSION"
+            }
+          ],
+          "classification": "UNVERIFIED",
+          "reason": "UNSUPPORTED_ROUTER_VERSION",
+          "category": "unsupportedRouterVersion",
+          "authority": null,
+          "trackedTokenRole": "UNKNOWN",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": null,
+          "rawQuote": null,
+          "rawResponseSha256": "567ce23110985519cad3f74cea99456f50695ce75691c78a572d3e3089131204"
+        },
+        {
+          "signature": "3NGpat4EMDkLpunWkZBKLzGMzZ6G1WGveyzFnFB7ouRBjqNDVQDHE3cfgkAqc9UA7nb7QuhsSyYK7FmedTvteRYA",
+          "slot": 446595530,
+          "blockTime": 1789268662,
+          "fetchedAt": "2026-09-13T03:05:36.554Z",
+          "tokenMint": null,
+          "topLevelPrograms": [
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4",
+            "DF1ow4tspfHX9JwWJsAb9epbkA8hmpSEAtxXy1V27QBH",
+            "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4"
+          ],
+          "routers": [
+            {
+              "outerIndex": 3,
+              "unsupported": "UNSUPPORTED_ROUTER_VERSION"
+            },
+            {
+              "outerIndex": 5,
+              "unsupported": "UNSUPPORTED_ROUTER_VERSION"
+            }
+          ],
+          "classification": "FAILED",
+          "reason": "TRANSACTION_FAILED",
+          "category": "failedInvalid",
+          "authority": null,
+          "trackedTokenRole": "UNKNOWN",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": null,
+          "rawQuote": null,
+          "rawResponseSha256": "f5365d3d624791caad57cb1272d443043f0468e11b93e2424a765d2cab3a73b7"
+        },
+        {
+          "signature": "3WA9ctuw5fewEDr5Y3nBXm3y7tfMsSWGdEHJ4bri2PBZBeEyg4Y5Yy5W5AbjQ2YG9FdaA6rUVV1CHQLgJLof6x68",
+          "slot": 446595530,
+          "blockTime": 1789268662,
+          "fetchedAt": "2026-09-13T03:05:30.206Z",
+          "tokenMint": null,
+          "topLevelPrograms": [
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4",
+            "DF1ow4tspfHX9JwWJsAb9epbkA8hmpSEAtxXy1V27QBH",
+            "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4",
+            "11111111111111111111111111111111"
+          ],
+          "routers": [
+            {
+              "outerIndex": 2,
+              "unsupported": "UNSUPPORTED_ROUTER_VERSION"
+            },
+            {
+              "outerIndex": 4,
+              "unsupported": "UNSUPPORTED_ROUTER_VERSION"
+            }
+          ],
+          "classification": "UNVERIFIED",
+          "reason": "UNSUPPORTED_ROUTER_VERSION",
+          "category": "unsupportedRouterVersion",
+          "authority": null,
+          "trackedTokenRole": "UNKNOWN",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": null,
+          "rawQuote": null,
+          "rawResponseSha256": "0a7d2e2c389702373b241c0dda9ec356ac92d070a3126d4ac2344bd7d96d6888"
+        },
+        {
+          "signature": "3pANJ4Le15RxNgGBNiYUxKyzTVPJCzSNJZDFYes83kXxkzJg3XccFjxhR7NjBTaWzgR6XDzavUbeQ3aJf1fjEWem",
+          "slot": 446595530,
+          "blockTime": 1789268662,
+          "fetchedAt": "2026-09-13T03:04:58.418Z",
+          "tokenMint": "HNg5PYJmtqcmzXrv6S9zP1CDKk5BgDuyFBxbvNApump",
+          "topLevelPrograms": [
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4",
+            "FrLmhMwyYQJVivt2EsVZwEEVspxoVhYj22Cxxst4hWVf",
+            "11111111111111111111111111111111"
+          ],
+          "routers": [
+            {
+              "outerIndex": 3,
+              "instruction": "route",
+              "authority": "GJvewfRjqTUPtx6WsBSUnaFbdgXwgXnWfpDyLm65T4YA",
+              "inputMint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+              "outputMint": "HNg5PYJmtqcmzXrv6S9zP1CDKk5BgDuyFBxbvNApump",
+              "source": "FobTCGutAgcBo93ryhp4W64jzyHSsjbHKR6dufEoB3en",
+              "destination": "4YAHJA34pRh1hcQge6gp4j2LBewAqw887Nhv7unprns4",
+              "shared": false,
+              "mode": "EXACT_IN",
+              "intentAmount": "133197702",
+              "quotedAmount": "2901138619",
+              "platformFeeBps": 0,
+              "routePlan": [
+                {
+                  "swap": {
+                    "name": "TesseraVV2",
+                    "side": {
+                      "name": "Bid"
+                    }
+                  },
+                  "percent": 100,
+                  "input_index": 0,
+                  "output_index": 1
+                },
+                {
+                  "swap": {
+                    "name": "RaydiumV2"
+                  },
+                  "percent": 100,
+                  "input_index": 1,
+                  "output_index": 2
+                }
+              ],
+              "observedSourceAccountDelta": "0",
+              "observedDestinationAccountDelta": "0",
+              "observationCaveat": "Whole-transaction account deltas are cross-check context, not canonical executed amounts."
+            }
+          ],
+          "classification": "FAILED",
+          "reason": "TRANSACTION_FAILED",
+          "category": "failedInvalid",
+          "authority": "GJvewfRjqTUPtx6WsBSUnaFbdgXwgXnWfpDyLm65T4YA",
+          "trackedTokenRole": "UNKNOWN",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": null,
+          "rawQuote": null,
+          "rawResponseSha256": "023f2361b7d14ba894413e8e16a495ee79a9de0dbdee0c88ffd5b73c9b727a18"
+        },
+        {
+          "signature": "4GgdgRqCmfPHsGuseg4c2PUpmtekPRLdbfrWz193EiEHCoKcTbKMcBzy67TBZqVtquXhEy8engkXoMCnSoetYoeA",
+          "slot": 446595530,
+          "blockTime": 1789268662,
+          "fetchedAt": "2026-09-13T03:05:23.862Z",
+          "tokenMint": null,
+          "topLevelPrograms": [
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4",
+            "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+            "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr"
+          ],
+          "routers": [
+            {
+              "outerIndex": 3,
+              "unsupported": "MALFORMED_ROUTER_DATA"
+            }
+          ],
+          "classification": "FAILED",
+          "reason": "TRANSACTION_FAILED",
+          "category": "failedInvalid",
+          "authority": null,
+          "trackedTokenRole": "UNKNOWN",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": null,
+          "rawQuote": null,
+          "rawResponseSha256": "af87670eecc63f213588c4ce69b0a70df0752b3e083b2e92b5562b054edb5c66"
+        },
+        {
+          "signature": "4q1w4NPupvMeVnNLrnegbSy5uCje99DXTSKADBqCtML6UUX3FMk62kVWqLketeJyAwuc7rrfwrshgDg4jyysY3DJ",
+          "slot": 446595530,
+          "blockTime": 1789268662,
+          "fetchedAt": "2026-09-13T03:04:36.177Z",
+          "tokenMint": "HNg5PYJmtqcmzXrv6S9zP1CDKk5BgDuyFBxbvNApump",
+          "topLevelPrograms": [
+            "ComputeBudget111111111111111111111111111111",
+            "GaaRXwUCbzQfr8SVedKbyjXYDuSmgrTheQSFUn8y2Vn1",
+            "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4",
+            "11111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111"
+          ],
+          "routers": [
+            {
+              "outerIndex": 2,
+              "instruction": "route",
+              "authority": "HRUSsCJt7GuAtLMwVDy9WTvHRRh7TFFn8UhBmhd2Dhjh",
+              "inputMint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+              "outputMint": "HNg5PYJmtqcmzXrv6S9zP1CDKk5BgDuyFBxbvNApump",
+              "source": "9aXh5gq1upJMfxbNT6d7B7SJ9pzncaFGVsnY9vizBwst",
+              "destination": "237PYZzcqjtJatXmJDvASTFsFbxnbCxGhyXpp6YnSGny",
+              "shared": false,
+              "mode": "EXACT_IN",
+              "intentAmount": "36772464",
+              "quotedAmount": "801559154",
+              "platformFeeBps": 0,
+              "routePlan": [
+                {
+                  "swap": {
+                    "name": "TesseraVV2",
+                    "side": {
+                      "name": "Bid"
+                    }
+                  },
+                  "percent": 100,
+                  "input_index": 0,
+                  "output_index": 1
+                },
+                {
+                  "swap": {
+                    "name": "MeteoraDlmm"
+                  },
+                  "percent": 100,
+                  "input_index": 1,
+                  "output_index": 2
+                }
+              ],
+              "observedSourceAccountDelta": "-36772464",
+              "observedDestinationAccountDelta": "801524571",
+              "observationCaveat": "Whole-transaction account deltas are cross-check context, not canonical executed amounts."
+            }
+          ],
+          "classification": "UNVERIFIED",
+          "reason": "ROUTER_LEGS_INCOMPLETE",
+          "category": "ambiguousAttribution",
+          "authority": "HRUSsCJt7GuAtLMwVDy9WTvHRRh7TFFn8UhBmhd2Dhjh",
+          "trackedTokenRole": "UNKNOWN",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": null,
+          "rawQuote": null,
+          "rawResponseSha256": "f982148fe667888495a61534da544a3c0d08350e23bbe192df7e3feefc751816"
+        },
+        {
+          "signature": "4yrLVqMJ4F31Qy7HtA7595nL4zwxvGxnDNi45kuaoLeFnCVWZHMj3Eui6xQ1bB8MeGyheN94F1zjqoJdxykKcY3z",
+          "slot": 446595530,
+          "blockTime": 1789268662,
+          "fetchedAt": "2026-09-13T03:04:48.894Z",
+          "tokenMint": "So11111111111111111111111111111111111111112",
+          "topLevelPrograms": [
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",
+            "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4",
+            "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+          ],
+          "routers": [
+            {
+              "outerIndex": 3,
+              "instruction": "route_v2",
+              "authority": "FQLMjjhvAorS3KPzoReUbaxaX6aRcypWeFPiF9Wg8LR4",
+              "inputMint": "H58D6vR81gdwj1x4WBSoqEYeiNndK6WypohByXuWPKaL",
+              "outputMint": "So11111111111111111111111111111111111111112",
+              "source": "5NucvQqXXNVuy5vDoBc8fGDBt1gvrHwLX9iwVHCaXGBA",
+              "destination": "GoairEib8JwAdyPikxm2j74pXZxo1wDatJKH2nAAiTpY",
+              "shared": false,
+              "mode": "EXACT_IN",
+              "intentAmount": "1386616104363",
+              "quotedAmount": "325394280",
+              "platformFeeBps": 10,
+              "routePlan": [
+                {
+                  "swap": {
+                    "name": "RaydiumLaunchlabSell",
+                    "share_fee_rate": "0"
+                  },
+                  "bps": 10000,
+                  "input_index": 0,
+                  "output_index": 1
+                },
+                {
+                  "swap": {
+                    "name": "Scorch",
+                    "swap_id": "309710123968623350376575277061831248256"
+                  },
+                  "bps": 10000,
+                  "input_index": 1,
+                  "output_index": 2
+                }
+              ],
+              "observedSourceAccountDelta": "-1386616104363",
+              "observedDestinationAccountDelta": null,
+              "observationCaveat": "Whole-transaction account deltas are cross-check context, not canonical executed amounts."
+            }
+          ],
+          "classification": "UNVERIFIED",
+          "reason": "UNSUPPORTED_ROUTE_LEG",
+          "category": "unsupportedRouterVersion",
+          "authority": "FQLMjjhvAorS3KPzoReUbaxaX6aRcypWeFPiF9Wg8LR4",
+          "trackedTokenRole": "UNKNOWN",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": null,
+          "rawQuote": null,
+          "rawResponseSha256": "0245944979b5723455183354a5ffc855e731ccb97867309ab03e633a37ac5da9"
+        },
+        {
+          "signature": "5HWSxDrK6s8YPvgM9uVwi9jh4DVKRovbZiHqy1QA3rYR3VJv3WsiA8jFBcTWSGZRm3KhLYdMAk9qaCHKJLouoqyn",
+          "slot": 446595530,
+          "blockTime": 1789268662,
+          "fetchedAt": "2026-09-13T03:05:17.504Z",
+          "tokenMint": "So11111111111111111111111111111111111111112",
+          "topLevelPrograms": [
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",
+            "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4",
+            "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+          ],
+          "routers": [
+            {
+              "outerIndex": 3,
+              "instruction": "route_v2",
+              "authority": "EHWRHXPXdLB2wo3aGVf39idsJyeoq7CDDru1ixAW4JsW",
+              "inputMint": "2bUfNTJJ2zfLSG3DPjL7bmemwR8QxccVn51paGH6pump",
+              "outputMint": "So11111111111111111111111111111111111111112",
+              "source": "9adoECy4FXMUbRARQhhcCZ4phGNtd561mTTrW7AmwpFz",
+              "destination": "CcfA5qyev97rvfHySwzKPhm8h4rRM2x174D1ejNPNXq3",
+              "shared": false,
+              "mode": "EXACT_IN",
+              "intentAmount": "4722468057017",
+              "quotedAmount": "275881897",
+              "platformFeeBps": 10,
+              "routePlan": [
+                {
+                  "swap": {
+                    "name": "PumpWrappedSellV5",
+                    "claim_cashback": 1
+                  },
+                  "bps": 10000,
+                  "input_index": 0,
+                  "output_index": 1
+                },
+                {
+                  "swap": {
+                    "name": "RaydiumClmmV2"
+                  },
+                  "bps": 10000,
+                  "input_index": 1,
+                  "output_index": 2
+                }
+              ],
+              "observedSourceAccountDelta": "-4722468057017",
+              "observedDestinationAccountDelta": null,
+              "observationCaveat": "Whole-transaction account deltas are cross-check context, not canonical executed amounts."
+            }
+          ],
+          "classification": "UNVERIFIED",
+          "reason": "UNSUPPORTED_ROUTE_LEG",
+          "category": "unsupportedRouterVersion",
+          "authority": "EHWRHXPXdLB2wo3aGVf39idsJyeoq7CDDru1ixAW4JsW",
+          "trackedTokenRole": "UNKNOWN",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": null,
+          "rawQuote": null,
+          "rawResponseSha256": "2cd81e198c69be7b33732e7fae66ef595cc994c1a94b71bde235ee725e54f19b"
+        },
+        {
+          "signature": "5LNpymgy3EcjsN4t4TLyfLZCefAZvTdzWCRT2BW1WN4RiLgAA33MpZZD42dhFqwc9LzYWe5BLvgRMk1f4mjmyKYx",
+          "slot": 446595530,
+          "blockTime": 1789268662,
+          "fetchedAt": "2026-09-13T03:04:45.715Z",
+          "tokenMint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+          "topLevelPrograms": [
+            "11111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4",
+            "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4",
+            "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4"
+          ],
+          "routers": [
+            {
+              "outerIndex": 4,
+              "unsupported": "UNSUPPORTED_ROUTER_VERSION"
+            },
+            {
+              "outerIndex": 5,
+              "instruction": "route_v2",
+              "authority": "UUAhspPgUdGuXUnokmxERH1VvNGNh1ouN3mfcbfV8yd",
+              "inputMint": "So11111111111111111111111111111111111111112",
+              "outputMint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+              "source": "9sxF1QqAqAknXweJTp53NMQnq1QVRFdrr9YAn8BEkS4t",
+              "destination": "EjH5zD1NaQPnthnZt7EwkK54ufGxxidXc1nNHCtsV4Lr",
+              "shared": false,
+              "mode": "EXACT_IN",
+              "intentAmount": "19634492808",
+              "quotedAmount": "2",
+              "platformFeeBps": 0,
+              "routePlan": [
+                {
+                  "swap": {
+                    "name": "Flux",
+                    "swap_id": "0",
+                    "base_to_quote": 1
+                  },
+                  "bps": 10000,
+                  "input_index": 0,
+                  "output_index": 1
+                }
+              ],
+              "observedSourceAccountDelta": "0",
+              "observedDestinationAccountDelta": "0",
+              "observationCaveat": "Whole-transaction account deltas are cross-check context, not canonical executed amounts."
+            },
+            {
+              "outerIndex": 6,
+              "unsupported": "UNSUPPORTED_ROUTER_VERSION"
+            }
+          ],
+          "classification": "FAILED",
+          "reason": "TRANSACTION_FAILED",
+          "category": "failedInvalid",
+          "authority": "UUAhspPgUdGuXUnokmxERH1VvNGNh1ouN3mfcbfV8yd",
+          "trackedTokenRole": "UNKNOWN",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": null,
+          "rawQuote": null,
+          "rawResponseSha256": "b2143b4d30c264e35995cad490c4a7992e0503aaf976f0dbda86dac045286095"
+        },
+        {
+          "signature": "5TMkJvPGVbaTpfANsKzgf5STSqxemsVcehKiU5y5UWu7VcJqCzjqEE62AUYoWrsXJ7CVnmeMS2Xy8zZRfu2BW16V",
+          "slot": 446595530,
+          "blockTime": 1789268662,
+          "fetchedAt": "2026-09-13T03:04:55.256Z",
+          "tokenMint": "HNg5PYJmtqcmzXrv6S9zP1CDKk5BgDuyFBxbvNApump",
+          "topLevelPrograms": [
+            "11111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",
+            "11111111111111111111111111111111",
+            "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+            "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",
+            "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4",
+            "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111"
+          ],
+          "routers": [
+            {
+              "outerIndex": 6,
+              "instruction": "shared_accounts_route",
+              "authority": "FJx61bqznoVfVDFoujYGgJoJsJq4DxDQ8K3YG5kgRm6G",
+              "inputMint": "So11111111111111111111111111111111111111112",
+              "outputMint": "HNg5PYJmtqcmzXrv6S9zP1CDKk5BgDuyFBxbvNApump",
+              "source": "5G9xEz77e4GCiVT85upkwS8Rt6pULC1psZVwq41KDiE1",
+              "destination": "HtUdW4pEvWp2ea3igyuKLvdJyt8r9PFgWi3YEqWL82jW",
+              "shared": true,
+              "mode": "EXACT_IN",
+              "intentAmount": "824200000",
+              "quotedAmount": "1830381633",
+              "platformFeeBps": 0,
+              "routePlan": [
+                {
+                  "swap": {
+                    "name": "MeteoraDlmm"
+                  },
+                  "percent": 100,
+                  "input_index": 0,
+                  "output_index": 1
+                }
+              ],
+              "observedSourceAccountDelta": null,
+              "observedDestinationAccountDelta": "0",
+              "observationCaveat": "Whole-transaction account deltas are cross-check context, not canonical executed amounts."
+            }
+          ],
+          "classification": "FAILED",
+          "reason": "TRANSACTION_FAILED",
+          "category": "failedInvalid",
+          "authority": "FJx61bqznoVfVDFoujYGgJoJsJq4DxDQ8K3YG5kgRm6G",
+          "trackedTokenRole": "UNKNOWN",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": null,
+          "rawQuote": null,
+          "rawResponseSha256": "77c151cdcba50f2aa81a990e75f8e588bbf3fa423eefee32cdd9a85891d8a02b"
+        },
+        {
+          "signature": "5VZzczGRmVs464aGMVviKrQ8xwBmKFQE2xNW8FtfUzap3WkrXq6KzH7KgaBVpG2iDtRgMrx8zMTFgM7XFyGV1Dn6",
+          "slot": 446595530,
+          "blockTime": 1789268662,
+          "fetchedAt": "2026-09-13T03:05:33.374Z",
+          "tokenMint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+          "topLevelPrograms": [
+            "11111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4",
+            "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+            "Memo1UhkJRfHyvLMcVucJwxXeuD728EqVDDwQDxFMNo"
+          ],
+          "routers": [
+            {
+              "outerIndex": 4,
+              "instruction": "route",
+              "authority": "33UWupqZP2fWE1hiomyZCrzyq3MMbzpL8vXDioKL9iqX",
+              "inputMint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+              "outputMint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+              "source": "6T2LBC5eVTMZY84KtrTDa2oGpStN9prDF34MYHRbV4kq",
+              "destination": "6P2XqyuZNQGR21uYRLXxBvWK7fpUHGMpNJSXcgmQ8KWA",
+              "shared": false,
+              "mode": "EXACT_IN",
+              "intentAmount": "1000000000",
+              "quotedAmount": "1000000001",
+              "platformFeeBps": 0,
+              "routePlan": [
+                {
+                  "swap": {
+                    "name": "TesseraVV2",
+                    "side": {
+                      "name": "Bid"
+                    }
+                  },
+                  "percent": 100,
+                  "input_index": 0,
+                  "output_index": 1
+                },
+                {
+                  "swap": {
+                    "name": "Quantum",
+                    "side": {
+                      "name": "Bid"
+                    }
+                  },
+                  "percent": 100,
+                  "input_index": 1,
+                  "output_index": 2
+                }
+              ],
+              "observedSourceAccountDelta": "0",
+              "observedDestinationAccountDelta": "0",
+              "observationCaveat": "Whole-transaction account deltas are cross-check context, not canonical executed amounts."
+            }
+          ],
+          "classification": "FAILED",
+          "reason": "TRANSACTION_FAILED",
+          "category": "failedInvalid",
+          "authority": "33UWupqZP2fWE1hiomyZCrzyq3MMbzpL8vXDioKL9iqX",
+          "trackedTokenRole": "UNKNOWN",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": null,
+          "rawQuote": null,
+          "rawResponseSha256": "f964878ee245fef354e313683410e27c14bb155ede92af34c8081a197a9dcde5"
+        },
+        {
+          "signature": "5XqGbVwV27rXVWKn9x25qXmGy93vcnc8h3DcoX2S8hXJVwD1SRb6xubw5UkBCzwTuwC9mPGmsqex9bDWchpp65bg",
+          "slot": 446595530,
+          "blockTime": 1789268662,
+          "fetchedAt": "2026-09-13T03:05:20.678Z",
+          "tokenMint": "4Gcoxig3BvJAfh4PrTwsHBbVSv8jaeeDtDAbkjLPpump",
+          "topLevelPrograms": [
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",
+            "11111111111111111111111111111111",
+            "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+            "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",
+            "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",
+            "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4",
+            "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+          ],
+          "routers": [
+            {
+              "outerIndex": 7,
+              "instruction": "route_v2",
+              "authority": "G31Pc2m463mDwGJ7Fb2Qy4SmP5sFAQiCn1g52ywF43e3",
+              "inputMint": "So11111111111111111111111111111111111111112",
+              "outputMint": "4Gcoxig3BvJAfh4PrTwsHBbVSv8jaeeDtDAbkjLPpump",
+              "source": "3qfE1EA99rxsdjGfGoJYvqvBe8hXwicqKzTzfcDB1cDs",
+              "destination": "HukkwdGcRwH8r5k5E7EWM3PK1YdY4yButHHcMVYYnz3K",
+              "shared": false,
+              "mode": "EXACT_IN",
+              "intentAmount": "98563813",
+              "quotedAmount": "102178475403",
+              "platformFeeBps": 10,
+              "routePlan": [
+                {
+                  "swap": {
+                    "name": "Whirlpool",
+                    "a_to_b": 1
+                  },
+                  "bps": 10000,
+                  "input_index": 0,
+                  "output_index": 1
+                },
+                {
+                  "swap": {
+                    "name": "PumpSwapBuyV3WithCashbackClaim"
+                  },
+                  "bps": 10000,
+                  "input_index": 1,
+                  "output_index": 2
+                }
+              ],
+              "observedSourceAccountDelta": null,
+              "observedDestinationAccountDelta": "101968755152",
+              "observationCaveat": "Whole-transaction account deltas are cross-check context, not canonical executed amounts."
+            }
+          ],
+          "classification": "UNVERIFIED",
+          "reason": "UNSUPPORTED_ROUTER_FEES",
+          "category": "unsupportedRouterVersion",
+          "authority": "G31Pc2m463mDwGJ7Fb2Qy4SmP5sFAQiCn1g52ywF43e3",
+          "trackedTokenRole": "UNKNOWN",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": null,
+          "rawQuote": null,
+          "rawResponseSha256": "7c14a86ce3a6818ba7b989192d279f069c6595aceaabea1e704a4e95eaa581b8"
+        },
+        {
+          "signature": "5YVSFJrq4Gjr79U1M9R7dd3PiwAnvTP6mh51EZhhh84EwSempC8fFhRfBfAEyP2AGKVaFGcuRCEZqR19hXGS34Sq",
+          "slot": 446595530,
+          "blockTime": 1789268662,
+          "fetchedAt": "2026-09-13T03:05:07.969Z",
+          "tokenMint": null,
+          "topLevelPrograms": [
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "NinafKYvKDCH26v6uEpfDjyuDjjpbdfhiPjrJV6FTFs",
+            "NinafKYvKDCH26v6uEpfDjyuDjjpbdfhiPjrJV6FTFs"
+          ],
+          "routers": [],
+          "classification": "UNVERIFIED",
+          "reason": "UNSUPPORTED_ROUTER_VERSION",
+          "category": "unsupportedRouterVersion",
+          "authority": null,
+          "trackedTokenRole": "UNKNOWN",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": null,
+          "rawQuote": null,
+          "rawResponseSha256": "3fcc10f9612298183e6e18a97e4def352def026a0b10d476751aa000c5bd46a7"
+        },
+        {
+          "signature": "6NgPk2tvYtaE33k4ZCB7MSKsCPHAQU84UhFmRxVuFN7oRSraTQqqoZxGyQx9ZwZmm3c5aeG26Sen4snXjMPVGYY",
+          "slot": 446595530,
+          "blockTime": 1789268662,
+          "fetchedAt": "2026-09-13T03:05:14.322Z",
+          "tokenMint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+          "topLevelPrograms": [
+            "11111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4",
+            "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+            "Memo1UhkJRfHyvLMcVucJwxXeuD728EqVDDwQDxFMNo"
+          ],
+          "routers": [
+            {
+              "outerIndex": 4,
+              "instruction": "route",
+              "authority": "33UWupqZP2fWE1hiomyZCrzyq3MMbzpL8vXDioKL9iqX",
+              "inputMint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+              "outputMint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+              "source": "6T2LBC5eVTMZY84KtrTDa2oGpStN9prDF34MYHRbV4kq",
+              "destination": "6P2XqyuZNQGR21uYRLXxBvWK7fpUHGMpNJSXcgmQ8KWA",
+              "shared": false,
+              "mode": "EXACT_IN",
+              "intentAmount": "500000000",
+              "quotedAmount": "500000001",
+              "platformFeeBps": 0,
+              "routePlan": [
+                {
+                  "swap": {
+                    "name": "TesseraVV2",
+                    "side": {
+                      "name": "Bid"
+                    }
+                  },
+                  "percent": 100,
+                  "input_index": 0,
+                  "output_index": 1
+                },
+                {
+                  "swap": {
+                    "name": "Quantum",
+                    "side": {
+                      "name": "Bid"
+                    }
+                  },
+                  "percent": 100,
+                  "input_index": 1,
+                  "output_index": 2
+                }
+              ],
+              "observedSourceAccountDelta": "0",
+              "observedDestinationAccountDelta": "0",
+              "observationCaveat": "Whole-transaction account deltas are cross-check context, not canonical executed amounts."
+            }
+          ],
+          "classification": "FAILED",
+          "reason": "TRANSACTION_FAILED",
+          "category": "failedInvalid",
+          "authority": "33UWupqZP2fWE1hiomyZCrzyq3MMbzpL8vXDioKL9iqX",
+          "trackedTokenRole": "UNKNOWN",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": null,
+          "rawQuote": null,
+          "rawResponseSha256": "56beb1d5c0713361e93f413e50297f406128cf5495847324d150778e35a76c17"
+        },
+        {
+          "signature": "gEH85T4QSkPBzFXcUuWX8Witc9Vem6gg8BtBA6J4WQuct3wXsrhis2YTcn35tgdV9dTf1UUbcD4YszPVvGVbHTp",
+          "slot": 446595530,
+          "blockTime": 1789268662,
+          "fetchedAt": "2026-09-13T03:05:01.616Z",
+          "tokenMint": "HNg5PYJmtqcmzXrv6S9zP1CDKk5BgDuyFBxbvNApump",
+          "topLevelPrograms": [
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4",
+            "FrLmhMwyYQJVivt2EsVZwEEVspxoVhYj22Cxxst4hWVf",
+            "11111111111111111111111111111111"
+          ],
+          "routers": [
+            {
+              "outerIndex": 3,
+              "instruction": "route",
+              "authority": "GJvewfRjqTUPtx6WsBSUnaFbdgXwgXnWfpDyLm65T4YA",
+              "inputMint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+              "outputMint": "HNg5PYJmtqcmzXrv6S9zP1CDKk5BgDuyFBxbvNApump",
+              "source": "FobTCGutAgcBo93ryhp4W64jzyHSsjbHKR6dufEoB3en",
+              "destination": "4YAHJA34pRh1hcQge6gp4j2LBewAqw887Nhv7unprns4",
+              "shared": false,
+              "mode": "EXACT_IN",
+              "intentAmount": "133197702",
+              "quotedAmount": "2901138619",
+              "platformFeeBps": 0,
+              "routePlan": [
+                {
+                  "swap": {
+                    "name": "TesseraVV2",
+                    "side": {
+                      "name": "Bid"
+                    }
+                  },
+                  "percent": 100,
+                  "input_index": 0,
+                  "output_index": 1
+                },
+                {
+                  "swap": {
+                    "name": "RaydiumV2"
+                  },
+                  "percent": 100,
+                  "input_index": 1,
+                  "output_index": 2
+                }
+              ],
+              "observedSourceAccountDelta": "0",
+              "observedDestinationAccountDelta": "0",
+              "observationCaveat": "Whole-transaction account deltas are cross-check context, not canonical executed amounts."
+            }
+          ],
+          "classification": "FAILED",
+          "reason": "TRANSACTION_FAILED",
+          "category": "failedInvalid",
+          "authority": "GJvewfRjqTUPtx6WsBSUnaFbdgXwgXnWfpDyLm65T4YA",
+          "trackedTokenRole": "UNKNOWN",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": null,
+          "rawQuote": null,
+          "rawResponseSha256": "bec667ca8507b5ba70613354ba777a6aeb71fb3a21bd18e748d9108ac72a61a8"
+        }
+      ]
+    },
+    {
+      "name": "PREVIOUS_ANSEM",
+      "trackedMint": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+      "manifest": null,
+      "coverage": {
+        "candidates": 23,
+        "evaluated": 23,
+        "pendingUnavailable": 0,
+        "verifiedDirect": 2,
+        "verifiedRouted": 0,
+        "unsupportedRouterVersion": 12,
+        "ambiguousAttribution": 0,
+        "failedInvalid": 0,
+        "intermediateOnly": 0,
+        "notInvolved": 0,
+        "noSwapEvidence": 9,
+        "rawVerifiedTrackedAmount": "228000000",
+        "rawAmountCoverage": null,
+        "usdCoverage": null,
+        "verifiedCandidateFraction": 0.08695652173913043,
+        "confidence": "DEGRADED",
+        "scope": "FIXED_CAPTURE_COHORT"
+      },
+      "rows": [
+        {
+          "signature": "4DnRuQC5Gt3Rj64mBp6Zy5AaJRFK8qRN3aYvtXDKyC8Tvrd4asCTyxNcWqVkxNJeuqmoeySWbcwnAzx69HSuF3jo",
+          "slot": 446442161,
+          "blockTime": 1789220112,
+          "fetchedAt": "2026-09-12T13:35:58.563Z",
+          "tokenMint": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+          "topLevelPrograms": [
+            "ComputeBudget111111111111111111111111111111",
+            "4bwVxjN2sFQyejtoa9ieiD1rRpPY798QGTKVDcmnotWu",
+            "11111111111111111111111111111111"
+          ],
+          "routers": [],
+          "classification": "UNVERIFIED",
+          "reason": "NO_POSITIVE_SWAP_EVIDENCE",
+          "category": "noSwapEvidence",
+          "authority": null,
+          "trackedTokenRole": "UNKNOWN",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": null,
+          "rawQuote": null,
+          "rawResponseSha256": "419c1ebe4e4b50643e2512da74b25d7af99082a58932e82b4c4fdcb358b884d9"
+        },
+        {
+          "signature": "4hyAeVVesHQAfLj8Y4kjRr1HSdqCmky31qvf8NArCVti1QbmboMWTa7q9PFAcuzMp72zvS1tp3Dfp32QJYYJCAFh",
+          "slot": 446437226,
+          "blockTime": 1789218551,
+          "fetchedAt": "2026-09-12T13:09:24.889Z",
+          "tokenMint": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+          "topLevelPrograms": [
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "ApexMZD5oFtFKADpdFC9eFt39aK5cUpNgeRR5RBcBcjS",
+            "11111111111111111111111111111111"
+          ],
+          "routers": [],
+          "classification": "UNVERIFIED",
+          "reason": "UNSUPPORTED_ROUTER",
+          "category": "unsupportedRouterVersion",
+          "authority": null,
+          "trackedTokenRole": "UNKNOWN",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": null,
+          "rawQuote": null,
+          "rawResponseSha256": "9d0ececa42a52c3ee65f8104a45637163ac421e67cbeefd631ec42c6187e8b14"
+        },
+        {
+          "signature": "4x93ZSz1WSPCfwyJs1ZgwWpFaqJyqEVQ61NWBceZ5B7CPuvnNqac9D1y94HDFMcevCpRGExnDvetauw8RAY7tnk6",
+          "slot": 446442170,
+          "blockTime": 1789220114,
+          "fetchedAt": "2026-09-12T13:35:49.922Z",
+          "tokenMint": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+          "topLevelPrograms": [
+            "ComputeBudget111111111111111111111111111111",
+            "4bwVxjN2sFQyejtoa9ieiD1rRpPY798QGTKVDcmnotWu",
+            "11111111111111111111111111111111"
+          ],
+          "routers": [],
+          "classification": "UNVERIFIED",
+          "reason": "NO_POSITIVE_SWAP_EVIDENCE",
+          "category": "noSwapEvidence",
+          "authority": null,
+          "trackedTokenRole": "UNKNOWN",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": null,
+          "rawQuote": null,
+          "rawResponseSha256": "54bf74794fc205cb1961d854994616dec5854453d90f5bd8bde3536ff8873e52"
+        },
+        {
+          "signature": "5r5KFkBmcH5RFschLSMy5owSxWaqHSaQyXPffKPRawX9jAmgUZAMk7BS82QTWEZpDqqTkWphkGURTzHZZqxqApar",
+          "slot": 446442163,
+          "blockTime": 1789220112,
+          "fetchedAt": "2026-09-12T13:35:52.802Z",
+          "tokenMint": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+          "topLevelPrograms": [
+            "ComputeBudget111111111111111111111111111111",
+            "4bwVxjN2sFQyejtoa9ieiD1rRpPY798QGTKVDcmnotWu",
+            "11111111111111111111111111111111"
+          ],
+          "routers": [],
+          "classification": "UNVERIFIED",
+          "reason": "NO_POSITIVE_SWAP_EVIDENCE",
+          "category": "noSwapEvidence",
+          "authority": null,
+          "trackedTokenRole": "UNKNOWN",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": null,
+          "rawQuote": null,
+          "rawResponseSha256": "39d318c7c374c87b4d81dec5ce695ef4266091cf0bb27caf7c53e843dd885824"
+        },
+        {
+          "signature": "EAVAmyvc4EjXwSjpnK9iu1aBba1bCNvqPigiLEqg1YdMP3yiH1JHm9BLXe5iWE2sBMRDxiYma2phjugZKi5yVXk",
+          "slot": 446442185,
+          "blockTime": 1789220120,
+          "fetchedAt": "2026-09-12T13:35:44.181Z",
+          "tokenMint": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+          "topLevelPrograms": [
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "DF1ow4tspfHX9JwWJsAb9epbkA8hmpSEAtxXy1V27QBH"
+          ],
+          "routers": [],
+          "classification": "UNVERIFIED",
+          "reason": "UNSUPPORTED_ROUTER",
+          "category": "unsupportedRouterVersion",
+          "authority": null,
+          "trackedTokenRole": "UNKNOWN",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": null,
+          "rawQuote": null,
+          "rawResponseSha256": "c7f9f738b0e5eef192da618f798040f29c0d28458679bca8ca75bacfee330f17"
+        },
+        {
+          "signature": "MWngDCnkj1cN5r9S7T5kktpRXiUmFsLM3NqstSLJxY2JfnUtcGTBBvL2ykoWDFggt1SbGsDFUQPAA2cN2LbNrKG",
+          "slot": 446442172,
+          "blockTime": 1789220115,
+          "fetchedAt": "2026-09-12T13:35:47.058Z",
+          "tokenMint": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+          "topLevelPrograms": [
+            "ComputeBudget111111111111111111111111111111",
+            "4bwVxjN2sFQyejtoa9ieiD1rRpPY798QGTKVDcmnotWu",
+            "11111111111111111111111111111111"
+          ],
+          "routers": [],
+          "classification": "UNVERIFIED",
+          "reason": "NO_POSITIVE_SWAP_EVIDENCE",
+          "category": "noSwapEvidence",
+          "authority": null,
+          "trackedTokenRole": "UNKNOWN",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": null,
+          "rawQuote": null,
+          "rawResponseSha256": "ee5b2b27398f91aabbbda1dddd3c1f480925ce1ae9199a14376acc4cfac3ae37"
+        },
+        {
+          "signature": "W6JuokoHQ58L4zvmi4HLGxT7qYL7DkhvuyXCXMGx3ksy4nahoHne8Uesss8GSMfyocQwmyovBsokD2we9zzp7rE",
+          "slot": 446442163,
+          "blockTime": 1789220112,
+          "fetchedAt": "2026-09-12T13:35:55.684Z",
+          "tokenMint": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+          "topLevelPrograms": [
+            "ComputeBudget111111111111111111111111111111",
+            "4bwVxjN2sFQyejtoa9ieiD1rRpPY798QGTKVDcmnotWu",
+            "11111111111111111111111111111111"
+          ],
+          "routers": [],
+          "classification": "UNVERIFIED",
+          "reason": "NO_POSITIVE_SWAP_EVIDENCE",
+          "category": "noSwapEvidence",
+          "authority": null,
+          "trackedTokenRole": "UNKNOWN",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": null,
+          "rawQuote": null,
+          "rawResponseSha256": "8faf4fbb7be542408a7cde8c54d1d7a77a08013b8aaa7dc45caf6868638336b2"
+        },
+        {
+          "signature": "XyrrkuYiMtKizutV9hUqt9bULrVKPhmFruEKRUxiprnndgZAg6UHKjhknezo54uvyq9YLh1TmMFypG7dbRHiWzZ",
+          "slot": 446442192,
+          "blockTime": 1789220123,
+          "fetchedAt": "2026-09-12T13:35:41.309Z",
+          "tokenMint": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+          "topLevelPrograms": [
+            "11111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "7obtMdiXQaLCao2mCRzsanxRusUH8QAz8eT5PJyUTHFQ",
+            "ComputeBudget111111111111111111111111111111"
+          ],
+          "routers": [],
+          "classification": "UNVERIFIED",
+          "reason": "UNSUPPORTED_ROUTER",
+          "category": "unsupportedRouterVersion",
+          "authority": null,
+          "trackedTokenRole": "UNKNOWN",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": null,
+          "rawQuote": null,
+          "rawResponseSha256": "5c0e4e0a362e7afc57bc5ba4846746660eb4f5115541d118228f04eabcb40a9a"
+        },
+        {
+          "signature": "doqiTDJ9hQ24Lj5NmDLzKsuLgKAT6nbinbDtqBBqddbjo4uUDiHXdsHRMTcAT5rr2acWbvN6LYpU85pmDgpgDE1",
+          "slot": 446437220,
+          "blockTime": 1789218549,
+          "fetchedAt": "2026-09-12T13:09:27.757Z",
+          "tokenMint": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+          "topLevelPrograms": [
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",
+            "11111111111111111111111111111111",
+            "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+            "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4",
+            "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+          ],
+          "routers": [
+            {
+              "outerIndex": 5,
+              "instruction": "route_v2",
+              "authority": "JCdHRCUmUpuG8wco4wzo4ZUtsKGuzDvYtvodAWsrtqsJ",
+              "inputMint": "So11111111111111111111111111111111111111112",
+              "outputMint": "EocUbLVTJdznMokNdfX2EzpkPGjA1aHk1vV5Pt29d12C",
+              "source": "27rBbQ8VnJF6pjGNVoMp5gMUpVriMTjufs6zG2kWp9Ua",
+              "destination": "2v32d5qWeghsqTa6PkZR3WTB6UBoF8YVoAiQ9atn28zU",
+              "shared": false,
+              "mode": "EXACT_IN",
+              "intentAmount": "195113023",
+              "quotedAmount": "1442816193566",
+              "platformFeeBps": 10,
+              "routePlan": [
+                {
+                  "swap": {
+                    "name": "MeteoraDlmmSwapV2",
+                    "remaining_accounts_info": {
+                      "slices": []
+                    }
+                  },
+                  "bps": 10000,
+                  "input_index": 0,
+                  "output_index": 1
+                },
+                {
+                  "swap": {
+                    "name": "RaydiumLaunchlabBuy",
+                    "share_fee_rate": "0"
+                  },
+                  "bps": 10000,
+                  "input_index": 1,
+                  "output_index": 2
+                }
+              ],
+              "observedSourceAccountDelta": null,
+              "observedDestinationAccountDelta": "1428847152588",
+              "observationCaveat": "Whole-transaction account deltas are cross-check context, not canonical executed amounts."
+            }
+          ],
+          "classification": "UNVERIFIED",
+          "reason": "UNSUPPORTED_ROUTER_FEES",
+          "category": "unsupportedRouterVersion",
+          "authority": "JCdHRCUmUpuG8wco4wzo4ZUtsKGuzDvYtvodAWsrtqsJ",
+          "trackedTokenRole": "UNKNOWN",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": null,
+          "rawQuote": null,
+          "rawResponseSha256": "943275ae89b47a5d1e120b48a0bde4f81f98ab791be6d92aa43120e6673c4174"
+        },
+        {
+          "signature": "2CESUb95F5kuRWo2ZPGkvTMwJmp2t4xXtYFqA3BKCooSXxtDzrx8oYmEBipsugX3AZ38Z4bbYMkDsyxFqrss2vX5",
+          "slot": 446437067,
+          "blockTime": 1789218500,
+          "fetchedAt": "2026-09-12T13:09:36.356Z",
+          "tokenMint": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+          "topLevelPrograms": [
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "9L1qqo7q7vq7sKuMsBGKPF81z6GK7N4orWGgGFwwqqDF"
+          ],
+          "routers": [],
+          "classification": "UNVERIFIED",
+          "reason": "NO_POSITIVE_SWAP_EVIDENCE",
+          "category": "noSwapEvidence",
+          "authority": null,
+          "trackedTokenRole": "UNKNOWN",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": null,
+          "rawQuote": null,
+          "rawResponseSha256": "ccf61dfb18d53782b311fb37416173632066b5d7c2e8ea39ba4760ee14833c35"
+        },
+        {
+          "signature": "2HRbLktrRpw75Kwk9uZepurMVccJuNbaU2oTQwVFjptPpCXdxabfTfojjjzdhQcfNJQLxqEdbBZTWPp6PKdVTezT",
+          "slot": 446442228,
+          "blockTime": 1789220134,
+          "fetchedAt": "2026-09-12T13:36:12.981Z",
+          "tokenMint": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+          "topLevelPrograms": [
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "T1TANpTeScyeqVzzgNViGDNrkQ6qHz9KrSBS4aNXvGT"
+          ],
+          "routers": [],
+          "classification": "UNVERIFIED",
+          "reason": "UNSUPPORTED_ROUTER",
+          "category": "unsupportedRouterVersion",
+          "authority": null,
+          "trackedTokenRole": "UNKNOWN",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": null,
+          "rawQuote": null,
+          "rawResponseSha256": "95fe44b013434023572059bdd89910e500112403b177c51d7ecd739989230afd"
+        },
+        {
+          "signature": "2mDVSCJsYb2soTgJS5guqqh9dizUYMjZb8QuBY8QGnRT6N7TPVvSTAtBS1a6Rq45Asioozm9H9TxDFJb3g9HVG8s",
+          "slot": 446442235,
+          "blockTime": 1789220137,
+          "fetchedAt": "2026-09-12T13:36:07.176Z",
+          "tokenMint": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+          "topLevelPrograms": [
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "T1TANpTeScyeqVzzgNViGDNrkQ6qHz9KrSBS4aNXvGT"
+          ],
+          "routers": [],
+          "classification": "UNVERIFIED",
+          "reason": "UNSUPPORTED_ROUTER",
+          "category": "unsupportedRouterVersion",
+          "authority": null,
+          "trackedTokenRole": "UNKNOWN",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": null,
+          "rawQuote": null,
+          "rawResponseSha256": "9310d6e0f9ae483c980c447f1f051f8caff769c3d88999dd562ecc6a04331156"
+        },
+        {
+          "signature": "3mPJYthUdoTJK2x3ndx8ahyeTM3PVz8UyEZJsUZ8XRRne1GFcQbv65U4fmW5Zj3ZDr2x3YUdQgRB5MyiDbk9B27R",
+          "slot": 446442217,
+          "blockTime": 1789220131,
+          "fetchedAt": "2026-09-12T13:36:15.854Z",
+          "tokenMint": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+          "topLevelPrograms": [
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "T1TANpTeScyeqVzzgNViGDNrkQ6qHz9KrSBS4aNXvGT"
+          ],
+          "routers": [],
+          "classification": "UNVERIFIED",
+          "reason": "UNSUPPORTED_ROUTER",
+          "category": "unsupportedRouterVersion",
+          "authority": null,
+          "trackedTokenRole": "UNKNOWN",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": null,
+          "rawQuote": null,
+          "rawResponseSha256": "8284eb0b3a78e1627eca1331ccc14455c033b99c30850c013fa2446cbc031e58"
+        },
+        {
+          "signature": "cY9DKTW1CTZYib8wK54WE6Bbp6xqDwdxDo3wc2Xq3yKFPmPTYbTfmXfK7t2et9nmS182TH3wCvCTRD4xXZrmoom",
+          "slot": 446440714,
+          "blockTime": 1789219655,
+          "fetchedAt": "2026-09-12T13:36:18.759Z",
+          "tokenMint": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+          "topLevelPrograms": [
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "T1TANpTeScyeqVzzgNViGDNrkQ6qHz9KrSBS4aNXvGT"
+          ],
+          "routers": [],
+          "classification": "UNVERIFIED",
+          "reason": "UNSUPPORTED_ROUTER",
+          "category": "unsupportedRouterVersion",
+          "authority": null,
+          "trackedTokenRole": "UNKNOWN",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": null,
+          "rawQuote": null,
+          "rawResponseSha256": "14163bc0737360475d82c5e87a6c34485d2a7606ca54859790cc3ea59108417c"
+        },
+        {
+          "signature": "s91us4MYzvnSYErUCSxW6xc5RHU8Zg5Hz3A79Rz73BJ4WbwpmNzaX7XH7JdfP5FW3u2wevs7KTVbAMvsepZCiNe",
+          "slot": 446437066,
+          "blockTime": 1789218499,
+          "fetchedAt": "2026-09-12T13:09:39.234Z",
+          "tokenMint": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+          "topLevelPrograms": [
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "11111111111111111111111111111111",
+            "9L1qqo7q7vq7sKuMsBGKPF81z6GK7N4orWGgGFwwqqDF"
+          ],
+          "routers": [],
+          "classification": "UNVERIFIED",
+          "reason": "NO_POSITIVE_SWAP_EVIDENCE",
+          "category": "noSwapEvidence",
+          "authority": null,
+          "trackedTokenRole": "UNKNOWN",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": null,
+          "rawQuote": null,
+          "rawResponseSha256": "4d267addc5c45b86bd43c63564bbe4c4358909f05f46bb1d3edd71d65e73ef82"
+        },
+        {
+          "signature": "wwg8M7ud8m2QPf7yPCMu1LqA7dv3khJh8NUkvJnuiqBr2N1Kff7eFex5BZUVYinv4c758WHbDGsfG2SABZqKwtQ",
+          "slot": 446442228,
+          "blockTime": 1789220134,
+          "fetchedAt": "2026-09-12T13:36:10.116Z",
+          "tokenMint": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+          "topLevelPrograms": [
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "T1TANpTeScyeqVzzgNViGDNrkQ6qHz9KrSBS4aNXvGT"
+          ],
+          "routers": [],
+          "classification": "UNVERIFIED",
+          "reason": "UNSUPPORTED_ROUTER",
+          "category": "unsupportedRouterVersion",
+          "authority": null,
+          "trackedTokenRole": "UNKNOWN",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": null,
+          "rawQuote": null,
+          "rawResponseSha256": "d9d86987d52c2e8a686dcbaffbe7752ad60af1c09ff08728e8c2c5424c354f01"
+        },
+        {
+          "signature": "3SqzdnTgvp4jpQFnpASJCJENBRhj4BNZgkqCCV6xuUxDzZ1Q2GDq1mKrcnakpMWQHJ9xcs7WqwvdfffwiFdtUs5j",
+          "slot": 446442051,
+          "blockTime": 1789220076,
+          "fetchedAt": "2026-09-12T13:35:24.033Z",
+          "tokenMint": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+          "topLevelPrograms": [
+            "ComputeBudget111111111111111111111111111111",
+            "4bwVxjN2sFQyejtoa9ieiD1rRpPY798QGTKVDcmnotWu",
+            "11111111111111111111111111111111"
+          ],
+          "routers": [],
+          "classification": "UNVERIFIED",
+          "reason": "NO_POSITIVE_SWAP_EVIDENCE",
+          "category": "noSwapEvidence",
+          "authority": null,
+          "trackedTokenRole": "UNKNOWN",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": null,
+          "rawQuote": null,
+          "rawResponseSha256": "84b690bc1db31fef30bce61714b4c9b8d93725f4255f9ffc98e4756e15359742"
+        },
+        {
+          "signature": "4YquguNEKkyksSma6sB7boFkj1gP4cLVXF1CUEgqi1K7Yx5sqdPk9Wr4naeHYaRyi1BbKBxwAcf1PfJfw3D1gGkN",
+          "slot": 446437184,
+          "blockTime": 1789218537,
+          "fetchedAt": "2026-09-12T13:09:13.405Z",
+          "tokenMint": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+          "topLevelPrograms": [
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA",
+            "11111111111111111111111111111111"
+          ],
+          "routers": [],
+          "classification": "VERIFIED",
+          "reason": null,
+          "category": "verifiedDirect",
+          "authority": "7KyEvScKGoBPdroVYAy6v47XWjuuQFtPLjpWgZgMWEi",
+          "trackedTokenRole": "INPUT",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": "126000000",
+          "rawQuote": "182115486",
+          "rawResponseSha256": "362ecf6806353212220c0fad834d84185e226141c02354db1c4d9dee364ace40"
+        },
+        {
+          "signature": "4hRRByUJeR5cyfHc9L5C2PJywyCxv1UJaWHMcA3221wDG1cVa8x647xi1VDUdy7BR43VPqsTiPFnVTG2XXqdLXzu",
+          "slot": 446442038,
+          "blockTime": 1789220072,
+          "fetchedAt": "2026-09-12T13:35:26.928Z",
+          "tokenMint": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+          "topLevelPrograms": [
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",
+            "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",
+            "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",
+            "6Vo3245eszAb5wuqEMw8mGdbfRUdKbHhDHP5LcaGuTAB",
+            "11111111111111111111111111111111"
+          ],
+          "routers": [],
+          "classification": "UNVERIFIED",
+          "reason": "UNSUPPORTED_ROUTER",
+          "category": "unsupportedRouterVersion",
+          "authority": null,
+          "trackedTokenRole": "UNKNOWN",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": null,
+          "rawQuote": null,
+          "rawResponseSha256": "8613ad592b8e3e07dce40d0fd07e4e49b26ee8c4cb83c9b1adb539fe71a6a667"
+        },
+        {
+          "signature": "58UgziKzNjHxskuahXhyUtki1C72CZv9L3b4gKexL2uk43oGxCsBGZFVNz4sR519RPKFDh7wvQsqJYaNgaNDp3My",
+          "slot": 446442002,
+          "blockTime": 1789220060,
+          "fetchedAt": "2026-09-12T13:35:29.799Z",
+          "tokenMint": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+          "topLevelPrograms": [
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",
+            "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",
+            "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",
+            "6Vo3245eszAb5wuqEMw8mGdbfRUdKbHhDHP5LcaGuTAB",
+            "11111111111111111111111111111111"
+          ],
+          "routers": [],
+          "classification": "UNVERIFIED",
+          "reason": "UNSUPPORTED_ROUTER",
+          "category": "unsupportedRouterVersion",
+          "authority": null,
+          "trackedTokenRole": "UNKNOWN",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": null,
+          "rawQuote": null,
+          "rawResponseSha256": "5572ba94bf31a62aaef29fce821afb716078eb4e2e36dbb214f2ffe130172ef6"
+        },
+        {
+          "signature": "5HQhxmnQMQM7asZP4SdSPZkiCx9LVeCDY9a6B5qoEeveR7ccTUJmNPs1T2ATNy1wWu566gGfpeY6Ncd1msxdX3q9",
+          "slot": 446437181,
+          "blockTime": 1789218536,
+          "fetchedAt": "2026-09-12T13:09:16.282Z",
+          "tokenMint": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+          "topLevelPrograms": [
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "FLASHX8DrLbgeR8FcfNV1F5krxYcYMUdBkrP1EPBtxB9",
+            "FLASHX8DrLbgeR8FcfNV1F5krxYcYMUdBkrP1EPBtxB9",
+            "FLASHX8DrLbgeR8FcfNV1F5krxYcYMUdBkrP1EPBtxB9",
+            "11111111111111111111111111111111"
+          ],
+          "routers": [],
+          "classification": "UNVERIFIED",
+          "reason": "UNSUPPORTED_ROUTER",
+          "category": "unsupportedRouterVersion",
+          "authority": null,
+          "trackedTokenRole": "UNKNOWN",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": null,
+          "rawQuote": null,
+          "rawResponseSha256": "8732b95f671cf5f3fd9d556e1f856ece97fff0693e39670da9a0c807f8ec8658"
+        },
+        {
+          "signature": "5ukoGoDTUDpHbCHyrMZw8oduXKGcd8t347Po67BwGPqXpz1gZSb5x2YsSZRbSCbDyZ99tffVdL7uUaZozRdcQ8ho",
+          "slot": 446442124,
+          "blockTime": 1789220100,
+          "fetchedAt": "2026-09-12T13:35:21.145Z",
+          "tokenMint": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+          "topLevelPrograms": [
+            "ComputeBudget111111111111111111111111111111",
+            "5QctUmJPBjjTqGdbtj7SzTAcahkRsMaiiczDsoxdaM5A"
+          ],
+          "routers": [],
+          "classification": "UNVERIFIED",
+          "reason": "NO_POSITIVE_SWAP_EVIDENCE",
+          "category": "noSwapEvidence",
+          "authority": null,
+          "trackedTokenRole": "UNKNOWN",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": null,
+          "rawQuote": null,
+          "rawResponseSha256": "7d26ceb783476d7e685472230624805fa0ae0ea88b96792c74d0f9a543cd5e1c"
+        },
+        {
+          "signature": "EcouMcrTrHq14wzVCtjWPbuDfn8WBvUFBRjFMwr1KBpM3vvRUiFHA9X4oMDmoZLSgzrfC6MxbqmZq8E8o78VvJd",
+          "slot": 446441930,
+          "blockTime": 1789220038,
+          "fetchedAt": "2026-09-12T13:35:32.676Z",
+          "tokenMint": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+          "topLevelPrograms": [
+            "ComputeBudget111111111111111111111111111111",
+            "ComputeBudget111111111111111111111111111111",
+            "pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA",
+            "11111111111111111111111111111111"
+          ],
+          "routers": [],
+          "classification": "VERIFIED",
+          "reason": null,
+          "category": "verifiedDirect",
+          "authority": "7KyEvScKGoBPdroVYAy6v47XWjuuQFtPLjpWgZgMWEi",
+          "trackedTokenRole": "INPUT",
+          "rawInput": null,
+          "rawOutput": null,
+          "rawTracked": "102000000",
+          "rawQuote": "147341817",
+          "rawResponseSha256": "7b9807010528f1767b5fa1f798a0e200137a725ae5150d9421c98b8b4d213338"
+        }
+      ]
+    }
+  ]
+}

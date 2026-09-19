@@ -185,6 +185,8 @@ function normalizeResources(resources = {}) {
                 address: pool.address,
                 dexId: boundedText(pool.dexId || 'solana', 40),
                 quoteSymbol: boundedText(pool.quoteSymbol, 12),
+                baseMint: validateSolanaMint(pool.baseMint).ok ? pool.baseMint : null,
+                quoteMint: validateSolanaMint(pool.quoteMint).ok ? pool.quoteMint : null,
                 liquidityUsd: nonNegativeNumber(pool.liquidityUsd) || 0,
                 volumeH24Usd: nonNegativeNumber(pool.volumeH24Usd) || 0,
                 volumeH1Usd: nonNegativeNumber(pool.volumeH1Usd) || 0,

@@ -1,4 +1,6 @@
 import { ANSEM_THEME } from './theme-presets.js';
+import { valuationLabel } from './market-valuation.js';
+import { activeTrade } from './market-evidence.js';
 
 export const PIXEL_SOURCE_WIDTH = 640;
 export const PIXEL_SOURCE_HEIGHT = 160;
@@ -25,13 +27,13 @@ function crispRect(ctx, x, y, width, height, color) {
     ctx.fillRect(Math.round(x), Math.round(y), Math.round(width), Math.round(height));
 }
 
-function formatMarketCap(value, compact = false) {
+function formatMarketCap(value, compact = false, label = 'MC') {
     const numeric = Number(value) || 0;
-    if (!(numeric > 0)) return 'MC --';
-    if (numeric >= 1_000_000_000) return `MC $${(numeric / 1_000_000_000).toFixed(compact ? 1 : 2)}B`;
-    if (numeric >= 1_000_000) return `MC $${(numeric / 1_000_000).toFixed(compact ? 1 : 2)}M`;
-    if (numeric >= 1_000) return `MC $${(numeric / 1_000).toFixed(compact ? 0 : 1)}K`;
-    return `MC $${numeric.toFixed(0)}`;
+    if (!(numeric > 0)) return `${label} --`;
+    if (numeric >= 1_000_000_000) return `${label} $${(numeric / 1_000_000_000).toFixed(compact ? 1 : 2)}B`;
+    if (numeric >= 1_000_000) return `${label} $${(numeric / 1_000_000).toFixed(compact ? 1 : 2)}M`;
+    if (numeric >= 1_000) return `${label} $${(numeric / 1_000).toFixed(compact ? 0 : 1)}K`;
+    return `${label} $${numeric.toFixed(0)}`;
 }
 
 function formatPrice(value, compact = false) {
@@ -66,9 +68,10 @@ function normalizeTick(tick, now) {
 
 export function createPixelSnapshot(source, now = Date.now()) {
     const trades = (source.liveTrades || [])
+        .filter(activeTrade)
         .filter((trade) => now - Number(trade.timestamp) >= 0 && now - Number(trade.timestamp) <= WINDOW_MS)
         .map((trade) => ({
-            id: String(trade.txHash || trade.id || `${trade.timestamp}-${trade.isBuy}`),
+            id: String(trade.id || trade.txHash || `${trade.timestamp}-${trade.isBuy}`),
             isBuy: Boolean(trade.isBuy),
             isWhale: Boolean(trade.isWhale),
             solValue: Math.max(0, Number(trade.solValue) || 0),
@@ -85,9 +88,6 @@ export function createPixelSnapshot(source, now = Date.now()) {
         .filter(Boolean)
         .sort((a, b) => a.timestamp - b.timestamp);
     const price = Number(source.price) || priceTicks.at(-1)?.price || 0;
-    if (price > 0 && (!priceTicks.length || now - priceTicks.at(-1).timestamp > 600)) {
-        priceTicks.push({ timestamp: now, price });
-    }
     return {
         now,
         windowMs: WINDOW_MS,
@@ -96,6 +96,8 @@ export function createPixelSnapshot(source, now = Date.now()) {
         sellSol,
         price,
         mcap: Math.max(0, Number(source.mcap) || 0),
+        valuation: source.valuation ? { kind: source.valuation.kind, valueUsd: source.valuation.valueUsd,
+            freshness: source.valuation.freshness } : null,
         priceTicks: priceTicks.slice(-90),
         online: source.connection === 'online' || source.connection === 'degraded',
     };
@@ -427,7 +429,7 @@ export class PixelFrontline {
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.font = `900 ${Math.max(14, Math.min(28, Math.floor(w / 24)))}px monospace`;
-        ctx.fillText(formatMarketCap(this.snapshot.mcap, true), w * 0.5, (Math.floor(h * 0.34) + footerY) * 0.5);
+        ctx.fillText(formatMarketCap(this.snapshot.valuation?.valueUsd, true, valuationLabel(this.snapshot.valuation)), w * 0.5, (Math.floor(h * 0.34) + footerY) * 0.5);
         ctx.restore();
     }
 
@@ -546,7 +548,7 @@ export class PixelFrontline {
         ctx.fillStyle = colors.text;
         ctx.textAlign = 'center';
         ctx.font = `900 ${compact ? 13 : 18}px monospace`;
-        ctx.fillText(formatMarketCap(this.snapshot.mcap, compact), w * 0.5, hudHeight * 0.5);
+        ctx.fillText(formatMarketCap(this.snapshot.valuation?.valueUsd, compact, valuationLabel(this.snapshot.valuation)), w * 0.5, hudHeight * 0.5);
         ctx.fillStyle = colors.muted;
         ctx.textAlign = 'right';
         ctx.font = `900 ${compact ? 9 : 11}px monospace`;

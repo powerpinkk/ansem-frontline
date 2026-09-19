@@ -1,0 +1,14 @@
+{
+  "testOnly": true,
+  "realDurationSeconds": 60,
+  "tokens": 4,
+  "cycles": 1036,
+  "replayDeliveries": 82880,
+  "rebases": 136,
+  "fxRefreshes": 4144,
+  "rpcReads": 12432,
+  "publications": 8288,
+  "maxRecords": 30,
+  "maxEvents": 30,
+  "teardown": "empty"
+}

@@ -247,7 +247,7 @@ async function installMarketRoutes(page) {
     await page.route('https://ansem-frontline-stream.ansem-frontline.workers.dev/market**', (route) => route.fulfill({
         json: { price: 0.25, solPriceUsd: 100, mcap: 250_000_000, chg: null, pools: [], source: 'helius-fallback' },
     }));
-    await page.route('https://ansem-frontline-stream.ansem-frontline.workers.dev/recent', (route) => route.fulfill({ json: { source: 'fixture', pools: 1, trades: [] } }));
+    await page.route('https://ansem-frontline-stream.ansem-frontline.workers.dev/recent', (route) => route.fulfill({ json: { version: 4, tokenMint: route.request().postDataJSON().token.mint, source: 'verified-rpc-history', pools: 1, trades: [] } }));
     await page.route('https://ansem-frontline-stream.ansem-frontline.workers.dev/gecko/**', async (route) => route.fulfill({
         json: route.request().url().includes('/ohlcv/') ? { data: { attributes: { ohlcv_list: [] } } } : { data: [] },
     }));

@@ -1,3 +1,4 @@
+import { canonicalEvent } from './fixtures/integrity.js';
 import { describe, expect, it } from 'vitest';
 import { calculatePressure, deriveBattleTactics, deriveSolPrice, evaluateBuySwarm, parseGeckoTrade, selectTrackedPools, summarizePoolActivity } from '../js/market.js';
 import { CONFIG } from '../js/config.js';
@@ -11,7 +12,7 @@ function trade(attributes, id = 'trade-1') {
 
 describe('market parsing', () => {
     it('derives the SOL/USD price from an ANSEM/SOL pair', () => {
-        expect(deriveSolPrice([{ quoteToken: { symbol: 'SOL' }, priceUsd: '0.25', priceNative: '0.0025' }])).toBe(100);
+        expect(deriveSolPrice([{ quoteToken: { address: CONFIG.SOL_MINT, symbol: 'SOL' }, priceUsd: '0.25', priceNative: '0.0025' }])).toBe(100);
     });
 
     it('derives the SOL/USD price directly when SOL is the base asset', () => {
@@ -66,9 +67,9 @@ describe('pool selection and pressure', () => {
         const lowAddress = '4pANrqEvjad4xEghrCbAAJfBm8KyNvYMKk1cuGW8erE4';
         const highAddress = '6e7V9eegCHw997T72MxgwwJipZ6GJyZF8NvjkzT1rvpN';
         const pairs = [
-            { chainId: 'solana', pairAddress: lowAddress, dexId: 'a', baseToken: { address: DEFAULT_TOKEN_CONTEXT.identity.mint }, quoteToken: { symbol: 'SOL' }, volume: { h1: 1, h24: 10 }, liquidity: { usd: 10 } },
-            { chainId: 'solana', pairAddress: highAddress, dexId: 'b', baseToken: { address: DEFAULT_TOKEN_CONTEXT.identity.mint }, quoteToken: { symbol: 'USDC' }, volume: { h1: 100, h24: 1000 }, liquidity: { usd: 1000 } },
-            { chainId: 'ethereum', pairAddress: 'wrong-chain', baseToken: { address: DEFAULT_TOKEN_CONTEXT.identity.mint }, quoteToken: { symbol: 'USDC' }, volume: { h1: 9999 } },
+            { chainId: 'solana', pairAddress: lowAddress, dexId: 'a', baseToken: { address: DEFAULT_TOKEN_CONTEXT.identity.mint }, priceUsd: '1', quoteToken: { address: CONFIG.SOL_MINT, symbol: 'SOL' }, volume: { h1: 1, h24: 10 }, liquidity: { usd: 10 } },
+            { chainId: 'solana', pairAddress: highAddress, dexId: 'b', baseToken: { address: DEFAULT_TOKEN_CONTEXT.identity.mint }, priceUsd: '1', quoteToken: { address: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', symbol: 'USDC' }, volume: { h1: 100, h24: 1000 }, liquidity: { usd: 1000 } },
+            { chainId: 'ethereum', pairAddress: 'wrong-chain', baseToken: { address: DEFAULT_TOKEN_CONTEXT.identity.mint }, priceUsd: '1', quoteToken: { address: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', symbol: 'USDC' }, volume: { h1: 9999 } },
         ];
         expect(selectTrackedPools(pairs, DEFAULT_TOKEN_CONTEXT, 1)[0].address).toBe(highAddress);
     });
@@ -76,9 +77,9 @@ describe('pool selection and pressure', () => {
     it('weights dominance by real SOL size, not transaction count', () => {
         const now = Date.now();
         const pressure = calculatePressure([
-            { isBuy: true, solValue: 2, timestamp: now },
-            { isBuy: true, solValue: 3, timestamp: now },
-            { isBuy: false, solValue: 15, timestamp: now },
+            canonicalEvent({ signature: 'buy1', isBuy: true, solValue: 2, timestamp: now }),
+            canonicalEvent({ signature: 'buy2', isBuy: true, solValue: 3, timestamp: now }),
+            canonicalEvent({ signature: 'sell1', isBuy: false, solValue: 15, timestamp: now }),
         ], now);
         expect(pressure.bullPercent).toBe(25);
         expect(pressure.bearPercent).toBe(75);
@@ -106,7 +107,7 @@ describe('verified buy swarm detection', () => {
         const buys = Array.from({ length: 5 }, (_, index) => ({
             id: `buy-${index}`, txHash: `signature-${index}`, isBuy: true, solValue: 1.2, timestamp: now - index * 500,
         }));
-        expect(evaluateBuySwarm([...buys, { id: 'sell', txHash: 'sell', isBuy: false, solValue: 1, timestamp: now }], now, 0)).toMatchObject({
+        expect(evaluateBuySwarm([...buys.map(canonicalEvent), canonicalEvent({ id: 'sell', txHash: 'sell', isBuy: false, solValue: 1, timestamp: now })], now, 0)).toMatchObject({
             triggered: true, buyCount: 5, buySol: 6,
         });
     });

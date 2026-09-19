@@ -1,116 +1,27 @@
-import { describe, expect, it } from 'vitest';
-import { fetchRecentTrades, normalizeRecentTransactions } from '../worker/src/recent-trades.js';
-import { DEFAULT_TOKEN_CONTEXT } from '../js/token-presets.js';
-
-describe('Helius recent transaction snapshot', () => {
-    it('normalizes full history entries and ignores malformed transactions', () => {
-        const transaction = fixtureTransaction();
-        const result = normalizeRecentTransactions({
-            data: [transaction, { transaction: fixtureTransaction('nested-signature') }, { slot: 1 }],
-        }, pool(), DEFAULT_TOKEN_CONTEXT.identity.mint, { tokenPriceUsd: 0.25, solPriceUsd: 100 });
-
-        expect(result).toHaveLength(2);
-        expect(result[0]).toMatchObject({
-            txHash: 'direct-signature',
-            isBuy: true,
-            solValue: 25,
-            poolAddress: pool().address,
-            provider: 'helius',
-        });
-        expect(result[1].txHash).toBe('nested-signature');
-    });
-
-    it('uses the free Helius signature flow and one getTransaction batch', async () => {
-        const requests = [];
-        const pools = [pool(), { ...pool(), address: 'FnzKY6x7entQ1eR3D225dQyT7ybfka4PskBMQhb8L3CC' }];
-        const fetchImpl = async (_url, options) => {
-            const body = JSON.parse(options.body);
-            requests.push(body);
-            if (!Array.isArray(body)) {
-                return jsonResponse({
-                    jsonrpc: '2.0',
-                    id: body.id,
-                    result: [{
-                        signature: `${body.id}-signature`,
-                        err: null,
-                        blockTime: Math.floor(Date.now() / 1_000),
-                    }],
-                });
-            }
-            return jsonResponse(body.map((request, index) => ({
-                jsonrpc: '2.0',
-                id: request.id,
-                result: fixtureTransaction(`${pools[index].address}-signature`),
-            })));
-        };
-
-        const result = await fetchRecentTrades({
-            HELIUS_API_KEY: 'test-key',
-        }, {
-            token: { mint: DEFAULT_TOKEN_CONTEXT.identity.mint, chain: 'solana' },
-            pools,
-            market: { tokenPriceUsd: 0.25, solPriceUsd: 100 },
-        }, fetchImpl);
-
-        expect(requests.slice(0, 2).map((request) => request.method)).toEqual([
-            'getSignaturesForAddress',
-            'getSignaturesForAddress',
-        ]);
-        expect(requests[2]).toHaveLength(2);
-        expect(requests[2].every((request) => request.method === 'getTransaction')).toBe(true);
-        expect(result).toMatchObject({ source: 'helius-history', pools: 2 });
-        expect(result.trades).toHaveLength(2);
-    });
-
-    it('returns an uncached degraded snapshot when every Helius history request is unavailable', async () => {
-        const result = await fetchRecentTrades({
-            HELIUS_API_KEY: 'test-key',
-        }, {
-            token: { mint: DEFAULT_TOKEN_CONTEXT.identity.mint, chain: 'solana' },
-            pools: [pool()],
-            market: { tokenPriceUsd: 0.25, solPriceUsd: 100 },
-        }, async () => ({ ok: false, status: 429 }));
-
-        expect(result).toEqual({
-            trades: [],
-            pools: 0,
-            source: 'helius-history',
-            status: 'degraded',
-        });
-    });
+import { expect, it, vi } from 'vitest';
+import { fetchRecentCandidates } from '../worker/src/recent-trades.js';
+import { signatureFor } from './fixtures/integrity.js';
+it('deduplicates history mentions and retains failures while excluding future, old and unknown time', async () => {
+    const recent = { signature: signatureFor(), slot: 42, blockTime: 500 };
+    const rpc = vi.fn(async () => [recent, { ...recent, err: {} },
+        { signature: signatureFor(2), blockTime: 1 }, { signature: signatureFor(3), blockTime: 700 },
+        { signature: signatureFor(4), blockTime: null }]);
+    const cursors = new Map();
+    expect(await fetchRecentCandidates(rpc, [{ address: 'a' }, { address: 'b' }], cursors, 600_000))
+        .toEqual({ candidates: [recent], cursors, coverageIncomplete: false });
+    expect(cursors.size).toBe(2);
+    await fetchRecentCandidates(rpc, [{ address: 'a' }], cursors, 600_000);
+    expect(rpc.mock.lastCall[1][1]).toMatchObject({ until: recent.signature, limit: 12, commitment: 'confirmed' });
+    expect(rpc.mock.calls.every(([method]) => method === 'getSignaturesForAddress')).toBe(true);
 });
-
-function jsonResponse(payload) {
-    return { ok: true, json: async () => payload };
-}
-
-function fixtureTransaction(signature = 'direct-signature') {
-    const tokenBalance = (amount) => ({
-        mint: DEFAULT_TOKEN_CONTEXT.identity.mint,
-        owner: 'wallet',
-        uiTokenAmount: { uiAmountString: String(amount) },
+it('bounds pool reads and reports truncation or outage without promoting candidates', async () => {
+    const rpc = vi.fn(async (_m, [address]) => {
+        if (address === '0') throw new Error('429');
+        return Array.from({ length: 12 }, (_, i) => ({ signature: signatureFor(i), slot: i, blockTime: 500 }));
     });
-    return {
-        blockTime: Math.floor(Date.now() / 1_000),
-        transaction: {
-            signatures: [signature],
-            message: { accountKeys: [{ pubkey: 'wallet', signer: true }] },
-        },
-        meta: {
-            err: null,
-            fee: 5_000,
-            preBalances: [30_000_000_000],
-            postBalances: [4_999_995_000],
-            preTokenBalances: [tokenBalance(0)],
-            postTokenBalances: [tokenBalance(10_000)],
-        },
-    };
-}
-
-function pool() {
-    return {
-        address: '6e7V9eegCHw997T72MxgwwJipZ6GJyZF8NvjkzT1rvpN',
-        dexId: 'meteora',
-        quoteSymbol: 'SOL',
-    };
-}
+    const result = await fetchRecentCandidates(rpc, Array.from({ length: 100 }, (_, i) => ({ address: String(i) })), new Map(), 600_000);
+    expect(rpc).toHaveBeenCalledTimes(5);
+    expect(result.coverageIncomplete).toBe(true);
+    expect(result.candidates).toHaveLength(12);
+    expect(result.candidates.every((s) => !s.evidenceLevel)).toBe(true);
+});
