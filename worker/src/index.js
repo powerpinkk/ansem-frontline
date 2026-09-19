@@ -13,7 +13,9 @@ export default {
         if (!isAllowedOrigin(origin, allowedOrigins)) return new Response('Origin not allowed', { status: 403 });
         if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders(origin, allowedOrigins) });
         if (url.pathname === '/health') {
-            return Response.json({ ok: true, service: 'ansem-frontline-stream' });
+            const headers = corsHeaders(origin, allowedOrigins);
+            headers['cache-control'] = 'no-store';
+            return Response.json({ ok: true, service: 'ansem-frontline-stream' }, { headers });
         }
         if (url.pathname === '/market') {
             const token = resolveRequestMint(url, env.DEFAULT_TOKEN_MINT);
