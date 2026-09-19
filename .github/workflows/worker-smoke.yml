@@ -1,0 +1,27 @@
+name: Worker Production Smoke
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "worker/**"
+      - "scripts/worker-production-smoke.mjs"
+      - ".github/workflows/worker-smoke.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: worker-production-smoke-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - run: node scripts/worker-production-smoke.mjs
