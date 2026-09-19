@@ -1,13 +1,14 @@
 const environment = import.meta.env || {};
 const configuredStreamUrl = environment.MODE === 'e2e' ? 'disabled' : environment.VITE_STREAM_URL;
+const RELAY_ORIGIN = 'https://ansem-frontline-stream.ansem-frontline.workers.dev';
 
 export const CONFIG = {
     SOL_MINT: 'So11111111111111111111111111111111111111112',
     STREAM_URL: configuredStreamUrl === 'disabled'
         ? ''
-        : configuredStreamUrl || 'wss://ansem-frontline-stream.ansem-frontline.workers.dev/stream',
-    RELAY_MARKET_URL: 'https://ansem-frontline-stream.ansem-frontline.workers.dev/market',
-    RELAY_RECENT_URL: 'https://ansem-frontline-stream.ansem-frontline.workers.dev/recent',
+        : configuredStreamUrl || `${RELAY_ORIGIN.replace('https://', 'wss://')}/stream`,
+    RELAY_MARKET_URL: `${RELAY_ORIGIN}/market`,
+    RELAY_RECENT_URL: `${RELAY_ORIGIN}/recent`,
     WHALE_TRADE_THRESHOLD_SOL: 20,
 
     FETCH_MIN_DELAY_MS: 5000,
@@ -37,5 +38,5 @@ export const CONFIG = {
 
     DEXSCREENER_TOKEN_URL: 'https://api.dexscreener.com/token-pairs/v1/solana',
     DEXSCREENER_PAIR_URL: 'https://api.dexscreener.com/latest/dex/pairs/solana',
-    GECKO_BASE: 'https://ansem-frontline-stream.ansem-frontline.workers.dev/gecko/networks/solana/pools',
+    GECKO_BASE: `${RELAY_ORIGIN}/gecko/networks/solana/pools`,
 };
