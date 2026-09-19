@@ -15,10 +15,10 @@ it.each(load('pump-sdk-vectors.json').vectors)('matches official integer referen
 it.each(['0','-1','NaN','Infinity','1.5',undefined])('rejects invalid reserve %s',baseReserve=>{
     expect(()=>protocolMarketCap({protocol:'pump-curve',supply:'1000000000000000',baseReserve,quoteReserve:'30000000000'})).toThrow();
 });
-it('does not reuse the PumpSwap Mayhem constant for curves',()=>{
-    const input={supply:'2000000000000000',baseReserve:'1000000000000',quoteReserve:'1000000000',mayhem:true};
-    expect(protocolMarketCap({...input,protocol:'pump-curve'}).rawQuoteValue).toBe('2000000000000');
-    expect(protocolMarketCap({...input,protocol:'pumpswap'}).rawQuoteValue).toBe('1000000000000');
+it('uses authoritative live supply without a universal 1B-token assumption',()=>{
+    const input={supply:'2000000000000000',baseReserve:'1000000000000',quoteReserve:'1000000000'};
+    expect(protocolMarketCap({...input,protocol:'pump-curve'})).toMatchObject({rawQuoteValue:'2000000000000',supplyBasis:'LIVE_MINT_SUPPLY'});
+    expect(protocolMarketCap({...input,protocol:'pumpswap'})).toMatchObject({rawQuoteValue:'2000000000000',supplyBasis:'LIVE_MINT_SUPPLY'});
 });
 it('grants USD authority only when both independent observations satisfy the gates',()=>{
     const v=canonicalValuation(native(),fx(),market(),null,now);
@@ -72,19 +72,19 @@ it.each(['NaN','Infinity','0','-1'])('rejects an invalid authoritative browser v
     expect(createCanonicalValuationBoundary(m.tokenMint).accept({...v,valueUsd},m,now)).toBeNull();
 });
 it('uses real USDC/USD and allows a depeg rather than pinning one dollar',()=>{
-    const s=samples.find(s=>s.canonicalMarket.quoteDecimals===6&&s.quoteUsd);
-    // Official-formula normal-coin vector using the observed USDC oracle. The
-    // retained live USDC coins themselves are Mayhem and remain ineligible.
-    const v=canonicalValuation({...s.nativeValuation,supplyVerified:true},{...s.quoteUsd,price:'90000000',exponent:-8},s.canonicalMarket,null,s.receivedAt);
+    const m={...market(),quoteMint:'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',quoteDecimals:6};
+    const n={...native(),marketIdentity:m.address,quoteMint:m.quoteMint,quoteDecimals:6};
+    const q={quoteMint:m.quoteMint,price:'90000000',exponent:-8,source:'PYTH_ONCHAIN_FULL',verification:'FULL',
+        confidenceAccepted:true,observedAt:now};
+    const v=canonicalValuation(n,q,m,null,now);
     expect(v.quoteUsdPrice).toBe('0.9');expect(v.authorityEligible).toBe(true);
 });
-it('withholds Mayhem curve valuation when displayed and live-mint supply conventions disagree',()=>{
-    for(const s of samples.filter(s=>s.canonicalMarket.mayhem)){
-        expect(s.nativeValuation.provenance.state.mintSupply).toBe('2000000000000000');
-        expect(s.nativeValuation.provenance.state.curveSupply).toBe('1000000000000000');
-        expect(s.nativeValuation.supplyDefinitionStatus).toBe('MAYHEM_CURVE_SUPPLY_CONVENTION_UNRESOLVED');
-        expect(canonicalValuation(s.nativeValuation,s.quoteUsd,s.canonicalMarket,null,s.receivedAt).authorityEligible).toBe(false);
-    }
+it('withholds all authority from Mayhem without constructing a valuation',()=>{
+    const s=samples.find(s=>s.canonicalMarket.mayhem);
+    expect(s).toMatchObject({nativeValuation:null,quoteUsd:null,valuationFailure:'UNSUPPORTED_MAYHEM',
+        canonicalMarket:{compatibility:'UNSUPPORTED_MAYHEM',mayhem:true}});
+    const v=canonicalValuation(native(),fx(),{...market(),mayhem:true},null,now);
+    expect(v).toMatchObject({authorityEligible:false,gates:{supportedVariant:false}});
 });
 it('accepts exactly 100K to 600K under unchanged supply and source',()=>{
     const m=market(),n={...native(),rawQuoteValue:'1000000000000',quoteDecimals:9},q={...fx(),price:'10000000000',exponent:-8};
@@ -97,6 +97,7 @@ it.each(samples.map(s=>[s.mint,s]))('replays atomic state acquisition %s',async(
     const rpc=vi.fn(async(method,params)=>{const read=reads.shift();expect(method).toBe(read.method);expect(params).toEqual(read.params);return read.result;});
     const result=await probePumpCurve(s.mint,rpc);
     expect(result.canonicalMarket).toEqual(s.canonicalMarket);expect(result.nativeValuation).toEqual(s.nativeValuation);
+    if (s.canonicalMarket.mayhem) expect(result).toMatchObject({quoteUsd:null,valuationFailure:'UNSUPPORTED_MAYHEM'});
     expect(reads).toHaveLength(0);
 });
 it('rejects a Pyth account with a wrong owner, partial verification, feed, timestamp or price',()=>{
@@ -119,4 +120,13 @@ it.each(load('public-chain/pump-valuation-states.json').filter(s=>s.result.canon
     expect(result.quoteUsd).toEqual(expected.quoteUsd);
     expect(canonicalValuation(result.nativeValuation,result.quoteUsd,expected.canonicalMarket,null,expected.receivedAt).authorityEligible).toBe(true);
     expect(rpc).toHaveBeenCalledTimes(1);
+});
+it('rejects a current PumpSwap Mayhem flag before constructing protocol market cap',async()=>{
+    const s=load('public-chain/pump-valuation-states.json').find(s=>s.result.canonicalMarket.protocol==='pumpswap');
+    const expected=s.result,read=structuredClone(s.reads.at(-1)),pool=Buffer.from(read.result.value[0].data[0],'base64');
+    pool[243]=1;read.result.value[0].data[0]=pool.toString('base64');
+    const rpc=vi.fn(async()=>read.result);
+    await expect(pumpSwapValuation(expected.canonicalMarket,rpc,read.params[1].minContextSlot)).resolves.toMatchObject({
+        nativeValuation:null,quoteUsd:null,valuationFailure:'UNSUPPORTED_MAYHEM',unsupportedVariant:'MAYHEM',
+    });
 });

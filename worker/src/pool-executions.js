@@ -28,6 +28,8 @@ const fail = (reason, status = 'UNVERIFIED') => ({ status, reason, events: [], e
 // Pipeline A: executed pool effect. Pipeline B's wallet/route attribution is
 // intentionally not consulted; a router is simply an ancestor invocation.
 export function verifyPoolExecutions(tx, signature, market, settlement = 'CONFIRMED') {
+    if (market?.mayhem === true || market?.compatibility === 'UNSUPPORTED_MAYHEM') return fail('UNSUPPORTED_MAYHEM','UNSUPPORTED');
+    if (market?.compatibility === 'UNSUPPORTED_PUMP_VARIANT') return fail('UNSUPPORTED_PUMP_VARIANT','UNSUPPORTED');
     if (market?.programId === PUMP_PROGRAM) return verifyPumpExecutions(tx,signature,market,settlement);
     try { return verify(tx, signature, market, settlement); }
     catch (e) { return fail(e.message || 'MALFORMED_TRANSACTION'); }

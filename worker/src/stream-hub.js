@@ -61,7 +61,7 @@ export class StreamHub {
     }
 
     ensureIngestion() {
-        if (this.ingestion || !this.market?.canonicalMarket) return;
+        if (this.ingestion || this.market?.canonicalMarket?.compatibility !== 'POOL_STATE_AND_VAULTS_VERIFIED') return;
         this.ingestion = createEvidenceIngestion({ tokenMint: this.tokenMint, canonicalMarket: this.market.canonicalMarket, rpc: this.rpc,
             onChange: (event) => this.broadcast({ ...event, version: 4 }) });
     }
@@ -87,7 +87,8 @@ export class StreamHub {
         this.marketPromise = resolveServerMarket(this.tokenMint, this.rpc, this.market?.selection)
             .then(async (next) => {
                 const key = (m) => JSON.stringify(m?.canonicalMarket && [m.canonicalMarket.address, m.canonicalMarket.programId,
-                    m.canonicalMarket.mints, m.canonicalMarket.vaults, m.canonicalMarket.tokenPrograms]);
+                    m.canonicalMarket.mints, m.canonicalMarket.vaults, m.canonicalMarket.tokenPrograms,
+                    m.canonicalMarket.compatibility,m.canonicalMarket.mayhem===true]);
                 const changed = key(this.market) !== key(next);
                 if (changed) {
                     this.closeUpstream(); this.ingestion?.destroy(); this.ingestion = null;

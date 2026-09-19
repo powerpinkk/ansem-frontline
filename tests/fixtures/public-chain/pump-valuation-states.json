@@ -25,7 +25,6 @@
           "observation": "ATOMIC_GET_MULTIPLE_ACCOUNTS",
           "state": {
             "mintSupply": "997364029286488",
-            "mayhem": false,
             "baseReserve": "7616699913585",
             "quoteReserve": "10866960705020",
             "virtualQuoteReserves": "0"
@@ -144,7 +143,6 @@
           "observation": "ATOMIC_GET_MULTIPLE_ACCOUNTS",
           "state": {
             "mintSupply": "997364029286488",
-            "mayhem": false,
             "baseReserve": "7616699913585",
             "quoteReserve": "10866960705020",
             "virtualQuoteReserves": "0"
@@ -423,7 +421,6 @@
           "observation": "ATOMIC_GET_MULTIPLE_ACCOUNTS",
           "state": {
             "mintSupply": "999987892689304",
-            "mayhem": false,
             "baseReserve": "998740008217783",
             "quoteReserve": "304597928",
             "virtualQuoteReserves": "17584505288"
@@ -542,7 +539,6 @@
           "observation": "ATOMIC_GET_MULTIPLE_ACCOUNTS",
           "state": {
             "mintSupply": "999987892689304",
-            "mayhem": false,
             "baseReserve": "998740008217783",
             "quoteReserve": "304597928",
             "virtualQuoteReserves": "17584505288"
@@ -821,7 +817,6 @@
           "observation": "ATOMIC_GET_MULTIPLE_ACCOUNTS",
           "state": {
             "mintSupply": "999928381447169",
-            "mayhem": false,
             "baseReserve": "990747286419811",
             "quoteReserve": "374025145",
             "virtualQuoteReserves": "17584505288"
@@ -940,7 +935,6 @@
           "observation": "ATOMIC_GET_MULTIPLE_ACCOUNTS",
           "state": {
             "mintSupply": "999928381447169",
-            "mayhem": false,
             "baseReserve": "990747286419811",
             "quoteReserve": "374025145",
             "virtualQuoteReserves": "17584505288"
@@ -1219,7 +1213,6 @@
           "observation": "ATOMIC_GET_MULTIPLE_ACCOUNTS",
           "state": {
             "mintSupply": "998716292158704",
-            "mayhem": false,
             "baseReserve": "997943245570437",
             "quoteReserve": "177662679",
             "virtualQuoteReserves": "17584505288"
@@ -1338,7 +1331,6 @@
           "observation": "ATOMIC_GET_MULTIPLE_ACCOUNTS",
           "state": {
             "mintSupply": "998716292158704",
-            "mayhem": false,
             "baseReserve": "997943245570437",
             "quoteReserve": "177662679",
             "virtualQuoteReserves": "17584505288"
@@ -1624,8 +1616,7 @@
         "verifiedAtSlot": 446821241,
         "sourceEpoch": 1,
         "globalAddress": "4wTV1YmiEkRvAtNtsSGPtUrqRYQMe5SKy2uB4Jjaxnjf",
-        "eventAuthority": "Ce6TQqeHC9p8KetsN6JsjHK7UTZk7nasjjnr7XxXp9F1",
-        "mayhem": false
+        "eventAuthority": "Ce6TQqeHC9p8KetsN6JsjHK7UTZk7nasjjnr7XxXp9F1"
       },
       "nativeValuation": {
         "rawQuoteValue": "27966611829",
@@ -1650,7 +1641,6 @@
           "state": {
             "curveSupply": "1000000000000000",
             "mintSupply": "1000000000000000",
-            "mayhem": false,
             "supplyAgreement": true,
             "virtualTokenReserves": "1072853844918655",
             "virtualQuoteReserves": "30004087031"
@@ -1712,8 +1702,7 @@
           "verifiedAtSlot": 446821241,
           "sourceEpoch": 1,
           "globalAddress": "4wTV1YmiEkRvAtNtsSGPtUrqRYQMe5SKy2uB4Jjaxnjf",
-          "eventAuthority": "Ce6TQqeHC9p8KetsN6JsjHK7UTZk7nasjjnr7XxXp9F1",
-          "mayhem": false
+          "eventAuthority": "Ce6TQqeHC9p8KetsN6JsjHK7UTZk7nasjjnr7XxXp9F1"
         }
       ],
       "unsupportedPools": 0,
@@ -1748,7 +1737,6 @@
           "state": {
             "curveSupply": "1000000000000000",
             "mintSupply": "1000000000000000",
-            "mayhem": false,
             "supplyAgreement": true,
             "virtualTokenReserves": "1072853844918655",
             "virtualQuoteReserves": "30004087031"
@@ -1957,8 +1945,7 @@
         "verifiedAtSlot": 446821261,
         "sourceEpoch": 1,
         "globalAddress": "4wTV1YmiEkRvAtNtsSGPtUrqRYQMe5SKy2uB4Jjaxnjf",
-        "eventAuthority": "Ce6TQqeHC9p8KetsN6JsjHK7UTZk7nasjjnr7XxXp9F1",
-        "mayhem": false
+        "eventAuthority": "Ce6TQqeHC9p8KetsN6JsjHK7UTZk7nasjjnr7XxXp9F1"
       },
       "nativeValuation": {
         "rawQuoteValue": "28305626146",
@@ -1983,7 +1970,6 @@
           "state": {
             "curveSupply": "1000000000000000",
             "mintSupply": "1000000000000000",
-            "mayhem": false,
             "supplyAgreement": true,
             "virtualTokenReserves": "1066409751699971",
             "virtualQuoteReserves": "30185395751"
@@ -2045,8 +2031,7 @@
           "verifiedAtSlot": 446821261,
           "sourceEpoch": 1,
           "globalAddress": "4wTV1YmiEkRvAtNtsSGPtUrqRYQMe5SKy2uB4Jjaxnjf",
-          "eventAuthority": "Ce6TQqeHC9p8KetsN6JsjHK7UTZk7nasjjnr7XxXp9F1",
-          "mayhem": false
+          "eventAuthority": "Ce6TQqeHC9p8KetsN6JsjHK7UTZk7nasjjnr7XxXp9F1"
         }
       ],
       "unsupportedPools": 0,
@@ -2081,7 +2066,6 @@
           "state": {
             "curveSupply": "1000000000000000",
             "mintSupply": "1000000000000000",
-            "mayhem": false,
             "supplyAgreement": true,
             "virtualTokenReserves": "1066409751699971",
             "virtualQuoteReserves": "30185395751"
@@ -2290,8 +2274,7 @@
         "verifiedAtSlot": 446821283,
         "sourceEpoch": 1,
         "globalAddress": "4wTV1YmiEkRvAtNtsSGPtUrqRYQMe5SKy2uB4Jjaxnjf",
-        "eventAuthority": "Ce6TQqeHC9p8KetsN6JsjHK7UTZk7nasjjnr7XxXp9F1",
-        "mayhem": false
+        "eventAuthority": "Ce6TQqeHC9p8KetsN6JsjHK7UTZk7nasjjnr7XxXp9F1"
       },
       "nativeValuation": {
         "rawQuoteValue": "115397969948",
@@ -2316,7 +2299,6 @@
           "state": {
             "curveSupply": "1000000000000000",
             "mintSupply": "1000000000000000",
-            "mayhem": false,
             "supplyAgreement": true,
             "virtualTokenReserves": "528155013977801",
             "virtualQuoteReserves": "60948016431"
@@ -2378,8 +2360,7 @@
           "verifiedAtSlot": 446821283,
           "sourceEpoch": 1,
           "globalAddress": "4wTV1YmiEkRvAtNtsSGPtUrqRYQMe5SKy2uB4Jjaxnjf",
-          "eventAuthority": "Ce6TQqeHC9p8KetsN6JsjHK7UTZk7nasjjnr7XxXp9F1",
-          "mayhem": false
+          "eventAuthority": "Ce6TQqeHC9p8KetsN6JsjHK7UTZk7nasjjnr7XxXp9F1"
         }
       ],
       "unsupportedPools": 0,
@@ -2414,7 +2395,6 @@
           "state": {
             "curveSupply": "1000000000000000",
             "mintSupply": "1000000000000000",
-            "mayhem": false,
             "supplyAgreement": true,
             "virtualTokenReserves": "528155013977801",
             "virtualQuoteReserves": "60948016431"

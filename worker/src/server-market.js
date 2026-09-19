@@ -7,7 +7,8 @@ export async function resolveServerMarket(mint, rpc, previous = null, fetchImpl 
     try { curve = await probePumpCurve(mint, rpc); }
     catch (e) { return {pools:[],canonicalMarket:null,selection:previous,unsupportedPools:1,identityFailure:e.message,
         receivedAt:Date.now(),refreshIntervalMs:10_000}; }
-    if (curve && !curve.complete) return {...curve,pools:[curve.canonicalMarket],unsupportedPools:0,identityFailure:null,
+    if (curve && !curve.complete) return {...curve,pools:curve.canonicalMarket.mayhem?[]:[curve.canonicalMarket],
+        unsupportedPools:curve.canonicalMarket.mayhem?1:0,identityFailure:curve.canonicalMarket.mayhem?'UNSUPPORTED_MAYHEM':null,
         selection:{tokenMint:mint,pairAddress:curve.canonicalMarket.address,sourceEpoch:1},refreshIntervalMs:10_000};
     // The browser requests a mint. All subscription candidates come from this
     // fixed endpoint and their program owners are checked against fixed adapters.
@@ -40,11 +41,17 @@ export async function resolveServerMarket(mint, rpc, previous = null, fetchImpl 
     if (canonicalMarket?.protocol === 'pumpswap') {
         try { native = await pumpSwapValuation(canonicalMarket,rpc,canonicalMarket.verifiedAtSlot); }
         catch(e) { native = {valuationFailure:e.message}; }
+        if (native.unsupportedVariant) {
+            const mayhem=native.unsupportedVariant==='MAYHEM';
+            identityFailure=mayhem?'UNSUPPORTED_MAYHEM':'UNSUPPORTED_PUMP_VARIANT';
+            canonicalMarket={...canonicalMarket,compatibility:identityFailure,...(mayhem?{mayhem:true}:{})};
+        }
     }
-    return { ...native, pools: canonicalMarket ? [{ ...primary, ...canonicalMarket }] : [], canonicalMarket,
+    const supported=canonicalMarket?.compatibility==='POOL_STATE_AND_VAULTS_VERIFIED';
+    return { ...native, pools: supported ? [{ ...primary, ...canonicalMarket }] : [], canonicalMarket,
         lifecycle:curve?.complete&&!canonicalMarket?'CURVE_COMPLETE_MIGRATING':canonicalMarket?.lifecycle,
         refreshIntervalMs:curve||canonicalMarket?.protocol==='pumpswap'?10_000:60_000,
-        selection: selected.selection, unsupportedPools: canonicalMarket ? 0 : 1, identityFailure, receivedAt: Date.now() };
+        selection: selected.selection, unsupportedPools: supported ? 0 : 1, identityFailure, receivedAt: Date.now() };
 }
 
 export function createRpcTransport(env, fetchImpl = fetch) {

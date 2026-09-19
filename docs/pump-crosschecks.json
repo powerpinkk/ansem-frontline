@@ -1,71 +1,5 @@
 [
   {
-    "name": "pump-curve-cgMX4NjunkUd",
-    "signature": "cgMX4NjunkUdCFuN5Su9ooc9QwTkN74A5gYPopTtWkfyRyDkAMDGde9adXv6jc5rpB9Cb1oiUPLX3j6K3wgpHpa",
-    "slot": 446702861,
-    "checkedAt": 1789340169775,
-    "checks": {
-      "signature": true,
-      "slot": true,
-      "accounts": true,
-      "logs": true,
-      "pre": true,
-      "post": true,
-      "preLamports": true,
-      "postLamports": true,
-      "failed": true
-    },
-    "vaultDeltas": [
-      {
-        "vault": "FTzYzEiPXhLoJtWiSscqCn9osKfMNZaSyWuwjmed4s9m",
-        "mint": "EictSphkTzcMpw5WQGxxxiKNzAFAgqRXosjbdM5Epump",
-        "decimals": 6,
-        "rawDelta": "-6028086214960"
-      },
-      {
-        "vault": "DcMecWDnBRedQsbwL6pMyyaFCo7ingK14LQFHAF2njSF",
-        "mint": "So11111111111111111111111111111111111111112",
-        "rawDelta": "3478261",
-        "native": true
-      }
-    ],
-    "method": "Separate finalized compiled read; independent static+ALT indexing, token-vault and curve-lamport subtraction; no production decoder",
-    "sha256": "0ef082f4bfbe1d6b7ea1eec6302efa5dec812cc7cecc55bb3dce3ffc7e6fb62f"
-  },
-  {
-    "name": "pump-curve-3rsYiLdMmhg4",
-    "signature": "3rsYiLdMmhg4kaQwQ3vPS7LopB3CFGgkQKuefLvfEqodz9Y3KhMmdpX3txvDcChEKPFa7DJuTZjyy3iW5NFqBdZa",
-    "slot": 446702861,
-    "checkedAt": 1789340173337,
-    "checks": {
-      "signature": true,
-      "slot": true,
-      "accounts": true,
-      "logs": true,
-      "pre": true,
-      "post": true,
-      "preLamports": true,
-      "postLamports": true,
-      "failed": true
-    },
-    "vaultDeltas": [
-      {
-        "vault": "FTzYzEiPXhLoJtWiSscqCn9osKfMNZaSyWuwjmed4s9m",
-        "mint": "EictSphkTzcMpw5WQGxxxiKNzAFAgqRXosjbdM5Epump",
-        "decimals": 6,
-        "rawDelta": "15540337198078"
-      },
-      {
-        "vault": "DcMecWDnBRedQsbwL6pMyyaFCo7ingK14LQFHAF2njSF",
-        "mint": "So11111111111111111111111111111111111111112",
-        "rawDelta": "-12212144",
-        "native": true
-      }
-    ],
-    "method": "Separate finalized compiled read; independent static+ALT indexing, token-vault and curve-lamport subtraction; no production decoder",
-    "sha256": "16a845a304486076eb0e05ec144f1f0625f46ca15793c050e5bd156e2c98ec11"
-  },
-  {
     "name": "pump-current-2YWDvuzevLrH",
     "signature": "2YWDvuzevLrHeAjNYkHq6p6HdSPHXZXgRTNsFuszCdEEFRML3yMFX2UaBEubJkrEsWYiY46Q7h8mesJVgR4x1D3J",
     "slot": 446771425,
@@ -130,39 +64,6 @@
     ],
     "method": "Separate finalized compiled read; independent static+ALT indexing, token-vault and curve-lamport subtraction; no production decoder",
     "sha256": "f6709aebada3ad39a25634f42bfa2851b36d49eed70c9e27136ed12359eb5ddf"
-  },
-  {
-    "name": "pump-current-3Xu7LTsLZ6nC",
-    "signature": "3Xu7LTsLZ6nCCgwmPDWvHGTAkgRC7gBGJGQToKEjaaPTJwFNpUyiYtPwgt6wMF4YSwPK76gdYXkPDjm2uyLCvEiP",
-    "slot": 446771425,
-    "checkedAt": 1789340183808,
-    "checks": {
-      "signature": true,
-      "slot": true,
-      "accounts": true,
-      "logs": true,
-      "pre": true,
-      "post": true,
-      "preLamports": true,
-      "postLamports": true,
-      "failed": true
-    },
-    "vaultDeltas": [
-      {
-        "vault": "EqMfj3vnXLSPx4ttmE3UD3Ht7tdZBhWhQyVkLXcv74rF",
-        "mint": "GLq5sChb2SeZugRBhnPVwnjzweimbiFauoa4yQYwpump",
-        "decimals": 6,
-        "rawDelta": "154857576482"
-      },
-      {
-        "vault": "2vfEFpRMoB3Wp7E2QS1ANqPBH2TJaXepDJnRTdcWZuwZ",
-        "mint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
-        "decimals": 6,
-        "rawDelta": "-1080246"
-      }
-    ],
-    "method": "Separate finalized compiled read; independent static+ALT indexing, token-vault and curve-lamport subtraction; no production decoder",
-    "sha256": "4dc8efc6d4889358e587323b91f6137ea462da04f2d16257f50888bc81e7f648"
   },
   {
     "name": "pump-current-54FJGWyCYcFK",

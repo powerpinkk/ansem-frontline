@@ -1,7 +1,7 @@
 /* global fetch, AbortSignal, setTimeout, console */
 import {readFileSync,writeFileSync} from 'node:fs';
 import {createHash} from 'node:crypto';
-const names=['pump-curve-cgMX4NjunkUd','pump-curve-3rsYiLdMmhg4','pump-current-2YWDvuzevLrH','pump-current-3uTurnfFuFMj','pump-current-3Xu7LTsLZ6nC','pump-current-54FJGWyCYcFK'];
+const names=['pump-current-2YWDvuzevLrH','pump-current-3uTurnfFuFMj','pump-current-54FJGWyCYcFK'];
 const results=[];
 for(const name of names){
     const s=JSON.parse(readFileSync('tests/fixtures/public-chain/'+name+'.json'));

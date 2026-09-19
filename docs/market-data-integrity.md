@@ -1,6 +1,6 @@
 # Market data integrity — M10.1
 
-**Current status: M10.1 MARKET DATA INTEGRITY COMPLETE WITH NON-BLOCKING PROTOCOL LIMITATIONS — M10.2 TERRAIN READY.** The M10.1d audit at the end supersedes earlier readiness statements. Standard active Pump curves now have positive execution proof and canonical valuation with independent Pyth USD freshness. Mayhem curve valuation and unsupported quote/extension semantics remain explicitly ineligible. M10.2 may consume only eligible observations; this is not universal token coverage or permission to treat missing evidence as inactivity.
+**Current status: M10.1 MARKET DATA INTEGRITY COMPLETE WITH NON-BLOCKING PROTOCOL LIMITATIONS — M10.2 TERRAIN READY.** The M10.1e cleanup at the end supersedes earlier readiness statements. Standard Pump curves and PumpSwap have positive execution and canonical-valuation proof with independent Pyth USD freshness. Unsupported protocol variants and unsupported quote/extension semantics fail closed. M10.2 may consume only eligible observations and verified canonical executions; missing evidence is never inactivity.
 
 ## A. Baseline
 Started at `bf8ff6a6dc1a4bf664df96862e361bb3d0e62777`, equal to local main and origin/main. The original terrain branch was empty, clean, and had no upstream. Renamed locally to `feat/m10-market-data-integrity` before implementation. No terrain implementation existed. The earlier M10 audit stopped on data integrity.
@@ -409,9 +409,9 @@ Started from `363a653aec02f3644a90dda3ed7d62c3c7f0e99b` on `feat/m10-market-data
 
 The bounded adapter is based on official [Pump public documentation and IDLs](https://github.com/pump-fun/pump-public-docs/tree/f216b6724c6ede79d7cef9ce210b741f7e17e93b), revision `f216b6724c6ede79d7cef9ce210b741f7e17e93b`, IDL version 0.1.0; npm `@pump-fun/pump-sdk@2.0.0` and `@pump-fun/pump-swap-sdk@1.20.0`. Tarball SHA512 integrity was verified before executing the reference helpers in an ignored audit directory. Production imports no SDK or new dependency. [pump-authority-provenance.json](pump-authority-provenance.json) retains URLs, revisions, source hashes, package integrity, Pyth metadata and the Anchor argument-prefix reference. These pins describe inspected versions, not automatic compatibility with future upgrades.
 
-Pump program: `6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P`; PumpSwap: `pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA`. The static IDL subset includes current BondingCurve and TradeEvent layouts, quote fields, Mayhem/cashback flags and holder-reward fields. It does not accept remote IDLs or infer an unknown layout from its apparent balances.
+Pump program: `6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P`; PumpSwap: `pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA`. The static IDL subset includes current BondingCurve and TradeEvent layouts, quote fields, the variant flag required for fail-closed classification, cashback fields and holder-reward fields. It does not accept remote IDLs or infer an unknown layout from its apparent balances.
 
-### D–I. Identity, lifecycle, versions, quotes and Mayhem
+### D–I. Identity, lifecycle, versions and quotes
 
 Curve identity derives `['bonding-curve', mint]` with the Pump program, then verifies owner, discriminator, current state, base mint, token program and canonical ATA. The atomic observation rechecks state, base/quote mints, vault authority and Global identity. PDA derivation agrees with 100 independent official Solana SDK vectors. Historical state prefix boundaries are explicit; malformed intermediate lengths fail closed. Completed curves derive the canonical PumpSwap pool through the official pool-authority and index-zero pool seeds. The resolver never substitutes a different ranked DEX pair for that migration destination.
 
@@ -420,52 +420,47 @@ Lifecycle is `CURVE_ACTIVE` → complete/migrating with no eligible market → `
 | Instruction | Quote support | Positive evidence in this increment |
 | --- | --- | --- |
 | `buy` | Native SOL | Current public transactions |
-| `sell` | Native SOL | Current public transactions and retained Mayhem CPI |
+| `sell` | Native SOL | Current public transactions |
 | `buy_exact_sol_in` | Native SOL | Official SDK instruction/event encoding over deterministic test effects; no positive live example claimed |
-| `buy_v2` | SOL and SPL quote | Retained SOL and current USDC public transactions |
-| `sell_v2` | SOL and SPL quote | Current USDC and retained custom-quote public transactions |
+| `buy_v2` | SOL and SPL quote | Retained SOL and generic SPL-quote verification |
+| `sell_v2` | SOL and SPL quote | Retained custom-quote public transactions |
 | `buy_exact_quote_in_v2` | SOL and SPL quote | Current SOL and custom-quote public transactions |
 
 Actual routed V2 exact-input calls include a trailing boolean beyond their declared 24-byte prefix. The parser accepts that observed bounded 25-byte form, consistent with Anchor prefix deserialization, and records suffix length. It does not use the suffix or input/slippage budget as the execution amount. Current events identify this call as `buy_exact_quote_in`, distinct from legacy `buy_exact_sol_in`.
 
-SOL buys require the actual scoped System transfer to the curve. SOL sells combine the successful scoped event and base transfer with exact curve lamport conservation: the program debits its own lamports without a System transfer CPI. Non-SOL quotes use their real mint/program/decimals and quote-vault effects. USDC buys and sells verify; custom quotes can retain raw execution truth but have no invented SOL or USD notional.
-
-Mayhem **trades** remain eligible when execution evidence proves them. Mayhem **curve valuation** is deliberately ineligible: all three retained Mayhem valuation examples have live mint supply `2000000000000000` versus curve/API supply `1000000000000000`. The SDK live-supply helper yields approximately twice the Pump frontend market cap. A fee-tier helper or API convention is insufficient proof of the intended terrain valuation basis. The exact SDK result is retained only as a diagnostic, with `supplyVerified:false`, `MAYHEM_CURVE_SUPPLY_CONVENTION_UNRESOLVED` and `authorityEligible:false`. No silent 1B assumption fixes this discrepancy. PumpSwap Mayhem has a separate explicit SDK convention of `1000000000000000` raw supply units; its deterministic vector is tested, not inferred from curve semantics.
+SOL buys require the actual scoped System transfer to the curve. SOL sells combine the successful scoped event and base transfer with exact curve lamport conservation: the program debits its own lamports without a System transfer CPI. Non-SOL quotes use their real mint/program/decimals and quote-vault effects. Supported SPL quotes retain raw execution truth but have no invented SOL or USD notional.
 
 ### J–M. Positive proof, cross-checks, execution amounts and fees
 
 Every execution requires a successful supported instruction, correct named canonical accounts, successful runtime frame and ancestors, exactly one correctly scoped Anchor TradeEvent CPI, event authority, matching mint/quote/user/direction, actual base/quote effects and transaction-wide vault conservation. A log string or balance sign alone is insufficient. Events are identified by mint, signature, market and invocation path. A transaction can contain distinct executions; finalization reconciles the same identity.
 
-Base transfer amounts and quote-vault/curve effects are raw integer strings. Input budgets and minimum output arguments are not execution amounts. Native fees, network fee, ATA rent, creator fee, buyback, cashback and holder rewards are not added to trade quote. For example, retained native buy `cgMX4NjunkUd…` proves `6028086214960` base atoms and `3478261` lamports of quote, separately from `33044` protocol and `10435` creator fee atoms and ATA rent. A custom-quote sell proves 25 quote atoms: 23 to user plus actual fee legs; aliases such as holder rewards are not summed twice.
+Base transfer amounts and quote-vault/curve effects are raw integer strings. Input budgets and minimum output arguments are not execution amounts. Native fees, network fee, ATA rent, creator fee, buyback, cashback and holder rewards are not added to trade quote. Retained supported fixtures exercise fee separation and actual-effect accounting; aliases such as holder rewards are not summed twice.
 
-Six examples were re-read as finalized compiled JSON. Separate static/ALT indexing, token-vault subtraction and native curve-lamport subtraction agree with their parsed captures. [pump-crosschecks.json](pump-crosschecks.json) records all checks, raw deltas and hashes. This is a separate representation/read cross-check through public RPC, not independent-provider consensus or a light client. Transfer hooks, unexplained rent/extra curve flows, unrecognized layouts/instructions and unproven nested scopes are excluded. There is no balance-delta fallback.
+Three retained examples were re-read as finalized compiled JSON. Separate static/ALT indexing, token-vault subtraction and native curve-lamport subtraction agree with their parsed captures. [pump-crosschecks.json](pump-crosschecks.json) records all checks, raw deltas and hashes. This is a separate representation/read cross-check through public RPC, not independent-provider consensus or a light client. Transfer hooks, unexplained rent/extra curve flows, unrecognized layouts/instructions and unproven nested scopes are excluded. There is no balance-delta fallback.
 
 ### N–R. Acquisition, measured coverage and AMM regressions
 
 Unlisted active curves can resolve through the mint-only server `/recent` contract before provider discovery succeeds. Server bootstrap and one canonical address subscription no longer depend on a provider pair or price. Logs, reconnect replay and bounded history enter the existing signature registry; parsed transactions and finalized status reconciliation remain authoritative. A source-generation guard rejects late responses from an old pool. No activity is manufactured by quote refresh, state refresh or graduation.
 
-The new public capture is one 48-mention Pump program page at slot **446771425**, block time **2026-09-13 18:29:07 UTC**, retrieved by 18:32:52 UTC. This single-slot window is intentionally finite and not representative of market-wide volume. All 48 signatures, failed outcomes, identified instructions, successful raw fixtures and replay results are retained in [pump-mainnet-samples.json](pump-mainnet-samples.json).
+The retained public capture is a 47-mention subset of one Pump program page at slot **446771425**, block time **2026-09-13 18:29:07 UTC**, retrieved by 18:32:52 UTC. One redundant unsupported transaction was removed during M10.1e. This single-slot window is intentionally finite and not representative of market-wide volume. Failed outcomes, identified instructions, supported raw fixtures, the one negative fixture and replay results are retained in [pump-mainnet-samples.json](pump-mainnet-samples.json).
 
 | New bounded cohort | Count |
 | --- | ---: |
-| Acquired program mentions | 48 |
+| Retained program mentions | 47 |
 | Failed transactions | 37 |
-| Successful identified swaps | 11 |
-| Positively verified executions | 11 |
-| Unsupported identified successful swaps | 0 |
-| Distinct successful-swap mints | 7 |
-| SOL swaps | 8/8 |
-| USDC swaps | 2/2 |
+| Successful identified swaps | 10 |
+| Retained positively verified executions | 9 |
+| Retained unsupported negative execution | 1 |
+| Distinct successful-swap mints | 6 |
 | Other quote swaps | 1/1 |
-| Mayhem swaps within this cohort | 2/2 |
 
-The instruction distribution is four buys, four exact-quote V2 buys, one V2 buy, one V2 sell and one sell. Three earlier retained curve examples now also verify **3/3**, improving the prior **0/3** result. Neither failed mentions nor non-swaps inflate the swap denominator. The selected page reached its bound: unknown earlier flow stays unknown. Successful execution counts do not establish user attribution or total market capture.
+The retained supported instruction distribution is recorded in [pump-mainnet-samples.json](pump-mainnet-samples.json). One redundant unsupported transaction capture was removed; one deterministic negative remains. One earlier supported custom-quote curve example remains as an additional regression. Neither failed mentions nor non-swaps inflate the swap denominator. The selected page reached its bound: unknown earlier flow stays unknown. Successful execution counts do not establish user attribution or total market capture.
 
 The existing M10.1c public fixtures retain 45/45 identified ANSEM AMM executions across PumpSwap, DLMM, Whirlpool and Raydium CLMM, plus four selected graduated examples. Existing router attribution and all four original failure regressions remain green. These are retained cohort regressions, not a new live resampling of every AMM. Production pressure still uses one selected canonical market.
 
 ### S–X. Native valuation, supply, USD and authority
 
-`PROTOCOL_MARKET_CAP` is a separately named Pump protocol definition, not provider circulating MC or FDV. The exact native calculation is integer floor of `effectiveQuoteReserve × applicableSupply / baseReserve`; curve reserves are virtual reserves, whereas PumpSwap effective quote uses actual quote vault **plus signed virtual quote reserves**. SDK reference vectors cover initial state, post-buy/sell, near graduation, large integer reserves, nonstandard supply, non-SOL quote, Mayhem AMM and positive/negative virtual reserves. The API preserves raw quote units and converts to decimal USD strings with BigInt/rational arithmetic, avoiding floating point finance calculations.
+`PROTOCOL_MARKET_CAP` is a separately named Pump protocol definition, not provider circulating MC or FDV. The exact native calculation is integer floor of `effectiveQuoteReserve × applicableSupply / baseReserve`; curve reserves are virtual reserves, whereas PumpSwap effective quote uses actual quote vault **plus signed virtual quote reserves**. SDK reference vectors cover initial state, post-buy/sell, near graduation, large integer reserves, nonstandard live supply, non-SOL quote and positive/negative virtual reserves. The API preserves raw quote units and converts to decimal USD strings with BigInt/rational arithmetic, avoiding floating point finance calculations.
 
 Normal curves and normal PumpSwap use the observed initialized mint supply. Burned supply is not replaced with a universal 1B figure: a normal retained curve has `999998183064601` raw mint supply and ANSEM has `997364029286488`. Token-2022 metadata/group extensions are permitted; fee, hook, rebasing, confidential and unknown extensions cannot acquire valuation authority. The custom quote example contains extension types `[18,12,6,25,26,4,14,19]` and is ineligible even though that specific swap's raw transfers verify. Quote safety and base safety both matter.
 
@@ -495,16 +490,16 @@ No render frame queries RPC. At the 10-second refresh interval an active SOL cur
 
 Final validation:
 
-- **519 unit tests, 35 files, pass.** This includes 100 independently generated PDA cases, ten exact SDK valuation vectors, 14 public curve executions, seven atomic curve state acquisitions, four actual PumpSwap valuation acquisitions, six instruction variants including the explicitly synthetic legacy exact-SOL case, authority negatives and lifecycle isolation. A previous all-suite run timed out while one test grouped 100 PDA derivations during browser testing; those same checks are now independent cases, with no assertion removed.
-- **Lint and browser production build pass.** Production browser bundle was frozen for the final E2E run. Later changes close the Worker Mayhem supply gate and add tests/audits; no browser behavior changed after that run.
-- **Worker dry-run passes: 227.16 KiB / gzip 48.59 KiB.** No deployment or remote migration occurred.
-- **Complete E2E: 100 definitions, 64 passed, 36 device skips, 10.9 minutes, exit 0.** The extra case proves unlisted curve loading, canonical MC, FX-only refresh and migration. The preceding dedicated run passed four applicable tests with two device skips. Earlier development failures revealed a misplaced UI function boundary and an incorrect stale-oracle test setup; both were corrected before these passing runs. No regression gate was disabled.
-- **60-second soak: 1,021 cycles, 81,680 replay deliveries, 136 rebases, 4,084 FX refreshes, 12,252 mocked RPC reads and 8,168 publications across four services.** Maximum 30 records and 30 journal events per service; final records, cursors held by the harness and pending map empty. Mayhem supply gates remain false throughout. [pump-authority-soak.json](pump-authority-soak.json) records the result. This is real elapsed stress time over retained transaction fixtures and mocked transport/clock, not production uptime or throughput evidence.
+- **517 unit tests, 35 files, pass.** This includes 100 independently generated PDA cases, nine exact supported SDK valuation vectors, ten supported public curve executions plus one deterministic unsupported negative, six atomic curve state acquisitions, four actual PumpSwap valuation acquisitions, supported instruction variants including the explicitly synthetic legacy exact-SOL case, authority negatives and lifecycle isolation.
+- **Lint and browser production build pass.** Production browser bundle was frozen for the final E2E run.
+- **Worker dry-run passes: 228.43 KiB / gzip 48.80 KiB.** No deployment or remote migration occurred.
+- **Complete E2E: 100 definitions, 64 applicable definitions passed, 36 expected device/project skips.** The reduced-concurrency full matrix recorded 61 clean passes, two passes on configured retry, one concurrent Theme Studio stress failure and 36 skips; the one remaining definition then passed serially in 13.8 seconds. The Pump curve/canonical MC/FX-only refresh/migration case passed in the full matrix. No regression gate was disabled.
+- **60-second soak: 1,036 cycles, 82,880 replay deliveries, 136 rebases, 4,144 FX refreshes, 12,432 mocked RPC reads and 8,288 publications across four supported services.** Maximum 30 records and 30 journal events per service; final records, cursors held by the harness and pending map empty. [pump-authority-soak.json](pump-authority-soak.json) records the result. This is real elapsed stress time over retained transaction fixtures and mocked transport/clock, not production uptime or throughput evidence.
 - **M4–M9 E2E regressions pass:** battlefield/WebGL, Pixel/PiP, navigation and token isolation, themes, Theme Studio, Champion lifecycle/entitlements and hostile metadata. Existing unrelated suites remain intact.
 
 ### AL. Real valuation samples and discrepancies
 
-[pump-valuation-samples.json](pump-valuation-samples.json) contains full native/quote provenance, raw supply/reserves, market, epoch, slot, separate publication/read times, provider MC/FDV, calculated differences and current gate decisions. Ten observations were captured from **2026-09-13 22:50:31 through 23:15:46 UTC**. Seven normal observations were eligible **at their observation times**; all ten are historical by report time. The replay does not pretend they are currently fresh.
+[pump-valuation-samples.json](pump-valuation-samples.json) contains full native/quote provenance, raw supply/reserves, market, epoch, slot, separate publication/read times, provider MC/FDV, calculated differences and current gate decisions. Seven supported observations were eligible **at their observation times**; all are historical by report time. The replay does not pretend they are currently fresh.
 
 | Mint prefix | State | Canonical/diagnostic USD at capture | Pump API USD | Authority |
 | --- | --- | ---: | ---: | --- |
@@ -515,26 +510,35 @@ Final validation:
 | `6drE…` | Curve | 2,793.27 | 2,824.35 | Eligible |
 | `J4nq…` | Curve | 2,827.12 | 2,864.20 | Eligible |
 | `7yLg…` | Curve | 11,526.04 | 11,535.35 | Eligible |
-| `GXsZ…`, USDC Mayhem | Curve | 628.83 diagnostic | 314.45 | Supply gate closed |
-| `GLq5…`, USDC Mayhem | Curve | 46.58 diagnostic | 23.29 | Supply gate closed |
-| `Eict…`, SOL Mayhem | Curve | 6.71 diagnostic | 3.36 | Supply gate closed |
 
 Normal curve native quotes agree with API quote MC to integer truncation in these three examples. USD observations are asynchronous and use separate FX sources/times; they are not expected to match exactly. For ANSEM, live burned mint supply explains a supply-basis component versus the API's 1B convention. PumpSwap state and provider observations are likewise not atomic together. All differences are retained, without an authority threshold calibrated to them.
 
-The three fresh PumpSwap accounts actually contain **17,584,505,288 lamports of virtual quote reserves** each, alongside much smaller real quote vault balances. The current SDK's effective-reserve rule is necessary; an older general statement that virtual reserves are zero does not override the observed account. Mayhem curve differences are a distinct approximately 2× supply-definition ambiguity, not dismissed as FX or timestamp noise. Both live USDC examples are Mayhem: USDC execution and oracle observation are proven live, while eligible normal-USDC valuation is a controlled deterministic case, not an extra positive live sample.
+The three fresh PumpSwap accounts actually contain **17,584,505,288 lamports of virtual quote reserves** each, alongside much smaller real quote vault balances. The current SDK's effective-reserve rule is necessary; an older general statement that virtual reserves are zero does not override the observed account. Eligible USDC valuation remains a controlled deterministic case using the verified USDC oracle contract, not an extra positive live sample.
 
 ### AM–AS. Limits, materiality, artifacts, Git and M10.2 readiness
 
-Remaining limits: Mayhem curve valuation; quote/USD feeds beyond SOL and USDC; unsafe/unknown Token-2022 valuation semantics; unexplained transfer-fee/hook/mixed flows; unknown instruction/event layouts; and the earlier unsupported DEX subtypes. No positive live legacy exact-SOL or live cross-graduation continuity is claimed. History bounds, unavailable RPC and stale quote data can temporarily withdraw authority or leave flow unknown.
+Remaining limits: quote/USD feeds beyond SOL and USDC; unsafe/unknown Token-2022 valuation semantics; unexplained transfer-fee/hook/mixed flows; unknown instruction/event layouts; and the earlier unsupported DEX subtypes. No positive live legacy exact-SOL or live cross-graduation continuity is claimed. History bounds, unavailable RPC and stale quote data can temporarily withdraw authority or leave flow unknown.
 
-These limits are **non-blocking for the supported normal Pump/PumpSwap path**, because they are identifiable gates that fail closed without suppressing other tokens. They matter materially for the affected token: a Mayhem curve cannot provide terrain-authoritative MC, and a custom quote cannot masquerade as SOL pressure. The 2/11 Mayhem executions in one slot and the purposefully selected three Mayhem valuation examples are not estimates of market-wide prevalence. This conclusion depends on explicit per-token degradation, not an assumption that omitted tokens never trade. Standard curve execution, normal supply semantics, fresh available quote/USD and migration/rebase authority are established. There is no remaining blanket exclusion of the launch curve stage.
+#### Unsupported / excluded protocol variants
+
+Mayhem is intentionally outside Frontline's supported product scope. The retained curve-state, TradeEvent and PumpSwap flag checks exist only to classify and reject it. Detection produces `UNSUPPORTED_MAYHEM`, no native or USD valuation, `authorityEligible:false`, no verified canonical execution, no pressure, and no subscription pool. Provider MC/FDV remains indicative and cannot replace the missing authority. One deterministic transaction fixture and one current curve-state capture prove this fail-closed behavior; positive valuation/support fixtures and redundant captures were removed.
+
+These exclusions are **non-blocking for the supported standard Pump/PumpSwap path**, because they are explicit per-token gates that fail closed without suppressing other tokens. Standard curve execution, non-hardcoded live-supply semantics, supported quote/USD conversion and migration/rebase authority remain established. There is no blanket exclusion of the standard launch-curve stage.
 
 Production additions: `js/canonical-valuation.js`; Worker `chain-binary`, static `idl/pump-market`, `pump-state`, `pump-market`, `pump-executions` and `quote-usd`. Existing server market/StreamHub, pool dispatch, browser API/state/UI/token loader and stream error handling integrate them. Tests add SDK/public account and transaction fixtures, offline replay, lifecycle coverage and one desktop E2E case. No root package dependency or deployment configuration changes. Scripts `audit-pump-authority.mjs`, `crosscheck-pump-samples.mjs` and `pump-authority-soak.mjs` are audit-only. The offline audit uses committed fixtures; SDK-generated values and separate compiled-RPC cross-check hashes retain independent provenance.
 
-Artifacts: [pump-authority-provenance.json](pump-authority-provenance.json), [pump-mainnet-samples.json](pump-mainnet-samples.json), [pump-valuation-samples.json](pump-valuation-samples.json), [pump-crosschecks.json](pump-crosschecks.json) and [pump-authority-soak.json](pump-authority-soak.json). Public fixture snapshots preserve what was captured; replay uses current production gates, so the Mayhem account captures' preliminary formula observation is never treated as a final authority decision. No prompt or credentials are included.
+Artifacts: [pump-authority-provenance.json](pump-authority-provenance.json), [pump-mainnet-samples.json](pump-mainnet-samples.json), [pump-valuation-samples.json](pump-valuation-samples.json), [pump-crosschecks.json](pump-crosschecks.json) and [pump-authority-soak.json](pump-authority-soak.json). Public fixture snapshots preserve supported captures plus the minimal unsupported negative. No prompt or credentials are included.
 
 The fourth local increment follows `363a653aec02f3644a90dda3ed7d62c3c7f0e99b`; `git diff 363a653aec02f3644a90dda3ed7d62c3c7f0e99b HEAD --stat` gives its complete inventory after commit. Prior commits `3a16c4aff2741e63139474ee29951137a19d7fb7`, `c1bb3a8965d3ed7dc2d0ee13e4ad2b763a43e0bc` and `363a653aec02f3644a90dda3ed7d62c3c7f0e99b` are preserved without amendment. The closing response records the fourth SHA and final clean status. No push, PR, merge, deploy, tag or release is authorized or performed.
 
-M10.2 may now be implemented against canonical eligible observations, preserving independent FX/native causes, supply/source rebases and explicit unavailable states. It must not promote Mayhem diagnostics, provider MC/FDV, stale evidence or unsupported quotes. No terrain implementation is part of this increment.
+M10.2 may now be implemented against canonical eligible observations and verified canonical executions, preserving independent FX/native causes, supply/source rebases and explicit unavailable states. It must not promote unsupported variants, provider MC/FDV, stale evidence or unsupported quotes. No terrain implementation is part of this increment.
+
+## M10.1e — unsupported protocol cleanup, 2026-09-19
+
+This cleanup removes positive support math, positive pressure coverage, diagnostic valuation artifacts and redundant transaction/state captures for the excluded variant described above. The generic live-supply basis, supported SPL/non-SOL quotes, standard Pump curve execution, PumpSwap valuation and migration/rebase contracts remain intact.
+
+The retained defensive contract is deliberately small: current curve state, emitted trade events and current PumpSwap pool state identify the excluded variant; market compatibility then becomes explicitly unsupported. Discovery publishes no subscription pool or native valuation, pool verification emits no canonical execution, canonical authority remains false, and StreamHub destroys existing ingestion if a market changes to an unsupported classification at the same address. Provider MC/FDV cannot fill that authority gap.
+
+Repository evidence now retains one deterministic unsupported transaction and one current unsupported curve-state capture. Four large positive/redundant fixture files and three obsolete provider observations were removed. Standard Pump/PumpSwap evidence, generic supply vectors, non-SOL quote regressions and other protocol audit artifacts remain.
 
 M10.1 MARKET DATA INTEGRITY COMPLETE WITH NON-BLOCKING PROTOCOL LIMITATIONS — M10.2 TERRAIN READY

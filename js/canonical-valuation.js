@@ -1,14 +1,13 @@
 export const CANONICAL_VALUATION_POLICY = Object.freeze({ nativeTtlMs: 20_000, quoteTtlMs: 90_000 });
 const unsigned = value => typeof value === 'string' && /^\d{1,80}$/.test(value) ? BigInt(value) : null;
-export function protocolMarketCap({ supply, baseReserve, quoteReserve, virtualQuoteReserve = '0', mayhem = false, protocol }) {
+export function protocolMarketCap({ supply, baseReserve, quoteReserve, virtualQuoteReserve = '0', protocol }) {
     const s = unsigned(supply), b = unsigned(baseReserve), q = unsigned(quoteReserve);
     if (s === null || s <= 0n || b === null || b <= 0n || q === null
         || !/^-?\d{1,39}$/.test(virtualQuoteReserve) || !['pump-curve','pumpswap'].includes(protocol)) throw new Error('NATIVE_VALUATION_INPUT');
     const effective = q + BigInt(virtualQuoteReserve);
     if (effective <= 0n) throw new Error('NATIVE_QUOTE_NONPOSITIVE');
-    const basis = protocol === 'pumpswap' && mayhem ? 1000000000000000n : s;
-    return { rawQuoteValue: String(effective * basis / b), supplyRaw: String(basis),
-        supplyBasis: protocol === 'pumpswap' && mayhem ? 'PUMP_AMM_MAYHEM_PROTOCOL_SUPPLY' : 'LIVE_MINT_SUPPLY',
+    return { rawQuoteValue: String(effective * s / b), supplyRaw: String(s),
+        supplyBasis: 'LIVE_MINT_SUPPLY',
         effectiveQuoteReserve: String(effective) };
 }
 export function decimalRatio(numerator, denominator, precision = 18) {
@@ -31,6 +30,7 @@ export function canonicalValuation(native, quote, market, previous = null, now =
         quoteFresh: fresh(quote?.observedAt,now,policy.quoteTtlMs),
         slot: Number.isSafeInteger(native?.slot) && native.slot >= 0,
         lifecycle: ['CURVE_ACTIVE','AMM'].includes(market?.lifecycle),
+        supportedVariant: market?.mayhem !== true && market?.compatibility !== 'UNSUPPORTED_MAYHEM',
     };
     let valueUsd = null, quoteUsdPrice = null;
     try {
@@ -68,7 +68,7 @@ export function createCanonicalValuationBoundary(tokenMint) {
             if (value.authorityEligible && (value.kind!=='PROTOCOL_MARKET_CAP' || value.protocolDefinition!=='PUMP_PROTOCOL_MARKET_CAP_V1'
                 || typeof value.valueUsd!=='string' || !/^\d+(\.\d+)?$/.test(value.valueUsd)
                 || !Number.isFinite(Number(value.valueUsd)) || Number(value.valueUsd)<=0
-                || !['identity','formula','supply','nativeFresh','quoteIdentity','quoteFresh','slot','lifecycle','numeric'].every(g=>value.gates?.[g]===true))) return null;
+                || !['identity','formula','supply','nativeFresh','quoteIdentity','quoteFresh','slot','lifecycle','supportedVariant','numeric'].every(g=>value.gates?.[g]===true))) return null;
             if (current && (value.sourceEpoch<current.sourceEpoch || value.sourceEpoch===current.sourceEpoch
                 && (value.slot<current.slot || value.nativeObservedAt<current.nativeObservedAt
                     || value.quoteObservedAt!=null && current.quoteObservedAt!=null && value.quoteObservedAt<current.quoteObservedAt))) return null;

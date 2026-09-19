@@ -420,19 +420,6 @@
       "rawSha256": "514052a6595b4ae6fe39dc871d2da156ced70964ebf4f121940bbe763485699b"
     },
     {
-      "signature": "3Xu7LTsLZ6nCCgwmPDWvHGTAkgRC7gBGJGQToKEjaaPTJwFNpUyiYtPwgt6wMF4YSwPK76gdYXkPDjm2uyLCvEiP",
-      "slot": 446771425,
-      "blockTime": 1789324147,
-      "err": null,
-      "instructions": [
-        {
-          "name": "sell_v2",
-          "mint": "GLq5sChb2SeZugRBhnPVwnjzweimbiFauoa4yQYwpump"
-        }
-      ],
-      "rawSha256": "c2ff46f66931409696668506255057bd3a2f74468cbffdd660e7f942fc95f005"
-    },
-    {
       "signature": "4dLnQ48uaMiwi2LLD6Cz1BeFUHb44dh1SKYq5Z224VwugDMcWi7outMgwPivPEqfQEqxCETkx9nqpKDWTbgD3K3P",
       "slot": 446771425,
       "blockTime": 1789324147,
@@ -921,78 +908,6 @@
       ],
       "pumpPayloadSha256": "5ac2d639e9b6e4c142a1626f83e677978c0e5c24a65930505e3199195cbf922f",
       "dexPayloadSha256": "fc8e136c16ca2b056e9e5236cb157a3d114519747eb4a5e138c17e246d8f9f56"
-    },
-    {
-      "mint": "GXsZujDj1FsKq2ZFrQsPQMzdMeAcN4Fbk18Hi2c3pump",
-      "observedAt": 1789341330629,
-      "pumpStatus": 200,
-      "pump": {
-        "market_cap_quote": 314.4535441776599,
-        "market_cap_usd": 314.4535441776599,
-        "usd_market_cap": 314.4535441776599,
-        "total_supply": 1000000000000000,
-        "total_supply_str": "1000000000000000",
-        "virtual_token_reserves": 1074723157863550,
-        "virtual_quote_reserves": 337950506
-      },
-      "dex": [
-        {
-          "pair": "Ay5Bn1AijWNr9BKKoim1WBxqWyNLyiwsxH7rTiAav2nB",
-          "mc": 314.45,
-          "fdv": 314.45,
-          "priceUsd": "0.0000003144"
-        }
-      ],
-      "pumpPayloadSha256": "214542fdf8cb0df11436215e7800be1b2baa4ade25ad1aa5460e84f6cd347bd3",
-      "dexPayloadSha256": "b745155fa5102209c83bad1aa1d0712dd57e19c246f66af78aedceab59f22d05"
-    },
-    {
-      "mint": "GLq5sChb2SeZugRBhnPVwnjzweimbiFauoa4yQYwpump",
-      "observedAt": 1789341340448,
-      "pumpStatus": 200,
-      "pump": {
-        "market_cap_quote": 23.294408074511374,
-        "market_cap_usd": 23.294408074511374,
-        "usd_market_cap": 23.294408074511374,
-        "total_supply": 1000000000000000,
-        "total_supply_str": "1000000000000000",
-        "virtual_token_reserves": 1000224256631545,
-        "virtual_quote_reserves": 23299632
-      },
-      "dex": [
-        {
-          "pair": "3KPyvyya5YHbgDQHr83xBb387xdCXKqWSQ13qw4JStVw",
-          "mc": 23.29,
-          "fdv": 23.29,
-          "priceUsd": "0.00000002329"
-        }
-      ],
-      "pumpPayloadSha256": "9bdb0f6cf6c3a70ec514b5b71d394d1825a67e631b9d5e3c0ae92a4156e47562",
-      "dexPayloadSha256": "39a69beeed9911f20f7a6dba753596e6fe870c4be8f13b1ec2e794daaad9be00"
-    },
-    {
-      "mint": "EictSphkTzcMpw5WQGxxxiKNzAFAgqRXosjbdM5Epump",
-      "observedAt": 1789341346811,
-      "pumpStatus": 200,
-      "pump": {
-        "market_cap_quote": 0.0336888780371397,
-        "market_cap_usd": 3.36131870371597,
-        "usd_market_cap": 3.36131870371597,
-        "total_supply": 1000000000000000,
-        "total_supply_str": "1000000000000000",
-        "virtual_token_reserves": 1642129189906883,
-        "virtual_quote_reserves": 55321490
-      },
-      "dex": [
-        {
-          "pair": "DcMecWDnBRedQsbwL6pMyyaFCo7ingK14LQFHAF2njSF",
-          "mc": 3.36,
-          "fdv": 3.36,
-          "priceUsd": "0.000000003361"
-        }
-      ],
-      "pumpPayloadSha256": "a75ea2f3e6d15dc5b0a3b452f927b265cf5bcbd03c2ce249ed344f2ce2a04ea6",
-      "dexPayloadSha256": "87c53309b6d7dd8970558d2d30e9394551f193d174d28c2bfbb212631550a8e2"
     }
   ]
 }

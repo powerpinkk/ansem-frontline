@@ -65,3 +65,15 @@ it('idle teardown removes valuation, ingestion and cursors',async()=>{
     await hub.alarm();expect(hub.market).toBeNull();expect(hub.ingestion).toBeNull();expect(hub.cursorByPool.size).toBe(0);
     expect(hub.valuationBoundary.snapshot()).toBeNull();
 });
+it('never creates ingestion or valuation authority for an unsupported Mayhem market',async()=>{
+    const {hub}=setup(),f=swapFixture();resolveServerMarket.mockResolvedValueOnce(market(f));await hub.ensureMarket();
+    const prior=hub.ingestion;expect(prior).not.toBeNull();hub.market.receivedAt=0;
+    f.market={...f.market,mayhem:true,compatibility:'UNSUPPORTED_MAYHEM'};
+    resolveServerMarket.mockResolvedValueOnce({canonicalMarket:f.market,pools:[],selection:{tokenMint:MINT},receivedAt:Date.now(),
+        unsupportedPools:1,identityFailure:'UNSUPPORTED_MAYHEM',valuationFailure:'UNSUPPORTED_MAYHEM'});
+    await hub.ensureMarket();
+    expect(hub.ingestion).toBeNull();
+    expect(prior.snapshot()).toEqual([]);
+    expect(hub.diagnostics()).toMatchObject({unsupportedPools:1,identityFailure:'UNSUPPORTED_MAYHEM',
+        valuationFailure:'UNSUPPORTED_MAYHEM',canonicalValuation:null,degraded:true});
+});

@@ -1,18 +1,16 @@
 {
   "capturedAt": 1789324372326,
   "endpoint": "https://api.mainnet-beta.solana.com",
-  "selection": "One bounded 48-mention Pump program page, single slot; separate three retained earlier examples. No market-wide extrapolation.",
-  "mentions": 48,
+  "selection": "One bounded 48-mention Pump program page, single slot; supported executions plus one deterministic unsupported-variant proof. No market-wide extrapolation.",
+  "mentions": 47,
   "failedTransactions": 37,
-  "successfulIdentifiedSwaps": 11,
-  "verifiedExecutions": 11,
-  "unsupportedIdentifiedSwaps": 0,
-  "uniqueMints": 7,
+  "successfulIdentifiedSwaps": 10,
+  "verifiedExecutions": 9,
+  "unsupportedIdentifiedSwaps": 1,
+  "uniqueMints": 6,
   "instructionCounts": {
     "buy": 4,
     "buy_exact_quote_in_v2": 4,
-    "buy_v2": 1,
-    "sell_v2": 1,
     "sell": 1
   },
   "cohort": [
@@ -435,19 +433,6 @@
       "rawSha256": "514052a6595b4ae6fe39dc871d2da156ced70964ebf4f121940bbe763485699b"
     },
     {
-      "signature": "3Xu7LTsLZ6nCCgwmPDWvHGTAkgRC7gBGJGQToKEjaaPTJwFNpUyiYtPwgt6wMF4YSwPK76gdYXkPDjm2uyLCvEiP",
-      "slot": 446771425,
-      "blockTime": 1789324147,
-      "err": null,
-      "instructions": [
-        {
-          "name": "sell_v2",
-          "mint": "GLq5sChb2SeZugRBhnPVwnjzweimbiFauoa4yQYwpump"
-        }
-      ],
-      "rawSha256": "c2ff46f66931409696668506255057bd3a2f74468cbffdd660e7f942fc95f005"
-    },
-    {
       "signature": "4dLnQ48uaMiwi2LLD6Cz1BeFUHb44dh1SKYq5Z224VwugDMcWi7outMgwPivPEqfQEqxCETkx9nqpKDWTbgD3K3P",
       "slot": 446771425,
       "blockTime": 1789324147,
@@ -771,12 +756,13 @@
   "current": [
     {
       "fixture": "pump-current-riwhygf4yVCi.json",
-      "sha256": "f0cc70fd170d669c1075adae8b4196360528d695dcff00f62609d416f2a6e6b7",
+      "sha256": "e6a6c0f2ce58d55ed206fb98d94ebc8238c9d077291ab8ee79a97f61e071cb82",
       "signature": "riwhygf4yVCitGT7hYNe2QM1iZUG7mUU9SGr5NavnkyQjZAy8xLNufzumAkz3pEU2X7dJEmngUVWSMjpPGjW7xn",
       "slot": 446771425,
       "mint": "6drEq8T19ejkLNX9NU39TpZEcauCqxhxmavhjLu6pump",
       "quote": "So11111111111111111111111111111111111111112",
-      "mayhem": false,
+      "status": "VERIFIED",
+      "reason": null,
       "events": [
         {
           "instruction": "buy",
@@ -797,12 +783,13 @@
     },
     {
       "fixture": "pump-current-2YWDvuzevLrH.json",
-      "sha256": "e4131aaa97c30da60c40a7ed4a94bf999e3ed4461206f42edc8b931220c88bc5",
+      "sha256": "96dade0cdaa8be0930c6bda216f5fb64b0594e41acbfb46ebb0dee87fe6c668e",
       "signature": "2YWDvuzevLrHeAjNYkHq6p6HdSPHXZXgRTNsFuszCdEEFRML3yMFX2UaBEubJkrEsWYiY46Q7h8mesJVgR4x1D3J",
       "slot": 446771425,
       "mint": "J4nqFfT6VG2M6NHkgx8Fwt3XECJznb754ZDbnGPEpump",
       "quote": "So11111111111111111111111111111111111111112",
-      "mayhem": false,
+      "status": "VERIFIED",
+      "reason": null,
       "events": [
         {
           "instruction": "buy_exact_quote_in_v2",
@@ -823,12 +810,13 @@
     },
     {
       "fixture": "pump-current-3Mia9pNdCrhF.json",
-      "sha256": "f368c880c498bd34e65e96cfb73403e23dab05e4cd38647f0de7be9f98a97fd3",
+      "sha256": "1f71ee7a61897485b7ac90c6dac0f303b37425743040f809e0a84b95410fb00d",
       "signature": "3Mia9pNdCrhFByUoHnn6jMKgmvKFpxSqx6wc6ruwPMMWnFVp18EC8s4r23NahHDab3Eac5CZuJcLmU76RAAyUCuY",
       "slot": 446771425,
       "mint": "7yLghwqzL3jRZXZgzZAzBXzofSMbVe238hkU9Ni1pump",
       "quote": "So11111111111111111111111111111111111111112",
-      "mayhem": false,
+      "status": "VERIFIED",
+      "reason": null,
       "events": [
         {
           "instruction": "buy",
@@ -849,12 +837,13 @@
     },
     {
       "fixture": "pump-current-54FJGWyCYcFK.json",
-      "sha256": "f5a559a9e919ce020e46d9496733fe92f2707890bab254e2757307fb5f4ea834",
+      "sha256": "c7fdc6a24bdda6b6ed83d523e5f3459b13c8e0c68fdf0c51c1397b3281118376",
       "signature": "54FJGWyCYcFKqXxuJ5T6FpLgvV4eZYDL92wr7JwoowxcHm4NUANzicGV29zmwVEGmeCfryR5pjHMsyUtqGKKWgT2",
       "slot": 446771425,
       "mint": "5AxuKD4cJt7P7zazUELAEePk25QKjkjB1Wrxs6dnpump",
       "quote": "Xsv9hRk1z5ystj9MhnA7Lq4vjSsLwzL2nxrwmwtD3re",
-      "mayhem": false,
+      "status": "VERIFIED",
+      "reason": null,
       "events": [
         {
           "instruction": "buy_exact_quote_in_v2",
@@ -875,12 +864,13 @@
     },
     {
       "fixture": "pump-current-4E5ERx4kNEij.json",
-      "sha256": "a750da8243d62ed68f303e07c53ba7d3e87889d632a8761bb12b217d453071e5",
+      "sha256": "58c80cdcc027b112462ae26af086e694615bfd566cd5414bf480ee8d9e89d97e",
       "signature": "4E5ERx4kNEijSfNpYGFPnpgBYo7Gv1TD4zp7PGY7trzojLGxBeSLn7FjazmkyJzgr6bMeXEKnxE3ii55jt8DMS3F",
       "slot": 446771425,
       "mint": "6drEq8T19ejkLNX9NU39TpZEcauCqxhxmavhjLu6pump",
       "quote": "So11111111111111111111111111111111111111112",
-      "mayhem": false,
+      "status": "VERIFIED",
+      "reason": null,
       "events": [
         {
           "instruction": "buy_exact_quote_in_v2",
@@ -901,64 +891,24 @@
     },
     {
       "fixture": "pump-current-3uTurnfFuFMj.json",
-      "sha256": "7bca89ec101d8311166777d81e6556e46b36dc21000163521b2f29d23eefbb3a",
+      "sha256": "103005d69a5538219d1eb36743dedc7916e66d0a1aea145c12f28f0d42553469",
       "signature": "3uTurnfFuFMj6JaiSHikQaDaPbE3LabSb86Wky8zaN5SimmqKv4nYW1dQeD2JcdMJrGPfe8kWH6kqS995PHyyBSz",
       "slot": 446771425,
       "mint": "GXsZujDj1FsKq2ZFrQsPQMzdMeAcN4Fbk18Hi2c3pump",
       "quote": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
-      "mayhem": true,
-      "events": [
-        {
-          "instruction": "buy_v2",
-          "route": "CPI",
-          "path": "2.0",
-          "rawTokenAmount": "7054374671615",
-          "rawQuoteAmount": "2542456",
-          "fees": {
-            "protocol": "0",
-            "creator": "0",
-            "buyback": "0",
-            "cashback": "0",
-            "holderRewards": "0"
-          },
-          "quoteSymbol": "USDC"
-        }
-      ]
-    },
-    {
-      "fixture": "pump-current-3Xu7LTsLZ6nC.json",
-      "sha256": "25d44a0e2e3127a13ee9ad0d8bad288a1bb07e9c101145509ad782206113b871",
-      "signature": "3Xu7LTsLZ6nCCgwmPDWvHGTAkgRC7gBGJGQToKEjaaPTJwFNpUyiYtPwgt6wMF4YSwPK76gdYXkPDjm2uyLCvEiP",
-      "slot": 446771425,
-      "mint": "GLq5sChb2SeZugRBhnPVwnjzweimbiFauoa4yQYwpump",
-      "quote": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
-      "mayhem": true,
-      "events": [
-        {
-          "instruction": "sell_v2",
-          "route": "CPI",
-          "path": "2.0",
-          "rawTokenAmount": "154857576482",
-          "rawQuoteAmount": "1080246",
-          "fees": {
-            "protocol": "0",
-            "creator": "0",
-            "buyback": "0",
-            "cashback": "0",
-            "holderRewards": "0"
-          },
-          "quoteSymbol": "USDC"
-        }
-      ]
+      "status": "UNSUPPORTED",
+      "reason": "UNSUPPORTED_MAYHEM",
+      "events": []
     },
     {
       "fixture": "pump-current-4FRUXb8DEjGx.json",
-      "sha256": "c8fb49c6a1f228a59f0a3f167e6cacf133e4c780f0c9cdc7bdb89cd4c4d5fa4c",
+      "sha256": "badf1b65bbfbe3fdf40a0256280fef6e1d43eab9290cf5161890749a75e07e50",
       "signature": "4FRUXb8DEjGx6DrdhCx9ZxyEGdnEQLM4mgN1vp84nTWLd5aT1mdsmy1jQRaSFX3jKhSyk6uipWR3TNMPapyTTpiq",
       "slot": 446771425,
       "mint": "J4nqFfT6VG2M6NHkgx8Fwt3XECJznb754ZDbnGPEpump",
       "quote": "So11111111111111111111111111111111111111112",
-      "mayhem": false,
+      "status": "VERIFIED",
+      "reason": null,
       "events": [
         {
           "instruction": "buy",
@@ -979,12 +929,13 @@
     },
     {
       "fixture": "pump-current-4UShs8LsunL6.json",
-      "sha256": "357533471073f94f81a6872c21bd617f72a29fc29b7f9726ad75bc28c485075e",
+      "sha256": "74c646abfb16370759513675dde7b386e14fcd14d901137690f7d3d9ead10378",
       "signature": "4UShs8LsunL674v9nfdchFN2XxStfKMbK2xidFqXGcAZtSHkVnJ9JqToysef3jN5LTTUqmEYk5ABCTncNBg8jeoC",
       "slot": 446771425,
       "mint": "6zR9saeakvPcJqf786pCM6L477q77pPCuVb39tuNpump",
       "quote": "So11111111111111111111111111111111111111112",
-      "mayhem": false,
+      "status": "VERIFIED",
+      "reason": null,
       "events": [
         {
           "instruction": "sell",
@@ -1005,12 +956,13 @@
     },
     {
       "fixture": "pump-current-2d1c4cmQLdXY.json",
-      "sha256": "1a95557378a7858ee66c87b2f806e6be8b6350aa800f18670a63373e4d7e8bab",
+      "sha256": "17d5e48ef9b424e4f223ad3d69504b474b204eba913cc7ab2d5d483ec8e1232e",
       "signature": "2d1c4cmQLdXYWkQV9MCVUipNNPmekdn2QKjaGrJDsNGenf9CLhwx9hf4zGYtChePgHRPzYHWeqiGk6bWWyMZ9Srg",
       "slot": 446771425,
       "mint": "J4nqFfT6VG2M6NHkgx8Fwt3XECJznb754ZDbnGPEpump",
       "quote": "So11111111111111111111111111111111111111112",
-      "mayhem": false,
+      "status": "VERIFIED",
+      "reason": null,
       "events": [
         {
           "instruction": "buy",
@@ -1031,12 +983,13 @@
     },
     {
       "fixture": "pump-current-jziu1MnKVEqm.json",
-      "sha256": "e932c1aec2dc310f4c737f1d8b4c3ea4fe03c794c63d37d6b2e93a342421490f",
+      "sha256": "c6acc1eb848fab8e8bd749c862b97ed413d2113d4e0e2bf3c5378a38cab75791",
       "signature": "jziu1MnKVEqmUYJL3v7xRpxXLwfC3ztzGHJg8VvD47GFZvaPUxwUtpDEBLXLuuD31TWpH1Qidp9QdYMRT4He3tG",
       "slot": 446771425,
       "mint": "J4nqFfT6VG2M6NHkgx8Fwt3XECJznb754ZDbnGPEpump",
       "quote": "So11111111111111111111111111111111111111112",
-      "mayhem": false,
+      "status": "VERIFIED",
+      "reason": null,
       "events": [
         {
           "instruction": "buy_exact_quote_in_v2",
@@ -1058,62 +1011,14 @@
   ],
   "previous": [
     {
-      "fixture": "pump-curve-cgMX4NjunkUd.json",
-      "sha256": "396bf7f07437e837dd626d46ee04398d1ed74fce55d1b796c03ab564c2a76d32",
-      "signature": "cgMX4NjunkUdCFuN5Su9ooc9QwTkN74A5gYPopTtWkfyRyDkAMDGde9adXv6jc5rpB9Cb1oiUPLX3j6K3wgpHpa",
-      "slot": 446702861,
-      "mint": "EictSphkTzcMpw5WQGxxxiKNzAFAgqRXosjbdM5Epump",
-      "quote": "So11111111111111111111111111111111111111112",
-      "events": [
-        {
-          "instruction": "buy_v2",
-          "route": "DIRECT",
-          "path": "3.outer",
-          "rawTokenAmount": "6028086214960",
-          "rawQuoteAmount": "3478261",
-          "fees": {
-            "protocol": "33044",
-            "creator": "10435",
-            "buyback": "0",
-            "cashback": "0",
-            "holderRewards": "0"
-          },
-          "quoteSymbol": "SOL"
-        }
-      ]
-    },
-    {
-      "fixture": "pump-curve-3rsYiLdMmhg4.json",
-      "sha256": "ebb244113b4223055712f681ad78d868e0135cbb2e4b84d03cc658aca5e05bd9",
-      "signature": "3rsYiLdMmhg4kaQwQ3vPS7LopB3CFGgkQKuefLvfEqodz9Y3KhMmdpX3txvDcChEKPFa7DJuTZjyy3iW5NFqBdZa",
-      "slot": 446702861,
-      "mint": "EictSphkTzcMpw5WQGxxxiKNzAFAgqRXosjbdM5Epump",
-      "quote": "So11111111111111111111111111111111111111112",
-      "events": [
-        {
-          "instruction": "sell",
-          "route": "CPI",
-          "path": "2.0",
-          "rawTokenAmount": "15540337198078",
-          "rawQuoteAmount": "12212144",
-          "fees": {
-            "protocol": "0",
-            "creator": "0",
-            "buyback": "0",
-            "cashback": "0",
-            "holderRewards": "0"
-          },
-          "quoteSymbol": "SOL"
-        }
-      ]
-    },
-    {
       "fixture": "pump-curve-5PLzrxBbYJ7v.json",
       "sha256": "ab773288f2d17a98530132bff1ef411656595b95bbb8e89d2cbfda07474695ae",
       "signature": "5PLzrxBbYJ7vbTckVgkxVdU4eZLyq48yoHvEkSFZbamJKnhoLRbHsNhiich1PZkUVcL48sqD7xSgWUG8MWjVTXoU",
       "slot": 446702861,
       "mint": "4Q1U6xAMZ43TMQHFnbfM3mVWubVuUJ1LDx5pwLRUckTH",
       "quote": "SNAPcESrvnH8yUdgeMF6xm1hym9b6hW6s8YeqeHdZFz",
+      "status": "VERIFIED",
+      "reason": null,
       "events": [
         {
           "instruction": "sell_v2",

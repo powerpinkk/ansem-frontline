@@ -2240,29 +2240,11 @@
     }
   ],
   "curve": {
-    "mentions": 12,
+    "mentions": 10,
     "failedTransactions": 8,
-    "successfulSwapCandidates": 3,
+    "successfulSwapCandidates": 1,
     "verifiedExecutions": 0,
     "records": [
-      {
-        "signature": "cgMX4NjunkUdCFuN5Su9ooc9QwTkN74A5gYPopTtWkfyRyDkAMDGde9adXv6jc5rpB9Cb1oiUPLX3j6K3wgpHpa",
-        "file": "curve-cgMX4NjunkUd.json",
-        "slot": 446702861,
-        "blockTime": 1789302480,
-        "failed": false,
-        "instructions": [
-          {
-            "kind": "SWAP",
-            "name": "buy_v2"
-          },
-          {
-            "kind": "UNCLASSIFIED",
-            "name": null
-          }
-        ],
-        "sha256": "322ad9c3e109c56323a6f940db74b3c7a34daae69cc7d6ba5394a700ba6cb31f"
-      },
       {
         "signature": "3RLJrb5MBfKiLvmLDJn11ME1juwCae23aNZcViDKobS2wUCf9tFwTj2MP4df2RBV4Ec9KKvbwFn4gmK4Pn8cRm2E",
         "file": "curve-3RLJrb5MBfKi.json",
@@ -2366,24 +2348,6 @@
         "sha256": "dbbc5f77e5ed427a2c61f3ec9114a9a50ce962392d7305a094dfbe7a1363cb41"
       },
       {
-        "signature": "3rsYiLdMmhg4kaQwQ3vPS7LopB3CFGgkQKuefLvfEqodz9Y3KhMmdpX3txvDcChEKPFa7DJuTZjyy3iW5NFqBdZa",
-        "file": "curve-3rsYiLdMmhg4.json",
-        "slot": 446702861,
-        "blockTime": 1789302480,
-        "failed": false,
-        "instructions": [
-          {
-            "kind": "SWAP",
-            "name": "sell"
-          },
-          {
-            "kind": "UNCLASSIFIED",
-            "name": null
-          }
-        ],
-        "sha256": "e161e2816eb55e18877e5408fbcc7a3ac035138f8426aad866aa4d824f0ab10d"
-      },
-      {
         "signature": "BnY9CezrZ2QP7fMp9mXxWAJTyzLWM3iuPznMjKTReMkdMF4ugrzGDBLdfg31jV9hZV6ifrEe5if2uw85yHEDZ9E",
         "file": "curve-BnY9CezrZ2QP.json",
         "slot": 446702861,
@@ -2428,46 +2392,6 @@
     ],
     "states": [
       {
-        "file": "curve-cgMX4NjunkUd.json",
-        "signature": "cgMX4NjunkUdCFuN5Su9ooc9QwTkN74A5gYPopTtWkfyRyDkAMDGde9adXv6jc5rpB9Cb1oiUPLX3j6K3wgpHpa",
-        "mint": "EictSphkTzcMpw5WQGxxxiKNzAFAgqRXosjbdM5Epump",
-        "curve": "DcMecWDnBRedQsbwL6pMyyaFCo7ingK14LQFHAF2njSF",
-        "vault": "FTzYzEiPXhLoJtWiSscqCn9osKfMNZaSyWuwjmed4s9m",
-        "state": {
-          "context": {
-            "apiVersion": "4.3.0-rc.0",
-            "slot": 446703379
-          },
-          "value": [
-            {
-              "data": [
-                "F7f4N2DYrGBQfI4NYqYFAFOkZwMAAAAAUOR7wdCnBABb3SIAAAAAAACAxqR+jQMAAPqdHQdBjTylHoXepK+NcpS7giz+ZUlAkVHxLSrP6U+GAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
-                "base64"
-              ],
-              "executable": false,
-              "lamports": 3702211,
-              "owner": "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P",
-              "rentEpoch": 18446744073709552000,
-              "space": 151
-            },
-            {
-              "data": [
-                "y9FSHU1R1Kn5d9Ig8fSC6sEXy2GAt1kL6xlUpM0hOB+7WuszOU4IO8e0Fcdpp17iEwiegwdVMAo36lGQm8yquFDsfGr9YwUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgcAAAA=",
-                "base64"
-              ],
-              "executable": false,
-              "lamports": 1513840,
-              "owner": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
-              "rentEpoch": 18446744073709552000,
-              "space": 170
-            }
-          ]
-        },
-        "complete": false,
-        "curveOwner": "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P",
-        "vaultMint": "EictSphkTzcMpw5WQGxxxiKNzAFAgqRXosjbdM5Epump"
-      },
-      {
         "file": "curve-5PLzrxBbYJ7v.json",
         "signature": "5PLzrxBbYJ7vbTckVgkxVdU4eZLyq48yoHvEkSFZbamJKnhoLRbHsNhiich1PZkUVcL48sqD7xSgWUG8MWjVTXoU",
         "mint": "4Q1U6xAMZ43TMQHFnbfM3mVWubVuUJ1LDx5pwLRUckTH",
@@ -2506,46 +2430,6 @@
         "complete": false,
         "curveOwner": "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P",
         "vaultMint": "4Q1U6xAMZ43TMQHFnbfM3mVWubVuUJ1LDx5pwLRUckTH"
-      },
-      {
-        "file": "curve-3rsYiLdMmhg4.json",
-        "signature": "3rsYiLdMmhg4kaQwQ3vPS7LopB3CFGgkQKuefLvfEqodz9Y3KhMmdpX3txvDcChEKPFa7DJuTZjyy3iW5NFqBdZa",
-        "mint": "EictSphkTzcMpw5WQGxxxiKNzAFAgqRXosjbdM5Epump",
-        "curve": "DcMecWDnBRedQsbwL6pMyyaFCo7ingK14LQFHAF2njSF",
-        "vault": "FTzYzEiPXhLoJtWiSscqCn9osKfMNZaSyWuwjmed4s9m",
-        "state": {
-          "context": {
-            "apiVersion": "4.3.0-rc.0",
-            "slot": 446703399
-          },
-          "value": [
-            {
-              "data": [
-                "F7f4N2DYrGBQfI4NYqYFAFOkZwMAAAAAUOR7wdCnBABb3SIAAAAAAACAxqR+jQMAAPqdHQdBjTylHoXepK+NcpS7giz+ZUlAkVHxLSrP6U+GAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
-                "base64"
-              ],
-              "executable": false,
-              "lamports": 3702211,
-              "owner": "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P",
-              "rentEpoch": 18446744073709552000,
-              "space": 151
-            },
-            {
-              "data": [
-                "y9FSHU1R1Kn5d9Ig8fSC6sEXy2GAt1kL6xlUpM0hOB+7WuszOU4IO8e0Fcdpp17iEwiegwdVMAo36lGQm8yquFDsfGr9YwUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgcAAAA=",
-                "base64"
-              ],
-              "executable": false,
-              "lamports": 1513840,
-              "owner": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
-              "rentEpoch": 18446744073709552000,
-              "space": 170
-            }
-          ]
-        },
-        "complete": false,
-        "curveOwner": "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P",
-        "vaultMint": "EictSphkTzcMpw5WQGxxxiKNzAFAgqRXosjbdM5Epump"
       }
     ]
   },

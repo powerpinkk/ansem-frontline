@@ -5,7 +5,7 @@ import {createHash} from 'node:crypto';
 import {createEvidenceIngestion} from '../worker/src/evidence-ingestion.js';
 import {canonicalValuation,createCanonicalValuationBoundary} from '../js/canonical-valuation.js';
 import {base58,swapFixture} from '../tests/fixtures/integrity.js';
-const names=['pump-current-riwhygf4yVCi','pump-current-3uTurnfFuFMj','pump-current-3Xu7LTsLZ6nC','pump-curve-cgMX4NjunkUd'];
+const names=['pump-current-riwhygf4yVCi','pump-current-2YWDvuzevLrH','pump-current-4UShs8LsunL6','pump-current-4FRUXb8DEjGx'];
 const examples=names.map(n=>JSON.parse(readFileSync('tests/fixtures/public-chain/'+n+'.json')));
 const states=JSON.parse(readFileSync('tests/fixtures/public-chain/pump-current-states.json'));
 const services=[],boundaries=examples.map(f=>createCanonicalValuationBoundary(f.market.tokenMint)),pending=new Map();

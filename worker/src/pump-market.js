@@ -40,29 +40,25 @@ export async function probePumpCurve(mint, rpc) {
         if (vaultQuote.tokenProgram!==currentQuote.tokenProgram) throw new Error('CURVE_QUOTE_PROGRAM');
     }
     const observedAt=Date.now();
+    const mayhem=current.is_mayhem_mode;
     const market={address,poolAddress:address,tokenMint:mint,quoteMint,mints:[mint,quoteMint],
         vaults:[baseVault,quoteMint===SOL_MINT?address:quoteAta],quoteAta,
         tokenPrograms:[base.tokenProgram,currentQuote.tokenProgram],quoteDecimals:currentQuote.decimals,
         tokenDecimals:currentBase.decimals,programId:PUMP_PROGRAM,protocol:'pump-curve',lifecycle:'CURVE_ACTIVE',
-        identityEvidence:'PUMP_PDA_STATE_AND_VAULTS',compatibility:'POOL_STATE_AND_VAULTS_VERIFIED',
-        verifiedAtSlot:snapshot.context.slot,sourceEpoch:1,globalAddress,eventAuthority,mayhem:current.is_mayhem_mode};
+        identityEvidence:'PUMP_PDA_STATE_AND_VAULTS',compatibility:mayhem?'UNSUPPORTED_MAYHEM':'POOL_STATE_AND_VAULTS_VERIFIED',
+        verifiedAtSlot:snapshot.context.slot,sourceEpoch:1,globalAddress,eventAuthority,...(mayhem?{mayhem:true}:{})};
+    if (mayhem) return {complete:false,canonicalMarket:market,nativeValuation:null,quoteUsd:null,
+        valuationFailure:'UNSUPPORTED_MAYHEM',receivedAt:observedAt};
     let nativeValuation=null,valuationFailure=null,quoteUsd=null;
     try {
         const value=protocolMarketCap({supply:currentBase.supply,baseReserve:current.virtual_token_reserves,
             quoteReserve:current.virtual_quote_reserves,protocol:'pump-curve'});
         nativeValuation=nativeObservation(market,value,currentBase,snapshot.context.slot,observedAt,{
-            curveSupply:current.token_total_supply,mintSupply:currentBase.supply,mayhem:current.is_mayhem_mode,
+            curveSupply:current.token_total_supply,mintSupply:currentBase.supply,
             supplyAgreement:current.token_total_supply===currentBase.supply,
             virtualTokenReserves:current.virtual_token_reserves,virtualQuoteReserves:current.virtual_quote_reserves,
         },currentQuote.safeExtensions);
-        // The SDK's live-supply helper and Pump's displayed curve MC disagree
-        // by 2x on retained Mayhem examples. Preserve the exact SDK diagnostic,
-        // but do not silently choose a display/circulating convention for terrain.
-        if (current.is_mayhem_mode) {
-            nativeValuation.supplyVerified=false;
-            nativeValuation.supplyDefinitionStatus='MAYHEM_CURVE_SUPPLY_CONVENTION_UNRESOLVED';
-            valuationFailure=nativeValuation.supplyDefinitionStatus;
-        } else if (!nativeValuation.supplyVerified) valuationFailure='MINT_OR_QUOTE_EXTENSIONS_UNSUPPORTED';
+        if (!nativeValuation.supplyVerified) valuationFailure='MINT_OR_QUOTE_EXTENSIONS_UNSUPPORTED';
     } catch(e) {valuationFailure=e.message;}
     if (feed) { try {quoteUsd=decodeQuoteUsd(snapshot.value.at(-1),quoteMint,snapshot.context.slot,observedAt);}catch(e){valuationFailure=e.message;} }
     return {complete:false,canonicalMarket:market,nativeValuation,quoteUsd,valuationFailure,receivedAt:observedAt};
@@ -92,13 +88,15 @@ export async function pumpSwapValuation(market,rpc,minContextSlot) {
     const baseIndex=market.mints.indexOf(market.tokenMint),quoteIndex=1-baseIndex;
     if (baseIndex!==0 || vaults.some((v,i)=>v.tokenProgram!==market.tokenPrograms[i])
         || mint.tokenProgram!==market.tokenPrograms[0] || quoteMint.tokenProgram!==market.tokenPrograms[1]) throw new Error('AMM_VALUATION_TOKEN_PROGRAM');
-    const mayhem=pool.length>243 && pool[243]===1;
+    const variantFlag=pool.length>243?pool[243]:0;
+    if (variantFlag===1) return {nativeValuation:null,quoteUsd:null,valuationFailure:'UNSUPPORTED_MAYHEM',unsupportedVariant:'MAYHEM'};
+    if (variantFlag!==0) return {nativeValuation:null,quoteUsd:null,valuationFailure:'UNSUPPORTED_PUMP_VARIANT',unsupportedVariant:'OTHER'};
     const virtualQuote=pool.length>=261?String(integer(pool,245,16,true)):'0';
     const value=protocolMarketCap({supply:mint.supply,baseReserve:vaults[baseIndex].amount,
-        quoteReserve:vaults[quoteIndex].amount,virtualQuoteReserve:virtualQuote,mayhem,protocol:'pumpswap'});
+        quoteReserve:vaults[quoteIndex].amount,virtualQuoteReserve:virtualQuote,protocol:'pumpswap'});
     const observedAt=Date.now();
     const nativeValuation=nativeObservation({...market,quoteDecimals:quoteMint.decimals},value,mint,snapshot.context.slot,observedAt,
-        {mintSupply:mint.supply,mayhem,baseReserve:vaults[0].amount,quoteReserve:vaults[1].amount,virtualQuoteReserves:virtualQuote},quoteMint.safeExtensions);
+        {mintSupply:mint.supply,baseReserve:vaults[0].amount,quoteReserve:vaults[1].amount,virtualQuoteReserves:virtualQuote},quoteMint.safeExtensions);
     let quoteUsd=null,valuationFailure=null;
     if (feed) {try {quoteUsd=decodeQuoteUsd(snapshot.value.at(-1),market.quoteMint,snapshot.context.slot,observedAt);}catch(e){valuationFailure=e.message;}}
     return {nativeValuation,quoteUsd,valuationFailure};

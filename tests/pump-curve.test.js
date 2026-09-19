@@ -8,27 +8,35 @@ import {isCanonicalTrade} from '../js/market-evidence.js';
 import {calculatePressure} from '../js/market.js';
 const load=name=>JSON.parse(readFileSync(new URL('./fixtures/'+name,import.meta.url)));
 const current=load('pump-current-index.json');
-const old=['pump-curve-cgMX4NjunkUd.json','pump-curve-3rsYiLdMmhg4.json','pump-curve-5PLzrxBbYJ7v.json'];
+const old=['pump-curve-5PLzrxBbYJ7v.json'];
+const supported=[...old,...current.filter(name=>!load('public-chain/'+name).market.mayhem)];
+const mayhem=current.find(name=>load('public-chain/'+name).market.mayhem);
 const verify=f=>verifyPoolExecutions(f.transaction,f.signature,f.market,'FINALIZED');
+const pumpInstruction=f=>[...f.transaction.transaction.message.instructions,
+    ...f.transaction.meta.innerInstructions.flatMap(group=>group.instructions)].find(i=>i.programId===PUMP_PROGRAM&&i.data);
 describe('current Pump curve execution proof',()=>{
-    it.each([...old,...current])('verifies retained public invocation %s',name=>{
+    it.each(supported)('verifies retained supported public invocation %s',name=>{
         const f=load('public-chain/'+name),r=verify(f);
         expect(r.status).toBe('VERIFIED');expect(r.events).toHaveLength(1);expect(isCanonicalTrade(r.events[0])).toBe(true);
         expect(r.events[0]).toMatchObject({poolAddress:f.market.address,sourceEpoch:1,usdValue:null,userEconomicAttribution:'INDEPENDENT_NOT_EVALUATED'});
     });
     it('keeps native quote separate from ATA rent, network fee, creator and protocol fees',()=>{
-        const f=load('public-chain/'+old[0]),r=verify(f).events[0];
-        expect(r.rawQuoteAmount).toBe('3478261');expect(r.rawTokenAmount).toBe('6028086214960');
-        expect(r.fees).toMatchObject({protocol:'33044',creator:'10435'});
+        const f=load('public-chain/'+current[0]),r=verify(f).events[0];
+        expect(BigInt(r.rawQuoteAmount)).toBeGreaterThan(0n);expect(BigInt(r.rawTokenAmount)).toBeGreaterThan(0n);
         f.transaction.meta.fee+=99999;f.transaction.meta.postBalances[0]-=99999;
         expect(verify(f).events[0].rawQuoteAmount).toBe(r.rawQuoteAmount);
     });
-    it('accepts actual SOL sale through Mayhem CPI with no system transfer of the pool quote',()=>{
-        const r=verify(load('public-chain/'+old[1]));
-        expect(r.events[0]).toMatchObject({isBuy:false,rawQuoteAmount:'12212144',routeKind:'CPI'});
+    it('rejects Mayhem before it can become canonical pressure, even if market metadata is omitted',()=>{
+        const f=load('public-chain/'+mayhem),direct=verify(f);
+        expect(direct).toMatchObject({status:'UNSUPPORTED',reason:'UNSUPPORTED_MAYHEM',events:[]});
+        delete f.market.mayhem;
+        const eventGuard=verify(f);
+        expect(eventGuard.events).toEqual([]);
+        expect(eventGuard.executions).toContainEqual(expect.objectContaining({status:'UNVERIFIED',reason:'UNSUPPORTED_MAYHEM'}));
+        expect(calculatePressure(eventGuard.events,Date.now())).toMatchObject({buySol:0,sellSol:0});
     });
-    it('verifies both USDC directions without inventing SOL pressure',()=>{
-        const events=current.flatMap(name=>verify(load('public-chain/'+name)).events).filter(e=>e.quoteSymbol==='USDC');
+    it('verifies supported non-native quote directions without inventing SOL pressure',()=>{
+        const events=supported.flatMap(name=>verify(load('public-chain/'+name)).events).filter(e=>e.quoteMint!==SOL_MINT);
         expect(events.map(e=>e.isBuy).sort()).toEqual([false,true]);
         expect(events.every(e=>e.solValue===null)).toBe(true);
         const pressure=calculatePressure(events,events[0].timestamp);
@@ -50,16 +58,16 @@ describe('current Pump curve execution proof',()=>{
         ['missing transfers',f=>{for(const g of f.transaction.meta.innerInstructions)g.instructions=g.instructions.filter(i=>!i.parsed?.type?.startsWith('transfer'));}],
         ['missing event',f=>{for(const g of f.transaction.meta.innerInstructions)g.instructions=g.instructions.filter(i=>i.programId!==PUMP_PROGRAM);}],
         ['spoofed event bytes',f=>{for(const g of f.transaction.meta.innerInstructions)for(const i of g.instructions)if(i.programId===PUMP_PROGRAM){const b=decodeBase58(i.data);b[48]^=1;i.data=encodeBase58(b);}}],
-        ['unknown instruction',f=>{const i=f.transaction.transaction.message.instructions.find(i=>i.programId===PUMP_PROGRAM);const b=decodeBase58(i.data);b[0]^=1;i.data=encodeBase58(b);}],
-    ])('rejects %s',(_name,mutate)=>{const f=load('public-chain/'+old[0]);mutate(f);expect(verify(f).events).toEqual([]);});
+        ['unknown instruction',f=>{const i=pumpInstruction(f);const b=decodeBase58(i.data);b[0]^=1;i.data=encodeBase58(b);}],
+    ])('rejects %s',(_name,mutate)=>{const f=load('public-chain/'+current[0]);mutate(f);expect(verify(f).events).toEqual([]);});
     it('slippage limit never supplies executed amount',()=>{
-        const f=load('public-chain/'+old[0]),before=verify(f).events[0];
-        const ix=f.transaction.transaction.message.instructions.find(i=>i.programId===PUMP_PROGRAM);
+        const f=load('public-chain/'+current[0]),before=verify(f).events[0];
+        const ix=pumpInstruction(f);
         const b=decodeBase58(ix.data);b.fill(255,16,24);ix.data=encodeBase58(b);
         expect(verify(f).events[0].rawQuoteAmount).toBe(before.rawQuoteAmount);
     });
     it('requires every successful ancestor, including caught failures',()=>{
-        const f=load('public-chain/'+old[1]);
+        const f=load('public-chain/'+current[1]);
         const wrapper=f.transaction.transaction.message.instructions[2].programId;
         f.transaction.meta.logMessages=f.transaction.meta.logMessages.map(l=>l===`Program ${wrapper} success`?`Program ${wrapper} failed: custom error`:l);
         expect(verify(f).events).toEqual([]);
@@ -84,10 +92,11 @@ it('derives the four retained actual canonical migration pools from completed cu
     }
 });
 it('decodes old prefix state defaults, and rejects invalid owner/partial unknown layout',()=>{
-    const f=load('public-chain/'+old[0]),a=f.curveAccount;
+    const state=load('public-chain/pump-current-states.json').find(s=>s.canonicalMarket.mayhem);
+    const a=state.reads[0].result.value[0];
     const bytes=Buffer.from(a.data[0],'base64');
     expect(decodeCurve(a).is_mayhem_mode).toBe(true);
     expect(decodeCurve({...a,data:[bytes.subarray(0,49).toString('base64'),'base64']})).toMatchObject({complete:false,is_mayhem_mode:false,quote_mint:'11111111111111111111111111111111'});
-    expect(()=>decodeCurve({...a,owner:f.market.tokenPrograms[0]})).toThrow('CURVE_OWNER');
+    expect(()=>decodeCurve({...a,owner:state.canonicalMarket.tokenPrograms[0]})).toThrow('CURVE_OWNER');
     expect(()=>decodeCurve({...a,data:[bytes.subarray(0,100).toString('base64'),'base64']})).toThrow('CURVE_LAYOUT_VERSION');
 });

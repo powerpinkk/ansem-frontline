@@ -28,8 +28,7 @@
     "verifiedAtSlot": 446771981,
     "sourceEpoch": 1,
     "globalAddress": "4wTV1YmiEkRvAtNtsSGPtUrqRYQMe5SKy2uB4Jjaxnjf",
-    "eventAuthority": "Ce6TQqeHC9p8KetsN6JsjHK7UTZk7nasjjnr7XxXp9F1",
-    "mayhem": false
+    "eventAuthority": "Ce6TQqeHC9p8KetsN6JsjHK7UTZk7nasjjnr7XxXp9F1"
   },
   "transaction": {
     "blockTime": 1789324147,

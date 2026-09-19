@@ -26,6 +26,18 @@ it('discovers independently and rejects pool owners outside fixed protocol adapt
     expect(fetchImpl.mock.calls[0][0]).toBe('https://api.dexscreener.com/token-pairs/v1/solana/' + MINT);
 });
 
+it('reports a current Mayhem curve as unsupported with no pressure pool or valuation',async()=>{
+    const states=JSON.parse(readFileSync(new URL('./fixtures/public-chain/pump-current-states.json',import.meta.url)));
+    const sample=states.find(s=>s.canonicalMarket.mayhem),reads=structuredClone(sample.reads);
+    vi.spyOn(Date,'now').mockReturnValue(sample.receivedAt);
+    const rpc=vi.fn(async(method,params)=>{const read=reads.shift();expect(method).toBe(read.method);expect(params).toEqual(read.params);return read.result;});
+    const result=await resolveServerMarket(sample.mint,rpc);
+    expect(result).toMatchObject({pools:[],unsupportedPools:1,identityFailure:'UNSUPPORTED_MAYHEM',
+        valuationFailure:'UNSUPPORTED_MAYHEM',nativeValuation:null,quoteUsd:null,
+        canonicalMarket:{mayhem:true,compatibility:'UNSUPPORTED_MAYHEM'}});
+    expect(reads).toHaveLength(0);
+});
+
 it('fixed RPC transport rejects HTTP and JSON-RPC failures', async () => {
     const fetchImpl = vi.fn(async () => ({ ok: true, json: async () => ({ error: { code: -32000 } }) }));
     const rpc = createRpcTransport({ HELIUS_API_KEY: 'test-only' }, fetchImpl);

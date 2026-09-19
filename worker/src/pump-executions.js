@@ -12,6 +12,7 @@ export function verifyPumpExecutions(tx, signature, market, settlement = 'CONFIR
     try { return verify(tx, signature, market, settlement); } catch (e) { return fail(e.message); }
 }
 function verify(tx, signature, market, settlement) {
+    if (market?.mayhem === true || market?.compatibility === 'UNSUPPORTED_MAYHEM') return fail('UNSUPPORTED_MAYHEM','UNSUPPORTED');
     if (market?.programId !== PUMP_PROGRAM || market.compatibility !== 'POOL_STATE_AND_VAULTS_VERIFIED'
         || market.identityEvidence !== 'PUMP_PDA_STATE_AND_VAULTS' || !Number.isSafeInteger(market.sourceEpoch) || market.sourceEpoch < 1
         || !validSignature(signature) || tx?.transaction?.signatures?.[0] !== signature || !tx.meta) return fail('IDENTITY_OR_METADATA_MISSING');
@@ -70,6 +71,7 @@ function verify(tx, signature, market, settlement) {
             const eventBytes = decodeBase58(emitted[0].data), decoded = readPumpStruct('TradeEvent',eventBytes,16), e = decoded.value;
             if (decoded.end !== eventBytes.length) throw new Error('CURVE_EVENT_VERSION');
             const amount = rawInteger(e.token_amount), quote = rawInteger(e.quote_amount);
+            if (e.mayhem_mode) throw new Error('UNSUPPORTED_MAYHEM');
             if (!amount || !quote || e.mint !== market.tokenMint || normalizeQuote(e.quote_mint) !== market.quoteMint
                 || e.user !== named.user || e.is_buy !== buy || e.ix_name !== (buy ? exact ? v2?'buy_exact_quote_in':'buy_exact_sol_in' : 'buy' : 'sell')
                 || !exact && integer(bytes,8) !== amount || native && e.sol_amount !== e.quote_amount) throw new Error('CURVE_EVENT_IDENTITY_OR_AMOUNTS');

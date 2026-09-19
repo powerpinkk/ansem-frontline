@@ -14,6 +14,10 @@ import { arbitrageFixture } from './fixtures/pool.js';
 const identities = JSON.parse(readFileSync(new URL('./fixtures/public-chain/pool-identities.json', import.meta.url)));
 const verify = (f) => verifyPoolExecutions(f.transaction, f.signature, f.market);
 describe('canonical market effect independent of user attribution', () => {
+    it('rejects a Mayhem PumpSwap market before it can create pressure',()=>{
+        const f=swapFixture({protocol:'pumpswap'});f.market={...f.market,mayhem:true};
+        expect(verify(f)).toMatchObject({status:'UNSUPPORTED',reason:'UNSUPPORTED_MAYHEM',events:[]});
+    });
     it.each(['pumpswap','dlmm','orca'])('direct and Jupiter CPI have equivalent %s pool quantities', (protocol) => {
         for (const isBuy of [true,false]) {
             const direct = verify(swapFixture({ protocol, isBuy })).events[0];
