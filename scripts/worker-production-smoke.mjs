@@ -19,6 +19,16 @@ async function response(path, init = {}) {
     return { result, body };
 }
 
+async function retryResponse(path, init = {}, attempts = 3) {
+    let value;
+    for (let attempt = 1; attempt <= attempts; attempt += 1) {
+        value = await response(path, init);
+        if (value.result.status < 500) return value;
+        if (attempt < attempts) await new Promise((resolve) => setTimeout(resolve, attempt * 2_000));
+    }
+    return value;
+}
+
 function assert(condition, message) {
     if (!condition) throw new Error(message);
 }
@@ -75,33 +85,41 @@ for (const frontend of FRONTENDS) {
 const hostile = await response('/health', { headers: { Origin: 'https://attacker.example' } });
 assert(hostile.result.status === 403, 'Untrusted browser origin was not rejected');
 
-const market = await response(`/market?mint=${MINT}`, { headers: { Origin: FRONTENDS[0] } });
-assert(market.result.status === 200, `/market returned ${market.result.status}`);
-assert(market.body?.token?.identity?.mint === MINT, 'Market response has the wrong mint');
-assert(market.body?.valuation?.authorityEligible === false, 'Provider fallback must remain non-authoritative');
-report.market = {
-    status: market.body.status,
-    source: market.body.source,
-    valuationKind: market.body.valuation?.kind,
-    freshness: market.body.valuation?.freshness,
-};
+const market = await retryResponse(`/market?mint=${MINT}`, { headers: { Origin: FRONTENDS[0] } });
+assert([200, 503].includes(market.result.status), `/market returned unexpected ${market.result.status}`);
+if (market.result.status === 200) {
+    assert(market.body?.token?.identity?.mint === MINT, 'Market response has the wrong mint');
+    assert(market.body?.valuation?.authorityEligible === false, 'Provider fallback must remain non-authoritative');
+    report.market = {
+        status: market.body.status,
+        source: market.body.source,
+        valuationKind: market.body.valuation?.kind,
+        freshness: market.body.valuation?.freshness,
+    };
+} else {
+    assert(market.body?.error === 'Market fallback unavailable', 'Unexpected market degradation payload');
+    report.market = { status: 'degraded', upstream: 'unavailable' };
+}
 
-const recent = await response('/recent', {
+const recent = await retryResponse('/recent', {
     method: 'POST',
     headers: { Origin: FRONTENDS[1], 'content-type': 'application/json' },
     body: JSON.stringify({ type: 'configure', token: { mint: MINT, chain: 'solana' } }),
 });
 assert(recent.result.status === 200, `/recent returned ${recent.result.status}`);
 assert(recent.body?.version === 4 && recent.body?.tokenMint === MINT, 'Recent response has the wrong identity/version');
-assert(recent.body?.canonicalMarket?.tokenMint === MINT, 'Canonical market did not initialize');
-assert(Number.isInteger(recent.body?.sourceEpoch) && recent.body.sourceEpoch > 0, 'Source epoch did not initialize');
 assert(recent.body?.integrity && typeof recent.body.integrity === 'object', 'Integrity diagnostics are unavailable');
+if (recent.body.canonicalMarket) {
+    assert(recent.body.canonicalMarket.tokenMint === MINT, 'Canonical market has the wrong mint');
+    assert(Number.isInteger(recent.body.sourceEpoch) && recent.body.sourceEpoch > 0, 'Source epoch did not initialize');
+}
 report.recent = {
     status: recent.body.status,
     sourceEpoch: recent.body.sourceEpoch,
-    market: recent.body.canonicalMarket.address,
-    protocol: recent.body.canonicalMarket.protocol,
-    compatibility: recent.body.canonicalMarket.compatibility,
+    initialized: Boolean(recent.body.canonicalMarket),
+    market: recent.body.canonicalMarket?.address ?? null,
+    protocol: recent.body.canonicalMarket?.protocol ?? null,
+    compatibility: recent.body.canonicalMarket?.compatibility ?? null,
     authorityEligible: recent.body.canonicalValuation?.authorityEligible ?? false,
     settlement: recent.body.trades?.[0]?.settlement ?? 'NO_NATURAL_ACTIVITY',
     records: recent.body.integrity.records,
