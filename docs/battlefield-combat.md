@@ -76,4 +76,3 @@ Normal detailed melee evaluates only its selected target. Aggregate combat uses 
 `tests/combat.test.js` verifies legal state order, visible bear pose, miss semantics, one hit per swing, 30/60/120 FPS cadence, reset, mass, clamping, exact-overlap normals, swept fast contact, bounded multiple contacts, impact mapping, exclusions, reversal, flood and context isolation. `tests/locomotion.test.js` verifies that external impulse travels through resolved velocity. Browser tests stage deterministic bear and bidirectional impact fixtures without live market dependence.
 
 `npm run test:combat:soak` executes 600 simulated seconds over 192 combatants, repeated attacks and misses, impact floods, reversals, charge registries, rebases, token switches and object resets. It fails on duplicate hit edges, non-finite values, policy overflow, queue growth or any mutation of a frozen financial-truth snapshot.
-
