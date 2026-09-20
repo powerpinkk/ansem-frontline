@@ -197,6 +197,24 @@ describe('locomotion foundation', () => {
         }
     });
 
+    it('composes bounded combat impulse through resolved velocity instead of teleporting', () => {
+        const motion = createMotionState({ x: 0, z: 0 });
+        beginMotionFrame(motion, 0, 0);
+        integrateMotion(motion, {
+            targetX: 20,
+            targetZ: 0,
+            maxSpeed: 4,
+            externalVelocityX: -100,
+            externalVelocityZ: 100,
+            maxExternalSpeed: 6,
+        }, 1 / 60);
+        finalizeMotionFrame(motion, { x: motion.positionX, z: motion.positionZ, speedLimit: 10 }, 1 / 60);
+        expect(motion.speed).toBeLessThanOrEqual(10);
+        expect(motion.positionX).toBeLessThan(0);
+        expect(motion.positionZ).toBeGreaterThan(0);
+        expect(Number.isFinite(motion.facing)).toBe(true);
+    });
+
     it('treats a floating-origin rebase as lifecycle sync, not locomotion', () => {
         const motion = simulate({ seconds: 1 });
         const priorDistance = motion.distanceTravelled;
