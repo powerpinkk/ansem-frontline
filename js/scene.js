@@ -7,6 +7,16 @@ import { deriveBullChargeProfile, pointToSegmentDistanceSquared, sweptCircleInte
 import { state } from './state.js';
 import { ARENA, clamp, clampArenaPosition, isFinitePosition, isUnitStranded, tacticalPatrolTarget, tradeLane, unitHasExpired } from './navigation.js';
 import { deriveBattleTactics } from './market.js';
+import {
+    LOCOMOTION_STATE,
+    PROGRESS_STATE,
+    beginMotionFrame,
+    createMotionState,
+    finalizeMotionFrame,
+    integrateMotion,
+    sampleQuadrupedGait,
+    syncMotionPosition,
+} from './locomotion.js';
 
 let onKillEvent = () => {};
 let onReclaimEvent = () => {};
@@ -113,6 +123,9 @@ let contextLost = false;
 let selectedEntity = null;
 let frameSampleTime = 0;
 let frameSampleCount = 0;
+let motionUpdateSamples = 0;
+let motionUpdateTotalMs = 0;
+let motionUpdateMaxMs = 0;
 let adaptivePixelRatio = 1;
 let stableFrameWindows = 0;
 let lastKingReclaimAt = 0;
@@ -368,6 +381,69 @@ let lastCameraActionSpread = 0;
 let activeScenePresentation = null;
 let sceneThemeApplications = 0;
 
+function getLocomotionDiagnostics() {
+    let moving = 0;
+    let idle = 0;
+    let walk = 0;
+    let run = 0;
+    let charge = 0;
+    let stuck = 0;
+    let recovering = 0;
+    let backward = 0;
+    let speedTotal = 0;
+    let nonFinite = 0;
+    let recoveryLoops = 0;
+    let gaitWhileStatic = 0;
+    let maxRecoveryAttempts = 0;
+    let quadrupedAnimated = 0;
+    let count = 0;
+    const collect = (motion, isQuadruped) => {
+        if (!motion) return;
+        count += 1;
+        speedTotal += motion.speed;
+        nonFinite += motion.nonFiniteCorrections;
+        recoveryLoops += motion.recoveryLoops;
+        gaitWhileStatic += motion.gaitWhileStatic;
+        maxRecoveryAttempts = Math.max(maxRecoveryAttempts, motion.maxRecoveryAttemptsObserved);
+        if (motion.speed > 0.12) moving += 1;
+        if (motion.locomotionState === LOCOMOTION_STATE.IDLE) idle += 1;
+        else if (motion.locomotionState === LOCOMOTION_STATE.WALK) walk += 1;
+        else if (motion.locomotionState === LOCOMOTION_STATE.RUN) run += 1;
+        else if (motion.locomotionState === LOCOMOTION_STATE.CHARGE) charge += 1;
+        if (motion.progressState === PROGRESS_STATE.SUSPECTED) stuck += 1;
+        if (motion.progressState === PROGRESS_STATE.RECOVERY) recovering += 1;
+        backward += motion.backwardViolations;
+        if (isQuadruped && motion.gaitPhase > 0 && motion.speed > 0.12) quadrupedAnimated += 1;
+    };
+    for (const entity of entities) collect(entity.motion, true);
+    for (const agent of crowdAgents.bull) collect(agent.motion, true);
+    for (const agent of crowdAgents.bear) collect(agent.motion, true);
+    return {
+        moving,
+        idle,
+        walk,
+        run,
+        charge,
+        stuck,
+        recovering,
+        backward,
+        averageSpeed: count ? speedTotal / count : 0,
+        maxRecoveryAttempts,
+        quadrupedAnimated,
+        assertions: {
+            nonFinite,
+            recoveryLoops,
+            gaitWhileStatic,
+            persistentBackward: backward,
+        },
+        updatePerformance: {
+            samples: motionUpdateSamples,
+            meanMs: motionUpdateSamples ? motionUpdateTotalMs / motionUpdateSamples : 0,
+            maxMs: motionUpdateMaxMs,
+        },
+    };
+}
+
 export function initScene(callbacks = {}) {
     onKillEvent = callbacks.onKillEvent || onKillEvent;
     onReclaimEvent = callbacks.onReclaimEvent || onReclaimEvent;
@@ -407,6 +483,17 @@ export function initScene(callbacks = {}) {
                 chargeStarts: entity.chargeStarts,
                 chargeHits: entity.chargeHits,
                 chargeDistance: entity.chargeDistance,
+                desiredVelocityX: entity.motion.desiredVelocityX,
+                desiredVelocityZ: entity.motion.desiredVelocityZ,
+                resolvedVelocityX: entity.motion.resolvedVelocityX,
+                resolvedVelocityZ: entity.motion.resolvedVelocityZ,
+                speed: entity.motion.speed,
+                facing: entity.motion.facing,
+                locomotionState: entity.motion.locomotionState,
+                progressState: entity.motion.progressState,
+                recoveryAttempts: entity.motion.recoveryAttempts,
+                backwardViolations: entity.motion.backwardViolations,
+                gaitPhase: entity.motion.gaitPhase,
             })),
             projectiles: projectiles.length,
             supportWaves: supportWaves.length,
@@ -468,7 +555,13 @@ export function initScene(callbacks = {}) {
                 intent: agent.intent,
                 role: agent.role,
                 retiring: agent.retiring,
+                speed: agent.motion.speed,
+                facing: agent.motion.facing,
+                locomotionState: agent.motion.locomotionState,
+                progressState: agent.motion.progressState,
+                recoveryAttempts: agent.motion.recoveryAttempts,
             }))])),
+            locomotion: getLocomotionDiagnostics(),
             bullKing: bullKingRig ? {
                 x: bullKingRig.position.x,
                 y: bullKingRig.position.y,
@@ -617,6 +710,8 @@ export function initScene(callbacks = {}) {
                 const bear = whales.bear[index];
                 bull.mesh.position.set(-15, getTrenchHeight(-15, z), z);
                 bear.mesh.position.set(15, getTrenchHeight(15, z), z);
+                syncEntityMotion(bull);
+                syncEntityMotion(bear);
                 for (const [entity, target] of [[bull, bear], [bear, bull]]) {
                     entity.laneTarget = z;
                     entity.target = target;
@@ -640,6 +735,8 @@ export function initScene(callbacks = {}) {
                 .find((candidateZ) => isChargePathClear(-22, candidateZ, 13, candidateZ, 3.8)) ?? 0;
             bull.mesh.position.set(-22, getTrenchHeight(-22, z), z);
             bear.mesh.position.set(8, getTrenchHeight(8, z), z);
+            syncEntityMotion(bull);
+            syncEntityMotion(bear);
             bull.laneTarget = z;
             bear.laneTarget = z;
             bull.target = bear;
@@ -660,7 +757,10 @@ export function initScene(callbacks = {}) {
         };
         window.__ansemTriggerReclamation = () => {
             const bear = entities.find((entity) => entity.type === 'bear');
-            if (bear) bear.mesh.position.x = 0;
+            if (bear) {
+                bear.mesh.position.x = 0;
+                syncEntityMotion(bear);
+            }
             state.buySol60s = 20;
             state.sellSol60s = 2;
             state.frontlineX = 20;
@@ -675,6 +775,7 @@ export function initScene(callbacks = {}) {
             const bear = entities.find((entity) => entity.type === 'bear');
             if (!bear) return;
             bear.mesh.position.set(state.frontlineX + 4, getTrenchHeight(state.frontlineX + 4, 10), 10);
+            syncEntityMotion(bear);
             bear.vx = 0;
             bear.vz = 0;
         };
@@ -686,6 +787,7 @@ export function initScene(callbacks = {}) {
                 getTrenchHeight(bullKingRig.position.x + 5, bullKingRig.position.z + 8),
                 bullKingRig.position.z + 8,
             );
+            syncEntityMotion(bear);
             bear.vx = 0;
             bear.vz = 0;
             bear.target = null;
@@ -962,6 +1064,9 @@ export function resetTokenPresentation() {
     bullChargeStarts = 0;
     bullChargeHits = 0;
     lastBullChargeAt = 0;
+    motionUpdateSamples = 0;
+    motionUpdateTotalMs = 0;
+    motionUpdateMaxMs = 0;
     bullSupportUntil = 0;
     lastKingReclaimAt = 0;
     lastKingDefenseAt = 0;
@@ -1204,6 +1309,16 @@ export function spawnUnit(type, initial = false, isWhale = false, trade = null) 
         crowdStrikes: 0,
         lastFrameTravel: 0,
         lastPosition: new THREE.Vector2(spawnPosition.x, spawnPosition.z),
+        motion: createMotionState({
+            x: spawnPosition.x,
+            z: spawnPosition.z,
+            facing: isBull ? 0 : Math.PI,
+            targetIdentity: null,
+            seed: sequence + (isBull ? 11 : 101),
+        }),
+        motionInput: {},
+        motionFinalize: {},
+        gaitPose: {},
         chargePhase: 'idle',
         chargePhaseStartedAt: 0,
         chargeCooldownUntil: Date.now() + 1_800 + (sequence % 5) * 420,
@@ -2915,6 +3030,7 @@ function updateEntities(delta) {
         }
         const frameStartX = e.mesh.position.x;
         const frameStartZ = e.mesh.position.z;
+        beginMotionFrame(e.motion, frameStartX, frameStartZ);
 
         e.body.scale.lerp(e.baseScale, 10 * delta);
         const isSupported = e.type === 'bull' && e.supportUntil > now;
@@ -2928,11 +3044,8 @@ function updateEntities(delta) {
         e.animTime += delta;
         e.cooldown -= delta;
         if (!isBullChargeActive(e)) {
-            e.mesh.position.x += e.vx * delta;
-            e.mesh.position.z += e.vz * delta;
-            // Time-based damping behaves identically at 2fps and 120fps. The
-            // previous per-frame multiplier left large knockback active much
-            // longer on slow renderers and made giants oscillate after impact.
+            // External combat impulses feed the resolved-velocity stage below.
+            // Time-based damping keeps their decay independent of frame count.
             e.vx = THREE.MathUtils.damp(e.vx, 0, 8, delta);
             e.vz = THREE.MathUtils.damp(e.vz, 0, 8, delta);
         } else {
@@ -2976,6 +3089,7 @@ function updateEntities(delta) {
         if (!forcedRetreat && !activeFrontContact && !isBullChargeActive(e)) {
             tryStartBullCharge(e, tactics, now);
         }
+        if (!isBullChargeActive(e)) applySeparation(e, delta);
 
         if (isBullChargeActive(e)) {
             const chargeUpdate = updateBullCharge(e, delta, now);
@@ -2988,12 +3102,16 @@ function updateEntities(delta) {
             const dz = e.laneTarget - e.mesh.position.z;
             const dist = Math.max(0.001, Math.hypot(dx, dz));
             const steering = getSteering(e, dx / dist, dz / dist);
-            e.mesh.position.x += steering.x * speed * 1.22 * delta;
-            e.mesh.position.z += steering.z * speed * 1.22 * delta;
-            e.mesh.rotation.y = e.type === 'bull' ? 0 : Math.PI;
-            e.body.position.y = 1.3 + Math.abs(Math.sin(e.animTime * 14)) * 0.14;
+            integrateDetailedMotion(
+                e, e.forcedRetreatX, e.laneTarget, speed * 1.22, delta,
+                steering.x, steering.z, 'forced-retreat',
+            );
             isMoving = true;
         } else if (activeFrontContact) {
+            integrateDetailedMotion(
+                e, e.mesh.position.x, e.mesh.position.z, 0, delta,
+                undefined, undefined, `crowd-${activeFrontContact.id}`, 0.35, 0, true, true,
+            );
             animateChampionCrowdCombat(e, activeFrontContact, delta);
             animatedFrontContact = true;
         } else if (e.target) {
@@ -3006,19 +3124,21 @@ function updateEntities(delta) {
             const attackDistSq = attackDistance * attackDistance;
 
             if (distSq > attackDistSq) {
-                if (Math.abs(e.vx) < 1) {
-                    const dist = Math.max(0.001, Math.sqrt(distSq));
-                    const steering = getSteering(e, dx / dist, dz / dist);
-                    e.mesh.position.x += steering.x * speed * delta;
-                    e.mesh.position.z += steering.z * speed * delta;
-                    isMoving = true;
-                }
-                e.mesh.rotation.y = Math.atan2(-dz, dx);
-                e.body.position.y = 1.3 + Math.abs(Math.sin(e.animTime * 15)) * 0.15;
-                e.body.rotation.z = 0.1;
+                const dist = Math.max(0.001, Math.sqrt(distSq));
+                const steering = getSteering(e, dx / dist, dz / dist);
+                integrateDetailedMotion(
+                    e, e.target.mesh.position.x, e.target.mesh.position.z, speed, delta,
+                    steering.x, steering.z, e.target.trade?.id || e.target.bornAt,
+                    attackDistance + 0.5, 0.28,
+                );
+                isMoving = true;
             } else {
+                integrateDetailedMotion(
+                    e, e.mesh.position.x, e.mesh.position.z, 0, delta,
+                    undefined, undefined, e.target.trade?.id || e.target.bornAt,
+                    0.35, 0, true, true,
+                );
                 e.body.position.y = 1.3;
-                e.mesh.rotation.y = Math.atan2(-dz, dx);
 
                 if (Math.sin(e.animTime * 12) > 0.9 && e.cooldown <= 0) {
                     let dmg = dmgBase + Math.floor(Math.random() * 20);
@@ -3093,15 +3213,14 @@ function updateEntities(delta) {
             const crossingBoost = e.lineProximityAt
                 ? 1 + smoothstep(500, 2_200, now - e.lineProximityAt) * 1.35
                 : 1;
-            e.mesh.position.x += steering.x * speed * 0.82 * crossingBoost * delta;
-            e.mesh.position.z += steering.z * speed * 0.82 * crossingBoost * delta;
-            e.mesh.rotation.y = Math.atan2(-steering.z, steering.x);
-            e.body.position.y = 1.3 + Math.abs(Math.sin(e.animTime * 12)) * 0.12;
+            integrateDetailedMotion(
+                e, hold.x, hold.z, speed * 0.82 * crossingBoost, delta,
+                steering.x, steering.z, `patrol-${e.patrolSide}`, 1.8, 0.24,
+            );
             isMoving = true;
         }
 
         if (!chargeAnimated) {
-            applySeparation(e, delta);
             makeFriendlyCrowdYieldToChampion(e);
             const crowdContact = resolveChampionCrowdContact(e);
             if (crowdContact) {
@@ -3157,31 +3276,25 @@ function updateEntities(delta) {
         enforceArenaBounds(e);
         e.mesh.position.y = getTrenchHeight(e.mesh.position.x, e.mesh.position.z);
 
-        if (chargeAnimated) {
-            e.stuckTime = 0;
-            e.lastPosition.set(e.mesh.position.x, e.mesh.position.z);
-        } else if (isMoving || e.behavior === 'frontline') {
-            if (isMoving) recoverIfStuck(e, delta);
-            const walkSpeed = e.isWhale ? 10 : 15;
-            const legAmplitude = e.behavior === 'frontline' ? 0.32 : 0.6;
-            e.legs[0].rotation.z = Math.sin(e.animTime * walkSpeed) * legAmplitude;
-            e.legs[3].rotation.z = Math.sin(e.animTime * walkSpeed) * legAmplitude;
-            e.legs[1].rotation.z = Math.sin(e.animTime * walkSpeed + Math.PI) * legAmplitude;
-            e.legs[2].rotation.z = Math.sin(e.animTime * walkSpeed + Math.PI) * legAmplitude;
-        } else {
-            e.legs.forEach((leg) => {
-                leg.rotation.z = THREE.MathUtils.lerp(leg.rotation.z, 0, 0.2);
-            });
-        }
+        e.motionCharge = chargeAnimated && isMoving;
+        e.motionProgressExempt = chargeAnimated || animatedFrontContact || !isMoving;
+        e.motionCombatPose = animatedFrontContact || Boolean(e.target && !isMoving);
+        e.motionChargeAnimated = chargeAnimated;
         if (!e.physicsReady) e.physicsReady = true;
-        e.lastFrameTravel = Math.hypot(e.mesh.position.x - frameStartX, e.mesh.position.z - frameStartZ);
     }
 
     resolveDetailedEntityContacts(now);
-
     for (const { entity, defeated } of finished) {
         if (defeated) spawnParticles(entity.mesh.position, entity.type === 'bull' ? matParticleBull : matParticleBear, true, entity.isWhale);
         retireEntity(entity);
+    }
+}
+
+function finalizeEntityMotions(delta) {
+    for (const entity of entities) {
+        if (entity.retired) continue;
+        finalizeDetailedMotion(entity, delta, entity.motionCharge, entity.motionProgressExempt);
+        if (!entity.motionChargeAnimated) applyDetailedGait(entity, delta, entity.motionCombatPose);
     }
 }
 
@@ -3367,6 +3480,7 @@ function updateCrowdForces(delta) {
     separateCrowdRanks();
     const movedChampions = refreshChampionCrowdContactsAfterCrowd(now);
     if (movedChampions.length) resolveDetailedEntityContacts(now, movedChampions);
+    finalizeCrowdMotions(delta);
     refreshCrowdMeshes();
     updateCrowdSnapshot(tactics, delta);
     updateCrowdClashEffects(delta);
@@ -3500,6 +3614,16 @@ function createCrowdAgent(type) {
         engaged: false,
         assisting: false,
         intent: 'reinforce',
+        motion: createMotionState({
+            x: spawnX,
+            z: lane,
+            facing: direction > 0 ? 0 : Math.PI,
+            targetIdentity: null,
+            seed: sequence + (type === 'bull' ? 211 : 421),
+        }),
+        motionInput: {},
+        motionFinalize: {},
+        gaitPose: {},
     };
 }
 
@@ -3665,6 +3789,7 @@ function updateCrowdSide(type, doctrine, delta) {
     const direction = doctrine.direction;
     for (const agent of agents) {
         const previousX = agent.x;
+        beginMotionFrame(agent.motion, agent.x, agent.z);
         const order = crowdOrders[type].get(agent);
         const roleSpeed = agent.role === 'vanguard' ? 1.1
             : agent.role === 'flank' ? 1.05
@@ -3739,8 +3864,24 @@ function updateCrowdSide(type, doctrine, delta) {
         const speed = Math.min(9.4, 7.2 * doctrine.speed * roleSpeed * agent.speedBias) * (agent.retiring ? 0 : 1);
         const arrivalFloor = agent.assisting ? 0.22 : 0.12;
         const arrival = distance < 2.2 && !agent.retiring ? clamp(distance / 2.2, arrivalFloor, 1) : 1;
-        agent.vx = THREE.MathUtils.damp(agent.vx, steering.x * speed * arrival, 4.4, delta);
-        agent.vz = THREE.MathUtils.damp(agent.vz, steering.z * speed * arrival, 4.4, delta);
+        const motionInput = agent.motionInput;
+        motionInput.targetX = targetX;
+        motionInput.targetZ = targetZ;
+        motionInput.maxSpeed = speed * arrival;
+        motionInput.maxAcceleration = 32;
+        motionInput.arrivalRadius = 0;
+        motionInput.arrivalFloor = arrivalFloor;
+        motionInput.intentionalHold = agent.retiring;
+        motionInput.progressExempt = agent.retiring || agent.engaged;
+        motionInput.targetIdentity = opponent ? `${opponent.type}-${opponent.id}` : `${agent.intent}-${agent.laneSlot}`;
+        motionInput.steeringX = steering.x;
+        motionInput.steeringZ = steering.z;
+        motionInput.separationX = 0;
+        motionInput.separationZ = 0;
+        motionInput.maxSeparationSpeed = 0;
+        integrateMotion(agent.motion, motionInput, delta);
+        agent.vx = agent.motion.resolvedVelocityX;
+        agent.vz = agent.motion.resolvedVelocityZ;
         // Aggregate ranks may sidestep terrain or circle an opponent, but their
         // longitudinal movement is never allowed to reverse. Market pressure
         // resolves through eliminations and new reinforcements, not retreats.
@@ -3750,8 +3891,9 @@ function updateCrowdSide(type, doctrine, delta) {
             agent.vx = agent.vx / velocity * 9.4;
             agent.vz = agent.vz / velocity * 9.4;
         }
-        agent.x = clamp(agent.x + agent.vx * delta, ARENA.minX + 0.7, ARENA.maxX - 0.7);
-        agent.z = clamp(agent.z + agent.vz * delta, ARENA.minZ + 0.7, ARENA.maxZ - 0.7);
+        agent.x = clamp(agent.motion.positionX, ARENA.minX + 0.7, ARENA.maxX - 0.7);
+        agent.z = clamp(agent.motion.positionZ, ARENA.minZ + 0.7, ARENA.maxZ - 0.7);
+        agent.motionFacingTarget = opponent;
         const contactPartner = agent.engagementPartner;
         if (contactPartner && !contactPartner.retiring) {
             const contactSpacing = 3.25;
@@ -3789,31 +3931,9 @@ function updateCrowdSide(type, doctrine, delta) {
             }
         }
 
-        const moved = Math.hypot(agent.x - agent.lastX, agent.z - agent.lastZ);
-        agent.stuckTime = distance > 1.8 && moved < 0.004 ? agent.stuckTime + delta : 0;
-        if (agent.stuckTime > 1.25) {
-            agent.laneBias = clamp(agent.laneBias + agent.avoidanceSide * 0.28, -0.58, 0.58);
-            agent.z = clamp(agent.z + agent.avoidanceSide * 0.28, ARENA.minZ + 0.7, ARENA.maxZ - 0.7);
-            agent.avoidanceSide *= -1;
-            agent.nextLaneDecisionAt = Math.min(agent.nextLaneDecisionAt, Date.now() + 350);
-            agent.stuckTime = 0;
-        }
-        agent.lastX = agent.x;
-        agent.lastZ = agent.z;
-
         const travelSign = Math.abs(agent.vx) > 0.7 ? Math.sign(agent.vx) : 0;
         if (travelSign && agent.travelSign && travelSign !== agent.travelSign) crowdBattle.directionChanges += 1;
         if (travelSign) agent.travelSign = travelSign;
-        const desiredHeading = agent.engaged
-            ? Math.atan2(-(opponent.z - agent.z), opponent.x - agent.x)
-            : Math.hypot(agent.vx, agent.vz) > 0.12
-                ? Math.atan2(-agent.vz, agent.vx)
-                : agent.heading;
-        const headingDelta = Math.atan2(Math.sin(desiredHeading - agent.heading), Math.cos(desiredHeading - agent.heading));
-        const maxTurnSpeed = agent.engaged ? 3.2 : 2.35;
-        const headingStep = clamp(headingDelta, -maxTurnSpeed * delta, maxTurnSpeed * delta);
-        agent.heading += headingStep;
-        agent.turnRate = Math.abs(headingStep) / Math.max(0.001, delta);
     }
 
     for (let index = agents.length - 1; index >= 0; index--) {
@@ -4100,8 +4220,9 @@ function refreshCrowdMeshes() {
             const speed = Math.hypot(agent.vx, agent.vz);
             const combatWeight = agent.engaged ? 1 : agent.assisting ? 0.38 : 0;
             const attackPulse = combatWeight * Math.max(0, Math.sin(kingTime * (6.2 + crowdBattle.intensity) + agent.phase));
-            const gaitAmount = prefersReducedMotion ? 0 : clamp(speed / 1.25, 0, 1);
-            const stride = Math.sin(kingTime * (7.4 + speed * 0.55) + agent.phase) * gaitAmount;
+            const gait = sampleQuadrupedGait(agent.motion, agent.gaitPose);
+            const gaitAmount = prefersReducedMotion ? 0 : gait.amplitude;
+            const stride = Math.sin(agent.motion.gaitPhase + agent.phase) * gaitAmount;
             const scale = agent.size * smoothstep(0, 0.82, agent.life) * (1 + attackPulse * 0.13);
             const lunge = attackPulse * 0.34 + Math.max(0, stride) * Math.min(0.12, speed * 0.018);
             _crowdTransform.position.set(
@@ -4122,14 +4243,17 @@ function refreshCrowdMeshes() {
             meshes.eyes.setMatrixAt(index, _crowdTransform.matrix);
             for (let legIndex = 0; legIndex < 4; legIndex++) {
                 const offsetIndex = legIndex * 3;
-                const gait = Math.sin(kingTime * (8.5 + speed * 0.52) + agent.phase + (legIndex % 2) * Math.PI) * gaitAmount
-                    + attackPulse * (legIndex < 2 ? -0.24 : 0.16);
+                const legGait = prefersReducedMotion ? 0
+                    : legIndex === 0 ? agent.gaitPose.frontLeft
+                        : legIndex === 1 ? agent.gaitPose.frontRight
+                            : legIndex === 2 ? agent.gaitPose.hindLeft
+                                : agent.gaitPose.hindRight;
                 _crowdLegTransform.position.set(
                     legOffsets[offsetIndex],
                     legOffsets[offsetIndex + 1],
                     legOffsets[offsetIndex + 2],
                 );
-                _crowdLegTransform.rotation.set(0, 0, gait * (agent.engaged ? 0.48 : 0.68));
+                _crowdLegTransform.rotation.set(0, 0, legGait * (agent.engaged ? 0.48 : 0.68));
                 _crowdLegTransform.scale.set(type === 'bull' ? 0.85 : 0.82, type === 'bull' ? 0.82 : 0.78, type === 'bull' ? 0.85 : 0.82);
                 _crowdLegTransform.updateMatrix();
                 _crowdLegMatrix.multiplyMatrices(_crowdTransform.matrix, _crowdLegTransform.matrix);
@@ -4445,8 +4569,113 @@ function applySeparation(entity, delta) {
     }
     entity.separationX = THREE.MathUtils.damp(entity.separationX, pushX, 10, delta);
     entity.separationZ = THREE.MathUtils.damp(entity.separationZ, pushZ, 10, delta);
-    entity.mesh.position.x += entity.separationX * delta * 3.2;
-    entity.mesh.position.z += entity.separationZ * delta * 3.2;
+}
+
+function finalizeCrowdMotions(delta) {
+    for (const type of ['bull', 'bear']) {
+        for (const agent of crowdAgents[type]) {
+            const input = agent.motionFinalize;
+            const target = agent.motionFacingTarget;
+            input.x = agent.x;
+            input.z = agent.z;
+            input.speedLimit = 11;
+            input.turnSpeed = agent.engaged ? 3.2 : 2.35;
+            input.charge = false;
+            input.progressExempt = agent.retiring || agent.engaged;
+            input.allowExplicitFacing = Boolean(target) && agent.engaged;
+            input.explicitFacingX = target ? target.x - agent.x : 0;
+            input.explicitFacingZ = target ? target.z - agent.z : 0;
+            finalizeMotionFrame(agent.motion, input, delta);
+            agent.vx = agent.motion.resolvedVelocityX;
+            agent.vz = agent.motion.resolvedVelocityZ;
+            agent.heading = agent.motion.facing;
+            agent.turnRate = agent.motion.lastTurnRate;
+            agent.stuckTime = agent.motion.lowProgressTime;
+            agent.lastX = agent.x;
+            agent.lastZ = agent.z;
+        }
+    }
+}
+
+function integrateDetailedMotion(
+    entity,
+    targetX,
+    targetZ,
+    maxSpeed,
+    delta,
+    steeringX,
+    steeringZ,
+    targetIdentity = null,
+    arrivalRadius = 0.35,
+    arrivalFloor = 0,
+    intentionalHold = false,
+    progressExempt = false,
+) {
+    const input = entity.motionInput;
+    input.targetX = targetX;
+    input.targetZ = targetZ;
+    input.maxSpeed = maxSpeed;
+    input.maxAcceleration = entity.isWhale ? 22 : 30;
+    input.arrivalRadius = arrivalRadius;
+    input.arrivalFloor = arrivalFloor;
+    input.intentionalHold = intentionalHold;
+    input.progressExempt = progressExempt;
+    input.targetIdentity = targetIdentity;
+    input.steeringX = steeringX;
+    input.steeringZ = steeringZ;
+    input.separationX = entity.separationX * 3.2 + entity.vx;
+    input.separationZ = entity.separationZ * 3.2 + entity.vz;
+    input.maxSeparationSpeed = entity.isWhale ? 2.2 : 1.8;
+    integrateMotion(entity.motion, input, delta);
+    entity.mesh.position.x = entity.motion.positionX;
+    entity.mesh.position.z = entity.motion.positionZ;
+}
+
+function finalizeDetailedMotion(entity, delta, charge = false, progressExempt = false) {
+    const input = entity.motionFinalize;
+    const target = entity.frontContact || entity.target;
+    input.x = entity.mesh.position.x;
+    input.z = entity.mesh.position.z;
+    input.speedLimit = entity.isWhale ? 18 : 20;
+    input.turnSpeed = entity.isWhale ? 4.1 : 5.4;
+    input.charge = charge;
+    input.progressExempt = progressExempt;
+    input.allowExplicitFacing = Boolean(target) && entity.motion.speed <= 0.2;
+    input.explicitFacingX = target ? (target.x ?? target.mesh?.position.x) - entity.mesh.position.x : 0;
+    input.explicitFacingZ = target ? (target.z ?? target.mesh?.position.z) - entity.mesh.position.z : 0;
+    finalizeMotionFrame(entity.motion, input, delta);
+    entity.mesh.rotation.y = entity.motion.facing;
+    entity.lastFrameTravel = entity.motion.frameDistance;
+    entity.stuckTime = entity.motion.lowProgressTime;
+    entity.lastPosition.set(entity.mesh.position.x, entity.mesh.position.z);
+}
+
+function syncEntityMotion(entity) {
+    syncMotionPosition(
+        entity.motion,
+        entity.mesh.position.x,
+        entity.mesh.position.z,
+        entity.mesh.rotation.y,
+    );
+    entity.lastPosition.set(entity.mesh.position.x, entity.mesh.position.z);
+    entity.stuckTime = 0;
+}
+
+function applyDetailedGait(entity, delta, combatPose = false) {
+    const pose = sampleQuadrupedGait(entity.motion, entity.gaitPose);
+    const smoothing = Math.min(1, delta * 14);
+    const targetRotations = [pose.frontLeft, pose.frontRight, pose.hindLeft, pose.hindRight];
+    for (let index = 0; index < entity.legs.length; index++) {
+        entity.legs[index].rotation.z = THREE.MathUtils.lerp(
+            entity.legs[index].rotation.z,
+            combatPose ? 0 : targetRotations[index],
+            smoothing,
+        );
+    }
+    if (!combatPose && entity.motion.locomotionState !== LOCOMOTION_STATE.IDLE) {
+        entity.body.position.y = 1.3 + pose.bodyBob;
+        entity.body.rotation.z = THREE.MathUtils.lerp(entity.body.rotation.z, pose.bodyPitch, smoothing);
+    }
 }
 
 function getDetailedPhysicalSpacing(first, second) {
@@ -4700,11 +4929,13 @@ function animateChampionCrowdCombat(entity, contact, delta) {
 }
 
 function enforceArenaBounds(entity) {
+    let resetMotion = false;
     if (!isFinitePosition(entity.mesh.position)) {
         entity.mesh.position.x = entity.type === 'bull' ? ARENA.spawnBullX : ARENA.spawnBearX;
         entity.mesh.position.z = entity.laneTarget;
         entity.vx = 0;
         entity.vz = 0;
+        resetMotion = true;
     }
     const padding = entity.isWhale ? 4 : 1;
     const safe = clampArenaPosition(entity.mesh.position, padding);
@@ -4712,24 +4943,7 @@ function enforceArenaBounds(entity) {
     if (safe.z !== entity.mesh.position.z) entity.vz = 0;
     entity.mesh.position.x = safe.x;
     entity.mesh.position.z = safe.z;
-}
-
-function recoverIfStuck(entity, delta) {
-    const moved = Math.hypot(
-        entity.mesh.position.x - entity.lastPosition.x,
-        entity.mesh.position.z - entity.lastPosition.y
-    );
-    entity.stuckTime = moved < 0.008 ? entity.stuckTime + delta : 0;
-    entity.lastPosition.set(entity.mesh.position.x, entity.mesh.position.z);
-    if (entity.stuckTime < (entity.isWhale ? 1.65 : 1.2)) return;
-    entity.avoidanceSide *= -1;
-    const laneShift = entity.avoidanceSide * (entity.isWhale ? 8 : 5.5);
-    entity.laneTarget = clamp(entity.mesh.position.z + laneShift, ARENA.minZ + 2, ARENA.maxZ - 2);
-    entity.avoidanceUntil = Date.now() + (entity.isWhale ? 2_400 : 1_600);
-    entity.mesh.position.z += entity.avoidanceSide * (entity.isWhale ? 0.38 : 0.24);
-    entity.vx = 0;
-    entity.vz = 0;
-    entity.stuckTime = 0;
+    if (resetMotion) syncEntityMotion(entity);
 }
 
 function updateBullKing(delta) {
@@ -5200,15 +5414,20 @@ function gameLoop(timestamp) {
     animationFrameId = requestAnimationFrame(gameLoop);
     frameTimer.update(timestamp);
     const elapsed = frameTimer.getDelta();
-    // Keep physics close to wall-clock time on software WebGL. A 100ms global
-    // cap made a 2fps renderer advance at only one fifth speed; contact guards
-    // keep the larger physics step collision-safe. Camera/environment retain a
-    // tighter presentation step so a slow frame cannot become a visible cut.
+    // A bounded 250ms simulation step prevents resume/background spikes from
+    // tunnelling through terrain or rotating a unit in one visible snap. Motion
+    // remains elapsed-time based; no state advances by an assumed frame count.
     const simulationDelta = Math.min(elapsed, 0.25);
     const presentationDelta = Math.min(elapsed, 0.1);
+    const motionUpdateStartedAt = performance.now();
     updateProjectiles(simulationDelta);
     updateEntities(simulationDelta);
     updateCrowdForces(simulationDelta);
+    finalizeEntityMotions(simulationDelta);
+    const motionUpdateMs = performance.now() - motionUpdateStartedAt;
+    motionUpdateSamples += 1;
+    motionUpdateTotalMs += motionUpdateMs;
+    motionUpdateMaxMs = Math.max(motionUpdateMaxMs, motionUpdateMs);
     updateTerritorialControl();
     updateBullKing(simulationDelta);
     updateSupportWaves(simulationDelta);
