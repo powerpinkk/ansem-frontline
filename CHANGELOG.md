@@ -12,6 +12,8 @@ All notable changes are documented here. The project follows [Semantic Versionin
 - One-hour buy/sell market depth as the strategic input for aggregate army size.
 - A verified 30-second Pixel Frontline companion with Document Picture-in-Picture and popup fallback.
 - Long-soak diagnostics for King visibility, woodland engagements, champion contacts and lateral spread.
+- A renderer-independent locomotion state, orientation, deterministic recovery and distance-driven quadruped gait foundation.
+- Development motion diagnostics plus a 600-second, 260-agent locomotion soak.
 
 ### Changed
 
@@ -20,6 +22,7 @@ All notable changes are documented here. The project follows [Semantic Versionin
 - Widened the playable arena to 26 organic combat corridors with tree and rock avoidance on both flanks.
 - Replaced the Bull King's moving defense goal with a fixed, bounded intercept and persistent camera framing.
 - Replaced global champion clamping with local rank contact and combat animation.
+- Unified champion and aggregate-force intent, resolved velocity, final displacement, facing and gait into one bounded pipeline.
 
 ### Fixed
 
