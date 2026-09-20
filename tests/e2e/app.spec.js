@@ -575,6 +575,77 @@ test('scales a high-volume market into hundreds of moving forces with a wider au
     await captureLocalScreenshot(page, '.artifacts/high-volume.png');
 });
 
+test('keeps resolved locomotion, orientation and quadruped gait coherent through a market reversal', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== 'desktop-chromium', 'One deterministic WebGL locomotion sample is sufficient');
+    test.setTimeout(90_000);
+    const pageErrors = [];
+    page.on('pageerror', (error) => pageErrors.push(error.message));
+    await page.goto('/');
+    await page.waitForFunction(() => (
+        typeof window.__ansemSceneDiagnostics === 'function'
+        && typeof window.__ansemSpawnStressBattle === 'function'
+        && typeof window.__ansemSetBattlePressure === 'function'
+    ));
+    await page.evaluate(() => {
+        window.__ansemSpawnStressBattle(5);
+        window.__ansemSetBattlePressure({
+            buySol: 180,
+            sellSol: 90,
+            buyCount: 120,
+            sellCount: 80,
+            verifiedBuyCount: 12,
+            verifiedSellCount: 8,
+        });
+    });
+    await page.waitForFunction(() => {
+        const diagnostics = window.__ansemSceneDiagnostics();
+        return diagnostics.locomotion.moving >= 20
+            && diagnostics.locomotion.quadrupedAnimated >= 10
+            && diagnostics.entities.some((entity) => (
+                entity.type === 'bull'
+                && entity.isWhale
+                && entity.gaitPhase > 0
+            ));
+    }, undefined, { polling: 100, timeout: 30_000 });
+    const bullish = await page.evaluate(() => window.__ansemSceneDiagnostics());
+    await page.evaluate(() => window.__ansemSetBattlePressure({
+        buySol: 55,
+        sellSol: 210,
+        buyCount: 70,
+        sellCount: 140,
+        verifiedBuyCount: 7,
+        verifiedSellCount: 14,
+    }));
+    await page.waitForTimeout(1_800);
+    const reversed = await page.evaluate(() => window.__ansemSceneDiagnostics());
+
+    expect(bullish.locomotion.moving).toBeGreaterThan(0);
+    expect(bullish.locomotion.quadrupedAnimated).toBeGreaterThan(0);
+    expect(new Set([
+        bullish.locomotion.idle,
+        bullish.locomotion.walk,
+        bullish.locomotion.run,
+        bullish.locomotion.charge,
+    ].filter((count) => count > 0)).size).toBeGreaterThanOrEqual(2);
+    expect(reversed.locomotion.assertions).toEqual({
+        nonFinite: 0,
+        recoveryLoops: 0,
+        gaitWhileStatic: 0,
+        persistentBackward: 0,
+    });
+    expect(reversed.locomotion.maxRecoveryAttempts).toBeLessThanOrEqual(3);
+    expect(reversed.locomotion.updatePerformance.samples).toBeGreaterThan(3);
+    expect(reversed.entities.every((entity) => (
+        Number.isFinite(entity.facing)
+        && Number.isFinite(entity.speed)
+        && Number.isFinite(entity.desiredVelocityX)
+        && Number.isFinite(entity.resolvedVelocityX)
+    ))).toBe(true);
+    expect(reversed.marketTerrain.presentationCoordinate).toBe(bullish.marketTerrain.presentationCoordinate);
+    expect(pageErrors).toEqual([]);
+    await captureLocalScreenshot(page, '.artifacts/m11-locomotion-reversal.png');
+});
+
 test('keeps giant combatants stable while navigating dense ranks', async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== 'desktop-chromium', 'One high-frequency motion sample is sufficient');
     test.setTimeout(90_000);
