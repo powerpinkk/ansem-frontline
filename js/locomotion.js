@@ -152,8 +152,17 @@ export function integrateMotion(state, input = {}, delta = 0) {
         : 1;
     desiredX += separationX * separationScale;
     desiredZ += separationZ * separationScale;
+    const externalX = finiteOr(input.externalVelocityX, 0);
+    const externalZ = finiteOr(input.externalVelocityZ, 0);
+    const externalLimit = clamp(finiteOr(input.maxExternalSpeed, 0), 0, 20);
+    const externalMagnitude = Math.hypot(externalX, externalZ);
+    const externalScale = externalMagnitude > externalLimit && externalMagnitude > EPSILON
+        ? externalLimit / externalMagnitude
+        : 1;
+    desiredX += externalX * externalScale;
+    desiredZ += externalZ * externalScale;
     const desiredMagnitude = Math.hypot(desiredX, desiredZ);
-    const totalSpeedLimit = maxSpeed + separationLimit;
+    const totalSpeedLimit = maxSpeed + separationLimit + externalLimit;
     if (desiredMagnitude > totalSpeedLimit && desiredMagnitude > EPSILON) {
         desiredX = desiredX / desiredMagnitude * totalSpeedLimit;
         desiredZ = desiredZ / desiredMagnitude * totalSpeedLimit;
@@ -222,8 +231,9 @@ export function finalizeMotionFrame(state, input = {}, delta = 0) {
 
     const charge = Boolean(input.charge);
     state.locomotionState = deriveLocomotionState(state.locomotionState, state.speed, charge);
-    if (state.speed > MOTION_LIMITS.facingDeadZone && !charge) {
-        const cadence = state.locomotionState === LOCOMOTION_STATE.RUN ? 2.65 : 2.05;
+    if (state.speed > MOTION_LIMITS.facingDeadZone) {
+        const cadence = state.locomotionState === LOCOMOTION_STATE.CHARGE ? 3.15
+            : state.locomotionState === LOCOMOTION_STATE.RUN ? 2.65 : 2.05;
         state.gaitPhase = normalizePhase(state.gaitPhase + distance * cadence);
     } else if (state.speed <= MOTION_LIMITS.facingDeadZone
         && state.locomotionState !== LOCOMOTION_STATE.IDLE) {
