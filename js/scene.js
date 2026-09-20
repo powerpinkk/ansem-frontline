@@ -89,6 +89,14 @@ const crowdBattle = {
 };
 
 let scene, camera, renderer, frontlineLaser, frontlineMaterial, orbitControls, terrainMaterial;
+let marketTerrainController = null;
+let marketTerrainSnapshot = null;
+let marketTerrainGroup, marketMajorLines, marketMinorLines, marketFrontier, marketPresentationMarker;
+let marketMajorMaterial, marketMinorMaterial, marketFrontierMaterial, marketPresentationMaterial;
+let marketTerrainOverlay, marketFrontierValue, marketFrontierStatus, marketFrontierDirection, marketBandLabels = [];
+let lastMarketTerrainUpdateAt = 0;
+const MARKET_TERRAIN_MAJOR_CAPACITY = 10;
+const MARKET_TERRAIN_MINOR_CAPACITY = 36;
 let ambientLight, hemisphereLight, sunLight, rimLight;
 let bullKingRig, kingMount, kingRider, kingRiderHead, kingRiderArm, kingWingNear, kingWingFar, kingStaff, kingStaffGlow, kingMountAura, kingTail;
 let userChampionRig, userChampionBull, userChampionSentinel, userChampionAura, userChampionLight;
@@ -345,6 +353,7 @@ const _meleeDirection = new THREE.Vector3();
 const _chargeImpactPosition = new THREE.Vector3();
 const _screenVector = new THREE.Vector3();
 const _frontlineTransform = new THREE.Object3D();
+const _marketTerrainTransform = new THREE.Object3D();
 const pointerStart = new THREE.Vector2();
 const pointerPosition = new THREE.Vector2();
 const unitRaycaster = new THREE.Raycaster();
@@ -525,6 +534,22 @@ export function initScene(callbacks = {}) {
                     heroBeam: matKingEyeBeam.color.getHex(),
                 },
             },
+            marketTerrain: marketTerrainSnapshot ? {
+                status: marketTerrainSnapshot.status,
+                authoritativeValuation: marketTerrainSnapshot.authoritativeValuation,
+                valuationKind: marketTerrainSnapshot.valuationKind,
+                logicalCoordinate: marketTerrainSnapshot.logicalCoordinate,
+                presentationCoordinate: marketTerrainSnapshot.presentationCoordinate,
+                targetCoordinate: marketTerrainSnapshot.targetCoordinate,
+                sourceEpoch: marketTerrainSnapshot.sourceEpoch,
+                movementCause: marketTerrainSnapshot.movementCause,
+                visualDebtMs: marketTerrainSnapshot.visualDebtMs,
+                impact: marketTerrainSnapshot.impact,
+                objects: marketTerrainSnapshot.window.objectBudget,
+                renderedMajorBoundaries: marketMajorLines?.count || 0,
+                renderedMinorMarks: marketMinorLines?.count || 0,
+                renderedLabels: marketBandLabels.filter((label) => !label.hidden).length,
+            } : null,
             frontlineX: state.frontlineX,
             viewport: renderer && canvasContainer ? {
                 canvasWidth: renderer.domElement.clientWidth,
@@ -735,6 +760,10 @@ export function applyThemePresentation(presentation) {
         terrainMaterial.emissiveIntensity = 0;
     }
     if (frontlineMaterial) frontlineMaterial.color.set(environment.terrainTint);
+    if (marketMajorMaterial) marketMajorMaterial.color.set(environment.terrainTint);
+    if (marketMinorMaterial) marketMinorMaterial.color.set(environment.terrainTint);
+    if (marketPresentationMaterial) marketPresentationMaterial.color.set(environment.terrainTint);
+    updateMarketTerrainColors();
 
     applyLight(ambientLight, lighting.ambient);
     if (hemisphereLight) {
@@ -768,6 +797,17 @@ export function setUserChampionSnapshot(snapshot) {
         userChampionRig.position.set(-14, getTrenchHeight(-14, 10), 10);
     }
     renderNow();
+}
+
+export function setMarketTerrainController(controller) {
+    if (controller !== null && (typeof controller?.advance !== 'function' || typeof controller?.getSnapshot !== 'function')) {
+        throw new TypeError('Invalid market terrain controller');
+    }
+    marketTerrainController = controller;
+    marketTerrainSnapshot = controller?.getSnapshot(canvasContainer?.clientWidth || window.innerWidth) || null;
+    state.marketTerrain = marketTerrainSnapshot;
+    lastMarketTerrainUpdateAt = 0;
+    updateMarketTerrainPresentation(Date.now(), true);
 }
 
 function applyUserChampionTheme(champion) {
@@ -988,6 +1028,7 @@ export function resetTokenPresentation() {
     onInspectUnit(null);
     floatContainer?.replaceChildren();
     setFrontlineState('neutral');
+    setMarketTerrainController(null);
     publishVisibleUnitCount();
 }
 
@@ -1638,6 +1679,8 @@ function init3D() {
     plane.receiveShadow = true;
     scene.add(plane);
 
+    initMarketTerrainPresentation();
+
     createLandscapeProps();
     createGrassTufts();
     createCrowdArmies();
@@ -1696,6 +1739,126 @@ function syncViewport(force = false) {
         renderer.setSize(width, height, false);
     }
     renderNow();
+}
+
+function initMarketTerrainPresentation() {
+    marketTerrainGroup = new THREE.Group();
+    marketTerrainGroup.name = 'market-terrain';
+    const majorGeometry = new THREE.BoxGeometry(0.15, 0.05, 62);
+    const minorGeometry = new THREE.BoxGeometry(0.045, 0.025, 58);
+    marketMajorMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.34, depthWrite: false });
+    marketMinorMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.11, depthWrite: false });
+    marketFrontierMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff88, transparent: true, opacity: 0.82,
+        blending: THREE.AdditiveBlending, depthWrite: false });
+    marketPresentationMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.2, depthWrite: false });
+    marketMajorLines = new THREE.InstancedMesh(majorGeometry, marketMajorMaterial, MARKET_TERRAIN_MAJOR_CAPACITY);
+    marketMinorLines = new THREE.InstancedMesh(minorGeometry, marketMinorMaterial, MARKET_TERRAIN_MINOR_CAPACITY);
+    marketMajorLines.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    marketMinorLines.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    marketMajorLines.frustumCulled = false;
+    marketMinorLines.frustumCulled = false;
+    marketFrontier = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.09, 64), marketFrontierMaterial);
+    marketPresentationMarker = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.04, 60), marketPresentationMaterial);
+    marketTerrainGroup.add(marketMinorLines, marketMajorLines, marketPresentationMarker, marketFrontier);
+    marketTerrainGroup.visible = false;
+    scene.add(marketTerrainGroup);
+
+    marketTerrainOverlay = document.getElementById('market-terrain-overlay');
+    marketFrontierValue = document.getElementById('market-frontier-value');
+    marketFrontierStatus = document.getElementById('market-frontier-status');
+    marketFrontierDirection = document.getElementById('market-frontier-direction');
+    const labels = document.getElementById('market-band-labels');
+    if (labels) {
+        labels.replaceChildren();
+        marketBandLabels = Array.from({ length: MARKET_TERRAIN_MAJOR_CAPACITY }, () => {
+            const label = document.createElement('span');
+            label.className = 'market-band-label';
+            label.hidden = true;
+            labels.append(label);
+            return label;
+        });
+    }
+}
+
+function updateMarketTerrainColors() {
+    if (!marketFrontierMaterial || !marketTerrainSnapshot) return;
+    const materials = activeScenePresentation?.materials;
+    const direction = marketTerrainSnapshot.direction;
+    const color = direction === 'BULLISH' ? materials?.buyAccent || '#00ff88'
+        : direction === 'BEARISH' ? materials?.sellParticle || '#ff3366'
+            : activeScenePresentation?.environment?.terrainTint || '#ffffff';
+    marketFrontierMaterial.color.set(color);
+}
+
+function updateMarketTerrainPresentation(now = Date.now(), force = false) {
+    if (!marketTerrainGroup || !marketTerrainOverlay) return;
+    if (!marketTerrainController) {
+        marketTerrainGroup.visible = false;
+        marketTerrainOverlay.className = 'market-terrain-overlay waiting';
+        marketFrontierDirection.textContent = '↔';
+        marketFrontierValue.textContent = 'MARKET TERRAIN WAITING';
+        marketFrontierStatus.textContent = 'AUTHORITATIVE DATA REQUIRED';
+        marketBandLabels.forEach((label) => { label.hidden = true; });
+        return;
+    }
+    if (!force && now - lastMarketTerrainUpdateAt < 50) return;
+    lastMarketTerrainUpdateAt = now;
+    marketTerrainSnapshot = marketTerrainController.advance(now, canvasContainer.clientWidth);
+    state.marketTerrain = marketTerrainSnapshot;
+    const hasAuthority = marketTerrainSnapshot.authoritativeValuation !== null;
+    marketTerrainGroup.visible = hasAuthority;
+    marketTerrainOverlay.className = `market-terrain-overlay ${marketTerrainSnapshot.status.toLowerCase()}`;
+    const arrow = marketTerrainSnapshot.direction === 'BULLISH' ? '→'
+        : marketTerrainSnapshot.direction === 'BEARISH' ? '←' : '↔';
+    marketFrontierDirection.textContent = arrow;
+    marketFrontierValue.textContent = hasAuthority
+        ? `${marketTerrainSnapshot.valuationKind === 'PROTOCOL_MARKET_CAP' ? 'MC' : marketTerrainSnapshot.valuationKind} ${marketTerrainSnapshot.valuationLabel}`
+        : 'MARKET TERRAIN WAITING';
+    marketFrontierStatus.textContent = marketTerrainSnapshot.status === 'LIVE'
+        ? `${arrow} ${marketTerrainSnapshot.movementCause.replaceAll('_', ' ')}`
+        : 'STALE / DEGRADED · FRONTIER FROZEN';
+    if (!hasAuthority) {
+        marketBandLabels.forEach((label) => { label.hidden = true; });
+        return;
+    }
+    const boundaries = marketTerrainSnapshot.window.boundaries.slice(0, MARKET_TERRAIN_MAJOR_CAPACITY);
+    const minorMarks = marketTerrainSnapshot.window.minorMarks.slice(0, MARKET_TERRAIN_MINOR_CAPACITY);
+    marketMajorLines.count = boundaries.length;
+    boundaries.forEach((boundary, index) => {
+        _marketTerrainTransform.position.set(boundary.localX, getTrenchHeight(boundary.localX, 0) + 0.18, 0);
+        _marketTerrainTransform.updateMatrix();
+        marketMajorLines.setMatrixAt(index, _marketTerrainTransform.matrix);
+    });
+    marketMajorLines.instanceMatrix.needsUpdate = true;
+    marketMinorLines.count = minorMarks.length;
+    minorMarks.forEach((mark, index) => {
+        _marketTerrainTransform.position.set(mark.localX, getTrenchHeight(mark.localX, 0) + 0.12, 0);
+        _marketTerrainTransform.updateMatrix();
+        marketMinorLines.setMatrixAt(index, _marketTerrainTransform.matrix);
+    });
+    marketMinorLines.instanceMatrix.needsUpdate = true;
+    marketPresentationMarker.position.set(0, getTrenchHeight(0, 0) + 0.2, 0);
+    const targetX = clamp(marketTerrainSnapshot.targetLocalX, -48, 48);
+    marketFrontier.position.set(targetX, getTrenchHeight(targetX, 0) + 0.26, 0);
+    updateMarketTerrainColors();
+    updateMarketBandLabels(boundaries);
+}
+
+function updateMarketBandLabels(boundaries) {
+    const rect = renderer.domElement.getBoundingClientRect();
+    marketBandLabels.forEach((label, index) => {
+        const boundary = boundaries[index];
+        if (!boundary?.labelled) { label.hidden = true; return; }
+        _screenVector.set(boundary.localX, getTrenchHeight(boundary.localX, -25) + 0.8, -25).project(camera);
+        if (_screenVector.z < -1 || _screenVector.z > 1 || Math.abs(_screenVector.x) > 1.05 || Math.abs(_screenVector.y) > 1.05) {
+            label.hidden = true;
+            return;
+        }
+        label.hidden = false;
+        label.textContent = boundary.label;
+        label.style.left = `${(_screenVector.x * 0.5 + 0.5) * rect.width}px`;
+        label.style.top = `${(-_screenVector.y * 0.5 + 0.5) * rect.height}px`;
+    });
 }
 
 function handlePointerDown(event) {
@@ -5055,6 +5218,7 @@ function gameLoop(timestamp) {
     updateEnvironment(presentationDelta);
     updateUserChampion(timestamp);
     updateCamera(presentationDelta);
+    updateMarketTerrainPresentation(Date.now());
     renderer.render(scene, camera);
     updateAdaptiveQuality(simulationDelta);
 }

@@ -29,6 +29,7 @@ function createRuntimeState() {
         mcap: null,
         valuation: null,
         canonicalValuation: null,
+        marketTerrain: null,
         marketSelection: null,
         integrity: null,
         pressureCoverage: null,
