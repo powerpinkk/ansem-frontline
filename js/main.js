@@ -16,6 +16,7 @@ import { createChampionController } from './champion-controller.js';
 import { createChampionPolicy, DEFAULT_CHAMPION_DURATION_MS } from './champion-policy.js';
 import { initChampionUI } from './champion-ui.js';
 import { activeTrade } from './market-evidence.js';
+import { createMarketTerrain } from './market-terrain.js';
 import {
     initUI,
     bindCameraControls,
@@ -124,6 +125,7 @@ function mountRuntime(resolution) {
     const runtime = createTokenRuntime(resolution.context);
     const session = {
         runtime,
+        terrain: createMarketTerrain(runtime.context.identity.mint),
         api: null,
         active: true,
         get context() { return runtime.context; },
@@ -145,6 +147,7 @@ function mountRuntime(resolution) {
     awaySession = null;
     resetFrontlineUI();
     sceneModule?.resetTokenPresentation();
+    sceneModule?.setMarketTerrainController(session.terrain);
     companionController?.setTokenContext(runtime.context);
     championController.setActiveMint(runtime.context.identity.mint);
 
@@ -152,12 +155,18 @@ function mountRuntime(resolution) {
         if (session.active && currentSession === session) callback(...args);
     };
     session.api = initAPI({
-        onCanonicalValuation: active(() => updateValuationUI()),
+        onCanonicalValuation: active((value) => {
+            updateValuationUI();
+            runtime.state.marketTerrain = session.terrain.observeValuation(value);
+        }),
         onMarketUpdate: active((market) => {
             updateMarketUI(market);
             updateBattleLogSnapshot(market);
         }),
-        onTrade: active(handleTrade),
+        onTrade: active((trade, meta) => {
+            if (!meta.bootstrap) runtime.state.marketTerrain = session.terrain.observeExecution(trade);
+            handleTrade(trade, meta);
+        }),
         onHistoricalTrade: active(addOnChainTrade),
         onSettlementUpdate: active(addOnChainTrade),
         onTradeReconciliation: active((event, _journal, before) => {
@@ -175,6 +184,7 @@ function mountRuntime(resolution) {
             }
             removeTradeFromFeed(event.id);
             sceneModule?.removeTradePresentation(event.id);
+            runtime.state.marketTerrain = session.terrain.reconcileExecution(event);
             for (let i = pendingSceneTrades.length - 1; i >= 0; i -= 1) {
                 if (pendingSceneTrades[i].trade.id === event.id) pendingSceneTrades.splice(i, 1);
             }
@@ -270,6 +280,7 @@ function boot() {
         });
         sceneThemeAdapter.connect(sceneModule);
         if (!currentSession) sceneModule.resetTokenPresentation();
+        sceneModule.setMarketTerrainController(currentSession?.terrain || null);
         sceneModule.setUserChampionSnapshot(championSnapshot);
         flushPendingSceneTrades();
         sceneModule.startGameLoop();
@@ -305,6 +316,9 @@ function boot() {
             ui: championUI?.getDiagnostics() || null,
             active: championSnapshot,
         });
+        window.__ansemTerrainDiagnostics = () => currentSession?.terrain.getDiagnostics(
+            document.getElementById('canvas-container')?.clientWidth || window.innerWidth,
+        ) || null;
         window.__ansemOpenThemeStudio = () => themeStudio?.open();
         window.__ansemApplyTheme = (themeId) => themePresentation.applyThemeId(String(themeId)).identity.id;
         window.__ansemApplyMissingAssetTheme = () => themePresentation.applyDefinition({

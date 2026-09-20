@@ -14,6 +14,7 @@
     "test:tokens:smoke": "node scripts/token-smoke.mjs",
     "test:m5:smoke": "node scripts/m5-live-smoke.mjs",
     "test:soak": "node scripts/soak-test.mjs",
+    "test:terrain:soak": "node --expose-gc scripts/market-terrain-soak.mjs",
     "lint": "eslint .",
     "check": "npm run lint && npm test && npm run build && npm run test:e2e",
     "worker:dev": "wrangler dev --config worker/wrangler.jsonc",

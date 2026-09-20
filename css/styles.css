@@ -363,6 +363,59 @@ body {
 #three-canvas { position: absolute; inset: 0; }
 #three-canvas.is-inspectable { cursor: crosshair; }
 
+.market-terrain-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 22;
+    overflow: hidden;
+    pointer-events: none;
+    font-family: 'Orbitron', sans-serif;
+}
+
+.market-frontier-label {
+    position: absolute;
+    left: 50%;
+    bottom: 58px;
+    display: grid;
+    grid-template-columns: auto auto;
+    align-items: center;
+    gap: 1px 7px;
+    max-width: calc(100% - 28px);
+    padding: 7px 11px;
+    transform: translateX(-50%);
+    border: 1px solid color-mix(in srgb, var(--theme-accent) 38%, transparent);
+    border-radius: 7px;
+    background: rgba(3, 7, 5, .82);
+    box-shadow: 0 0 20px color-mix(in srgb, var(--theme-accent) 10%, transparent);
+    backdrop-filter: blur(9px);
+    color: #edf8f1;
+    white-space: nowrap;
+}
+
+.market-frontier-label > span {
+    grid-row: 1 / span 2;
+    color: var(--theme-accent);
+    font-size: 18px;
+}
+
+.market-frontier-label strong { font-size: 10px; letter-spacing: .8px; }
+.market-frontier-label small { color: #95a29a; font: 700 7px 'Inter', sans-serif; letter-spacing: .6px; }
+.market-terrain-overlay.degraded .market-frontier-label { border-style: dashed; border-color: var(--status-degraded); }
+.market-terrain-overlay.degraded .market-frontier-label > span { color: var(--status-degraded); }
+.market-terrain-overlay.waiting .market-frontier-label { opacity: .72; }
+
+.market-band-label {
+    position: absolute;
+    padding: 2px 5px;
+    transform: translate(-50%, -50%);
+    border-radius: 3px;
+    background: rgba(3, 7, 5, .7);
+    color: rgba(224, 236, 228, .78);
+    font-size: 7px;
+    letter-spacing: .4px;
+    white-space: nowrap;
+}
+
 #data-legend {
     position: absolute;
     left: 50%;
@@ -893,6 +946,11 @@ canvas { width: 100%; height: 100%; display: block; outline: none; }
         overflow-y: auto;
     }
     #canvas-container { height: 55%; flex: none; }
+    .market-frontier-label { bottom: 44px; padding: 5px 8px; }
+    .market-frontier-label > span { font-size: 14px; }
+    .market-frontier-label strong { font-size: 8px; }
+    .market-frontier-label small { font-size: 6px; }
+    .market-band-label { font-size: 6px; }
     #market-pulse { margin-top: 12px; }
     .brand-title { font-size: 16px; }
     #price { font-size: 20px; }
