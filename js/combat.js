@@ -90,7 +90,7 @@ export function resetCombatState(state, { archetype = state.archetype || 'bull',
     return state;
 }
 
-function transitionCombat(state, next) {
+function transitionCombat(state, next, observeState = null) {
     if (state.state === next) return true;
     if (!isLegalCombatTransition(state.state, next)) {
         state.invalidTransitions += 1;
@@ -103,13 +103,14 @@ function transitionCombat(state, next) {
         state.hitApplied = false;
         state.hitWindowOpen = false;
     }
+    observeState?.(state.state, state.sequence);
     return true;
 }
 
-export function cancelCombat(state, countMiss = false) {
+export function cancelCombat(state, countMiss = false, observeState = null) {
     if (state.state === COMBAT_STATE.APPROACH || state.state === COMBAT_STATE.CANCELLED) return false;
     if (countMiss && !state.hitApplied) state.totalMisses += 1;
-    if (!transitionCombat(state, COMBAT_STATE.CANCELLED)) return false;
+    if (!transitionCombat(state, COMBAT_STATE.CANCELLED, observeState)) return false;
     state.cancelled += 1;
     state.targetIdentity = null;
     state.hitWindowOpen = false;
@@ -129,6 +130,7 @@ export function advanceMeleeCombat(state, input = {}, delta = 0, output = {}) {
     const leaveRange = Math.max(enterRange, Number(input.leaveRange) || enterRange + COMBAT_POLICY.rangeHysteresis);
     const contactRange = clamp(Number(input.contactRange) || enterRange, 0, leaveRange);
     const canAttack = input.canAttack !== false;
+    const observeState = typeof input.observeState === 'function' ? input.observeState : null;
     const policy = COMBAT_POLICY[state.archetype];
     const timingScale = clamp(Number(input.timingScale) || 1, 0.68, 1.4);
     const windupDuration = policy.windup * timingScale;
@@ -143,11 +145,12 @@ export function advanceMeleeCombat(state, input = {}, delta = 0, output = {}) {
     result.changed = false;
     result.holdMovement = state.state !== COMBAT_STATE.APPROACH;
     result.faceTarget = false;
+    observeState?.(state.state, state.sequence);
 
     if (state.state !== COMBAT_STATE.APPROACH
         && (!targetValid || state.targetIdentity !== targetIdentity)) {
         result.miss = !state.hitApplied;
-        cancelCombat(state, result.miss);
+        cancelCombat(state, result.miss, observeState);
         result.changed = true;
     }
 
@@ -160,7 +163,7 @@ export function advanceMeleeCombat(state, input = {}, delta = 0, output = {}) {
             state.hitWindowOpen = false;
             if (!targetValid || !canAttack || distance > enterRange) break;
             state.targetIdentity = targetIdentity;
-            transitionCombat(state, COMBAT_STATE.WINDUP);
+            transitionCombat(state, COMBAT_STATE.WINDUP, observeState);
             result.changed = true;
             if (remaining <= 0) break;
             continue;
@@ -171,7 +174,7 @@ export function advanceMeleeCombat(state, input = {}, delta = 0, output = {}) {
             state.elapsed += consume;
             remaining -= consume;
             if (state.elapsed + 1e-9 < COMBAT_POLICY.cancelRecovery) break;
-            transitionCombat(state, COMBAT_STATE.APPROACH);
+            transitionCombat(state, COMBAT_STATE.APPROACH, observeState);
             result.changed = true;
             continue;
         }
@@ -181,7 +184,7 @@ export function advanceMeleeCombat(state, input = {}, delta = 0, output = {}) {
                 state.totalMisses += 1;
                 result.miss = true;
             }
-            transitionCombat(state, COMBAT_STATE.RECOVERY);
+            transitionCombat(state, COMBAT_STATE.RECOVERY, observeState);
             result.changed = true;
             continue;
         }
@@ -204,24 +207,24 @@ export function advanceMeleeCombat(state, input = {}, delta = 0, output = {}) {
                 state.totalHits += 1;
                 result.hit = true;
                 result.sequence = state.sequence;
-                transitionCombat(state, COMBAT_STATE.IMPACT);
+                transitionCombat(state, COMBAT_STATE.IMPACT, observeState);
                 result.changed = true;
                 continue;
             }
         }
 
         if (state.elapsed + 1e-9 < duration) break;
-        if (state.state === COMBAT_STATE.WINDUP) transitionCombat(state, COMBAT_STATE.ACTIVE);
+        if (state.state === COMBAT_STATE.WINDUP) transitionCombat(state, COMBAT_STATE.ACTIVE, observeState);
         else if (state.state === COMBAT_STATE.ACTIVE) {
             if (!state.hitApplied) {
                 state.totalMisses += 1;
                 result.miss = true;
             }
-            transitionCombat(state, COMBAT_STATE.RECOVERY);
-        } else if (state.state === COMBAT_STATE.IMPACT) transitionCombat(state, COMBAT_STATE.RECOVERY);
+            transitionCombat(state, COMBAT_STATE.RECOVERY, observeState);
+        } else if (state.state === COMBAT_STATE.IMPACT) transitionCombat(state, COMBAT_STATE.RECOVERY, observeState);
         else if (state.state === COMBAT_STATE.RECOVERY) {
             state.targetIdentity = null;
-            transitionCombat(state, COMBAT_STATE.APPROACH);
+            transitionCombat(state, COMBAT_STATE.APPROACH, observeState);
         }
         result.changed = true;
         if (remaining <= 0) break;
@@ -234,14 +237,16 @@ export function advanceMeleeCombat(state, input = {}, delta = 0, output = {}) {
     return result;
 }
 
-export function sampleCombatPose(state, output = {}) {
+export function sampleCombatPose(state, output = {}, normalizedProgress = null) {
     const policy = COMBAT_POLICY[state.archetype];
     const duration = state.state === COMBAT_STATE.WINDUP ? policy.windup
         : state.state === COMBAT_STATE.ACTIVE ? policy.active
             : state.state === COMBAT_STATE.IMPACT ? policy.impact
                 : state.state === COMBAT_STATE.RECOVERY ? policy.recovery
                     : COMBAT_POLICY.cancelRecovery;
-    const progress = duration > 0 ? clamp(state.elapsed / duration, 0, 1) : 0;
+    const progress = Number.isFinite(normalizedProgress)
+        ? clamp(normalizedProgress, 0, 1)
+        : duration > 0 ? clamp(state.elapsed / duration, 0, 1) : 0;
     const smooth = progress * progress * (3 - 2 * progress);
     output.blend = 0;
     output.bodyY = 0;

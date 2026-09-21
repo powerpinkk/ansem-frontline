@@ -813,88 +813,83 @@ test('gives verified giant bull buys a swept, market-aware collision charge', as
 
 test('renders a deterministic bear rear-up, swipe, single impact and recovery', async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== 'desktop-chromium', 'One WebGL combat-pose simulation is sufficient');
-    test.setTimeout(90_000);
+    test.setTimeout(120_000);
+    const cpuThrottleRate = Number(process.env.ANSEM_E2E_CPU_THROTTLE || 0);
+    if (cpuThrottleRate > 1) {
+        const devtools = await page.context().newCDPSession(page);
+        await devtools.send('Emulation.setCPUThrottlingRate', { rate: cpuThrottleRate });
+    }
     await page.goto('/');
     await page.waitForFunction(() => (
         typeof window.__ansemSpawnStressBattle === 'function'
         && typeof window.__ansemStageBearAttack === 'function'
+        && typeof window.__ansemGetCombatVisualTrace === 'function'
+        && typeof window.__ansemSetCombatPoseFixture === 'function'
     ));
     const staged = await page.evaluate(() => {
         window.__ansemSpawnStressBattle(3);
         return window.__ansemStageBearAttack();
     });
     expect(staged).not.toBeNull();
-    await page.waitForFunction((bearId) => {
-        const bear = window.__ansemSceneDiagnostics().entities.find((entity) => entity.id === bearId);
-        return bear?.combatState === 'ATTACK_WINDUP';
-    }, staged.bear, { polling: 20, timeout: 10_000 });
-    const windupSample = await page.evaluate(({ bearId, bullId }) => {
+    await page.waitForFunction((traceId) => (
+        window.__ansemGetCombatVisualTrace(traceId)?.completed === true
+    ), staged.traceId, { polling: 100, timeout: 30_000 });
+
+    const completed = await page.evaluate(({ traceId, bearId, bullId }) => {
         const diagnostics = window.__ansemSceneDiagnostics();
-        const bear = diagnostics.entities.find((entity) => entity.id === bearId);
-        const bull = diagnostics.entities.find((entity) => entity.id === bullId);
         return {
-            state: bear?.combatState,
-            sequence: bear?.combatSequence,
-            hits: bear?.combatHits,
-            misses: bear?.combatMisses,
-            bodyY: bear?.bodyY,
-            frontLeft: bear?.frontLeftSwing,
-            frontRight: bear?.frontRightSwing,
-            speed: bear?.speed,
-            bullHp: bull?.hp,
-            impulse: Math.hypot(bull?.impulseX || 0, bull?.impulseZ || 0),
-            invalid: diagnostics.combat.invalidStateCount,
-            nonFinite: diagnostics.combat.nonFiniteCombatCount,
+            trace: window.__ansemGetCombatVisualTrace(traceId),
+            bear: diagnostics.entities.find((entity) => entity.id === bearId),
+            bull: diagnostics.entities.find((entity) => entity.id === bullId),
+            combat: diagnostics.combat,
         };
-    }, { bearId: staged.bear, bullId: staged.bull });
+    }, { traceId: staged.traceId, bearId: staged.bear, bullId: staged.bull });
+
+    expect(completed.trace.sequenceId).toBe(staged.sequenceId);
+    expect(completed.trace.statesVisited).toEqual(expect.arrayContaining([
+        'APPROACH', 'ATTACK_WINDUP', 'ATTACK_ACTIVE', 'IMPACT', 'RECOVERY',
+    ]));
+    expect(completed.trace).toMatchObject({
+        windupObserved: true,
+        activeObserved: true,
+        impactObserved: true,
+        recoveryObserved: true,
+        completed: true,
+        finalState: 'APPROACH',
+        hitCount: 1,
+        missCount: 0,
+    });
+    expect(completed.trace.simulationUpdates).toBeGreaterThan(0);
+    expect(completed.trace.renderedFrames).toBeGreaterThan(0);
+    expect(completed.trace.maxBodyY).toBeGreaterThan(1.55);
+    expect(completed.trace.maxPawArc).toBeGreaterThan(0.35);
+    expect(completed.bull.hp).toBeLessThan(staged.bullHp);
+    expect(completed.combat.invalidStateCount).toBe(0);
+    expect(completed.combat.nonFiniteCombatCount).toBe(0);
+
+    const windupFixture = await page.evaluate(({ traceId }) => (
+        window.__ansemSetCombatPoseFixture(traceId, 'ATTACK_WINDUP', 0.75)
+    ), { traceId: staged.traceId });
+    expect(windupFixture).not.toBeNull();
+    const windupHandle = await page.waitForFunction((bearId) => {
+        const bear = window.__ansemSceneDiagnostics().entities.find((entity) => entity.id === bearId);
+        return bear?.bodyY > 1.55 && bear?.frontLeftSwing < -0.2 ? bear : false;
+    }, staged.bear, { polling: 100, timeout: 20_000 });
+    const windupPose = await windupHandle.jsonValue();
     await captureLocalScreenshot(page, '.artifacts/m11-bear-windup.png');
 
-    const samples = await page.evaluate(async ({ bearId, bullId }) => {
-        const frames = [];
-        const startedAt = Date.now();
-        let sawHit = false;
-        while (Date.now() - startedAt < 15_000) {
-            const diagnostics = window.__ansemSceneDiagnostics();
-            const bear = diagnostics.entities.find((entity) => entity.id === bearId);
-            const bull = diagnostics.entities.find((entity) => entity.id === bullId);
-            frames.push({
-                state: bear?.combatState,
-                sequence: bear?.combatSequence,
-                hits: bear?.combatHits,
-                misses: bear?.combatMisses,
-                bodyY: bear?.bodyY,
-                frontLeft: bear?.frontLeftSwing,
-                frontRight: bear?.frontRightSwing,
-                speed: bear?.speed,
-                bullHp: bull?.hp,
-                impulse: Math.hypot(bull?.impulseX || 0, bull?.impulseZ || 0),
-                invalid: diagnostics.combat.invalidStateCount,
-                nonFinite: diagnostics.combat.nonFiniteCombatCount,
-            });
-            if ((bear?.combatHits || 0) > 0) sawHit = true;
-            if (sawHit && ['RECOVERY', 'APPROACH'].includes(bear?.combatState)) break;
-            await new Promise((resolve) => window.setTimeout(resolve, 40));
-        }
-        return frames;
-    }, { bearId: staged.bear, bullId: staged.bull });
-    samples.unshift(windupSample);
-
-    const states = new Set(samples.map((sample) => sample.state));
-    expect(
-        states.has('IMPACT') || samples.some((sample) => sample.hits > 0),
-        JSON.stringify({ staged, samples }),
-    ).toBe(true);
-    expect(states.has('RECOVERY') || states.has('APPROACH')).toBe(true);
-    expect(Math.max(...samples.map((sample) => sample.bodyY || 0))).toBeGreaterThan(1.55);
-    expect(Math.max(...samples.map((sample) => sample.frontLeft || 0))
-        - Math.min(...samples.map((sample) => sample.frontLeft || 0))).toBeGreaterThan(0.35);
-    const firstHit = samples.find((sample) => sample.hits > 0);
-    expect(firstHit.hits).toBeGreaterThan(0);
-    expect(firstHit.hits).toBeLessThanOrEqual(firstHit.sequence);
-    expect(firstHit.bullHp).toBeLessThan(staged.bullHp);
-    expect(Math.max(...samples.map((sample) => sample.impulse))).toBeGreaterThan(0);
-    expect(Math.max(...samples.map((sample) => sample.invalid))).toBe(0);
-    expect(Math.max(...samples.map((sample) => sample.nonFinite))).toBe(0);
+    const swipeFixture = await page.evaluate(({ traceId }) => (
+        window.__ansemSetCombatPoseFixture(traceId, 'ATTACK_ACTIVE', 0.5)
+    ), { traceId: staged.traceId });
+    expect(swipeFixture).not.toBeNull();
+    const swipeHandle = await page.waitForFunction((bearId) => {
+        const bear = window.__ansemSceneDiagnostics().entities.find((entity) => entity.id === bearId);
+        return bear?.frontLeftSwing > 0.3 ? bear : false;
+    }, staged.bear, { polling: 100, timeout: 20_000 });
+    const swipePose = await swipeHandle.jsonValue();
+    await captureLocalScreenshot(page, '.artifacts/m11-bear-swipe.png');
+    expect(swipePose.frontLeftSwing - windupPose.frontLeftSwing).toBeGreaterThan(0.35);
+    expect(await page.evaluate((traceId) => window.__ansemClearCombatPoseFixture(traceId), staged.traceId)).toBe(true);
 });
 
 test('excludes FX and rebase shocks, then cancels a bullish charge for the latest bearish shock', async ({ page }, testInfo) => {

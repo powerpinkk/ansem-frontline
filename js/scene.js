@@ -59,7 +59,10 @@ let cancelledChargeCount = 0;
 let combatContactChecks = 0;
 let maxHitRegistrySize = 0;
 let diagnosticImpactSequence = 0;
+let diagnosticCombatTraceSequence = 0;
 const impactPresentation = createImpactPresentationController();
+const COMBAT_VISUAL_TRACE_LIMIT = 4;
+const combatVisualTraces = [];
 const NO_TARGET_COMBAT_INPUT = Object.freeze({ targetValid: false });
 const MAX_ENTITIES_PER_SIDE = CONFIG.MAX_VISIBLE_UNITS_PER_SIDE;
 const MAX_ACTIVE_PARTICLES = 36;
@@ -518,6 +521,124 @@ function getCombatDiagnostics(now = Date.now()) {
     return result;
 }
 
+function getEntityIdentity(entity) {
+    return entity?.trade?.txHash || entity?.trade?.id || `${entity?.type}-${entity?.bornAt}`;
+}
+
+function publicCombatVisualTrace(trace) {
+    if (!trace) return null;
+    return {
+        id: trace.id,
+        entityId: trace.entityId,
+        sequenceId: trace.sequenceId,
+        statesVisited: [...trace.statesVisited],
+        renderedStatesVisited: [...trace.renderedStatesVisited],
+        windupObserved: trace.statesVisited.includes(COMBAT_STATE.WINDUP),
+        activeObserved: trace.statesVisited.includes(COMBAT_STATE.ACTIVE),
+        impactObserved: trace.statesVisited.includes(COMBAT_STATE.IMPACT),
+        recoveryObserved: trace.statesVisited.includes(COMBAT_STATE.RECOVERY),
+        maxRearUp: trace.maxRearUp,
+        maxBodyY: trace.maxBodyY,
+        maxPawArc: trace.maxPawArc,
+        maxTorsoPitch: trace.maxTorsoPitch,
+        maxHitReaction: trace.maxHitReaction,
+        hitCount: trace.hitCount,
+        missCount: trace.missCount,
+        simulationUpdates: trace.simulationUpdates,
+        renderedFrames: trace.renderedFrames,
+        startedAt: trace.startedAt,
+        completedAt: trace.completedAt,
+        completed: trace.completed,
+        finalState: trace.finalState,
+    };
+}
+
+function createCombatVisualTrace(entity, target = null) {
+    const entityId = getEntityIdentity(entity);
+    const sequenceId = entity.combat.sequence + 1;
+    const trace = {
+        id: `combat-visual-${++diagnosticCombatTraceSequence}`,
+        entityId,
+        targetEntityId: getEntityIdentity(target),
+        sequenceId,
+        statesVisited: [COMBAT_STATE.APPROACH],
+        renderedStatesVisited: [],
+        maxRearUp: 0,
+        maxBodyY: entity.body.position.y,
+        maxPawArc: 0,
+        maxTorsoPitch: 0,
+        maxHitReaction: 0,
+        hitCount: 0,
+        missCount: 0,
+        simulationUpdates: 0,
+        renderedFrames: 0,
+        startedAt: null,
+        completedAt: null,
+        completed: false,
+        finalState: COMBAT_STATE.APPROACH,
+        startHits: entity.combat.totalHits,
+        startMisses: entity.combat.totalMisses,
+        minPaw: Number.POSITIVE_INFINITY,
+        maxPaw: Number.NEGATIVE_INFINITY,
+    };
+    combatVisualTraces.push(trace);
+    if (combatVisualTraces.length > COMBAT_VISUAL_TRACE_LIMIT) combatVisualTraces.shift();
+    entity.combatVisualTrace = trace;
+    entity.combatStateObserver = (visitedState, visitedSequence) => {
+        if (visitedSequence !== trace.sequenceId) return;
+        if (trace.startedAt === null) {
+            if (visitedState !== COMBAT_STATE.WINDUP) return;
+            trace.startedAt = performance.now();
+        }
+        if (!trace.statesVisited.includes(visitedState)) trace.statesVisited.push(visitedState);
+        trace.finalState = visitedState;
+        if (visitedState === COMBAT_STATE.APPROACH
+            && trace.statesVisited.includes(COMBAT_STATE.RECOVERY)) {
+            trace.completed = true;
+            trace.completedAt = performance.now();
+        }
+    };
+    entity.combatInput.observeState = entity.combatStateObserver;
+    return trace;
+}
+
+function syncCombatVisualTrace(entity) {
+    const trace = entity.combatVisualTrace;
+    if (!trace || trace.startedAt === null) return;
+    trace.simulationUpdates += 1;
+    trace.hitCount = Math.max(0, entity.combat.totalHits - trace.startHits);
+    trace.missCount = Math.max(0, entity.combat.totalMisses - trace.startMisses);
+}
+
+function recordCombatVisualPose(entity, pose, baseY) {
+    const trace = entity.combatVisualTrace;
+    if (!trace || trace.startedAt === null || trace.completed || entity.combatPoseFixture) return;
+    if (entity.combat.sequence !== trace.sequenceId) return;
+    const stateName = entity.combat.state;
+    if (!trace.renderedStatesVisited.includes(stateName)) trace.renderedStatesVisited.push(stateName);
+    const bodyY = entity.body.position.y;
+    const paw = entity.rig.frontLeft?.rotation.z;
+    trace.renderedFrames += 1;
+    trace.maxBodyY = Math.max(trace.maxBodyY, bodyY);
+    trace.maxRearUp = Math.max(trace.maxRearUp, bodyY - baseY);
+    trace.maxTorsoPitch = Math.max(trace.maxTorsoPitch, Math.abs(entity.body.rotation.z));
+    trace.maxHitReaction = Math.max(trace.maxHitReaction, pose.recoil || 0);
+    if (Number.isFinite(paw)) {
+        trace.minPaw = Math.min(trace.minPaw, paw);
+        trace.maxPaw = Math.max(trace.maxPaw, paw);
+        trace.maxPawArc = Math.max(trace.maxPawArc, trace.maxPaw - trace.minPaw);
+    }
+}
+
+function clearCombatVisualInstrumentation(entity) {
+    if (!entity) return;
+    if (entity.combatInput?.observeState === entity.combatStateObserver) delete entity.combatInput.observeState;
+    entity.combatStateObserver = null;
+    entity.combatVisualTrace = null;
+    entity.combatPoseFixture = null;
+    entity.diagnosticFixturePinned = false;
+}
+
 export function initScene(callbacks = {}) {
     onKillEvent = callbacks.onKillEvent || onKillEvent;
     onReclaimEvent = callbacks.onReclaimEvent || onReclaimEvent;
@@ -880,6 +1001,7 @@ export function initScene(callbacks = {}) {
             bear.mesh.position.set(35, getTrenchHeight(35, z), z);
             bull.mesh.position.set(32.8, getTrenchHeight(32.8, z), z);
             for (const [entity, target] of [[bear, bull], [bull, bear]]) {
+                if (import.meta.env.DEV) clearCombatVisualInstrumentation(entity);
                 syncEntityMotion(entity);
                 resetCombatState(entity.combat, { archetype: entity.type, seed: entity.combat.seed });
                 entity.target = target;
@@ -890,12 +1012,53 @@ export function initScene(callbacks = {}) {
                 entity.forcedRetreatUntil = 0;
                 entity.laneTarget = z;
             }
+            const trace = import.meta.env.DEV ? createCombatVisualTrace(bear, bull) : null;
+            if (trace) {
+                bear.diagnosticFixturePinned = true;
+                bull.diagnosticFixturePinned = true;
+            }
             return {
-                bear: bear.trade?.txHash || bear.trade?.id || `bear-${bear.bornAt}`,
-                bull: bull.trade?.txHash || bull.trade?.id || `bull-${bull.bornAt}`,
+                bear: getEntityIdentity(bear),
+                bull: getEntityIdentity(bull),
                 bullHp: bull.hp,
+                traceId: trace?.id || null,
+                sequenceId: trace?.sequenceId || null,
             };
         };
+        if (import.meta.env.DEV) {
+            window.__ansemGetCombatVisualTrace = (traceId) => publicCombatVisualTrace(
+                combatVisualTraces.find((trace) => trace.id === traceId) || null,
+            );
+            window.__ansemSetCombatPoseFixture = (traceId, phase, normalizedProgress = 0.5) => {
+                const trace = combatVisualTraces.find((candidate) => candidate.id === traceId);
+                const entity = trace && entities.find((candidate) => getEntityIdentity(candidate) === trace.entityId);
+                const allowed = [
+                    COMBAT_STATE.APPROACH,
+                    COMBAT_STATE.WINDUP,
+                    COMBAT_STATE.ACTIVE,
+                    COMBAT_STATE.IMPACT,
+                    COMBAT_STATE.RECOVERY,
+                ];
+                if (!entity || entity.type !== 'bear' || !allowed.includes(phase)) return null;
+                const fixtureState = createCombatState({ archetype: 'bear', seed: entity.combat.seed });
+                fixtureState.state = phase;
+                entity.combatPoseFixture = {
+                    state: fixtureState,
+                    normalizedProgress: clamp(Number(normalizedProgress) || 0, 0, 1),
+                };
+                return { entityId: trace.entityId, phase, normalizedProgress: entity.combatPoseFixture.normalizedProgress };
+            };
+            window.__ansemClearCombatPoseFixture = (traceId) => {
+                const trace = combatVisualTraces.find((candidate) => candidate.id === traceId);
+                const entity = trace && entities.find((candidate) => getEntityIdentity(candidate) === trace.entityId);
+                if (!entity) return false;
+                entity.combatPoseFixture = null;
+                entity.diagnosticFixturePinned = false;
+                const target = entities.find((candidate) => getEntityIdentity(candidate) === trace.targetEntityId);
+                if (target) target.diagnosticFixturePinned = false;
+                return true;
+            };
+        }
         window.__ansemTriggerReclamation = () => {
             const bear = entities.find((entity) => entity.type === 'bear');
             if (bear) {
@@ -1214,6 +1377,10 @@ export function resetTokenPresentation() {
     combatContactChecks = 0;
     maxHitRegistrySize = 0;
     diagnosticImpactSequence = 0;
+    if (import.meta.env.DEV) {
+        diagnosticCombatTraceSequence = 0;
+        combatVisualTraces.length = 0;
+    }
     impactPresentation.reset();
     motionUpdateSamples = 0;
     motionUpdateTotalMs = 0;
@@ -1315,8 +1482,11 @@ export function toggleAudio() {
 export function spawnUnit(type, initial = false, isWhale = false, trade = null) {
     const sameSide = entities.filter((entity) => entity.type === type);
     if (sameSide.length >= MAX_ENTITIES_PER_SIDE) {
-        const oldestRegular = sameSide.find((entity) => !entity.isWhale);
-        retireEntity(oldestRegular || sameSide[0]);
+        const oldestRegular = sameSide.find((entity) => !entity.isWhale
+            && !(import.meta.env.DEV && entity.diagnosticFixturePinned));
+        retireEntity(oldestRegular
+            || sameSide.find((entity) => !(import.meta.env.DEV && entity.diagnosticFixturePinned))
+            || sameSide[0]);
     }
     const isBull = type === 'bull';
     const group = new THREE.Group();
@@ -1487,6 +1657,12 @@ export function spawnUnit(type, initial = false, isWhale = false, trade = null) 
         combatInput: {},
         combatUpdate: {},
         combatPose: {},
+        ...(import.meta.env.DEV ? {
+            combatVisualTrace: null,
+            combatStateObserver: null,
+            combatPoseFixture: null,
+            diagnosticFixturePinned: false,
+        } : {}),
         presentationMass: combatPresentationMass({ isWhale, archetype: type }),
         chargePhase: 'idle',
         chargePhaseStartedAt: 0,
@@ -1571,6 +1747,7 @@ function retireEntity(entity) {
     const index = entities.indexOf(entity);
     if (index === -1) return;
     entity.retired = true;
+    if (import.meta.env.DEV) clearCombatVisualInstrumentation(entity);
     if (activeChargeEntity === entity) {
         activeChargeEntity = null;
         impactPresentation.completeActive();
@@ -1671,6 +1848,7 @@ export function handleTerritoryShift(trade, meta = {}) {
     const stranded = entities.filter((entity) =>
         entity.type === 'bear'
         && !entity.retired
+        && !(import.meta.env.DEV && entity.diagnosticFixturePinned)
         && entity.hp > 0
         && isUnitStranded('bear', entity.mesh.position.x, next, entity.isWhale ? 18 : 14)
     );
@@ -1695,6 +1873,7 @@ function updateTerritorialControl() {
     const stranded = entities.filter((entity) =>
         entity.type === 'bear'
         && !entity.retired
+        && !(import.meta.env.DEV && entity.diagnosticFixturePinned)
         && entity.hp > 0
         && entity.forcedRetreatUntil <= now
         && isUnitStranded('bear', entity.mesh.position.x, state.frontlineX, entity.isWhale ? 18 : 14)
@@ -1707,7 +1886,8 @@ function updateTerritorialControl() {
 function defendKingSanctum(now, tactics) {
     if (!bullKingRig || !shouldKingWard(tactics) || now - lastKingDefenseAt < KING_DEFENSE_COOLDOWN_MS) return false;
     const intruders = entities.filter((entity) => {
-        if (entity.type !== 'bear' || entity.retired || entity.hp <= 0 || entity.forcedRetreatUntil > now) return false;
+        if (entity.type !== 'bear' || entity.retired || (import.meta.env.DEV && entity.diagnosticFixturePinned)
+            || entity.hp <= 0 || entity.forcedRetreatUntil > now) return false;
         const dx = entity.mesh.position.x - bullKingRig.position.x;
         const dz = entity.mesh.position.z - bullKingRig.position.z;
         const radius = KING_SANCTUM_RADIUS + (entity.isWhale ? 4 : 0);
@@ -3316,7 +3496,8 @@ function updateEntities(delta) {
     }
 
     for (const entity of entities) {
-        if (entity.hp <= 0 || unitHasExpired(entity, now)) entity.retired = true;
+        if (entity.hp <= 0
+            || (!(import.meta.env.DEV && entity.diagnosticFixturePinned) && unitHasExpired(entity, now))) entity.retired = true;
     }
     tryStartPendingCharge(now);
 
@@ -3575,6 +3756,7 @@ function updateEntities(delta) {
         enforceArenaBounds(e);
         e.mesh.position.y = getTrenchHeight(e.mesh.position.x, e.mesh.position.z);
 
+        if (import.meta.env.DEV) syncCombatVisualTrace(e);
         e.motionCharge = chargeAnimated && isMoving;
         e.motionProgressExempt = chargeAnimated || animatedFrontContact || !isMoving;
         e.motionCombatPose = animatedFrontContact || e.combat.state !== COMBAT_STATE.APPROACH;
@@ -5039,7 +5221,12 @@ function applyDetailedGait(entity, delta) {
 function applyDetailedCombatPose(entity, delta) {
     const smoothing = Math.min(1, delta * 16);
     const baseY = entity.type === 'bear' ? 1.35 : 1.3;
-    let pose = sampleCombatPose(entity.combat, entity.combatPose);
+    const fixture = import.meta.env.DEV ? entity.combatPoseFixture : null;
+    let pose = sampleCombatPose(
+        fixture?.state || entity.combat,
+        entity.combatPose,
+        fixture?.normalizedProgress ?? null,
+    );
     if (isChargeActive(entity)) {
         const profile = entity.chargeProfile;
         const duration = entity.chargePhase === 'windup' ? profile?.windupMs || 1
@@ -5095,6 +5282,7 @@ function applyDetailedCombatPose(entity, delta) {
             smoothing * blend,
         );
     }
+    if (import.meta.env.DEV) recordCombatVisualPose(entity, pose, baseY);
 }
 
 function getDetailedPhysicalSpacing(first, second) {

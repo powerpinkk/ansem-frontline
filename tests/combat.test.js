@@ -115,6 +115,42 @@ describe('giant bull charge', () => {
 });
 
 describe('deterministic melee combat', () => {
+    it('retains every transition when one slow simulation step crosses transient states', () => {
+        const state = createCombatState({ archetype: 'bear', seed: 17 });
+        const visited = [];
+        const input = {
+            targetIdentity: 'bull-a', targetValid: true, distance: 2,
+            enterRange: 2.5, leaveRange: 3.4, contactRange: 2.6,
+            observeState: (combatState, sequence) => visited.push(`${sequence}:${combatState}`),
+        };
+        advanceMeleeCombat(state, input, 0.25);
+        const result = advanceMeleeCombat(state, input, 0.25);
+        expect(visited).toEqual(expect.arrayContaining([
+            '1:ATTACK_WINDUP', '1:ATTACK_ACTIVE', '1:IMPACT',
+        ]));
+        expect(result.hit).toBe(true);
+        expect(state.totalHits).toBe(1);
+    });
+
+    it('samples meaningful rear-up and swipe poses at deterministic normalized progress', () => {
+        const state = createCombatState({ archetype: 'bear', seed: 23 });
+        state.state = COMBAT_STATE.WINDUP;
+        const rearUp = sampleCombatPose(state, {}, 0.75);
+        state.state = COMBAT_STATE.ACTIVE;
+        const swipe = sampleCombatPose(state, {}, 0.5);
+        state.state = COMBAT_STATE.RECOVERY;
+        const recovered = sampleCombatPose(state, {}, 1);
+        state.state = COMBAT_STATE.APPROACH;
+        const neutral = sampleCombatPose(state, {}, 1);
+
+        expect(rearUp.bodyY).toBeGreaterThan(0.25);
+        expect(swipe.frontLeft - rearUp.frontLeft).toBeGreaterThan(0.35);
+        for (const value of [recovered.bodyY, recovered.frontLeft, recovered.frontRight,
+            neutral.bodyY, neutral.bodyPitch, neutral.frontLeft, neutral.frontRight]) {
+            expect(value).toBeCloseTo(0);
+        }
+    });
+
     it('follows the legal bear windup, active swipe, impact and recovery sequence', () => {
         const state = createCombatState({ archetype: 'bear', seed: 11 });
         expect(advanceMeleeCombat(state, {
