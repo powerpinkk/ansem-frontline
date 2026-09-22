@@ -17,6 +17,7 @@
     "test:terrain:soak": "node --expose-gc scripts/market-terrain-soak.mjs",
     "test:locomotion:soak": "node scripts/locomotion-soak.mjs",
     "test:combat:soak": "node scripts/combat-soak.mjs",
+    "test:commander:soak": "node scripts/commander-soak.mjs",
     "lint": "eslint .",
     "check": "npm run lint && npm test && npm run build && npm run test:e2e",
     "worker:dev": "wrangler dev --config worker/wrangler.jsonc",

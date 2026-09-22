@@ -5,11 +5,13 @@ const USDC = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
 const JUP = 'JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN';
 const SOL = 'So11111111111111111111111111111111111111112';
 const BONK = 'DezXAZ8z7PnrnRJjz3wXBoRgixCa6rwd6VhXaWkkmoon';
+const UNKNOWN = '7vfCXTUXx5WJV5JADk17DUJ4ksgau7utNKj4b963voxs';
 const POOLS = {
     [ANSEM]: '6e7V9eegCHw997T72MxgwwJipZ6GJyZF8NvjkzT1rvpN',
     [USDC]: '4pANrqEvjad4xEghrCbAAJfBm8KyNvYMKk1cuGW8erE4',
     [JUP]: 'FnzKY6x7entQ1eR3D225dQyT7ybfka4PskBMQhb8L3CC',
     [SOL]: 'BetLT47eFXDZnjM1cmZhQ4oNJkYaPZYH5yv6atfPfAri',
+    [UNKNOWN]: 'CNTPTpytHK9txrsPCvaEnc3PoN9ZVWDDcSnFSZZonMue',
 };
 
 test.beforeEach(async ({ page }) => {
@@ -24,6 +26,86 @@ test('base URL starts the default ANSEM runtime', async ({ page }) => {
     expect(new URL(page.url()).searchParams.has('token')).toBe(false);
     await page.waitForFunction(() => typeof window.__ansemTokenDiagnostics === 'function');
     expect((await page.evaluate(() => window.__ansemTokenDiagnostics())).activeMint).toBe(ANSEM);
+    await page.waitForFunction(() => window.__ansemSceneDiagnostics?.().commander?.present === true);
+    const commander = await page.evaluate(() => window.__ansemSceneDiagnostics().commander);
+    expect(commander).toMatchObject({
+        present: true,
+        profileKey: 'ansem-black-bull@1',
+        tokenMint: ANSEM,
+        assetId: 'black-bull-v1',
+        sceneObjectCount: 1,
+    });
+});
+
+test('Commander identity follows mint across generic tokens, themes and history', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== 'desktop-chromium', 'One deterministic lifecycle sequence is sufficient');
+    await page.goto('/');
+    await page.waitForFunction(() => window.__ansemSceneDiagnostics?.().commander?.present === true);
+    const firstActorId = await page.evaluate(() => window.__ansemSceneDiagnostics().commander.actorId);
+
+    for (const [mint, symbol] of [[USDC, 'USDC'], [JUP, 'JUP'], [UNKNOWN, 'TOKEN']]) {
+        await selectToken(page, mint, symbol);
+        await page.waitForFunction((expectedMint) => {
+            const diagnostics = window.__ansemSceneDiagnostics?.();
+            return diagnostics?.commander?.tokenMint === expectedMint && diagnostics.commander.present === false;
+        }, mint);
+        const generic = await page.evaluate(() => window.__ansemSceneDiagnostics());
+        expect(generic.commander.sceneObjectCount).toBe(0);
+        expect(generic.bullKing).toBeNull();
+    }
+
+    await page.evaluate(() => window.__ansemApplyTheme('ansem'));
+    expect(await page.evaluate(() => window.__ansemSceneDiagnostics().commander)).toMatchObject({
+        present: false,
+        tokenMint: UNKNOWN,
+    });
+    const genericImpact = await page.evaluate(() => {
+        const terrainBefore = window.__ansemTerrainDiagnostics();
+        window.__ansemSpawnStressBattle(4);
+        const shock = window.__ansemStageBullCharge();
+        return { shock, terrainBefore };
+    });
+    expect(genericImpact.shock).toBeTruthy();
+    await page.waitForFunction(() => window.__ansemSceneDiagnostics().entities
+        .some((entity) => entity.runtimeRole === 'market-impact-actor'));
+    const genericShock = await page.evaluate(({ terrainBefore }) => ({
+        commander: window.__ansemSceneDiagnostics().commander,
+        impactActors: window.__ansemSceneDiagnostics().entities
+            .filter((entity) => entity.runtimeRole === 'market-impact-actor').length,
+        terrainBefore,
+        terrainAfter: window.__ansemTerrainDiagnostics(),
+    }), genericImpact);
+    expect(genericShock.commander.present).toBe(false);
+    expect(genericShock.impactActors).toBe(1);
+    expect(genericShock.terrainAfter).toMatchObject({
+        authoritativeValuation: genericShock.terrainBefore.authoritativeValuation,
+        sourceEpoch: genericShock.terrainBefore.sourceEpoch,
+    });
+    await page.screenshot({ path: '.artifacts/m12-generic-shock.png', fullPage: true });
+
+    await page.goBack();
+    await expect(page.locator('#token-symbol')).toHaveText('JUP');
+    expect((await page.evaluate(() => window.__ansemSceneDiagnostics().commander.present))).toBe(false);
+    await page.locator('#token-default-btn').click();
+    await page.waitForFunction(() => window.__ansemSceneDiagnostics?.().commander?.present === true);
+    const restored = await page.evaluate(() => window.__ansemSceneDiagnostics().commander);
+    expect(restored.sceneObjectCount).toBe(1);
+    expect(restored.actorId).not.toBe(firstActorId);
+    await page.evaluate(() => {
+        window.__ansemSpawnStressBattle(4);
+        window.__ansemStageBullCharge();
+    });
+    await page.waitForFunction(() => window.__ansemSceneDiagnostics().entities
+        .some((entity) => entity.runtimeRole === 'market-impact-actor'));
+    const roles = await page.evaluate(() => ({
+        commander: window.__ansemSceneDiagnostics().commander,
+        impactActors: window.__ansemSceneDiagnostics().entities
+            .filter((entity) => entity.runtimeRole === 'market-impact-actor'),
+    }));
+    expect(roles.commander).toMatchObject({ present: true, sceneObjectCount: 1, role: 'commander' });
+    expect(roles.impactActors).toHaveLength(1);
+    expect(roles.impactActors[0].runtimeRole).not.toBe(roles.commander.role);
+    await page.screenshot({ path: '.artifacts/m12-ansem-shock-role-separation.png', fullPage: true });
 });
 
 test('CA input, token data and deep-link reload preserve USDC', async ({ page }, testInfo) => {
@@ -118,6 +200,9 @@ test('rapid A to B to C commits only the final token and rejects stale responses
     expect(new URL(page.url()).searchParams.has('token')).toBe(false);
     expect(diagnostics.sessions.filter((session) => session.active)).toHaveLength(1);
     expect(diagnostics.sessions.some((session) => session.mint === USDC || session.mint === JUP)).toBe(false);
+    const commander = await page.evaluate(() => window.__ansemCommanderDiagnostics());
+    expect(commander).toMatchObject({ present: true, tokenMint: ANSEM });
+    expect(commander.staleCompletions).toBe(0);
 });
 
 test('hostile metadata stays inert, copy actions work and the panel remains responsive', async ({ page }) => {

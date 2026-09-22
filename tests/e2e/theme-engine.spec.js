@@ -50,7 +50,7 @@ for (const [symbol, mint, name] of [['USDC', USDC, 'USD Coin'], ['JUP', JUP, 'Ju
             viewport: document.documentElement.clientWidth,
         }));
         expect(evidence.scene.theme).toMatchObject({
-            id: 'generic', heroVisible: true,
+            id: 'generic', heroVisible: false,
             materials: { buyBody: 0x26363c, buyAccent: 0x55d6c2, sellBody: 0x8f625c, heroPrimary: 0x34434a },
         });
         expect(evidence.companion).toMatchObject({ mint, themeId: 'generic' });

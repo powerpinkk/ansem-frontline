@@ -17,6 +17,8 @@ import { createChampionPolicy, DEFAULT_CHAMPION_DURATION_MS } from './champion-p
 import { initChampionUI } from './champion-ui.js';
 import { activeTrade } from './market-evidence.js';
 import { createMarketTerrain } from './market-terrain.js';
+import { createCommanderController } from './commander-controller.js';
+import { COMMANDER_PROFILE_REGISTRY } from './commander-profile.js';
 import {
     initUI,
     bindCameraControls,
@@ -55,6 +57,7 @@ let tokenUI = null;
 let themeStudio = null;
 let championUI = null;
 let championSnapshot = null;
+let commanderSnapshot = null;
 const pendingSceneTrades = [];
 const runtimeSessions = [];
 const sceneThemeAdapter = createSceneThemeAdapter();
@@ -75,6 +78,13 @@ const unsubscribeChampion = championController.subscribe((snapshot) => {
     championUI?.setSnapshot(snapshot);
     sceneModule?.setUserChampionSnapshot(snapshot);
     companionController?.setChampionSnapshot(snapshot);
+});
+const commanderController = createCommanderController({
+    registry: COMMANDER_PROFILE_REGISTRY,
+    onChange: (snapshot) => {
+        commanderSnapshot = snapshot;
+        sceneModule?.setCommanderSnapshot(snapshot);
+    },
 });
 
 function handleTrade(trade, meta) {
@@ -110,7 +120,7 @@ function applyTradeToScene(trade, meta) {
     const swarm = evaluateBuySwarm(state.liveTrades, now, lastBullSwarmAt);
     if (!meta.bootstrap && swarm.triggered) {
         lastBullSwarmAt = now;
-        sceneModule.triggerBullKingSupport(swarm);
+        sceneModule.triggerBullSupport(swarm);
         addBullSwarmEvent(swarm);
     }
     updateDashboardUI();
@@ -133,6 +143,7 @@ function mountRuntime(resolution) {
             if (!session.active) return;
             session.active = false;
             session.api?.destroy();
+            commanderController.clearForMint(runtime.context.identity.mint);
             if (currentSession === session) currentSession = null;
         },
     };
@@ -147,6 +158,7 @@ function mountRuntime(resolution) {
     awaySession = null;
     resetFrontlineUI();
     sceneModule?.resetTokenPresentation();
+    commanderController.setTokenContext(runtime.context);
     sceneModule?.setMarketTerrainController(session.terrain);
     companionController?.setTokenContext(runtime.context);
     championController.setActiveMint(runtime.context.identity.mint);
@@ -209,6 +221,7 @@ function mountRuntime(resolution) {
             themePresentation.applyForToken(context);
             themeStudio?.setTokenContext(context);
             companionController?.setTokenContext(context);
+            commanderController.setTokenContext(context);
         }),
     }, { runtime, initialMarket: resolution.market });
     companionController?.setTokenContext(runtime.context);
@@ -284,6 +297,7 @@ function boot() {
         if (!currentSession) sceneModule.resetTokenPresentation();
         sceneModule.setMarketTerrainController(currentSession?.terrain || null);
         sceneModule.setUserChampionSnapshot(championSnapshot);
+        sceneModule.setCommanderSnapshot(commanderSnapshot || commanderController.getSnapshot());
         flushPendingSceneTrades();
         sceneModule.startGameLoop();
         if (import.meta.env.DEV) window.__ansemHandleVisibility = handleVisibility;
@@ -321,6 +335,7 @@ function boot() {
         window.__ansemTerrainDiagnostics = () => currentSession?.terrain.getDiagnostics(
             document.getElementById('canvas-container')?.clientWidth || window.innerWidth,
         ) || null;
+        window.__ansemCommanderDiagnostics = () => commanderController.getDiagnostics();
         window.__ansemOpenThemeStudio = () => themeStudio?.open();
         window.__ansemApplyTheme = (themeId) => themePresentation.applyThemeId(String(themeId)).identity.id;
         window.__ansemApplyMissingAssetTheme = () => themePresentation.applyDefinition({
@@ -378,6 +393,7 @@ function destroyApplicationControllers() {
     unsubscribeChampion();
     championUI?.destroy();
     championController.destroy();
+    commanderController.destroy();
 }
 
 function handleVisibility() {
