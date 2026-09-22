@@ -14,6 +14,9 @@ All notable changes are documented here. The project follows [Semantic Versionin
 - Long-soak diagnostics for King visibility, woodland engagements, champion contacts and lateral spread.
 - A renderer-independent locomotion state, orientation, deterministic recovery and distance-driven quadruped gait foundation.
 - Development motion diagnostics plus a 600-second, 260-agent locomotion soak.
+- Deterministic melee states, readable bear rear-up/swipe poses and bounded hit reactions.
+- Symmetric verified-MarketImpact offensives with swept contacts, mass-aware knockback and latest-wins reversal handling.
+- Development combat diagnostics plus a 600-second, 192-agent combat soak with market-integrity assertions.
 
 ### Changed
 
@@ -23,12 +26,15 @@ All notable changes are documented here. The project follows [Semantic Versionin
 - Replaced the Bull King's moving defense goal with a fixed, bounded intercept and persistent camera framing.
 - Replaced global champion clamping with local rank contact and combat animation.
 - Unified champion and aggregate-force intent, resolved velocity, final displacement, facing and gait into one bounded pipeline.
+- Routed combat impulses and charge travel through the locomotion pipeline while preserving MarketFrontier authority.
 
 ### Fixed
 
 - Prevented the King from following an endlessly advancing defense target or leaving the automatic shot.
 - Prevented verified troops from vibrating behind aggregate ranks or visually occupying the same body space.
 - Corrected asymmetric landscape obstacle sizing on negative-Z terrain.
+- Prevented overlapping melee from applying damage every frame and fast charges from tunnelling through enemy ranks.
+- Prevented FX, initialization, source rebases and stale token context from creating market-impact charges.
 
 ## [2.1.0] - 2026-08-25
 

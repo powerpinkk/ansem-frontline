@@ -811,6 +811,150 @@ test('gives verified giant bull buys a swept, market-aware collision charge', as
     }).toEqual({ count: 0, samples: [] });
 });
 
+test('renders a deterministic bear rear-up, swipe, single impact and recovery', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== 'desktop-chromium', 'One WebGL combat-pose simulation is sufficient');
+    test.setTimeout(120_000);
+    const cpuThrottleRate = Number(process.env.ANSEM_E2E_CPU_THROTTLE || 0);
+    if (cpuThrottleRate > 1) {
+        const devtools = await page.context().newCDPSession(page);
+        await devtools.send('Emulation.setCPUThrottlingRate', { rate: cpuThrottleRate });
+    }
+    await page.goto('/');
+    await page.waitForFunction(() => (
+        typeof window.__ansemSpawnStressBattle === 'function'
+        && typeof window.__ansemStageBearAttack === 'function'
+        && typeof window.__ansemGetCombatVisualTrace === 'function'
+        && typeof window.__ansemSetCombatPoseFixture === 'function'
+    ));
+    const staged = await page.evaluate(() => {
+        window.__ansemSpawnStressBattle(3);
+        return window.__ansemStageBearAttack();
+    });
+    expect(staged).not.toBeNull();
+    await page.waitForFunction((traceId) => (
+        window.__ansemGetCombatVisualTrace(traceId)?.completed === true
+    ), staged.traceId, { polling: 100, timeout: 30_000 });
+
+    const completed = await page.evaluate(({ traceId, bearId, bullId }) => {
+        const diagnostics = window.__ansemSceneDiagnostics();
+        return {
+            trace: window.__ansemGetCombatVisualTrace(traceId),
+            bear: diagnostics.entities.find((entity) => entity.id === bearId),
+            bull: diagnostics.entities.find((entity) => entity.id === bullId),
+            combat: diagnostics.combat,
+        };
+    }, { traceId: staged.traceId, bearId: staged.bear, bullId: staged.bull });
+
+    expect(completed.trace.sequenceId).toBe(staged.sequenceId);
+    expect(completed.trace.statesVisited).toEqual(expect.arrayContaining([
+        'APPROACH', 'ATTACK_WINDUP', 'ATTACK_ACTIVE', 'IMPACT', 'RECOVERY',
+    ]));
+    expect(completed.trace).toMatchObject({
+        windupObserved: true,
+        activeObserved: true,
+        impactObserved: true,
+        recoveryObserved: true,
+        completed: true,
+        finalState: 'APPROACH',
+        hitCount: 1,
+        missCount: 0,
+    });
+    expect(completed.trace.simulationUpdates).toBeGreaterThan(0);
+    expect(completed.trace.renderedFrames).toBeGreaterThan(0);
+    expect(completed.trace.maxBodyY).toBeGreaterThan(1.55);
+    expect(completed.trace.maxPawArc).toBeGreaterThan(0.35);
+    expect(completed.bull.hp).toBeLessThan(staged.bullHp);
+    expect(completed.combat.invalidStateCount).toBe(0);
+    expect(completed.combat.nonFiniteCombatCount).toBe(0);
+
+    const windupFixture = await page.evaluate(({ traceId }) => (
+        window.__ansemSetCombatPoseFixture(traceId, 'ATTACK_WINDUP', 0.75)
+    ), { traceId: staged.traceId });
+    expect(windupFixture).not.toBeNull();
+    const windupHandle = await page.waitForFunction((bearId) => {
+        const bear = window.__ansemSceneDiagnostics().entities.find((entity) => entity.id === bearId);
+        return bear?.bodyY > 1.55 && bear?.frontLeftSwing < -0.2 ? bear : false;
+    }, staged.bear, { polling: 100, timeout: 20_000 });
+    const windupPose = await windupHandle.jsonValue();
+    await captureLocalScreenshot(page, '.artifacts/m11-bear-windup.png');
+
+    const swipeFixture = await page.evaluate(({ traceId }) => (
+        window.__ansemSetCombatPoseFixture(traceId, 'ATTACK_ACTIVE', 0.5)
+    ), { traceId: staged.traceId });
+    expect(swipeFixture).not.toBeNull();
+    const swipeHandle = await page.waitForFunction((bearId) => {
+        const bear = window.__ansemSceneDiagnostics().entities.find((entity) => entity.id === bearId);
+        return bear?.frontLeftSwing > 0.3 ? bear : false;
+    }, staged.bear, { polling: 100, timeout: 20_000 });
+    const swipePose = await swipeHandle.jsonValue();
+    await captureLocalScreenshot(page, '.artifacts/m11-bear-swipe.png');
+    expect(swipePose.frontLeftSwing - windupPose.frontLeftSwing).toBeGreaterThan(0.35);
+    expect(await page.evaluate((traceId) => window.__ansemClearCombatPoseFixture(traceId), staged.traceId)).toBe(true);
+});
+
+test('excludes FX and rebase shocks, then cancels a bullish charge for the latest bearish shock', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== 'desktop-chromium', 'One bidirectional MarketImpact simulation is sufficient');
+    test.setTimeout(120_000);
+    await page.goto('/');
+    await page.waitForFunction(() => (
+        typeof window.__ansemSpawnStressBattle === 'function'
+        && typeof window.__ansemStageBullCharge === 'function'
+        && typeof window.__ansemStageMarketImpact === 'function'
+    ));
+    await page.evaluate(() => window.__ansemSpawnStressBattle(3));
+    const before = await page.evaluate(() => window.__ansemSceneDiagnostics());
+    const marketTruth = {
+        authoritativeValuation: before.marketTerrain.authoritativeValuation,
+        targetCoordinate: before.marketTerrain.targetCoordinate,
+        movementCause: before.marketTerrain.movementCause,
+    };
+
+    const excluded = await page.evaluate(() => ({
+        fx: window.__ansemStageMarketImpact('BULLISH', 'SHOCK', { cause: 'QUOTE_FX_MOVE' }),
+        rebase: window.__ansemStageMarketImpact('BULLISH', 'SHOCK', { sourceEpoch: 99 }),
+    }));
+    expect(excluded.fx.accepted).toBe(false);
+    expect(excluded.rebase).toMatchObject({ accepted: false, contextChanged: true });
+    await page.waitForTimeout(400);
+    const afterExcluded = await page.evaluate(() => window.__ansemSceneDiagnostics());
+    expect(afterExcluded.bullCharges.starts).toBe(before.bullCharges.starts);
+    expect(afterExcluded.combat.impactPresentationQueueDepth).toBe(0);
+
+    const stagedBull = await page.evaluate(() => window.__ansemStageBullCharge());
+    expect(stagedBull).not.toBeNull();
+    await page.waitForFunction((bullId) => {
+        const bull = window.__ansemSceneDiagnostics().entities.find((entity) => entity.id === bullId);
+        return ['windup', 'rush'].includes(bull?.chargePhase);
+    }, stagedBull.bull, { polling: 30, timeout: 20_000 });
+    const running = await page.evaluate(() => window.__ansemSceneDiagnostics());
+    const cancelledBefore = running.combat.cancelledChargeCount;
+    const reversal = await page.evaluate(() => window.__ansemStageMarketImpact('BEARISH', 'SHOCK'));
+    expect(reversal).toMatchObject({ accepted: true, cancelActive: true });
+    await page.waitForFunction(({ bullId, cancelledBefore: prior }) => {
+        const diagnostics = window.__ansemSceneDiagnostics();
+        const bull = diagnostics.entities.find((entity) => entity.id === bullId);
+        return diagnostics.combat.cancelledChargeCount > prior && ['recover', 'idle'].includes(bull?.chargePhase);
+    }, { bullId: stagedBull.bull, cancelledBefore }, { polling: 30, timeout: 20_000 });
+    await page.waitForFunction(() => {
+        const diagnostics = window.__ansemSceneDiagnostics();
+        return diagnostics.entities.some((entity) => (
+            entity.type === 'bear' && entity.isWhale && entity.chargeStarts > 0
+            && ['windup', 'rush', 'recover'].includes(entity.chargePhase)
+        ));
+    }, null, { polling: 40, timeout: 30_000 });
+    await captureLocalScreenshot(page, '.artifacts/m11-bearish-reversal.png');
+
+    const final = await page.evaluate(() => window.__ansemSceneDiagnostics());
+    expect(final.combat.impactPresentationQueueDepth).toBeLessThanOrEqual(1);
+    expect(final.combat.invalidStateCount).toBe(0);
+    expect(final.combat.nonFiniteCombatCount).toBe(0);
+    expect({
+        authoritativeValuation: final.marketTerrain.authoritativeValuation,
+        targetCoordinate: final.marketTerrain.targetCoordinate,
+        movementCause: final.marketTerrain.movementCause,
+    }).toEqual(marketTruth);
+});
+
 test('covers an ultrawide battlefield without layout gaps', async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== 'desktop-chromium', 'One ultrawide visual check is sufficient');
     await page.setViewportSize({ width: 1886, height: 991 });

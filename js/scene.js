@@ -3,7 +3,25 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { CONFIG } from './config.js';
 import { deriveForceDoctrine, deriveKingDirective, deriveVisualForces, shouldKingWard } from './battlefield.js';
-import { deriveBullChargeProfile, pointToSegmentDistanceSquared, sweptCircleIntersects } from './combat.js';
+import {
+    COMBAT_POLICY,
+    COMBAT_STATE,
+    advanceCombatImpulse,
+    advanceMeleeCombat,
+    applyCombatImpulse,
+    combatPresentationMass,
+    createChargeContactRegistry,
+    createCombatState,
+    createImpactPresentationController,
+    pointToSegmentDistanceSquared,
+    registerChargeContact,
+    resetChargeContactRegistry,
+    resetCombatState,
+    resolveCombatImpulse,
+    sampleCombatPose,
+    stableContactNormal,
+    sweptCircleIntersects,
+} from './combat.js';
 import { state } from './state.js';
 import { ARENA, clamp, clampArenaPosition, isFinitePosition, isUnitStranded, tacticalPatrolTarget, tradeLane, unitHasExpired } from './navigation.js';
 import { deriveBattleTactics } from './market.js';
@@ -33,7 +51,19 @@ let chargeImpacts = [];
 let kingStrikeEvents = 0;
 let bullChargeStarts = 0;
 let bullChargeHits = 0;
-let lastBullChargeAt = 0;
+let activeChargeEntity = null;
+let combatHitCount = 0;
+let combatMissCount = 0;
+let combatKnockbackCount = 0;
+let cancelledChargeCount = 0;
+let combatContactChecks = 0;
+let maxHitRegistrySize = 0;
+let diagnosticImpactSequence = 0;
+let diagnosticCombatTraceSequence = 0;
+const impactPresentation = createImpactPresentationController();
+const COMBAT_VISUAL_TRACE_LIMIT = 4;
+const combatVisualTraces = [];
+const NO_TARGET_COMBAT_INPUT = Object.freeze({ targetValid: false });
 const MAX_ENTITIES_PER_SIDE = CONFIG.MAX_VISIBLE_UNITS_PER_SIDE;
 const MAX_ACTIVE_PARTICLES = 36;
 const obstacles = [];
@@ -61,6 +91,12 @@ const crowdSeparationAgents = [];
 const detailedContactActive = [];
 const detailedContactPairs = [];
 const championCrowdMovedEntities = [];
+const chargeDetailedContacts = [];
+const chargeRankContacts = [];
+const chargeDetailedContactPool = [];
+const chargeRankContactPool = [];
+const chargeCollisionInput = {};
+const chargeCollisionResult = {};
 let crowdClashAccumulator = 0;
 let crowdCasualtyAccumulator = 0;
 let lastCrowdPlanAt = 0;
@@ -105,6 +141,7 @@ let marketTerrainGroup, marketMajorLines, marketMinorLines, marketFrontier, mark
 let marketMajorMaterial, marketMinorMaterial, marketFrontierMaterial, marketPresentationMaterial;
 let marketTerrainOverlay, marketFrontierValue, marketFrontierStatus, marketFrontierDirection, marketBandLabels = [];
 let lastMarketTerrainUpdateAt = 0;
+let marketCombatReady = false;
 const MARKET_TERRAIN_MAJOR_CAPACITY = 10;
 const MARKET_TERRAIN_MINOR_CAPACITY = 36;
 let ambientLight, hemisphereLight, sunLight, rimLight;
@@ -444,6 +481,164 @@ function getLocomotionDiagnostics() {
     };
 }
 
+function getCombatDiagnostics(now = Date.now()) {
+    const result = {
+        approachingCount: 0,
+        windupCount: 0,
+        activeAttackCount: 0,
+        impactCount: 0,
+        recoveryCount: 0,
+        chargeCount: 0,
+        hitCount: combatHitCount,
+        missCount: combatMissCount,
+        activeImpulseCount: 0,
+        knockbackCount: combatKnockbackCount,
+        cancelledChargeCount,
+        impactPresentationQueueDepth: 0,
+        maxHitRegistrySize,
+        nonFiniteCombatCount: 0,
+        invalidStateCount: 0,
+        contactChecks: combatContactChecks,
+    };
+    const collect = (combat) => {
+        if (!combat) return;
+        if (combat.state === COMBAT_STATE.APPROACH) result.approachingCount += 1;
+        else if (combat.state === COMBAT_STATE.WINDUP) result.windupCount += 1;
+        else if (combat.state === COMBAT_STATE.ACTIVE) result.activeAttackCount += 1;
+        else if (combat.state === COMBAT_STATE.IMPACT) result.impactCount += 1;
+        else if (combat.state === COMBAT_STATE.RECOVERY || combat.state === COMBAT_STATE.CANCELLED) result.recoveryCount += 1;
+        if (Math.hypot(combat.impulseX, combat.impulseZ) > 0.025) result.activeImpulseCount += 1;
+        result.nonFiniteCombatCount += combat.nonFinite;
+        result.invalidStateCount += combat.invalidTransitions;
+    };
+    for (const entity of entities) collect(entity.combat);
+    for (const agent of crowdAgents.bull) collect(agent.combat);
+    for (const agent of crowdAgents.bear) collect(agent.combat);
+    result.chargeCount = entities.filter((entity) => isChargeActive(entity)).length;
+    const presentation = impactPresentation.getDiagnostics(now);
+    result.impactPresentationQueueDepth = presentation.queueDepth;
+    result.presentation = presentation;
+    return result;
+}
+
+function getEntityIdentity(entity) {
+    return entity?.trade?.txHash || entity?.trade?.id || `${entity?.type}-${entity?.bornAt}`;
+}
+
+function publicCombatVisualTrace(trace) {
+    if (!trace) return null;
+    return {
+        id: trace.id,
+        entityId: trace.entityId,
+        sequenceId: trace.sequenceId,
+        statesVisited: [...trace.statesVisited],
+        renderedStatesVisited: [...trace.renderedStatesVisited],
+        windupObserved: trace.statesVisited.includes(COMBAT_STATE.WINDUP),
+        activeObserved: trace.statesVisited.includes(COMBAT_STATE.ACTIVE),
+        impactObserved: trace.statesVisited.includes(COMBAT_STATE.IMPACT),
+        recoveryObserved: trace.statesVisited.includes(COMBAT_STATE.RECOVERY),
+        maxRearUp: trace.maxRearUp,
+        maxBodyY: trace.maxBodyY,
+        maxPawArc: trace.maxPawArc,
+        maxTorsoPitch: trace.maxTorsoPitch,
+        maxHitReaction: trace.maxHitReaction,
+        hitCount: trace.hitCount,
+        missCount: trace.missCount,
+        simulationUpdates: trace.simulationUpdates,
+        renderedFrames: trace.renderedFrames,
+        startedAt: trace.startedAt,
+        completedAt: trace.completedAt,
+        completed: trace.completed,
+        finalState: trace.finalState,
+    };
+}
+
+function createCombatVisualTrace(entity, target = null) {
+    const entityId = getEntityIdentity(entity);
+    const sequenceId = entity.combat.sequence + 1;
+    const trace = {
+        id: `combat-visual-${++diagnosticCombatTraceSequence}`,
+        entityId,
+        targetEntityId: getEntityIdentity(target),
+        sequenceId,
+        statesVisited: [COMBAT_STATE.APPROACH],
+        renderedStatesVisited: [],
+        maxRearUp: 0,
+        maxBodyY: entity.body.position.y,
+        maxPawArc: 0,
+        maxTorsoPitch: 0,
+        maxHitReaction: 0,
+        hitCount: 0,
+        missCount: 0,
+        simulationUpdates: 0,
+        renderedFrames: 0,
+        startedAt: null,
+        completedAt: null,
+        completed: false,
+        finalState: COMBAT_STATE.APPROACH,
+        startHits: entity.combat.totalHits,
+        startMisses: entity.combat.totalMisses,
+        minPaw: Number.POSITIVE_INFINITY,
+        maxPaw: Number.NEGATIVE_INFINITY,
+    };
+    combatVisualTraces.push(trace);
+    if (combatVisualTraces.length > COMBAT_VISUAL_TRACE_LIMIT) combatVisualTraces.shift();
+    entity.combatVisualTrace = trace;
+    entity.combatStateObserver = (visitedState, visitedSequence) => {
+        if (visitedSequence !== trace.sequenceId) return;
+        if (trace.startedAt === null) {
+            if (visitedState !== COMBAT_STATE.WINDUP) return;
+            trace.startedAt = performance.now();
+        }
+        if (!trace.statesVisited.includes(visitedState)) trace.statesVisited.push(visitedState);
+        trace.finalState = visitedState;
+        if (visitedState === COMBAT_STATE.APPROACH
+            && trace.statesVisited.includes(COMBAT_STATE.RECOVERY)) {
+            trace.completed = true;
+            trace.completedAt = performance.now();
+        }
+    };
+    entity.combatInput.observeState = entity.combatStateObserver;
+    return trace;
+}
+
+function syncCombatVisualTrace(entity) {
+    const trace = entity.combatVisualTrace;
+    if (!trace || trace.startedAt === null) return;
+    trace.simulationUpdates += 1;
+    trace.hitCount = Math.max(0, entity.combat.totalHits - trace.startHits);
+    trace.missCount = Math.max(0, entity.combat.totalMisses - trace.startMisses);
+}
+
+function recordCombatVisualPose(entity, pose, baseY) {
+    const trace = entity.combatVisualTrace;
+    if (!trace || trace.startedAt === null || trace.completed || entity.combatPoseFixture) return;
+    if (entity.combat.sequence !== trace.sequenceId) return;
+    const stateName = entity.combat.state;
+    if (!trace.renderedStatesVisited.includes(stateName)) trace.renderedStatesVisited.push(stateName);
+    const bodyY = entity.body.position.y;
+    const paw = entity.rig.frontLeft?.rotation.z;
+    trace.renderedFrames += 1;
+    trace.maxBodyY = Math.max(trace.maxBodyY, bodyY);
+    trace.maxRearUp = Math.max(trace.maxRearUp, bodyY - baseY);
+    trace.maxTorsoPitch = Math.max(trace.maxTorsoPitch, Math.abs(entity.body.rotation.z));
+    trace.maxHitReaction = Math.max(trace.maxHitReaction, pose.recoil || 0);
+    if (Number.isFinite(paw)) {
+        trace.minPaw = Math.min(trace.minPaw, paw);
+        trace.maxPaw = Math.max(trace.maxPaw, paw);
+        trace.maxPawArc = Math.max(trace.maxPawArc, trace.maxPaw - trace.minPaw);
+    }
+}
+
+function clearCombatVisualInstrumentation(entity) {
+    if (!entity) return;
+    if (entity.combatInput?.observeState === entity.combatStateObserver) delete entity.combatInput.observeState;
+    entity.combatStateObserver = null;
+    entity.combatVisualTrace = null;
+    entity.combatPoseFixture = null;
+    entity.diagnosticFixturePinned = false;
+}
+
 export function initScene(callbacks = {}) {
     onKillEvent = callbacks.onKillEvent || onKillEvent;
     onReclaimEvent = callbacks.onReclaimEvent || onReclaimEvent;
@@ -483,6 +678,17 @@ export function initScene(callbacks = {}) {
                 chargeStarts: entity.chargeStarts,
                 chargeHits: entity.chargeHits,
                 chargeDistance: entity.chargeDistance,
+                combatState: entity.combat.state,
+                combatSequence: entity.combat.sequence,
+                combatHits: entity.combat.totalHits,
+                combatMisses: entity.combat.totalMisses,
+                hitReaction: entity.combat.hitReactionTime,
+                impulseX: entity.combat.impulseX,
+                impulseZ: entity.combat.impulseZ,
+                bodyY: entity.body.position.y,
+                bodyPitch: entity.body.rotation.z,
+                frontLeftSwing: entity.rig.frontLeft?.rotation.z || 0,
+                frontRightSwing: entity.rig.frontRight?.rotation.z || 0,
                 desiredVelocityX: entity.motion.desiredVelocityX,
                 desiredVelocityZ: entity.motion.desiredVelocityZ,
                 resolvedVelocityX: entity.motion.resolvedVelocityX,
@@ -506,6 +712,7 @@ export function initScene(callbacks = {}) {
                 starts: bullChargeStarts,
                 hits: bullChargeHits,
             },
+            combat: getCombatDiagnostics(),
             supportedBulls: entities.filter((entity) => entity.type === 'bull' && entity.supportUntil > Date.now()).length,
             battle: getSceneTactics(),
             forces: {
@@ -560,6 +767,10 @@ export function initScene(callbacks = {}) {
                 locomotionState: agent.motion.locomotionState,
                 progressState: agent.motion.progressState,
                 recoveryAttempts: agent.motion.recoveryAttempts,
+                combatState: agent.combat.state,
+                combatSequence: agent.combat.sequence,
+                combatHits: agent.combat.totalHits,
+                combatMisses: agent.combat.totalMisses,
             }))])),
             locomotion: getLocomotionDiagnostics(),
             bullKing: bullKingRig ? {
@@ -721,7 +932,7 @@ export function initScene(callbacks = {}) {
                     entity.crowdStrikeProgress = 0;
                     entity.stuckTime = 0;
                     entity.lastPosition.set(entity.mesh.position.x, entity.mesh.position.z);
-                    resetBullCharge(entity, 0);
+                    resetCharge(entity, 0);
                 }
             }
             return pairs;
@@ -747,14 +958,107 @@ export function initScene(callbacks = {}) {
             bull.crowdStrikeProgress = 0;
             bull.stuckTime = 0;
             bull.lastPosition.set(bull.mesh.position.x, bull.mesh.position.z);
-            resetBullCharge(bull, 0);
-            lastBullChargeAt = 0;
+            resetCharge(bull, 0);
+            const impactObservation = stageDiagnosticMarketImpact('BULLISH', 'SHOCK');
             return {
                 bull: bull.trade?.txHash || bull.trade?.id || `bull-${bull.bornAt}`,
                 bear: bear.trade?.txHash || bear.trade?.id || `bear-${bear.bornAt}`,
                 bearHp: bear.hp,
+                impactObservation,
+                impactDiagnostics: impactPresentation.getDiagnostics(),
             };
         };
+        window.__ansemStageMarketImpact = (direction = 'BULLISH', category = 'SHOCK', overrides = {}) => {
+            if (direction === 'BEARISH' && ['EXTREME', 'SHOCK'].includes(category)
+                && overrides.cause !== 'QUOTE_FX_MOVE') {
+                const bear = entities.find((entity) => entity.type === 'bear' && entity.isWhale && !entity.retired && entity.hp > 0);
+                const bull = entities.find((entity) => entity.type === 'bull' && !entity.isWhale && !entity.retired && entity.hp > 0)
+                    || entities.find((entity) => entity.type === 'bull' && !entity.retired && entity.hp > 0);
+                if (bear && bull) {
+                    const z = -8;
+                    bear.mesh.position.set(22, getTrenchHeight(22, z), z);
+                    bull.mesh.position.set(-8, getTrenchHeight(-8, z), z);
+                    syncEntityMotion(bear);
+                    syncEntityMotion(bull);
+                    bear.laneTarget = z;
+                    bull.laneTarget = z;
+                    bear.target = bull;
+                    bull.target = bear;
+                    resetCharge(bear, 0);
+                }
+            }
+            return stageDiagnosticMarketImpact(direction, category, overrides);
+        };
+        window.__ansemStageBearAttack = () => {
+            const bear = entities.filter((entity) => entity.type === 'bear' && !entity.isWhale && !entity.retired && entity.hp > 0).at(-1);
+            const bull = entities.filter((entity) => entity.type === 'bull' && !entity.isWhale && !entity.retired && entity.hp > 0).at(-1);
+            if (!bear || !bull) return null;
+            const z = 30;
+            // Keep the deterministic visual pair alive while the software
+            // renderer samples every pose; this is a diagnostics-only fixture.
+            bear.hp = Math.max(bear.hp, 10_000);
+            bull.hp = Math.max(bull.hp, 10_000);
+            bear.mesh.position.set(35, getTrenchHeight(35, z), z);
+            bull.mesh.position.set(32.8, getTrenchHeight(32.8, z), z);
+            for (const [entity, target] of [[bear, bull], [bull, bear]]) {
+                if (import.meta.env.DEV) clearCombatVisualInstrumentation(entity);
+                syncEntityMotion(entity);
+                resetCombatState(entity.combat, { archetype: entity.type, seed: entity.combat.seed });
+                entity.target = target;
+                entity.cooldown = 0;
+                entity.frontContact = null;
+                entity.frontContactUntil = 0;
+                entity.frontContactHoldX = null;
+                entity.forcedRetreatUntil = 0;
+                entity.laneTarget = z;
+            }
+            const trace = import.meta.env.DEV ? createCombatVisualTrace(bear, bull) : null;
+            if (trace) {
+                bear.diagnosticFixturePinned = true;
+                bull.diagnosticFixturePinned = true;
+            }
+            return {
+                bear: getEntityIdentity(bear),
+                bull: getEntityIdentity(bull),
+                bullHp: bull.hp,
+                traceId: trace?.id || null,
+                sequenceId: trace?.sequenceId || null,
+            };
+        };
+        if (import.meta.env.DEV) {
+            window.__ansemGetCombatVisualTrace = (traceId) => publicCombatVisualTrace(
+                combatVisualTraces.find((trace) => trace.id === traceId) || null,
+            );
+            window.__ansemSetCombatPoseFixture = (traceId, phase, normalizedProgress = 0.5) => {
+                const trace = combatVisualTraces.find((candidate) => candidate.id === traceId);
+                const entity = trace && entities.find((candidate) => getEntityIdentity(candidate) === trace.entityId);
+                const allowed = [
+                    COMBAT_STATE.APPROACH,
+                    COMBAT_STATE.WINDUP,
+                    COMBAT_STATE.ACTIVE,
+                    COMBAT_STATE.IMPACT,
+                    COMBAT_STATE.RECOVERY,
+                ];
+                if (!entity || entity.type !== 'bear' || !allowed.includes(phase)) return null;
+                const fixtureState = createCombatState({ archetype: 'bear', seed: entity.combat.seed });
+                fixtureState.state = phase;
+                entity.combatPoseFixture = {
+                    state: fixtureState,
+                    normalizedProgress: clamp(Number(normalizedProgress) || 0, 0, 1),
+                };
+                return { entityId: trace.entityId, phase, normalizedProgress: entity.combatPoseFixture.normalizedProgress };
+            };
+            window.__ansemClearCombatPoseFixture = (traceId) => {
+                const trace = combatVisualTraces.find((candidate) => candidate.id === traceId);
+                const entity = trace && entities.find((candidate) => getEntityIdentity(candidate) === trace.entityId);
+                if (!entity) return false;
+                entity.combatPoseFixture = null;
+                entity.diagnosticFixturePinned = false;
+                const target = entities.find((candidate) => getEntityIdentity(candidate) === trace.targetEntityId);
+                if (target) target.diagnosticFixturePinned = false;
+                return true;
+            };
+        }
         window.__ansemTriggerReclamation = () => {
             const bear = entities.find((entity) => entity.type === 'bear');
             if (bear) {
@@ -906,6 +1210,8 @@ export function setMarketTerrainController(controller) {
         throw new TypeError('Invalid market terrain controller');
     }
     marketTerrainController = controller;
+    impactPresentation.reset();
+    marketCombatReady = false;
     marketTerrainSnapshot = controller?.getSnapshot(canvasContainer?.clientWidth || window.innerWidth) || null;
     state.marketTerrain = marketTerrainSnapshot;
     lastMarketTerrainUpdateAt = 0;
@@ -1063,7 +1369,19 @@ export function resetTokenPresentation() {
     kingStrikeEvents = 0;
     bullChargeStarts = 0;
     bullChargeHits = 0;
-    lastBullChargeAt = 0;
+    activeChargeEntity = null;
+    combatHitCount = 0;
+    combatMissCount = 0;
+    combatKnockbackCount = 0;
+    cancelledChargeCount = 0;
+    combatContactChecks = 0;
+    maxHitRegistrySize = 0;
+    diagnosticImpactSequence = 0;
+    if (import.meta.env.DEV) {
+        diagnosticCombatTraceSequence = 0;
+        combatVisualTraces.length = 0;
+    }
+    impactPresentation.reset();
     motionUpdateSamples = 0;
     motionUpdateTotalMs = 0;
     motionUpdateMaxMs = 0;
@@ -1164,13 +1482,18 @@ export function toggleAudio() {
 export function spawnUnit(type, initial = false, isWhale = false, trade = null) {
     const sameSide = entities.filter((entity) => entity.type === type);
     if (sameSide.length >= MAX_ENTITIES_PER_SIDE) {
-        const oldestRegular = sameSide.find((entity) => !entity.isWhale);
-        retireEntity(oldestRegular || sameSide[0]);
+        const oldestRegular = sameSide.find((entity) => !entity.isWhale
+            && !(import.meta.env.DEV && entity.diagnosticFixturePinned));
+        retireEntity(oldestRegular
+            || sameSide.find((entity) => !(import.meta.env.DEV && entity.diagnosticFixturePinned))
+            || sameSide[0]);
     }
     const isBull = type === 'bull';
     const group = new THREE.Group();
     const bodyGroup = new THREE.Group();
     const legs = [];
+    let head;
+    let torso;
 
     if (isWhale) {
         group.scale.set(2.8, 2.8, 2.8);
@@ -1191,8 +1514,9 @@ export function spawnUnit(type, initial = false, isWhale = false, trade = null) 
 
     if (isBull) {
         bodyGroup.position.y = 1.3;
-        bodyGroup.add(createMesh(geoDetailedBullBody, matBullBody, 1, 1, 1));
-        const head = createMesh(geoBox, matBullHead, 0.8, 0.8, 0.8);
+        torso = createMesh(geoDetailedBullBody, matBullBody, 1, 1, 1);
+        bodyGroup.add(torso);
+        head = createMesh(geoBox, matBullHead, 0.8, 0.8, 0.8);
         head.position.set(1.0, 0.3, 0);
         bodyGroup.add(head);
         const snout = createMesh(geoBox, matSnout, 0.5, 0.4, 0.6);
@@ -1214,14 +1538,14 @@ export function spawnUnit(type, initial = false, isWhale = false, trade = null) 
         });
     } else {
         bodyGroup.position.y = 1.35;
-        const bearTorso = createMesh(geoBearBody, matBearBody, 1.72, 0.98, 1.02);
-        bearTorso.position.x = -0.18;
-        bodyGroup.add(bearTorso);
+        torso = createMesh(geoBearBody, matBearBody, 1.72, 0.98, 1.02);
+        torso.position.x = -0.18;
+        bodyGroup.add(torso);
         const darkDetails = createMesh(geoBearDarkDetails, matBearDarkFur, 1, 1, 1);
         darkDetails.castShadow = false;
         darkDetails.receiveShadow = false;
         bodyGroup.add(darkDetails);
-        const head = createMesh(geoBearHead, matBearHead, 0.72, 0.8, 0.72);
+        head = createMesh(geoBearHead, matBearHead, 0.72, 0.8, 0.72);
         head.position.set(1.5, 0.5, 0);
         bodyGroup.add(head);
         const nose = createMesh(geoSphere, matSnout, 0.1584, 0.128, 0.1728);
@@ -1269,6 +1593,16 @@ export function spawnUnit(type, initial = false, isWhale = false, trade = null) 
         mesh: group,
         body: bodyGroup,
         legs,
+        rig: {
+            root: group,
+            body: bodyGroup,
+            torso,
+            head,
+            frontLeft: legs[0],
+            frontRight: legs[1],
+            hindLeft: legs[2],
+            hindRight: legs[3],
+        },
         aura,
         type,
         isWhale,
@@ -1319,6 +1653,17 @@ export function spawnUnit(type, initial = false, isWhale = false, trade = null) 
         motionInput: {},
         motionFinalize: {},
         gaitPose: {},
+        combat: createCombatState({ archetype: type, seed: sequence + (isBull ? 701 : 907) }),
+        combatInput: {},
+        combatUpdate: {},
+        combatPose: {},
+        ...(import.meta.env.DEV ? {
+            combatVisualTrace: null,
+            combatStateObserver: null,
+            combatPoseFixture: null,
+            diagnosticFixturePinned: false,
+        } : {}),
+        presentationMass: combatPresentationMass({ isWhale, archetype: type }),
         chargePhase: 'idle',
         chargePhaseStartedAt: 0,
         chargeCooldownUntil: Date.now() + 1_800 + (sequence % 5) * 420,
@@ -1330,6 +1675,8 @@ export function spawnUnit(type, initial = false, isWhale = false, trade = null) 
         chargeTarget: null,
         chargeHitEntities: new Set(),
         chargeHitRanks: new Set(),
+        chargeRegistry: createChargeContactRegistry(),
+        chargeRequest: null,
         chargeStarts: 0,
         chargeHits: 0,
         chargeRunHits: 0,
@@ -1400,6 +1747,13 @@ function retireEntity(entity) {
     const index = entities.indexOf(entity);
     if (index === -1) return;
     entity.retired = true;
+    if (import.meta.env.DEV) clearCombatVisualInstrumentation(entity);
+    if (activeChargeEntity === entity) {
+        activeChargeEntity = null;
+        impactPresentation.completeActive();
+    }
+    resetCombatState(entity.combat, { archetype: entity.type, seed: entity.combat.seed });
+    resetChargeContactRegistry(entity.chargeRegistry);
     if (selectedEntity === entity) {
         selectedEntity = null;
         onInspectUnit(null);
@@ -1494,6 +1848,7 @@ export function handleTerritoryShift(trade, meta = {}) {
     const stranded = entities.filter((entity) =>
         entity.type === 'bear'
         && !entity.retired
+        && !(import.meta.env.DEV && entity.diagnosticFixturePinned)
         && entity.hp > 0
         && isUnitStranded('bear', entity.mesh.position.x, next, entity.isWhale ? 18 : 14)
     );
@@ -1518,6 +1873,7 @@ function updateTerritorialControl() {
     const stranded = entities.filter((entity) =>
         entity.type === 'bear'
         && !entity.retired
+        && !(import.meta.env.DEV && entity.diagnosticFixturePinned)
         && entity.hp > 0
         && entity.forcedRetreatUntil <= now
         && isUnitStranded('bear', entity.mesh.position.x, state.frontlineX, entity.isWhale ? 18 : 14)
@@ -1530,7 +1886,8 @@ function updateTerritorialControl() {
 function defendKingSanctum(now, tactics) {
     if (!bullKingRig || !shouldKingWard(tactics) || now - lastKingDefenseAt < KING_DEFENSE_COOLDOWN_MS) return false;
     const intruders = entities.filter((entity) => {
-        if (entity.type !== 'bear' || entity.retired || entity.hp <= 0 || entity.forcedRetreatUntil > now) return false;
+        if (entity.type !== 'bear' || entity.retired || (import.meta.env.DEV && entity.diagnosticFixturePinned)
+            || entity.hp <= 0 || entity.forcedRetreatUntil > now) return false;
         const dx = entity.mesh.position.x - bullKingRig.position.x;
         const dz = entity.mesh.position.z - bullKingRig.position.z;
         const radius = KING_SANCTUM_RADIUS + (entity.isWhale ? 4 : 0);
@@ -1920,6 +2277,18 @@ function updateMarketTerrainPresentation(now = Date.now(), force = false) {
     lastMarketTerrainUpdateAt = now;
     marketTerrainSnapshot = marketTerrainController.advance(now, canvasContainer.clientWidth);
     state.marketTerrain = marketTerrainSnapshot;
+    if (!marketCombatReady) {
+        // The first snapshot establishes context. Historical/bootstrap impact
+        // must never start a cinematic when a token runtime is attached.
+        impactPresentation.establishContext(marketTerrainSnapshot);
+        marketCombatReady = true;
+    } else {
+        const observation = impactPresentation.observe(marketTerrainSnapshot, now);
+        if (observation.cancelActive && activeChargeEntity && isChargeActive(activeChargeEntity)) {
+            transitionChargeToRecovery(activeChargeEntity, now, true);
+            impactPresentation.cancelActive(now);
+        }
+    }
     const hasAuthority = marketTerrainSnapshot.authoritativeValuation !== null;
     marketTerrainGroup.visible = hasAuthority;
     marketTerrainOverlay.className = `market-terrain-overlay ${marketTerrainSnapshot.status.toLowerCase()}`;
@@ -1957,6 +2326,44 @@ function updateMarketTerrainPresentation(now = Date.now(), force = false) {
     marketFrontier.position.set(targetX, getTrenchHeight(targetX, 0) + 0.26, 0);
     updateMarketTerrainColors();
     updateMarketBandLabels(boundaries);
+}
+
+function stageDiagnosticMarketImpact(direction = 'BULLISH', category = 'SHOCK', overrides = {}) {
+    diagnosticImpactSequence += 1;
+    if (!marketCombatReady) updateMarketTerrainPresentation(true);
+    const now = Date.now();
+    let presentationContext = impactPresentation.getDiagnostics(now);
+    if (!presentationContext.hasContext && marketTerrainSnapshot) {
+        impactPresentation.establishContext(marketTerrainSnapshot);
+        presentationContext = impactPresentation.getDiagnostics(now);
+    }
+    const normalizedDirection = direction === 'BEARISH' ? 'BEARISH' : 'BULLISH';
+    const normalizedCategory = ['NORMAL', 'STRONG', 'EXTREME', 'SHOCK'].includes(category) ? category : 'SHOCK';
+    const score = normalizedCategory === 'SHOCK' ? 0.94
+        : normalizedCategory === 'EXTREME' ? 0.72
+            : normalizedCategory === 'STRONG' ? 0.46 : 0.22;
+    const snapshot = {
+        tokenMint: overrides.tokenMint ?? presentationContext.contextTokenMint,
+        status: overrides.status || 'LIVE',
+        sourceEpoch: overrides.sourceEpoch ?? presentationContext.contextSourceEpoch ?? marketTerrainSnapshot?.sourceEpoch ?? 1,
+        movementCause: overrides.cause || 'TOKEN_NATIVE_MARKET_MOVE',
+        traversal: { direction: normalizedDirection },
+        impact: {
+            direction: normalizedDirection,
+            category: normalizedCategory,
+            score,
+            verifiedExecutionCount: normalizedCategory === 'SHOCK' ? 12 : 6,
+            cause: overrides.cause || 'TOKEN_NATIVE_MARKET_MOVE',
+            clusterType: normalizedDirection === 'BULLISH' ? 'CLUSTERED_BUY_WAVE' : 'CLUSTERED_SELL_WAVE',
+            evidence: [`diagnostic-impact-${diagnosticImpactSequence}`],
+        },
+    };
+    const observation = impactPresentation.observe(snapshot, now);
+    if (observation.cancelActive && activeChargeEntity && isChargeActive(activeChargeEntity)) {
+        transitionChargeToRecovery(activeChargeEntity, now, true);
+        impactPresentation.cancelActive(now);
+    }
+    return observation;
 }
 
 function updateMarketBandLabels(boundaries) {
@@ -2582,18 +2989,42 @@ function soundCrit() { playTone(450, 'sawtooth', 0.15, 0.02); }
 function soundDeath() { playTone(150, 'sine', 0.3, 0.03); }
 function soundShoot() { playTone(800, 'sine', 0.1, 0.01); }
 
-function applyDamage(attacker, target, dmg, isCrit, direction) {
+function applyDamage(attacker, target, dmg, isCrit, direction, cause = 'MELEE', requestedImpulse = null) {
     if (target.hp <= 0) return;
 
     target.hp -= dmg;
     if (isCrit) soundCrit();
     else soundHit();
 
-    const baseForce = isCrit ? (attacker.isWhale ? 25 : 12) : (attacker.isWhale ? 15 : 6);
-    const massScale = target.isWhale ? (attacker.isWhale ? 0.28 : 0.1) : 1;
-    const force = baseForce * massScale;
-    target.vx = direction.x * force;
-    target.vz = direction.z * force;
+    const normal = stableContactNormal({
+        sourceX: attacker.mesh.position.x,
+        sourceZ: attacker.mesh.position.z,
+        targetX: target.mesh.position.x,
+        targetZ: target.mesh.position.z,
+        seed: attacker.combat.seed + target.combat.seed,
+    });
+    if (Number.isFinite(direction?.x) && Number.isFinite(direction?.z)) {
+        const length = Math.hypot(direction.x, direction.z);
+        if (length > 1e-6) {
+            normal.x = direction.x / length;
+            normal.z = direction.z / length;
+        }
+    }
+    const magnitude = requestedImpulse ?? (isCrit ? 7.2 : attacker.isWhale ? 6.2 : 3.8);
+    const impulse = resolveCombatImpulse({
+        directionX: normal.x,
+        directionZ: normal.z,
+        magnitude,
+        attackerMass: attacker.presentationMass,
+        defenderMass: target.presentationMass,
+        currentX: target.combat.impulseX,
+        currentZ: target.combat.impulseZ,
+    });
+    if (applyCombatImpulse(target.combat, impulse)) {
+        combatKnockbackCount += 1;
+        target.combat.lastImpulseCause = cause;
+    }
+    combatHitCount += 1;
 
     spawnParticles(target.mesh.position, attacker.type === 'bull' ? matParticleBear : matParticleBull, false, attacker.isWhale);
     spawnFloatingText(dmg, target.mesh.position, attacker.color, isCrit);
@@ -2657,23 +3088,31 @@ function removeProjectile(index) {
     projectiles.splice(index, 1);
 }
 
-function resetBullCharge(entity, cooldownMs = entity.chargeProfile?.cooldownMs || 0) {
+function resetCharge(entity, cooldownMs = entity.chargeProfile?.cooldownMs || 0) {
+    const wasActivePresentation = activeChargeEntity === entity;
     entity.chargePhase = 'idle';
     entity.chargePhaseStartedAt = 0;
     entity.chargeCooldownUntil = Date.now() + Math.max(0, cooldownMs);
     entity.chargeProfile = null;
+    entity.chargeRequest = null;
     entity.chargeTarget = null;
     entity.chargeHitEntities.clear();
     entity.chargeHitRanks.clear();
+    resetChargeContactRegistry(entity.chargeRegistry);
     entity.chargeDistance = 0;
     entity.chargeDustDistance = 0;
     entity.chargeRunHits = 0;
     entity.chargeStopRequested = false;
+    entity.chargeCancelled = false;
     entity.aura?.scale.setScalar(1);
+    if (wasActivePresentation) {
+        activeChargeEntity = null;
+        impactPresentation.completeActive();
+    }
 }
 
-function isBullChargeActive(entity) {
-    return entity.type === 'bull' && entity.isWhale && entity.chargePhase !== 'idle';
+function isChargeActive(entity) {
+    return Boolean(entity) && entity.chargePhase !== 'idle';
 }
 
 function isChargePathClear(startX, startZ, endX, endZ, clearance = 3.8) {
@@ -2697,14 +3136,16 @@ function isChargePathClear(startX, startZ, endX, endZ, clearance = 3.8) {
     });
 }
 
-function findBullChargeTarget(entity, profile) {
+function findChargeTarget(entity, profile) {
     const startX = entity.mesh.position.x;
     const startZ = entity.mesh.position.z;
+    const enemyType = entity.type === 'bull' ? 'bear' : 'bull';
+    const forward = entity.type === 'bull' ? 1 : -1;
     const detailed = entities
-        .filter((other) => other !== entity && other.type === 'bear' && !other.retired && other.hp > 0)
+        .filter((other) => other !== entity && other.type === enemyType && !other.retired && other.hp > 0)
         .map((other) => ({ kind: 'entity', ref: other, x: other.mesh.position.x, z: other.mesh.position.z }))
         .sort((first, second) => Math.hypot(first.x - startX, first.z - startZ) - Math.hypot(second.x - startX, second.z - startZ));
-    const ranks = crowdAgents.bear
+    const ranks = crowdAgents[enemyType]
         .filter((agent) => !agent.retiring)
         .map((agent) => ({ kind: 'rank', ref: agent, x: agent.x, z: agent.z }))
         .sort((first, second) => Math.hypot(first.x - startX, first.z - startZ) - Math.hypot(second.x - startX, second.z - startZ));
@@ -2713,7 +3154,7 @@ function findBullChargeTarget(entity, profile) {
         const dx = candidate.x - startX;
         const dz = candidate.z - startZ;
         const distance = Math.hypot(dx, dz);
-        if (dx < 9 || distance < 12 || distance > profile.maxDistance + 4 || Math.abs(dz) > 17) continue;
+        if (forward * dx < 7 || distance < 9 || distance > profile.maxDistance + 5 || Math.abs(dz) > 19) continue;
         const directionX = dx / distance;
         const directionZ = dz / distance;
         const travel = Math.min(profile.maxDistance, distance + 5.2);
@@ -2725,23 +3166,20 @@ function findBullChargeTarget(entity, profile) {
     return null;
 }
 
-function tryStartBullCharge(entity, tactics, now) {
-    if (entity.type !== 'bull' || !entity.isWhale || entity.chargePhase !== 'idle'
-        || entity.forcedRetreatUntil > now || now < entity.chargeCooldownUntil) return false;
-    const profile = deriveBullChargeProfile({
-        balance: tactics.balance,
-        flowIntensity: tactics.flowIntensity,
-        solValue: entity.trade?.solValue,
-        power: entity.power,
-    });
-    if (!profile.enabled) return false;
-    const activeCharges = entities.filter((other) => isBullChargeActive(other)).length;
-    if (activeCharges >= profile.maxConcurrent) return false;
-    const spacingMs = 900 - tactics.flowIntensity * 520;
-    if (now - lastBullChargeAt < spacingMs) return false;
-    const target = findBullChargeTarget(entity, profile);
-    if (!target) return false;
-
+function startImpactCharge(entity, request, target, now) {
+    const profile = {
+        windupMs: Math.round(620 - request.intensity * 160),
+        recoverMs: Math.round(680 - request.intensity * 120),
+        speed: request.speed * (entity.isWhale ? 1 : 0.82),
+        maxDistance: request.maxDistance,
+        damage: Math.round((entity.isWhale ? 230 : 120) * (0.8 + request.intensity * 0.5) * entity.power),
+        rankCapacity: request.maxContacts,
+        corridorRadius: (entity.isWhale ? 3.5 : 2.1) + request.intensity * 0.45,
+        cooldownMs: request.cooldownMs,
+        impulseMagnitude: request.impulseMagnitude,
+        intensity: request.intensity,
+        direction: request.direction,
+    };
     entity.chargePhase = 'windup';
     entity.chargePhaseStartedAt = now;
     entity.chargeDirectionX = target.directionX;
@@ -2749,58 +3187,64 @@ function tryStartBullCharge(entity, tactics, now) {
     entity.chargeEndX = target.endX;
     entity.chargeEndZ = target.endZ;
     entity.chargeProfile = profile;
+    entity.chargeRequest = request;
     entity.chargeTarget = target.ref;
     entity.chargeHitEntities.clear();
     entity.chargeHitRanks.clear();
+    resetChargeContactRegistry(entity.chargeRegistry);
+    entity.chargeRegistry.limit = Math.min(COMBAT_POLICY.maxHitRegistrySize, request.maxContacts);
     entity.chargeDistance = 0;
     entity.chargeDustDistance = 0;
     entity.chargeRunHits = 0;
     entity.chargeStopRequested = false;
+    entity.chargeCancelled = false;
     entity.frontContact = null;
     entity.frontContactUntil = 0;
     entity.frontContactHoldX = null;
     entity.crowdStrikeProgress = 0;
     entity.vx = 0;
     entity.vz = 0;
-    entity.mesh.rotation.y = Math.atan2(-target.directionZ, target.directionX);
+    entity.combat.impulseX = 0;
+    entity.combat.impulseZ = 0;
     entity.chargeStarts += 1;
     bullChargeStarts += 1;
-    lastBullChargeAt = now;
+    activeChargeEntity = entity;
     return true;
 }
 
-function transitionBullChargeToRecovery(entity, now) {
+function tryStartPendingCharge(now) {
+    if (activeChargeEntity) return false;
+    const request = impactPresentation.peekPending(now);
+    if (!request) return false;
+    const candidates = entities
+        .filter((entity) => entity.type === request.faction && !entity.retired && entity.hp > 0
+            && entity.chargePhase === 'idle' && entity.forcedRetreatUntil <= now
+            && now >= entity.chargeCooldownUntil)
+        .sort((first, second) => Number(second.isWhale) - Number(first.isWhale)
+            || second.power - first.power || first.bornAt - second.bornAt);
+    for (const entity of candidates) {
+        const provisional = {
+            maxDistance: request.maxDistance,
+            corridorRadius: (entity.isWhale ? 3.5 : 2.1) + request.intensity * 0.45,
+        };
+        const target = findChargeTarget(entity, provisional);
+        if (!target) continue;
+        const activated = impactPresentation.activatePending(now);
+        if (!activated) return false;
+        return startImpactCharge(entity, activated, target, now);
+    }
+    return false;
+}
+
+function transitionChargeToRecovery(entity, now, cancelled = false) {
     if (entity.chargePhase === 'recover') return;
     entity.chargePhase = 'recover';
     entity.chargePhaseStartedAt = now;
     entity.chargeStopRequested = false;
+    entity.chargeCancelled = cancelled;
     entity.vx = 0;
     entity.vz = 0;
-}
-
-function animateBullChargeLegs(entity, phase, progress) {
-    if (phase === 'windup') {
-        const scrape = Math.sin(progress * Math.PI * 5);
-        entity.legs[0].rotation.z = -0.5 + scrape * 0.22;
-        entity.legs[1].rotation.z = 0.34 - scrape * 0.18;
-        entity.legs[2].rotation.z = 0.18;
-        entity.legs[3].rotation.z = -0.18;
-        return;
-    }
-    if (phase === 'rush') {
-        const stride = Math.sin(entity.animTime * 25);
-        const opposite = Math.sin(entity.animTime * 25 + Math.PI);
-        entity.legs[0].rotation.z = stride * 0.94;
-        entity.legs[3].rotation.z = stride * 0.94;
-        entity.legs[1].rotation.z = opposite * 0.94;
-        entity.legs[2].rotation.z = opposite * 0.94;
-        return;
-    }
-    const settle = (1 - progress) * Math.sin(progress * Math.PI * 4) * 0.42;
-    entity.legs[0].rotation.z = settle;
-    entity.legs[3].rotation.z = settle;
-    entity.legs[1].rotation.z = -settle;
-    entity.legs[2].rotation.z = -settle;
+    if (cancelled) cancelledChargeCount += 1;
 }
 
 function spawnChargeImpact(x, z, strength = 1) {
@@ -2826,10 +3270,22 @@ function spawnChargeImpact(x, z, strength = 1) {
     chargeImpacts.push({ mesh, age: 0, strength });
 }
 
-function retireRankFromBullCharge(entity, rank) {
-    if (rank.retiring || entity.chargeHitRanks.has(rank.id)) return false;
+function retireRankFromCharge(entity, rank) {
+    const identity = `${rank.type}-${rank.id}`;
+    if (rank.retiring || entity.chargeHitRanks.has(rank.id)
+        || !registerChargeContact(entity.chargeRegistry, identity)) return false;
     rank.retiring = true;
     rank.life = Math.min(rank.life, 0.72);
+    const impulse = resolveCombatImpulse({
+        directionX: entity.chargeDirectionX,
+        directionZ: entity.chargeDirectionZ,
+        magnitude: entity.chargeProfile.impulseMagnitude,
+        attackerMass: entity.presentationMass,
+        defenderMass: rank.presentationMass,
+        currentX: rank.combat.impulseX,
+        currentZ: rank.combat.impulseZ,
+    });
+    applyCombatImpulse(rank.combat, impulse);
     const partner = rank.engagementPartner;
     rank.engagementPartner = null;
     if (partner?.engagementPartner === rank) partner.engagementPartner = null;
@@ -2837,48 +3293,63 @@ function retireRankFromBullCharge(entity, rank) {
     entity.chargeHits += 1;
     entity.chargeRunHits += 1;
     bullChargeHits += 1;
+    combatKnockbackCount += 1;
+    maxHitRegistrySize = Math.max(maxHitRegistrySize, entity.chargeRegistry.hits.size);
     return true;
 }
 
-function applyBullChargeCollisions(entity, startX, startZ, endX, endZ, now) {
+function applyChargeCollisions(entity, startX, startZ, endX, endZ, now) {
     const profile = entity.chargeProfile;
     if (!profile) return;
+    const enemyType = entity.type === 'bull' ? 'bear' : 'bull';
     const remaining = Math.max(0, profile.rankCapacity - entity.chargeRunHits);
     if (remaining <= 0) {
         entity.chargeStopRequested = true;
         return;
     }
-    const detailedHits = entities
-        .filter((other) => other !== entity && other.type === 'bear' && !other.retired && other.hp > 0 && !entity.chargeHitEntities.has(other))
-        .map((other) => {
-            const radius = profile.corridorRadius + (other.isWhale ? 6.15 : 1.45);
-            const collision = sweptCircleIntersects({
-                pointX: other.mesh.position.x,
-                pointZ: other.mesh.position.z,
-                startX,
-                startZ,
-                endX,
-                endZ,
-                radius,
-            });
-            return { other, ...collision };
-        })
-        .filter((collision) => collision.hit)
-        .sort((first, second) => first.entryProjection - second.entryProjection);
+    chargeDetailedContacts.length = 0;
+    let detailedContactCount = 0;
+    for (const other of entities) {
+        if (other === entity || other.type !== enemyType || other.retired || other.hp <= 0
+            || entity.chargeHitEntities.has(other)) continue;
+        const radius = profile.corridorRadius + (other.isWhale ? 6.15 : 1.45);
+        const otherX = other.mesh.position.x;
+        const otherZ = other.mesh.position.z;
+        if (otherX < Math.min(startX, endX) - radius || otherX > Math.max(startX, endX) + radius
+            || otherZ < Math.min(startZ, endZ) - radius || otherZ > Math.max(startZ, endZ) + radius) continue;
+        combatContactChecks += 1;
+        chargeCollisionInput.pointX = otherX;
+        chargeCollisionInput.pointZ = otherZ;
+        chargeCollisionInput.startX = startX;
+        chargeCollisionInput.startZ = startZ;
+        chargeCollisionInput.endX = endX;
+        chargeCollisionInput.endZ = endZ;
+        chargeCollisionInput.radius = radius;
+        const collision = sweptCircleIntersects(chargeCollisionInput, chargeCollisionResult);
+        if (!collision.hit) continue;
+        const contact = chargeDetailedContactPool[detailedContactCount]
+            || (chargeDetailedContactPool[detailedContactCount] = {});
+        detailedContactCount += 1;
+        contact.ref = other;
+        contact.entryProjection = collision.entryProjection;
+        chargeDetailedContacts.push(contact);
+    }
+    chargeDetailedContacts.sort((first, second) => first.entryProjection - second.entryProjection);
 
     let collisionEndX = endX;
     let collisionEndZ = endZ;
-    for (const { other, entryProjection } of detailedHits) {
+    for (const { ref: other, entryProjection } of chargeDetailedContacts) {
         if (entity.chargeRunHits >= profile.rankCapacity) break;
+        const identity = other.trade?.txHash || other.trade?.id || `${other.type}-${other.bornAt}`;
+        if (!registerChargeContact(entity.chargeRegistry, identity)) continue;
         entity.chargeHitEntities.add(other);
         _meleeDirection.set(entity.chargeDirectionX, 0, entity.chargeDirectionZ).normalize();
-        const critical = other.isWhale || profile.pressureScale >= 1.12;
-        applyDamage(entity, other, profile.damage, critical, _meleeDirection);
-        other.vx += entity.chargeDirectionX * (other.isWhale ? 9 : 17);
-        other.vz += entity.chargeDirectionZ * (other.isWhale ? 9 : 17);
+        const critical = other.isWhale || profile.intensity >= 0.9;
+        applyDamage(entity, other, profile.damage, critical, _meleeDirection, 'MARKET_IMPACT_CHARGE', profile.impulseMagnitude);
         entity.chargeHits += 1;
         entity.chargeRunHits += 1;
         bullChargeHits += 1;
+        maxHitRegistrySize = Math.max(maxHitRegistrySize, entity.chargeRegistry.hits.size);
         spawnChargeImpact(other.mesh.position.x, other.mesh.position.z, other.isWhale ? 1.5 : 1);
         if (other.isWhale) {
             // Stop at the first time of impact, not at this frame's requested
@@ -2896,26 +3367,35 @@ function applyBullChargeCollisions(entity, startX, startZ, endX, endZ, now) {
         }
     }
 
-    const rankHits = crowdAgents.bear
-        .filter((rank) => !rank.retiring && !entity.chargeHitRanks.has(rank.id))
-        .map((rank) => {
-            const collision = sweptCircleIntersects({
-                pointX: rank.x,
-                pointZ: rank.z,
-                startX,
-                startZ,
-                endX: collisionEndX,
-                endZ: collisionEndZ,
-                radius: profile.corridorRadius + rank.size * 0.72,
-            });
-            return { rank, ...collision };
-        })
-        .filter((collision) => collision.hit)
-        .sort((first, second) => first.entryProjection - second.entryProjection);
+    chargeRankContacts.length = 0;
+    let rankContactCount = 0;
+    for (const rank of crowdAgents[enemyType]) {
+        if (rank.retiring || entity.chargeHitRanks.has(rank.id)) continue;
+        const radius = profile.corridorRadius + rank.size * 0.72;
+        if (rank.x < Math.min(startX, collisionEndX) - radius || rank.x > Math.max(startX, collisionEndX) + radius
+            || rank.z < Math.min(startZ, collisionEndZ) - radius || rank.z > Math.max(startZ, collisionEndZ) + radius) continue;
+        combatContactChecks += 1;
+        chargeCollisionInput.pointX = rank.x;
+        chargeCollisionInput.pointZ = rank.z;
+        chargeCollisionInput.startX = startX;
+        chargeCollisionInput.startZ = startZ;
+        chargeCollisionInput.endX = collisionEndX;
+        chargeCollisionInput.endZ = collisionEndZ;
+        chargeCollisionInput.radius = radius;
+        const collision = sweptCircleIntersects(chargeCollisionInput, chargeCollisionResult);
+        if (!collision.hit) continue;
+        const contact = chargeRankContactPool[rankContactCount]
+            || (chargeRankContactPool[rankContactCount] = {});
+        rankContactCount += 1;
+        contact.ref = rank;
+        contact.entryProjection = collision.entryProjection;
+        chargeRankContacts.push(contact);
+    }
+    chargeRankContacts.sort((first, second) => first.entryProjection - second.entryProjection);
     let firstRankImpact = null;
-    for (const { rank } of rankHits) {
+    for (const { ref: rank } of chargeRankContacts) {
         if (entity.chargeRunHits >= profile.rankCapacity) break;
-        if (!retireRankFromBullCharge(entity, rank)) continue;
+        if (!retireRankFromCharge(entity, rank)) continue;
         if (!firstRankImpact) firstRankImpact = rank;
         _chargeImpactPosition.set(rank.x, getTrenchHeight(rank.x, rank.z), rank.z);
         spawnParticles(_chargeImpactPosition, matParticleBull, false, false, 0.68);
@@ -2925,13 +3405,13 @@ function applyBullChargeCollisions(entity, startX, startZ, endX, endZ, now) {
         state.screenShake = Math.max(state.screenShake, prefersReducedMotion ? 0 : 0.055);
     }
     if (entity.chargeRunHits >= profile.rankCapacity) entity.chargeStopRequested = true;
-    if (entity.chargeStopRequested) transitionBullChargeToRecovery(entity, now);
+    if (entity.chargeStopRequested) transitionChargeToRecovery(entity, now);
 }
 
-function updateBullCharge(entity, delta, now) {
+function updateImpactCharge(entity, delta, now) {
     const profile = entity.chargeProfile;
     if (!profile) {
-        resetBullCharge(entity, 1_500);
+        resetCharge(entity, 1_500);
         return { handled: true, moving: false };
     }
     entity.behavior = `charge-${entity.chargePhase}`;
@@ -2943,12 +3423,12 @@ function updateBullCharge(entity, delta, now) {
     if (entity.chargePhase === 'windup') {
         const progress = clamp(elapsed / profile.windupMs, 0, 1);
         const eased = progress * progress * (3 - 2 * progress);
-        entity.body.position.y = 1.3 - Math.sin(eased * Math.PI) * 0.22;
-        entity.body.rotation.z = 0.18 * eased;
-        entity.body.scale.set(1 - eased * 0.04, 0.94 + eased * 0.04, 1 + eased * 0.05);
         entity.aura.scale.setScalar(1 + eased * 0.42);
         entity.aura.material.opacity = 0.25 + eased * 0.28;
-        animateBullChargeLegs(entity, 'windup', progress);
+        integrateDetailedMotion(
+            entity, entity.mesh.position.x, entity.mesh.position.z, 0, delta,
+            undefined, undefined, `charge-windup-${entity.chargeRequest?.id}`, 0, 0, true, true,
+        );
         if (elapsed >= profile.windupMs) {
             entity.chargePhase = 'rush';
             entity.chargePhaseStartedAt = now;
@@ -2962,43 +3442,40 @@ function updateBullCharge(entity, delta, now) {
         const startX = entity.mesh.position.x;
         const startZ = entity.mesh.position.z;
         const remainingDistance = Math.hypot(entity.chargeEndX - startX, entity.chargeEndZ - startZ);
-        const step = Math.min(remainingDistance, profile.speed * delta);
-        entity.mesh.position.x += entity.chargeDirectionX * step;
-        entity.mesh.position.z += entity.chargeDirectionZ * step;
+        integrateDetailedMotion(
+            entity, entity.chargeEndX, entity.chargeEndZ, profile.speed, delta,
+            entity.chargeDirectionX, entity.chargeDirectionZ,
+            `charge-rush-${entity.chargeRequest?.id}`, 0, 1, false, true,
+        );
+        const step = Math.hypot(entity.mesh.position.x - startX, entity.mesh.position.z - startZ);
         entity.chargeDistance += step;
         entity.chargeDustDistance += step;
-        entity.mesh.rotation.y = Math.atan2(-entity.chargeDirectionZ, entity.chargeDirectionX);
-        entity.body.position.y = 1.17 + Math.abs(Math.sin(entity.animTime * 25)) * 0.11;
-        entity.body.rotation.z = -0.29;
-        entity.body.scale.set(1.12, 0.94, 0.98);
         entity.aura.scale.setScalar(1.52 + Math.sin(entity.animTime * 12) * 0.08);
         entity.aura.material.opacity = 0.48;
-        animateBullChargeLegs(entity, 'rush', 0);
         if (entity.chargeDustDistance >= 4.2) {
             entity.chargeDustDistance %= 4.2;
             _chargeImpactPosition.set(startX - entity.chargeDirectionX * 1.2, getTrenchHeight(startX, startZ), startZ - entity.chargeDirectionZ * 1.2);
             spawnParticles(_chargeImpactPosition, matParticleDust, false, false, 0.7);
         }
-        applyBullChargeCollisions(entity, startX, startZ, entity.mesh.position.x, entity.mesh.position.z, now);
+        applyChargeCollisions(entity, startX, startZ, entity.mesh.position.x, entity.mesh.position.z, now);
         // End on simulated distance, not wall-clock time. Software WebGL can
         // render at 2fps; a real-time timeout previously cancelled the rush
         // halfway across the field even though swept collision was correct.
         if (entity.chargePhase === 'rush' && remainingDistance <= step + 0.05) {
-            transitionBullChargeToRecovery(entity, now);
+            transitionChargeToRecovery(entity, now);
         }
         return { handled: true, moving: true };
     }
 
     const progress = clamp(elapsed / profile.recoverMs, 0, 1);
-    const recoil = (1 - progress) * Math.sin(progress * Math.PI * 3);
-    entity.body.position.y = 1.3 + Math.abs(recoil) * 0.2;
-    entity.body.rotation.z = -0.29 * (1 - progress) + recoil * 0.12;
-    entity.body.scale.set(1 + (1 - progress) * 0.08, 1 - (1 - progress) * 0.04, 1);
     entity.aura.scale.setScalar(1 + (1 - progress) * 0.48);
-    animateBullChargeLegs(entity, 'recover', progress);
+    integrateDetailedMotion(
+        entity, entity.mesh.position.x, entity.mesh.position.z, 0, delta,
+        undefined, undefined, `charge-recover-${entity.chargeRequest?.id}`, 0, 0, true, true,
+    );
     if (elapsed >= profile.recoverMs) {
         const cooldown = profile.cooldownMs + (entity.chargeStarts % 4) * 370;
-        resetBullCharge(entity, cooldown);
+        resetCharge(entity, cooldown);
         entity.lastPosition.set(entity.mesh.position.x, entity.mesh.position.z);
         entity.stuckTime = 0;
     }
@@ -3008,7 +3485,7 @@ function updateBullCharge(entity, delta, now) {
 function updateEntities(delta) {
     const finished = [];
     const now = Date.now();
-    const { tactics } = getSceneTactics(now);
+    const presentationDiagnostics = impactPresentation.getDiagnostics(now);
     state.frontlineX += (state.targetFrontlineX - state.frontlineX) * 2 * delta;
 
     frontlineLaser.position.x = state.frontlineX;
@@ -3019,8 +3496,10 @@ function updateEntities(delta) {
     }
 
     for (const entity of entities) {
-        if (entity.hp <= 0 || unitHasExpired(entity, now)) entity.retired = true;
+        if (entity.hp <= 0
+            || (!(import.meta.env.DEV && entity.diagnosticFixturePinned) && unitHasExpired(entity, now))) entity.retired = true;
     }
+    tryStartPendingCharge(now);
 
     for (let i = 0; i < entities.length; i++) {
         const e = entities[i];
@@ -3043,7 +3522,8 @@ function updateEntities(delta) {
 
         e.animTime += delta;
         e.cooldown -= delta;
-        if (!isBullChargeActive(e)) {
+        advanceCombatImpulse(e.combat, delta, null);
+        if (!isChargeActive(e)) {
             // External combat impulses feed the resolved-velocity stage below.
             // Time-based damping keeps their decay independent of frame count.
             e.vx = THREE.MathUtils.damp(e.vx, 0, 8, delta);
@@ -3057,12 +3537,12 @@ function updateEntities(delta) {
 
         e.mesh.position.y = getTrenchHeight(e.mesh.position.x, e.mesh.position.z);
         const forcedRetreat = e.forcedRetreatUntil > now;
-        if (forcedRetreat && isBullChargeActive(e)) resetBullCharge(e, 2_500);
-        const activeFrontContact = isBullChargeActive(e) ? null : getActiveChampionCrowdContact(e, now);
+        if (forcedRetreat && isChargeActive(e)) resetCharge(e, 2_500);
+        const activeFrontContact = isChargeActive(e) ? null : getActiveChampionCrowdContact(e, now);
         if (forcedRetreat || e.target?.hp <= 0 || e.target?.retired) e.target = null;
         if (activeFrontContact) e.target = null;
 
-        if (!e.target && !forcedRetreat && !activeFrontContact && !isBullChargeActive(e)) {
+        if (!e.target && !forcedRetreat && !activeFrontContact && !isChargeActive(e)) {
             let closest = null;
             const sight = e.isWhale ? 52 : 40;
             let minDist = sight * sight;
@@ -3078,6 +3558,10 @@ function updateEntities(delta) {
             }
             e.target = closest;
         }
+        if (!e.target && e.combat.state !== COMBAT_STATE.APPROACH) {
+            const combatUpdate = advanceMeleeCombat(e.combat, NO_TARGET_COMBAT_INPUT, delta, e.combatUpdate);
+            if (combatUpdate.miss) combatMissCount += 1;
+        }
 
         const speed = e.isWhale ? 8 : 9;
         const supportMultiplier = isSupported ? 1.18 : 1;
@@ -3086,13 +3570,10 @@ function updateEntities(delta) {
         let animatedFrontContact = false;
         let chargeAnimated = false;
 
-        if (!forcedRetreat && !activeFrontContact && !isBullChargeActive(e)) {
-            tryStartBullCharge(e, tactics, now);
-        }
-        if (!isBullChargeActive(e)) applySeparation(e, delta);
+        if (!isChargeActive(e)) applySeparation(e, delta);
 
-        if (isBullChargeActive(e)) {
-            const chargeUpdate = updateBullCharge(e, delta, now);
+        if (isChargeActive(e)) {
+            const chargeUpdate = updateImpactCharge(e, delta, now);
             isMoving = chargeUpdate.moving;
             chargeAnimated = chargeUpdate.handled;
         } else if (forcedRetreat) {
@@ -3120,12 +3601,24 @@ function updateEntities(delta) {
             const dx = e.target.mesh.position.x - e.mesh.position.x;
             const dz = e.target.mesh.position.z - e.mesh.position.z;
             const distSq = dx * dx + dz * dz;
+            const distance = Math.max(0.001, Math.sqrt(distSq));
             const attackDistance = getDetailedCombatSpacing(e, e.target);
-            const attackDistSq = attackDistance * attackDistance;
+            const targetIdentity = e.target.trade?.txHash || e.target.trade?.id || `${e.target.type}-${e.target.bornAt}`;
+            combatContactChecks += 1;
+            const combatInput = e.combatInput;
+            combatInput.targetIdentity = targetIdentity;
+            combatInput.targetValid = !e.target.retired && e.target.hp > 0;
+            combatInput.distance = distance;
+            combatInput.enterRange = attackDistance;
+            combatInput.leaveRange = attackDistance + COMBAT_POLICY.rangeHysteresis;
+            combatInput.contactRange = attackDistance + 0.18;
+            combatInput.timingScale = 1 - presentationDiagnostics.latestIntensity * 0.16;
+            combatInput.canAttack = true;
+            const combatUpdate = advanceMeleeCombat(e.combat, combatInput, delta, e.combatUpdate);
+            if (combatUpdate.miss) combatMissCount += 1;
 
-            if (distSq > attackDistSq) {
-                const dist = Math.max(0.001, Math.sqrt(distSq));
-                const steering = getSteering(e, dx / dist, dz / dist);
+            if (!combatUpdate.holdMovement) {
+                const steering = getSteering(e, dx / distance, dz / distance);
                 integrateDetailedMotion(
                     e, e.target.mesh.position.x, e.target.mesh.position.z, speed, delta,
                     steering.x, steering.z, e.target.trade?.id || e.target.bornAt,
@@ -3138,26 +3631,13 @@ function updateEntities(delta) {
                     undefined, undefined, e.target.trade?.id || e.target.bornAt,
                     0.35, 0, true, true,
                 );
-                e.body.position.y = 1.3;
-
-                if (Math.sin(e.animTime * 12) > 0.9 && e.cooldown <= 0) {
-                    let dmg = dmgBase + Math.floor(Math.random() * 20);
-                    const isCrit = Math.random() < (e.isWhale ? 0.35 : 0.2);
-                    if (isCrit) dmg = Math.floor(dmg * 1.8);
-
-                    if (e.isWhale) {
-                        spawnProjectile(e, e.target, dmg, isCrit);
-                        e.cooldown = 1.5;
-                        e.body.scale.set(1.4, 1.4, 1.4);
-                    } else {
-                        _meleeDirection.set(dx, 0, dz).normalize();
-                        applyDamage(e, e.target, dmg, isCrit, _meleeDirection);
-                        e.cooldown = 0.7;
-                        e.body.scale.set(1.4, 1.4, 1.4);
-                        e.body.rotation.z = -0.5;
-                    }
-                } else {
-                    e.body.rotation.z = THREE.MathUtils.lerp(e.body.rotation.z, 0, 0.2);
+                if (combatUpdate.hit) {
+                    const deterministicBonus = (e.combat.seed + e.combat.sequence * 7) % 19;
+                    const isCrit = (e.combat.seed + e.combat.sequence) % (e.isWhale ? 3 : 5) === 0;
+                    const damage = Math.floor((dmgBase + deterministicBonus) * (isCrit ? 1.8 : 1));
+                    _meleeDirection.set(dx / distance, 0, dz / distance);
+                    if (e.isWhale && e.type === 'bull') spawnProjectile(e, e.target, damage, isCrit);
+                    else applyDamage(e, e.target, damage, isCrit, _meleeDirection, 'MELEE');
                 }
             }
         } else {
@@ -3276,9 +3756,10 @@ function updateEntities(delta) {
         enforceArenaBounds(e);
         e.mesh.position.y = getTrenchHeight(e.mesh.position.x, e.mesh.position.z);
 
+        if (import.meta.env.DEV) syncCombatVisualTrace(e);
         e.motionCharge = chargeAnimated && isMoving;
         e.motionProgressExempt = chargeAnimated || animatedFrontContact || !isMoving;
-        e.motionCombatPose = animatedFrontContact || Boolean(e.target && !isMoving);
+        e.motionCombatPose = animatedFrontContact || e.combat.state !== COMBAT_STATE.APPROACH;
         e.motionChargeAnimated = chargeAnimated;
         if (!e.physicsReady) e.physicsReady = true;
     }
@@ -3294,7 +3775,8 @@ function finalizeEntityMotions(delta) {
     for (const entity of entities) {
         if (entity.retired) continue;
         finalizeDetailedMotion(entity, delta, entity.motionCharge, entity.motionProgressExempt);
-        if (!entity.motionChargeAnimated) applyDetailedGait(entity, delta, entity.motionCombatPose);
+        applyDetailedGait(entity, delta);
+        applyDetailedCombatPose(entity, delta);
     }
 }
 
@@ -3362,7 +3844,7 @@ function getCrowdHealth() {
     let championBypasses = 0;
     for (const entity of entities) {
         if (!entity.physicsReady || entity.retired || entity.hp <= 0
-            || entity.forcedRetreatUntil > Date.now() || isBullChargeActive(entity)) continue;
+            || entity.forcedRetreatUntil > Date.now() || isChargeActive(entity)) continue;
         const enemies = crowdAgents[entity.type === 'bull' ? 'bear' : 'bull'].filter((agent) => !agent.retiring);
         if (!enemies.length) continue;
         const physicalClearance = entity.isWhale ? 4.2 : 2.45;
@@ -3390,9 +3872,9 @@ function getCrowdHealth() {
             const second = activeEntities[secondIndex];
             const minimum = getDetailedPhysicalSpacing(first, second);
             const chargingThroughRegular = (
-                isBullChargeActive(first) && first.chargeHitEntities.has(second) && !second.isWhale
+                isChargeActive(first) && first.chargeHitEntities.has(second) && !second.isWhale
             ) || (
-                isBullChargeActive(second) && second.chargeHitEntities.has(first) && !first.isWhale
+                isChargeActive(second) && second.chargeHitEntities.has(first) && !first.isWhale
             );
             if (chargingThroughRegular) continue;
             const distance = Math.hypot(
@@ -3576,6 +4058,7 @@ function createCrowdAgent(type) {
     );
     return {
         id: sequence,
+        combatIdentity: `${type}-${sequence}`,
         type,
         role,
         rank,
@@ -3624,6 +4107,11 @@ function createCrowdAgent(type) {
         motionInput: {},
         motionFinalize: {},
         gaitPose: {},
+        combat: createCombatState({ archetype: type, seed: sequence + (type === 'bull' ? 1_301 : 1_607) }),
+        combatInput: {},
+        combatUpdate: {},
+        combatPose: {},
+        presentationMass: combatPresentationMass({ archetype: type, scale: 0.72 }),
     };
 }
 
@@ -3787,9 +4275,11 @@ function buildCrowdOrders() {
 function updateCrowdSide(type, doctrine, delta) {
     const agents = crowdAgents[type];
     const direction = doctrine.direction;
+    const combatIntensity = impactPresentation.getDiagnostics().latestIntensity;
     for (const agent of agents) {
         const previousX = agent.x;
         beginMotionFrame(agent.motion, agent.x, agent.z);
+        advanceCombatImpulse(agent.combat, delta, null);
         const order = crowdOrders[type].get(agent);
         const roleSpeed = agent.role === 'vanguard' ? 1.1
             : agent.role === 'flank' ? 1.05
@@ -3828,14 +4318,45 @@ function updateCrowdSide(type, doctrine, delta) {
         agent.engaged = !agent.retiring
             && opponent
             && opponentDistance <= engagementRadius;
+        const combatInput = agent.combatInput;
+        combatInput.targetIdentity = opponent?.combatIdentity || null;
+        combatInput.targetValid = Boolean(opponent && !opponent.retiring);
+        combatInput.distance = opponentDistance;
+        combatInput.enterRange = 3.65;
+        combatInput.leaveRange = 4.55;
+        combatInput.contactRange = 3.82;
+        combatInput.timingScale = 1 - combatIntensity * 0.12;
+        combatInput.canAttack = !agent.retiring;
+        const combatUpdate = advanceMeleeCombat(agent.combat, combatInput, delta, agent.combatUpdate);
+        if (combatUpdate.miss) combatMissCount += 1;
+        if (combatUpdate.hit && opponent) {
+            const normal = stableContactNormal({
+                sourceX: agent.x,
+                sourceZ: agent.z,
+                targetX: opponent.x,
+                targetZ: opponent.z,
+                seed: agent.combat.seed + opponent.combat.seed,
+            });
+            const impulse = resolveCombatImpulse({
+                directionX: normal.x,
+                directionZ: normal.z,
+                magnitude: 1.35,
+                attackerMass: agent.presentationMass,
+                defenderMass: opponent.presentationMass,
+                currentX: opponent.combat.impulseX,
+                currentZ: opponent.combat.impulseZ,
+            });
+            applyCombatImpulse(opponent.combat, impulse);
+            combatHitCount += 1;
+            combatKnockbackCount += 1;
+        }
         if (opponent) {
-            const attackCycle = Math.max(0, Math.sin(kingTime * (2.4 + doctrine.aggression * 1.4) + agent.phase));
             const preferredDistance = 3.5 + (agent.role === 'support' ? 0.45 : 0);
             const partner = opponent;
             // A rank advances into a concrete opposing rank. Collision-safe
             // spacing below keeps the two sides distinct instead of blended.
             const sectorContactX = crowdSectorOffset(agent.laneSlot) + direction * doctrine.penetration;
-            const pursuitX = partner.x - direction * preferredDistance + direction * attackCycle * 0.22;
+            const pursuitX = partner.x - direction * preferredDistance;
             const sectorX = sectorContactX - direction * preferredDistance * 0.5;
             targetX = THREE.MathUtils.lerp(pursuitX, sectorX, agent.engaged ? 0.24 : 0.38);
             const sharedLane = (agent.lane + partner.lane) * 0.5 + (order?.fileOffset || 0);
@@ -3861,7 +4382,8 @@ function updateCrowdSide(type, doctrine, delta) {
         const dz = targetZ - agent.z;
         const distance = Math.max(0.001, Math.hypot(dx, dz));
         const steering = getCrowdSteering(agent, dx / distance, dz / distance);
-        const speed = Math.min(9.4, 7.2 * doctrine.speed * roleSpeed * agent.speedBias) * (agent.retiring ? 0 : 1);
+        const speed = Math.min(9.4, 7.2 * doctrine.speed * roleSpeed * agent.speedBias)
+            * (agent.retiring || combatUpdate.holdMovement ? 0 : 1);
         const arrivalFloor = agent.assisting ? 0.22 : 0.12;
         const arrival = distance < 2.2 && !agent.retiring ? clamp(distance / 2.2, arrivalFloor, 1) : 1;
         const motionInput = agent.motionInput;
@@ -3871,14 +4393,17 @@ function updateCrowdSide(type, doctrine, delta) {
         motionInput.maxAcceleration = 32;
         motionInput.arrivalRadius = 0;
         motionInput.arrivalFloor = arrivalFloor;
-        motionInput.intentionalHold = agent.retiring;
-        motionInput.progressExempt = agent.retiring || agent.engaged;
+        motionInput.intentionalHold = agent.retiring || combatUpdate.holdMovement;
+        motionInput.progressExempt = agent.retiring || agent.engaged || combatUpdate.holdMovement;
         motionInput.targetIdentity = opponent ? `${opponent.type}-${opponent.id}` : `${agent.intent}-${agent.laneSlot}`;
         motionInput.steeringX = steering.x;
         motionInput.steeringZ = steering.z;
         motionInput.separationX = 0;
         motionInput.separationZ = 0;
         motionInput.maxSeparationSpeed = 0;
+        motionInput.externalVelocityX = agent.combat.impulseX;
+        motionInput.externalVelocityZ = agent.combat.impulseZ;
+        motionInput.maxExternalSpeed = 3.2;
         integrateMotion(agent.motion, motionInput, delta);
         agent.vx = agent.motion.resolvedVelocityX;
         agent.vz = agent.motion.resolvedVelocityZ;
@@ -4149,12 +4674,12 @@ function refreshChampionCrowdContactsAfterCrowd(now) {
     championCrowdMovedEntities.length = 0;
     for (const entity of entities) {
         if (entity.retired || entity.hp <= 0 || entity.forcedRetreatUntil > now) continue;
-        if (isBullChargeActive(entity)) {
+        if (isChargeActive(entity)) {
             // Crowd ranks update after champions. A zero-length swept check
             // catches a rank that entered the moving bull's footprint during
             // this half of the frame without re-enabling the rigid contact lock.
             if (entity.chargePhase === 'rush') {
-                applyBullChargeCollisions(
+                applyChargeCollisions(
                     entity,
                     entity.mesh.position.x,
                     entity.mesh.position.z,
@@ -4218,8 +4743,8 @@ function refreshCrowdMeshes() {
         for (let index = 0; index < agents.length; index++) {
             const agent = agents[index];
             const speed = Math.hypot(agent.vx, agent.vz);
-            const combatWeight = agent.engaged ? 1 : agent.assisting ? 0.38 : 0;
-            const attackPulse = combatWeight * Math.max(0, Math.sin(kingTime * (6.2 + crowdBattle.intensity) + agent.phase));
+            const combatPose = sampleCombatPose(agent.combat, agent.combatPose);
+            const attackPulse = combatPose.blend;
             const gait = sampleQuadrupedGait(agent.motion, agent.gaitPose);
             const gaitAmount = prefersReducedMotion ? 0 : gait.amplitude;
             const stride = Math.sin(agent.motion.gaitPhase + agent.phase) * gaitAmount;
@@ -4227,10 +4752,14 @@ function refreshCrowdMeshes() {
             const lunge = attackPulse * 0.34 + Math.max(0, stride) * Math.min(0.12, speed * 0.018);
             _crowdTransform.position.set(
                 agent.x + Math.cos(agent.heading) * lunge,
-                getTrenchHeight(agent.x, agent.z) + Math.abs(stride) * 0.15 + attackPulse * 0.06,
+                getTrenchHeight(agent.x, agent.z) + Math.abs(stride) * 0.15 + combatPose.bodyY * agent.size,
                 agent.z - Math.sin(agent.heading) * lunge,
             );
-            _crowdTransform.rotation.set(0, agent.heading + stride * 0.045, (agent.vx * direction > 0 ? -1 : 1) * (attackPulse * 0.13 + stride * 0.045));
+            _crowdTransform.rotation.set(
+                combatPose.bodyRoll,
+                agent.heading + stride * 0.045,
+                combatPose.bodyPitch + (agent.vx * direction > 0 ? -1 : 1) * stride * 0.045,
+            );
             _crowdTransform.scale.set(
                 scale * agent.bodyLength * (1 + attackPulse * 0.16),
                 scale * agent.bodyHeight * (1 - attackPulse * 0.06),
@@ -4253,7 +4782,13 @@ function refreshCrowdMeshes() {
                     legOffsets[offsetIndex + 1],
                     legOffsets[offsetIndex + 2],
                 );
-                _crowdLegTransform.rotation.set(0, 0, legGait * (agent.engaged ? 0.48 : 0.68));
+                const combatLeg = legIndex === 0 ? combatPose.frontLeft
+                    : legIndex === 1 ? combatPose.frontRight : 0;
+                _crowdLegTransform.rotation.set(
+                    0,
+                    0,
+                    legGait * (1 - combatPose.blend) * (agent.engaged ? 0.48 : 0.68) + combatLeg,
+                );
                 _crowdLegTransform.scale.set(type === 'bull' ? 0.85 : 0.82, type === 'bull' ? 0.82 : 0.78, type === 'bull' ? 0.85 : 0.82);
                 _crowdLegTransform.updateMatrix();
                 _crowdLegMatrix.multiplyMatrices(_crowdTransform.matrix, _crowdLegTransform.matrix);
@@ -4626,6 +5161,9 @@ function integrateDetailedMotion(
     input.separationX = entity.separationX * 3.2 + entity.vx;
     input.separationZ = entity.separationZ * 3.2 + entity.vz;
     input.maxSeparationSpeed = entity.isWhale ? 2.2 : 1.8;
+    input.externalVelocityX = entity.combat.impulseX;
+    input.externalVelocityZ = entity.combat.impulseZ;
+    input.maxExternalSpeed = COMBAT_POLICY.maxImpulseSpeed;
     integrateMotion(entity.motion, input, delta);
     entity.mesh.position.x = entity.motion.positionX;
     entity.mesh.position.z = entity.motion.positionZ;
@@ -4661,21 +5199,90 @@ function syncEntityMotion(entity) {
     entity.stuckTime = 0;
 }
 
-function applyDetailedGait(entity, delta, combatPose = false) {
+function applyDetailedGait(entity, delta) {
     const pose = sampleQuadrupedGait(entity.motion, entity.gaitPose);
     const smoothing = Math.min(1, delta * 14);
     const targetRotations = [pose.frontLeft, pose.frontRight, pose.hindLeft, pose.hindRight];
     for (let index = 0; index < entity.legs.length; index++) {
         entity.legs[index].rotation.z = THREE.MathUtils.lerp(
             entity.legs[index].rotation.z,
-            combatPose ? 0 : targetRotations[index],
+            targetRotations[index],
             smoothing,
         );
     }
-    if (!combatPose && entity.motion.locomotionState !== LOCOMOTION_STATE.IDLE) {
-        entity.body.position.y = 1.3 + pose.bodyBob;
-        entity.body.rotation.z = THREE.MathUtils.lerp(entity.body.rotation.z, pose.bodyPitch, smoothing);
+    const baseY = entity.type === 'bear' ? 1.35 : 1.3;
+    const chargeLean = entity.motion.locomotionState === LOCOMOTION_STATE.CHARGE ? -0.16 : 0;
+    entity.body.position.y = THREE.MathUtils.lerp(entity.body.position.y, baseY + pose.bodyBob + chargeLean * 0.18, smoothing);
+    entity.body.rotation.z = THREE.MathUtils.lerp(entity.body.rotation.z, pose.bodyPitch + chargeLean, smoothing);
+    entity.body.rotation.x = THREE.MathUtils.lerp(entity.body.rotation.x, 0, smoothing);
+    if (entity.rig.head) entity.rig.head.rotation.z = THREE.MathUtils.lerp(entity.rig.head.rotation.z, 0, smoothing);
+}
+
+function applyDetailedCombatPose(entity, delta) {
+    const smoothing = Math.min(1, delta * 16);
+    const baseY = entity.type === 'bear' ? 1.35 : 1.3;
+    const fixture = import.meta.env.DEV ? entity.combatPoseFixture : null;
+    let pose = sampleCombatPose(
+        fixture?.state || entity.combat,
+        entity.combatPose,
+        fixture?.normalizedProgress ?? null,
+    );
+    if (isChargeActive(entity)) {
+        const profile = entity.chargeProfile;
+        const duration = entity.chargePhase === 'windup' ? profile?.windupMs || 1
+            : entity.chargePhase === 'recover' ? profile?.recoverMs || 1 : 1;
+        const progress = clamp((Date.now() - entity.chargePhaseStartedAt) / duration, 0, 1);
+        pose = entity.combatPose;
+        pose.blend = 1;
+        pose.recoil = 0;
+        if (entity.chargePhase === 'windup') {
+            const eased = progress * progress * (3 - 2 * progress);
+            pose.bodyY = -Math.sin(eased * Math.PI) * 0.22;
+            pose.bodyPitch = 0.18 * eased;
+            pose.frontLeft = -0.5 + Math.sin(progress * Math.PI * 5) * 0.22;
+            pose.frontRight = 0.34 - Math.sin(progress * Math.PI * 5) * 0.18;
+        } else if (entity.chargePhase === 'rush') {
+            pose.bodyY = -0.14;
+            pose.bodyPitch = -0.27;
+            pose.frontLeft = entity.gaitPose.frontLeft;
+            pose.frontRight = entity.gaitPose.frontRight;
+        } else {
+            const settle = 1 - progress;
+            pose.bodyY = Math.abs(Math.sin(progress * Math.PI * 3)) * 0.18 * settle;
+            pose.bodyPitch = -0.27 * settle;
+            pose.frontLeft = entity.gaitPose.frontLeft * settle;
+            pose.frontRight = entity.gaitPose.frontRight * settle;
+        }
+        pose.bodyRoll = 0;
+        pose.headPitch = 0;
     }
+    if (pose.blend <= 0 && pose.recoil <= 0) return;
+    const blend = clamp(pose.blend + pose.recoil * 0.35, 0, 1);
+    entity.body.position.y = THREE.MathUtils.lerp(entity.body.position.y, baseY + pose.bodyY, smoothing * blend);
+    entity.body.rotation.z = THREE.MathUtils.lerp(entity.body.rotation.z, pose.bodyPitch, smoothing * blend);
+    entity.body.rotation.x = THREE.MathUtils.lerp(entity.body.rotation.x, pose.bodyRoll, smoothing * blend);
+    if (entity.rig.frontLeft) {
+        entity.rig.frontLeft.rotation.z = THREE.MathUtils.lerp(
+            entity.rig.frontLeft.rotation.z,
+            pose.frontLeft,
+            smoothing * blend,
+        );
+    }
+    if (entity.rig.frontRight) {
+        entity.rig.frontRight.rotation.z = THREE.MathUtils.lerp(
+            entity.rig.frontRight.rotation.z,
+            pose.frontRight,
+            smoothing * blend,
+        );
+    }
+    if (entity.rig.head) {
+        entity.rig.head.rotation.z = THREE.MathUtils.lerp(
+            entity.rig.head.rotation.z,
+            pose.headPitch,
+            smoothing * blend,
+        );
+    }
+    if (import.meta.env.DEV) recordCombatVisualPose(entity, pose, baseY);
 }
 
 function getDetailedPhysicalSpacing(first, second) {
@@ -4904,26 +5511,35 @@ function animateChampionCrowdCombat(entity, contact, delta) {
     entity.lineProximityAt = 0;
     const dx = contact.x - entity.mesh.position.x;
     const dz = contact.z - entity.mesh.position.z;
-    entity.mesh.rotation.y = Math.atan2(-dz, dx);
-    const strike = Math.max(0, Math.sin(entity.animTime * (entity.isWhale ? 6.8 : 9.2)));
-    entity.body.position.y = 1.3 + strike * 0.16;
-    entity.body.rotation.z = THREE.MathUtils.lerp(entity.body.rotation.z, -0.32 * strike, 0.34);
-    if (strike > 0.94 && entity.cooldown <= 0) {
-        entity.cooldown = entity.isWhale ? 1.25 : 0.82;
-        entity.body.scale.setScalar(entity.isWhale ? 1.22 : 1.14);
+    const distance = Math.hypot(dx, dz);
+    const attackRange = entity.isWhale ? 7.2 : 4.6;
+    const combatInput = entity.combatInput;
+    combatInput.targetIdentity = `crowd-${contact.type}-${contact.id}`;
+    combatInput.targetValid = !contact.retiring;
+    combatInput.distance = distance;
+    combatInput.enterRange = attackRange;
+    combatInput.leaveRange = attackRange + COMBAT_POLICY.rangeHysteresis;
+    combatInput.contactRange = attackRange;
+    combatInput.timingScale = 1;
+    combatInput.canAttack = true;
+    const combatUpdate = advanceMeleeCombat(entity.combat, combatInput, delta, entity.combatUpdate);
+    combatContactChecks += 1;
+    if (combatUpdate.miss) combatMissCount += 1;
+    if (combatUpdate.hit) {
+        entity.crowdStrikeProgress += 1;
+        entity.crowdStrikes += 1;
+        combatHitCount += 1;
+        _crowdImpact.set(contact.x, getTrenchHeight(contact.x, contact.z) + 0.75, contact.z);
+        spawnParticles(_crowdImpact, entity.type === 'bull' ? matParticleBull : matParticleBear, false, false, entity.isWhale ? 0.8 : 0.55);
     }
-    entity.crowdStrikeProgress += delta * (0.9 + entity.power * 0.12);
-    const defeatAfter = entity.isWhale ? 1.35 : 2.35;
+    const defeatAfter = entity.isWhale ? 1 : 2;
     if (entity.crowdStrikeProgress < defeatAfter || contact.retiring) return;
     contact.retiring = true;
     contact.life = Math.min(contact.life, 0.82);
     const partner = contact.engagementPartner;
     contact.engagementPartner = null;
     if (partner?.engagementPartner === contact) partner.engagementPartner = null;
-    _crowdImpact.set(contact.x, getTrenchHeight(contact.x, contact.z) + 0.75, contact.z);
-    spawnParticles(_crowdImpact, entity.type === 'bull' ? matParticleBull : matParticleBear, false, false, entity.isWhale ? 0.8 : 0.55);
     entity.crowdStrikeProgress = 0;
-    entity.crowdStrikes += 1;
     entity.frontContactUntil = 0;
     entity.frontContactHoldX = null;
 }
