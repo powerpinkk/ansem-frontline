@@ -4,6 +4,7 @@ import { deriveMarketHealth, formatPriceDisplay } from '../js/market-health.js';
 const authoritative = {
     authorityEligible: true,
     valueUsd: '178500000',
+    unitPriceUsd: '0.1785',
     quoteFreshness: 'FRESH',
 };
 
@@ -70,5 +71,18 @@ describe('market capability and status semantics', () => {
             'RPC_RATE_LIMITED', 'NO_CANONICAL_MARKET', 'VALUATION_AUTHORITY_UNAVAILABLE',
             'EXECUTION_STREAM_UNAVAILABLE', 'EXECUTION_COVERAGE_INCOMPLETE',
         ]));
+    });
+
+    it('uses schema-v1 capabilities so old gaps and lifetime failures cannot poison a recovered quiet window', () => {
+        const health = deriveMarketHealth(state({ price: 0, indicativePrice: 0, valuation: null,
+            integrity: { rpcFailures: 9, coverageIncomplete: true, health: { schemaVersion: 1,
+                discoveryAvailable: { available: true }, marketStateAvailable: { available: true },
+                quoteUsdAvailable: { available: true }, valuationAvailable: { available: true },
+                terrainAuthorityAvailable: { available: true }, executionStreamAvailable: { available: true },
+                currentWindow: { complete: true }, historicalCoverage: { incomplete: true, totalGaps: 2 } } } }));
+        expect(health).toMatchObject({ canonicalPriceAvailable: true, priceState: 'AUTHORITATIVE',
+            valuationState: 'AUTHORITATIVE', terrainAuthorityAvailable: true,
+            executionStreamHealthy: true, flowState: 'QUIET' });
+        expect(health.degradedReasons).not.toContain('EXECUTION_RPC_FAILURES');
     });
 });

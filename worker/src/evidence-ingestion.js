@@ -9,7 +9,8 @@ import { acquisitionFailure, AcquisitionError } from './acquisition-policy.js';
 export const INGESTION_POLICY = Object.freeze({ maxRecords: 1024, maxQueued: 128, concurrency: 2,
     maxAgeMs: 300_000, retries: 3, reconciliationMs: 3000, reconciliationDeadlineMs: 90_000, statusBatch: 50, maxTransactionReadsPerMinute: 120 });
 
-export function createEvidenceIngestion({ tokenMint, canonicalMarket = null, rpc, now = Date.now, onChange = () => {}, policy = INGESTION_POLICY }) {
+export function createEvidenceIngestion({ tokenMint, canonicalMarket = null, rpc, now = Date.now,
+    onChange = () => {}, onGap = () => {}, policy = INGESTION_POLICY }) {
     const records = new Map();
     const journal = createTradeJournal(tokenMint, { maxEntries: policy.maxRecords, maxAgeMs: policy.maxAgeMs }, canonicalMarket
         ? (e) => isCanonicalTrade(e) && e.poolAddress === canonicalMarket.address && e.sourceEpoch === canonicalMarket.sourceEpoch
@@ -25,6 +26,7 @@ export function createEvidenceIngestion({ tokenMint, canonicalMarket = null, rpc
         transaction: { status: 'UNKNOWN', reason: null, lastAttemptAt: null, lastSuccessAt: null, lastFailureAt: null, nextRetryAt: null, generation: 0 },
         status: { status: 'UNKNOWN', reason: null, lastAttemptAt: null, lastSuccessAt: null, lastFailureAt: null, nextRetryAt: null, generation: 0 },
     };
+    const failedJobs = { transaction: new Map(), status: new Map() };
     function acquisitionAttempt(domain) {
         const current = acquisition[domain];
         current.generation += 1; current.lastAttemptAt = now();
@@ -32,8 +34,8 @@ export function createEvidenceIngestion({ tokenMint, canonicalMarket = null, rpc
     }
     function acquisitionResult(domain, ticket, ok, error = null) {
         const current = acquisition[domain];
-        if (ticket.generation < current.generation) return;
         if (ok) {
+            if (failedJobs[domain].size) return;
             current.status = 'HEALTHY'; current.reason = null; current.nextRetryAt = null; current.lastSuccessAt = now();
         } else {
             const failure = acquisitionFailure(error);
@@ -56,6 +58,18 @@ export function createEvidenceIngestion({ tokenMint, canonicalMarket = null, rpc
     function withdraw(record, settlement, reconciliationReason) {
         for (const event of record.events?.values() || []) publish(record, { ...event, settlement, reconciliationReason });
     }
+    function unknown(record, reason) {
+        if (record.event) withdraw(record, 'RECONCILIATION_UNKNOWN', reason);
+        else record.state = 'RECONCILIATION_UNKNOWN';
+        failedJobs.transaction.delete(record.signature); failedJobs.status.delete(record.signature);
+        for (const domain of ['transaction','status']) if (!failedJobs[domain].size && acquisition[domain].status === 'RETRY_WAIT') {
+            acquisition[domain].status = 'GAP_RECORDED'; acquisition[domain].reason = null; acquisition[domain].nextRetryAt = null;
+        }
+        if (!record.gapReported) {
+            record.gapReported = true;
+            onGap({ reason, signature: record.signature, sourceEpoch: canonicalMarket?.sourceEpoch || null, at: now() });
+        }
+    }
     function cleanup() {
         for (const [signature, r] of records) if (!r.running && now() - r.createdAt > policy.maxAgeMs) records.delete(signature);
         journal.values(now());
@@ -65,7 +79,8 @@ export function createEvidenceIngestion({ tokenMint, canonicalMarket = null, rpc
         cleanup();
         if (records.has(signature)) { counts.duplicates += 1; return false; }
         if (records.size >= policy.maxRecords || [...records.values()].filter((r) => r.state === 'PENDING').length >= policy.maxQueued) {
-            counts.overflow += 1; return false;
+            counts.overflow += 1; onGap({ reason: 'EVIDENCE_QUEUE_SATURATED', signature,
+                sourceEpoch: canonicalMarket?.sourceEpoch || null, at: now() }); return false;
         }
         records.set(signature, { signature, slot, state: 'PENDING', attempts: 0, createdAt: now(), nextAt: now(), running: false });
         pump();
@@ -78,11 +93,11 @@ export function createEvidenceIngestion({ tokenMint, canonicalMarket = null, rpc
         try {
             const tx = await rpc('getTransaction', [record.signature, { encoding: 'jsonParsed', commitment, maxSupportedTransactionVersion: 0 }], abort.signal);
             if (stopped) return;
+            if (tx) failedJobs.transaction.delete(record.signature);
             acquisitionResult('transaction', ticket, true);
             if (!tx) {
                 if (record.attempts >= policy.retries || now() - record.createdAt >= policy.reconciliationDeadlineMs) {
-                    if (record.event) withdraw(record, 'RECONCILIATION_UNKNOWN');
-                    else record.state = 'RECONCILIATION_UNKNOWN';
+                    unknown(record, 'TRANSACTION_NOT_AVAILABLE_DEADLINE');
                 } else {
                     record.state = commitment === 'finalized' ? 'FINALIZE_PENDING' : 'PENDING';
                     record.nextAt = now() + 1000 * 4 ** (record.attempts - 1);
@@ -114,10 +129,10 @@ export function createEvidenceIngestion({ tokenMint, canonicalMarket = null, rpc
                 return;
             }
             counts.rpcFailures += 1;
+            failedJobs.transaction.set(record.signature, acquisitionFailure(error));
             acquisitionResult('transaction', ticket, false, error);
             if (record.attempts >= policy.retries) {
-                if (record.event) withdraw(record, 'RECONCILIATION_UNKNOWN');
-                else record.state = 'RECONCILIATION_UNKNOWN';
+                unknown(record, 'TRANSACTION_ACQUISITION_EXHAUSTED');
             } else {
                 record.state = commitment === 'finalized' ? 'FINALIZE_PENDING' : 'PENDING';
                 record.nextAt = now() + 1000 * 4 ** (record.attempts - 1);
@@ -141,9 +156,9 @@ export function createEvidenceIngestion({ tokenMint, canonicalMarket = null, rpc
         if (stopped) return;
         cleanup();
         for (const record of records.values()) {
-            if (record.state === 'FINALIZE_PENDING' && !record.running
+            if (['PENDING','FINALIZE_PENDING'].includes(record.state) && !record.running
                 && now() - record.createdAt > policy.reconciliationDeadlineMs) {
-                withdraw(record, 'RECONCILIATION_UNKNOWN');
+                unknown(record, 'EVIDENCE_SETTLEMENT_DEADLINE');
             }
         }
         pump();
@@ -158,6 +173,7 @@ export function createEvidenceIngestion({ tokenMint, canonicalMarket = null, rpc
             const result = await rpc('getSignatureStatuses', [pending.map((r) => r.signature), { searchTransactionHistory: true }], abort.signal);
             if (stopped) return;
             if (!result || !Array.isArray(result.value) || result.value.length !== pending.length) throw new Error('STATUS_MALFORMED');
+            for (const record of pending) failedJobs.status.delete(record.signature);
             acquisitionResult('status', ticket, true);
             for (let i = 0; i < pending.length; i += 1) {
                 const record = pending[i];
@@ -167,7 +183,7 @@ export function createEvidenceIngestion({ tokenMint, canonicalMarket = null, rpc
                 else if (status?.confirmationStatus === 'finalized') {
                     record.state = 'FINALIZE_PENDING'; record.attempts = 0; record.nextAt = now();
                 } else if (now() - record.createdAt > policy.reconciliationDeadlineMs) {
-                    withdraw(record, 'RECONCILIATION_UNKNOWN');
+                    unknown(record, 'FINAL_STATUS_DEADLINE');
                 }
             }
         } catch (error) {
@@ -176,9 +192,11 @@ export function createEvidenceIngestion({ tokenMint, canonicalMarket = null, rpc
                 return;
             }
             counts.rpcFailures += 1;
+            const failure = acquisitionFailure(error);
+            for (const record of pending) failedJobs.status.set(record.signature, failure);
             acquisitionResult('status', ticket, false, error);
             for (const record of pending) if (now() - record.createdAt > policy.reconciliationDeadlineMs) {
-                withdraw(record, 'RECONCILIATION_UNKNOWN');
+                unknown(record, 'FINAL_STATUS_ACQUISITION_EXHAUSTED');
             }
         } finally { reconciling = false; pump(); }
     }
@@ -189,6 +207,7 @@ export function createEvidenceIngestion({ tokenMint, canonicalMarket = null, rpc
         diagnostics: () => ({ ...counts, acquisition: structuredClone(acquisition),
             coverage: canonicalMarket ? summarizePoolCoverage(records.values()) : summarizeCoverage(records.values()), records: records.size, running: running.size,
             pendingReconciliations: [...records.values()].filter((r) => ['CONFIRMED', 'FINALIZE_PENDING'].includes(r.state)).length,
+            pendingEvidence: [...records.values()].filter((r) => ['PENDING','CONFIRMED','FINALIZE_PENDING'].includes(r.state)).length,
             lastVerifiedSlot: journal.values(now()).reduce((s, e) => Math.max(s, e.slot), 0), journal: journal.diagnostics() }),
         destroy() { stopped = true; abort.abort(); records.clear(); journal.clear(); },
     };

@@ -21,6 +21,7 @@ export class StreamHub {
     constructor(ctx, env) {
         this.ctx = ctx;
         this.env = env;
+        this.random = typeof env.__testRandom === 'function' ? env.__testRandom : Math.random;
         this.rawRpc = createRpcTransport(env);
         this.policy = createAcquisitionPolicy({ storage: ctx.storage });
         this.rpc = (method, params, signal, meta = {}) => this.policy.run('standard', meta.capability || method,
@@ -174,7 +175,8 @@ export class StreamHub {
     ensureIngestion() {
         if (this.ingestion || this.market?.canonicalMarket?.compatibility !== 'POOL_STATE_AND_VAULTS_VERIFIED') return;
         this.ingestion = createEvidenceIngestion({ tokenMint: this.tokenMint, canonicalMarket: this.market.canonicalMarket, rpc: this.rpc,
-            onChange: (event) => this.broadcast({ ...event, version: 4 }) });
+            onChange: (event) => this.broadcast({ ...event, version: 4 }),
+            onGap: (gap) => this.recordGap(gap.reason, { signature: gap.signature }) });
     }
 
     async webSocketMessage(socket, raw) {
@@ -212,6 +214,9 @@ export class StreamHub {
                     this.markCapability('discovery', false, next.identityFailure, next.retryAt, attemptedAt);
                     if (this.market?.canonicalMarket) return this.market;
                 } else this.markCapability('discovery', Boolean(next.canonicalMarket), next.identityFailure, next.retryAt, attemptedAt);
+                if (next.valuationAcquisitionFailure && this.market?.canonicalMarket?.address === next.canonicalMarket?.address) {
+                    next = { ...next, nativeValuation: this.market.nativeValuation, quoteUsd: this.market.quoteUsd };
+                }
                 return this.applyMarket(next, attemptedAt);
             }).catch((error) => {
                 const failure = acquisitionFailure(error);
@@ -261,7 +266,7 @@ export class StreamHub {
         if (changed) this.valuationBoundary.clear();
         this.market = next;
         this.lastDiscoveryAt = attemptedAt;
-        this.lastNativeAt = next.nativeValuation ? attemptedAt : 0;
+        this.lastNativeAt = next.valuationAcquisitionFailure ? this.lastNativeAt : next.nativeValuation ? attemptedAt : 0;
         this.acceptValuation(next, changed);
         this.ensureIngestion();
         if (changed) this.broadcast({ type: 'snapshot', version: 4, tokenMint: this.tokenMint,
@@ -274,6 +279,11 @@ export class StreamHub {
 
     acceptValuation(next, changed) {
         const attemptedAt = Date.now();
+        if (next.valuationAcquisitionFailure) {
+            this.markCapability('marketState', false, next.valuationFailure, next.retryAt, attemptedAt);
+            this.markCapability('valuation', false, next.valuationFailure, next.retryAt, attemptedAt);
+            return;
+        }
         if (next.nativeValuation && next.canonicalMarket) {
             next.nativeValuation.sourceEpoch = next.canonicalMarket.sourceEpoch;
             const value = canonicalValuation(next.nativeValuation, next.quoteUsd, next.canonicalMarket,
@@ -338,7 +348,7 @@ export class StreamHub {
         socket.addEventListener('close', () => {
             if (this.upstream !== socket) return;
             this.closeUpstream(); this.streamStatus = 'reconnecting';
-            const jitter = Math.max(1, Math.floor(this.retryDelay * Math.random() * 0.2));
+            const jitter = Math.max(1, Math.floor(this.retryDelay * Math.max(0, Math.min(1, this.random())) * 0.2));
             this.nextConnectAt = Date.now() + this.retryDelay + jitter;
             this.retryDelay = Math.min(30_000, this.retryDelay * 2);
             this.lastHistoryAt = 0;
@@ -394,6 +404,8 @@ export class StreamHub {
     health() {
         const now = Date.now(), valuation = this.valuationBoundary?.snapshot(now);
         const ingestion = this.ingestion?.diagnostics();
+        const evidenceOperational = ingestion?.acquisition?.transaction?.status !== 'RETRY_WAIT'
+            && ingestion?.acquisition?.status?.status !== 'RETRY_WAIT';
         const currentCoverage = this.coverageHealthySince !== null && now - this.coverageHealthySince >= 60_000
             && now - (this.capabilities.execution.lastSuccessAt || 0) <= 30_000;
         const available = {
@@ -403,16 +415,18 @@ export class StreamHub {
             quoteUsd: valuation?.gates?.quoteIdentity === true && valuation?.quoteFreshness === 'FRESH',
             valuation: valuation?.authorityEligible === true,
             execution: this.capabilities.execution.lastSuccessAt !== null
-                && now - this.capabilities.execution.lastSuccessAt <= 30_000,
+                && now - this.capabilities.execution.lastSuccessAt <= 30_000 && evidenceOperational,
         };
         const wrap = (name) => ({ available: available[name], ...this.capabilities[name] });
         return { schemaVersion: HEALTH_SCHEMA_VERSION, observedAt: now,
             discoveryAvailable: wrap('discovery'), marketStateAvailable: wrap('marketState'),
             quoteUsdAvailable: wrap('quoteUsd'), valuationAvailable: wrap('valuation'),
             executionStreamAvailable: { ...wrap('execution'), transportMode: this.streamStatus === 'live' ? 'WS' : 'POLLING' },
-            terrainAuthorityAvailable: { available: available.valuation, status: available.valuation ? 'HEALTHY' : 'UNAVAILABLE',
+            terrainAuthorityAvailable: { ...wrap('valuation'), available: available.valuation,
+                status: available.valuation ? 'HEALTHY' : 'UNAVAILABLE',
                 reason: available.valuation ? null : this.capabilities.valuation.reason },
-            currentWindow: { complete: currentCoverage, observedSince: this.coverageHealthySince,
+            currentWindow: { complete: currentCoverage && evidenceOperational && !(ingestion?.pendingEvidence > 0),
+                observedSince: this.coverageHealthySince,
                 pending: !currentCoverage, reason: currentCoverage ? null : this.pendingCoverageFailure?.reason
                     || this.capabilities.execution.reason || 'OBSERVING_60S_WINDOW' },
             historicalCoverage: { incomplete: this.coverageGaps.length > 0, gaps: this.coverageGaps.slice(-8), totalGaps: this.coverageGaps.length },

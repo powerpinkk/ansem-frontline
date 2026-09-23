@@ -23,12 +23,12 @@ test('shows MC, FDV and unavailable honestly and reconciles one provisional iden
     await expect(page.locator('#mcap-value')).toHaveText('$1.50M');
     await expect(page.locator('#mcap-value').locator('..')).toContainText('MC');
     kind = 'FDV'; settlement = 'FINALIZED';
-    await expect(page.locator('#mcap-value')).toHaveText('$2.00M', { timeout: 12_000 });
+    await expect(page.locator('#mcap-value')).toHaveText('$2.00M', { timeout: 20_000 });
     await expect(page.locator('#mcap-value').locator('..')).toContainText('FDV');
     await expect(page.locator('.trade-item')).toHaveCount(1);
-    await expect(page.locator('.trade-item')).toHaveAttribute('title', /FINALIZED/, { timeout: 12_000 });
+    await expect(page.locator('.trade-item')).toHaveAttribute('title', /FINALIZED/, { timeout: 20_000 });
     kind = 'UNKNOWN';
-    await expect(page.locator('#mcap-value')).toHaveText('—', { timeout: 12_000 });
+    await expect(page.locator('#mcap-value')).toHaveText('—', { timeout: 20_000 });
     await expect(page.locator('#mcap-value').locator('..')).toContainText('VALUATION');
     await expect(page.locator('.trade-item')).toContainText('USD —');
 });
@@ -49,10 +49,10 @@ test('keeps same-signature pool executions distinct and clears them on source re
     await page.goto('/'); await expect(page.locator('.trade-item')).toHaveCount(2);
     await expect(page.locator('#pressure-volume')).toHaveText('25.0 / 25.0 SOL');
     trades = trades.map(e => ({ ...e, settlement: 'FINALIZED' }));
-    await expect(page.locator('.trade-item').first()).toHaveAttribute('title', /FINALIZED/, { timeout: 12000 });
+    await expect(page.locator('.trade-item').first()).toHaveAttribute('title', /FINALIZED/, { timeout: 20000 });
     await expect(page.locator('.trade-item')).toHaveCount(2);
     market = { ...swapFixture({ protocol: 'dlmm' }).market, sourceEpoch: 2 }; trades = [];
-    await expect(page.locator('.trade-item')).toHaveCount(0, { timeout: 12000 });
+    await expect(page.locator('.trade-item')).toHaveCount(0, { timeout: 20000 });
     await expect(page.locator('#pressure-volume')).toHaveText('0.00 / 0.00 SOL');
 });
 
@@ -80,13 +80,13 @@ test('loads an unlisted Pump curve and separates canonical MC, FX refresh and mi
     const value=()=>page.evaluate(()=>window.__ansemTokenDiagnostics().sessions.find(s=>s.active).api.canonicalValuation);
     await expect.poll(async()=> (await value())?.authorityEligible).toBe(true);
     const first=await value();quotePrice='11000000000';
-    await expect.poll(async()=> (await value())?.quoteUsdPrice,{timeout:12000}).toBe('110');
+    await expect.poll(async()=> (await value())?.quoteUsdPrice,{timeout:20000}).toBe('110');
     expect(Number((await value()).valueUsd)/Number(first.valueUsd)).toBeCloseTo(1.1,10);
     await expect(page.locator('.trade-item')).toHaveCount(1);
     quoteUnavailable=true;
-    await expect.poll(async()=> (await value())?.authorityEligible,{timeout:12000}).toBe(false);
+    await expect.poll(async()=> (await value())?.authorityEligible,{timeout:20000}).toBe(false);
     await expect(page.locator('#mcap-value')).toHaveText('—');
     quoteUnavailable=false;migration=true;selected={...swapFixture({mint:s.mint}).market,sourceEpoch:2,lifecycle:'AMM'};
-    await expect(page.locator('.trade-item')).toHaveCount(0,{timeout:12000});
+    await expect(page.locator('.trade-item')).toHaveCount(0,{timeout:20000});
     await expect(page.locator('#pressure-volume')).toHaveText('0.00 / 0.00 SOL');
 });

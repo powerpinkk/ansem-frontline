@@ -110,11 +110,11 @@ describe('trade stream lifecycle', () => {
     });
 
     it('a silent connection times out and reconnects instead of remaining live indefinitely', () => {
-        const controller = connectTradeStream('wss://example.test/stream', {});
+        const controller = connectTradeStream('wss://example.test/stream', { random: () => 0.5 });
         FakeWebSocket.instances[0].open();
-        vi.advanceTimersByTime(30_000);
+        vi.advanceTimersByTime(10_000);
         expect(FakeWebSocket.instances[0].readyState).toBe(FakeWebSocket.CLOSED);
-        vi.advanceTimersByTime(1000);
+        vi.advanceTimersByTime(1200);
         expect(FakeWebSocket.instances).toHaveLength(2);
         controller.stop();
     });

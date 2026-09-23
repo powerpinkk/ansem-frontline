@@ -23,9 +23,17 @@ it('uses authoritative live supply without a universal 1B-token assumption',()=>
 it('grants USD authority only when both independent observations satisfy the gates',()=>{
     const v=canonicalValuation(native(),fx(),market(),null,now);
     expect(v.authorityEligible).toBe(true);expect(v.valueUsd).toMatch(/^\d+(\.\d+)?$/);
-    expect(v.unitPriceUsd).toMatch(/^\d+(\.\d+)?$/);
+    expect(v.unitPriceUsd).toBe('0.000002945121452030560861');
+    expect(v.unitPrice).toMatchObject({kind:'PROTOCOL_UNIT_PRICE',valueUsd:v.unitPriceUsd,
+        evidenceLevel:'PROTOCOL_CANONICAL',authorityEligible:true,
+        provenance:{formula:'EFFECTIVE_QUOTE_PER_BASE_V1'}});
     expect(canonicalValuation(native(),{...fx(),observedAt:now-90001},market(),v,now)).toMatchObject({authorityEligible:false,nativeFreshness:'FRESH',quoteFreshness:'STALE'});
     expect(canonicalValuation({...native(),observedAt:now-20001},fx(),market(),v,now).authorityEligible).toBe(false);
+});
+it('degrades safely when a version-4 old Worker lacks the additive protocol-price proof',()=>{
+    const m=market(),v=canonicalValuation(native(),fx(),m,null,now);
+    const oldWorkerValue=structuredClone(v);delete oldWorkerValue.unitPrice;delete oldWorkerValue.unitPriceUsd;
+    expect(createCanonicalValuationBoundary(m.tokenMint).accept(oldWorkerValue,m,now)).toBeNull();
 });
 it.each([
     ['epoch',n=>{n.sourceEpoch++;}],['mint',n=>{n.tokenMint=n.quoteMint;}],['market',n=>{n.marketIdentity=n.quoteMint;}],

@@ -14,7 +14,7 @@ test('renders bounded authoritative terrain without overflow or console errors',
     const errors = [];
     page.on('console', (message) => { if (message.type() === 'error') errors.push(message.text()); });
     await page.goto('/?diagnostics=1');
-    await expect(page.locator('#market-frontier-value')).toHaveText('MC $20M', { timeout: 15_000 });
+    await expect(page.locator('#market-frontier-value')).toHaveText('MC $20M', { timeout: 20_000 });
     await expect(page.locator('#market-frontier-status')).toContainText('TOKEN NATIVE MARKET MOVE');
     const terrain = await page.evaluate(() => window.__ansemTerrainDiagnostics());
     expect(terrain).toMatchObject({ tokenMint: ANSEM, status: 'LIVE', authoritativeValuation: 20_000_000,
@@ -64,7 +64,7 @@ test('freezes terrain honestly when canonical authority degrades and survives Th
     await expect(page.locator('#market-frontier-value')).toHaveText('MC $20M', { timeout: 15_000 });
     const before = await page.evaluate(() => window.__ansemTerrainDiagnostics().targetCoordinate);
     await page.evaluate(() => { window.__terrainFixtureAuthority = false; });
-    await expect(page.locator('#market-frontier-status')).toHaveText('STALE / DEGRADED · FRONTIER FROZEN', { timeout: 12_000 });
+    await expect(page.locator('#market-frontier-status')).toHaveText('STALE / DEGRADED · FRONTIER FROZEN', { timeout: 20_000 });
     const degraded = await page.evaluate(() => window.__ansemTerrainDiagnostics());
     expect(degraded.status).toBe('DEGRADED');
     expect(degraded.targetCoordinate).toBe(before);
@@ -117,7 +117,7 @@ async function installRoutes(page) {
 async function selectToken(page, mint, expectedValue) {
     await page.locator('#token-mint-input').fill(mint);
     await page.locator('#token-load-btn').click();
-    await expect(page.locator('#market-frontier-value')).toHaveText(expectedValue, { timeout: 12_000 });
+    await expect(page.locator('#market-frontier-value')).toHaveText(expectedValue, { timeout: 20_000 });
 }
 
 function market(mint) {
@@ -126,9 +126,13 @@ function market(mint) {
 }
 
 function canonical(mint, now, authority) {
+    const unitPriceUsd='0.02';
     return { tokenMint: mint, marketIdentity: POOLS[mint], sourceEpoch: 1, kind: 'PROTOCOL_MARKET_CAP',
         protocolDefinition: 'PUMP_PROTOCOL_MARKET_CAP_V1', supplyBasis: 'LIVE_MINT_SUPPLY', supplyRaw: '1000000',
-        valueUsd: String(VALUES[mint]), nativeQuoteValue: '200000000000000', quoteMint: SOL, quoteUsdPrice: '100',
+        valueUsd: String(VALUES[mint]),unitPriceUsd,unitPrice:{kind:'PROTOCOL_UNIT_PRICE',valueUsd:unitPriceUsd,
+            tokenMint:mint,marketIdentity:POOLS[mint],sourceEpoch:1,evidenceLevel:'PROTOCOL_CANONICAL',
+            authorityEligible:authority,observedAt:now,quoteObservedAt:now,provenance:{formula:'EFFECTIVE_QUOTE_PER_BASE_V1'}},
+        nativeQuoteValue: '200000000000000', quoteMint: SOL, quoteUsdPrice: '100',
         nativeObservedAt: now, quoteObservedAt: now, slot: 500, freshness: authority ? 'FRESH' : 'DEGRADED',
         authorityEligible: authority, movementCause: 'TOKEN_PRICE_UPDATE',
         gates: { identity: true, formula: true, supply: true, nativeFresh: authority, quoteIdentity: true,

@@ -15,22 +15,26 @@ export function formatPriceDisplay(value) {
 
 export function deriveMarketHealth(state) {
     const integrity = state?.integrity || null;
+    const capabilities = integrity?.health?.schemaVersion === 1 ? integrity.health : null;
     const canonicalValuation = state?.canonicalValuation || null;
     const providerValuation = state?.valuation || null;
     const canonicalMarketAvailable = Boolean(state?.canonicalMarket);
-    const priceAvailable = positive(state?.price);
+    const canonicalPriceAvailable = canonicalValuation?.authorityEligible === true
+        && positive(canonicalValuation.unitPrice?.valueUsd ?? canonicalValuation.unitPriceUsd);
+    const indicativePriceAvailable = positive(state?.indicativePrice ?? state?.price);
+    const priceAvailable = canonicalPriceAvailable || indicativePriceAvailable;
     const providerValuationAvailable = positive(providerValuation?.valueUsd)
         && providerValuation?.kind !== 'UNKNOWN';
-    const terrainAuthorityAvailable = canonicalValuation?.authorityEligible === true
-        && positive(canonicalValuation.valueUsd);
+    const terrainAuthorityAvailable = capabilities
+        ? capabilities.terrainAuthorityAvailable?.available === true && canonicalValuation?.authorityEligible === true
+        : canonicalValuation?.authorityEligible === true && positive(canonicalValuation.valueUsd);
     const workerConnected = state?.workerConnected === true;
     const executionStreamStatus = state?.executionStreamStatus || 'connecting';
-    const executionStreamHealthy = workerConnected
-        && executionStreamStatus === 'online'
-        && canonicalMarketAvailable
-        && !integrity?.identityFailure
-        && integrity?.coverageIncomplete !== true
-        && !(integrity?.rpcFailures > 0);
+    const executionStreamHealthy = capabilities
+        ? workerConnected && capabilities.executionStreamAvailable?.available === true
+            && capabilities.currentWindow?.complete === true
+        : workerConnected && executionStreamStatus === 'online' && canonicalMarketAvailable
+            && !integrity?.identityFailure && integrity?.coverageIncomplete !== true && !(integrity?.rpcFailures > 0);
     const hasRecentExecutions = Array.isArray(state?.liveTrades) && state.liveTrades.length > 0;
     const degradedReasons = [];
     const addReason = (reason) => {
@@ -48,20 +52,31 @@ export function deriveMarketHealth(state) {
     }
     if (!workerConnected) addReason('WORKER_DISCONNECTED');
     if (executionStreamStatus === 'offline') addReason('EXECUTION_STREAM_UNAVAILABLE');
-    if (integrity?.coverageIncomplete === true) addReason('EXECUTION_COVERAGE_INCOMPLETE');
-    if (integrity?.rpcFailures > 0) addReason('EXECUTION_RPC_FAILURES');
+    if (capabilities) {
+        for (const [name, value] of Object.entries(capabilities)) {
+            if (name.endsWith('Available') && value?.available === false && value.reason) addReason(`${name.toUpperCase()}_${value.reason}`);
+        }
+        if (capabilities.currentWindow?.pending) addReason(capabilities.currentWindow.reason || 'EXECUTION_WINDOW_PENDING');
+    } else {
+        if (integrity?.coverageIncomplete === true) addReason('EXECUTION_COVERAGE_INCOMPLETE');
+        if (integrity?.rpcFailures > 0) addReason('EXECUTION_RPC_FAILURES');
+    }
 
     const flowState = executionStreamHealthy
         ? hasRecentExecutions ? 'ACTIVE' : 'QUIET'
-        : workerConnected || integrity ? 'DEGRADED' : 'WAITING';
+        : capabilities?.executionStreamAvailable?.available === true ? 'RECOVERING'
+            : workerConnected || integrity ? 'DEGRADED' : 'WAITING';
     return Object.freeze({
         workerConnected,
         executionStreamHealthy,
-        discoveryHealthy: canonicalMarketAvailable && !integrity?.identityFailure,
+        discoveryHealthy: capabilities ? capabilities.discoveryAvailable?.available === true
+            : canonicalMarketAvailable && !integrity?.identityFailure,
         marketIdentityAvailable: Boolean(state?.marketSelection),
         canonicalMarketAvailable,
         priceAvailable,
-        priceState: priceAvailable ? 'INDICATIVE' : 'UNAVAILABLE',
+        canonicalPriceAvailable,
+        indicativePriceAvailable,
+        priceState: canonicalPriceAvailable ? 'AUTHORITATIVE' : indicativePriceAvailable ? 'INDICATIVE' : 'UNAVAILABLE',
         valuationAvailable: terrainAuthorityAvailable || providerValuationAvailable,
         valuationState: terrainAuthorityAvailable ? 'AUTHORITATIVE'
             : providerValuationAvailable ? 'INDICATIVE' : 'UNAVAILABLE',

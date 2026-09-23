@@ -26,6 +26,7 @@ export function createTokenRuntime(initialContext) {
 function createRuntimeState() {
     return {
         price: 0,
+        indicativePrice: 0,
         mcap: null,
         valuation: null,
         canonicalValuation: null,

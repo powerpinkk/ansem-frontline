@@ -6,7 +6,7 @@ import { AcquisitionError, createJsonRpcTransport } from './acquisition-policy.j
 export function isTransientAcquisitionFailure(error) {
     return error instanceof AcquisitionError
         ? error.retryable || error.deferred
-        : /^(RPC_HTTP_429|RPC_HTTP_5|RPC_ERROR_|RPC_TIMEOUT|RPC_NETWORK|RPC_MALFORMED)/.test(error?.message || '');
+        : /^(RPC_HTTP_429|RPC_HTTP_5|RPC_ERROR_|RPC_TIMEOUT|RPC_NETWORK|RPC_MALFORMED|DISCOVERY_UNAVAILABLE|NO_COMPATIBLE_MARKET)/.test(error?.message || '');
 }
 
 export async function resolveServerMarket(mint, rpc, previous = null, fetchImpl = fetch) {
@@ -44,11 +44,16 @@ export async function resolveServerMarket(mint, rpc, previous = null, fetchImpl 
         }]);
         if (vaultResult.context.slot < result.context.slot) throw new Error('VAULT_SLOT_REGRESSION');
         canonicalMarket = { ...verifyPoolVaults(identity, vaultResult.value, vaultResult.context.slot), sourceEpoch: selected.selection.sourceEpoch };
-    } catch (e) { identityFailure = e.message; }
+    } catch (e) {
+        if (isTransientAcquisitionFailure(e)) throw e;
+        identityFailure = e.message;
+    }
     let native = {};
     if (canonicalMarket?.protocol === 'pumpswap') {
         try { native = await pumpSwapValuation(canonicalMarket,rpc,canonicalMarket.verifiedAtSlot); }
-        catch(e) { native = {valuationFailure:e.message}; }
+        catch(e) { native = isTransientAcquisitionFailure(e)
+            ? {valuationFailure:e.reason || e.message,valuationAcquisitionFailure:true,retryAt:e.retryAt || null}
+            : {valuationFailure:e.message}; }
         if (native.unsupportedVariant) {
             const mayhem=native.unsupportedVariant==='MAYHEM';
             identityFailure=mayhem?'UNSUPPORTED_MAYHEM':'UNSUPPORTED_PUMP_VARIANT';

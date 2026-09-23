@@ -86,6 +86,20 @@ it('keeps the same identity and epoch across a transient discovery failure',asyn
     expect(hub.diagnostics().health.discoveryAvailable).toMatchObject({available:false,reason:'RPC_HTTP_429'});
     hub.ingestion.destroy();
 });
+it('retains fresh atomic authority when a full-refresh valuation request fails transiently',async()=>{
+    const curve=JSON.parse(readFileSync(new URL('./fixtures/public-chain/pump-current-states.json',import.meta.url)))[0];
+    vi.spyOn(Date,'now').mockReturnValue(curve.receivedAt);
+    const {hub}=setup();hub.tokenMint=curve.mint;
+    const first={...curve,pools:[curve.canonicalMarket],selection:{tokenMint:curve.mint},receivedAt:Date.now()};
+    resolveServerMarket.mockResolvedValueOnce(first);await hub.ensureMarket();const epoch=hub.sourceEpoch;
+    hub.market.receivedAt=0;resolveServerMarket.mockResolvedValueOnce({...first,nativeValuation:null,quoteUsd:null,
+        valuationFailure:'RPC_HTTP_429',valuationAcquisitionFailure:true,retryAt:Date.now()+60_000,receivedAt:Date.now()});
+    await hub.ensureMarket();
+    expect(hub.sourceEpoch).toBe(epoch);
+    expect(hub.diagnostics().canonicalValuation).toMatchObject({authorityEligible:true});
+    expect(hub.diagnostics().health.marketStateAvailable).toMatchObject({available:true,status:'RETRY_WAIT',reason:'RPC_HTTP_429'});
+    hub.ingestion.destroy();
+});
 it('coalesces 32 same-token indicative viewers into one token/SOL DAS pair',async()=>{
     const {hub}=setup();hub.policy={run:async(_group,_key,operation)=>operation(),snapshot:()=>({})};
     hub.rawRpc=vi.fn(async(_method,params)=>({id:params.id,token_info:{price_info:{price_per_token:params.id===MINT?0.25:100},
@@ -101,6 +115,16 @@ it('uses atomic PumpSwap refresh without repeating full discovery inside 60 seco
     refreshServerMarket.mockResolvedValueOnce({...first,nativeReceivedAt:Date.now()});
     await hub.ensureMarket();
     expect(resolveServerMarket).toHaveBeenCalledTimes(1);expect(refreshServerMarket).toHaveBeenCalledTimes(1);
+    hub.ingestion.destroy();
+});
+it('sends live status to a new client on an already-connected token object',async()=>{
+    const {hub}=setup(),f=swapFixture(),messages=[];resolveServerMarket.mockResolvedValueOnce(market(f));
+    await hub.ensureMarket();hub.streamStatus='live';hub.ensureUpstream=async()=>{};hub.catchUp=async()=>{};
+    await hub.webSocketMessage({send:(raw)=>messages.push(JSON.parse(raw))},JSON.stringify({
+        type:'configure',token:{mint:MINT,chain:'solana'},
+    }));
+    expect(messages.some((message)=>message.type==='snapshot'&&message.version===4)).toBe(true);
+    expect(messages.at(-1)).toMatchObject({type:'status',status:'live',healthSchemaVersion:1});
     hub.ingestion.destroy();
 });
 it('idle teardown removes valuation, ingestion and cursors',async()=>{

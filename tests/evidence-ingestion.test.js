@@ -68,6 +68,23 @@ describe('bounded settlement ingestion', () => {
             acquisition: { transaction: { status: 'HEALTHY', reason: null } } });
         service.destroy();
     });
+    it('does not heal an affected evidence job with an unrelated transaction success', async () => {
+        let now = 10_000; const failed = swapFixture({ blockTime: 10 });
+        const healthy = swapFixture({ blockTime: 10, signature: signatureFor(2) });
+        const attempts = new Map();
+        const service = createEvidenceIngestion({ tokenMint: MINT, canonicalMarket: failed.market, now: () => now,
+            rpc: async (_method, params) => {
+                const signature = params[0], count = (attempts.get(signature) || 0) + 1; attempts.set(signature, count);
+                if (signature === failed.signature && count === 1) throw new Error('RPC_HTTP_429');
+                return signature === healthy.signature ? healthy.transaction : failed.transaction;
+            } });
+        service.observeSignature(failed.signature); service.observeSignature(healthy.signature); await service.drain();
+        expect(service.diagnostics()).toMatchObject({ rpcFailures: 1,
+            acquisition: { transaction: { status: 'RETRY_WAIT' } } });
+        now += 2_000; await service.tick(); await service.drain();
+        expect(service.diagnostics().acquisition.transaction).toMatchObject({ status: 'HEALTHY', reason: null });
+        service.destroy();
+    });
     it('unknown reconciliation withdraws provisional authority and remains one identity', async () => {
         let now = 10_000; const f = swapFixture({ blockTime: 10 });
         const service = createEvidenceIngestion({ tokenMint: MINT, canonicalMarket: f.market, now: () => now,

@@ -7,7 +7,7 @@ afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 it('measures PumpSwap cold and steady standard-RPC budgets with discovery/native/history split', async () => {
     const samples = JSON.parse(readFileSync(new URL('./fixtures/public-chain/pump-valuation-states.json', import.meta.url)));
     const sample = samples.find((item) => item.result.canonicalMarket.protocol === 'pumpswap');
-    let now = sample.observedAt, epoch = 0;
+    let now = sample.observedAt;
     vi.spyOn(Date, 'now').mockImplementation(() => now);
     const stored = new Map();
     const ctx = { storage: { get: async (key) => stored.get(key), put: async (key, value) => stored.set(key, value),
@@ -32,9 +32,11 @@ it('measures PumpSwap cold and steady standard-RPC budgets with discovery/native
     await hub.ensureMarket(); await hub.catchUp();
     expect(calls.filter((call) => call.group === 'standard')).toHaveLength(5);
     const coldEnd = calls.length;
-    for (epoch = 3_000; epoch < 120_000; epoch += 3_000) {
+    let quietHealth = null;
+    for (let epoch = 3_000; epoch < 120_000; epoch += 3_000) {
         now = sample.observedAt + epoch;
         await hub.ensureMarket(); await hub.catchUp(); await hub.ingestion?.tick();
+        if (epoch === 66_000) quietHealth = hub.health();
     }
     const afterCold = calls.slice(coldEnd).filter((call) => call.group === 'standard');
     const windows = [0, 1].map((index) => afterCold.filter((call) => {
@@ -45,5 +47,9 @@ it('measures PumpSwap cold and steady standard-RPC budgets with discovery/native
     expect(windows[1].length).toBe(12); // one full 4-read refresh, four atomic reads, four history reads
     expect(windows[1].filter((call) => call.key === 'getSignaturesForAddress')).toHaveLength(4);
     expect(hub.sourceEpoch).toBe(1);
+    expect(quietHealth).toMatchObject({ valuationAvailable: { available: true },
+        terrainAuthorityAvailable: { available: true }, executionStreamAvailable: { available: true },
+        currentWindow: { complete: true } });
+    expect(hub.ingestion.snapshot()).toEqual([]);
     hub.ingestion?.destroy();
 });
