@@ -19,6 +19,9 @@ describe('Worker health endpoint', () => {
         await expect(response.json()).resolves.toEqual({
             ok: true,
             service: 'ansem-frontline-stream',
+            buildId: 'ansem-frontline-worker-recovery-v1',
+            envelopeVersion: 4,
+            healthSchemaVersion: 1,
         });
     });
 

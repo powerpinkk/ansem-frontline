@@ -5,6 +5,13 @@ import { positive } from '../../js/market-selection.js';
 
 export const SOL_MINT = 'So11111111111111111111111111111111111111112';
 
+export async function fetchHeliusAsset(rpc, mint) {
+    const result = await rpc('getAsset', { id: mint, displayOptions: { showFungible: true } }, undefined,
+        { capability: `asset:${mint}` });
+    if (!result || typeof result !== 'object' || result.id !== mint) throw new Error('DAS_ASSET_IDENTITY_MISMATCH');
+    return result;
+}
+
 export function fallbackPoolsForMint(mint) {
     return mint === ANSEM_MINT ? ANSEM_FALLBACK_POOLS : Object.freeze([]);
 }

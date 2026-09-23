@@ -32,15 +32,23 @@ export function canonicalValuation(native, quote, market, previous = null, now =
         lifecycle: ['CURVE_ACTIVE','AMM'].includes(market?.lifecycle),
         supportedVariant: market?.mayhem !== true && market?.compatibility !== 'UNSUPPORTED_MAYHEM',
     };
-    let valueUsd = null, quoteUsdPrice = null;
+    let valueUsd = null, quoteUsdPrice = null, unitPriceUsd = null;
     try {
-        const raw = unsigned(native.rawQuoteValue), price = unsigned(quote.price), exponent = quote.exponent;
+        const tokenDecimals = native.tokenDecimals ?? market?.tokenDecimals;
+        const baseReserve = native.baseReserve ?? native.provenance?.state?.virtualTokenReserves
+            ?? native.provenance?.state?.baseReserve;
+        const raw = unsigned(native.rawQuoteValue), effective = unsigned(native.effectiveQuoteReserve),
+            base = unsigned(baseReserve), price = unsigned(quote.price), exponent = quote.exponent;
         if (!raw || !price || !Number.isInteger(exponent) || Math.abs(exponent)>18
+            || !effective || !base || !Number.isInteger(tokenDecimals) || tokenDecimals < 0 || tokenDecimals > 18
             || !Number.isInteger(native.quoteDecimals) || native.quoteDecimals < 0 || native.quoteDecimals > 18) throw new Error('NUMERIC');
         const denominator = 10n**BigInt(native.quoteDecimals + Math.max(0,-exponent));
         valueUsd = decimalRatio(raw * price * 10n**BigInt(Math.max(0,exponent)),denominator);
         quoteUsdPrice = decimalRatio(price * 10n**BigInt(Math.max(0,exponent)),10n**BigInt(Math.max(0,-exponent)));
-        gates.numeric = Number.isFinite(Number(valueUsd)) && Number(valueUsd)>0;
+        unitPriceUsd = decimalRatio(effective * 10n**BigInt(tokenDecimals) * price * 10n**BigInt(Math.max(0,exponent)),
+            base * 10n**BigInt(native.quoteDecimals + Math.max(0,-exponent)), 24);
+        gates.numeric = Number.isFinite(Number(valueUsd)) && Number(valueUsd)>0
+            && Number.isFinite(Number(unitPriceUsd)) && Number(unitPriceUsd)>0;
     } catch { gates.numeric = false; }
     const rebase = !previous || previous.marketIdentity !== native?.marketIdentity || previous.sourceEpoch !== native?.sourceEpoch
         || previous.protocolDefinition !== native?.protocolDefinition;
@@ -49,7 +57,10 @@ export function canonicalValuation(native, quote, market, previous = null, now =
     const fxChanged = previous && previous.quoteUsdPrice !== quoteUsdPrice;
     return { tokenMint:native?.tokenMint ?? market?.tokenMint, marketIdentity:native?.marketIdentity ?? market?.address,
         sourceEpoch:market?.sourceEpoch, kind:'PROTOCOL_MARKET_CAP',protocolDefinition:native?.protocolDefinition,
-        supplyBasis:native?.supplyBasis,supplyRaw:native?.supplyRaw,valueUsd,nativeQuoteValue:native?.rawQuoteValue,
+        supplyBasis:native?.supplyBasis,supplyRaw:native?.supplyRaw,valueUsd,unitPriceUsd,nativeQuoteValue:native?.rawQuoteValue,
+        effectiveQuoteReserve:native?.effectiveQuoteReserve,baseReserve:native?.baseReserve ?? native?.provenance?.state?.virtualTokenReserves
+            ?? native?.provenance?.state?.baseReserve,
+        tokenDecimals:native?.tokenDecimals ?? market?.tokenDecimals,quoteDecimals:native?.quoteDecimals,
         quoteMint:native?.quoteMint,quoteUsdPrice,nativeObservedAt:native?.observedAt,quoteObservedAt:quote?.observedAt,
         slot:native?.slot, provenance:{native:native?.provenance,quote:quote?.provenance}, gates,
         nativeFreshness:gates.nativeFresh?'FRESH':'STALE',quoteFreshness:gates.quoteFresh?'FRESH':'STALE',

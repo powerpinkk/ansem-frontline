@@ -19,7 +19,7 @@ describe('bounded settlement ingestion', () => {
         expect(txReads).toBe(1);
         now += 11_000; await service.tick();
         expect(service.snapshot()[0].settlement).toBe('RECONCILIATION_UNKNOWN');
-        expect(service.diagnostics().overflow).toBeGreaterThan(0);
+        expect(service.diagnostics().overflow).toBe(0);
         service.destroy();
     });
     it('confirmed→finalized upgrades one event after independently re-verifying finalized data', async () => {
@@ -55,6 +55,18 @@ describe('bounded settlement ingestion', () => {
         service.observeSignature(signatureFor()); await service.drain();
         for (let i = 0; i < 10; i += 1) { now += 10_000; await service.tick(); await service.drain(); }
         expect(requests).toBe(3); expect(service.snapshot()).toEqual([]); service.destroy();
+    });
+    it('recovers current transaction acquisition after a failure without clearing lifetime diagnostics', async () => {
+        let now = 10_000; let attempts = 0; const f = swapFixture({ blockTime: 10 });
+        const service = createEvidenceIngestion({ tokenMint: MINT, canonicalMarket: f.market, now: () => now,
+            rpc: async () => { attempts += 1; if (attempts === 1) throw new Error('RPC_HTTP_429'); return f.transaction; } });
+        service.observeSignature(f.signature); await service.drain();
+        expect(service.diagnostics()).toMatchObject({ rpcFailures: 1, acquisition: { transaction: { status: 'RETRY_WAIT' } } });
+        now += 2_000; await service.tick(); await service.drain();
+        expect(service.snapshot()).toHaveLength(1);
+        expect(service.diagnostics()).toMatchObject({ rpcFailures: 1,
+            acquisition: { transaction: { status: 'HEALTHY', reason: null } } });
+        service.destroy();
     });
     it('unknown reconciliation withdraws provisional authority and remains one identity', async () => {
         let now = 10_000; const f = swapFixture({ blockTime: 10 });

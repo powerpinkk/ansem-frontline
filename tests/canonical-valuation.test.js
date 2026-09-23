@@ -23,6 +23,7 @@ it('uses authoritative live supply without a universal 1B-token assumption',()=>
 it('grants USD authority only when both independent observations satisfy the gates',()=>{
     const v=canonicalValuation(native(),fx(),market(),null,now);
     expect(v.authorityEligible).toBe(true);expect(v.valueUsd).toMatch(/^\d+(\.\d+)?$/);
+    expect(v.unitPriceUsd).toMatch(/^\d+(\.\d+)?$/);
     expect(canonicalValuation(native(),{...fx(),observedAt:now-90001},market(),v,now)).toMatchObject({authorityEligible:false,nativeFreshness:'FRESH',quoteFreshness:'STALE'});
     expect(canonicalValuation({...native(),observedAt:now-20001},fx(),market(),v,now).authorityEligible).toBe(false);
 });
@@ -96,7 +97,10 @@ it.each(samples.map(s=>[s.mint,s]))('replays atomic state acquisition %s',async(
     const reads=structuredClone(s.reads);
     const rpc=vi.fn(async(method,params)=>{const read=reads.shift();expect(method).toBe(read.method);expect(params).toEqual(read.params);return read.result;});
     const result=await probePumpCurve(s.mint,rpc);
-    expect(result.canonicalMarket).toEqual(s.canonicalMarket);expect(result.nativeValuation).toEqual(s.nativeValuation);
+    expect(result.canonicalMarket).toEqual(s.canonicalMarket);
+    expect(result.nativeValuation).toEqual(s.nativeValuation && { ...s.nativeValuation,
+        tokenDecimals:s.canonicalMarket.tokenDecimals,
+        baseReserve:s.nativeValuation.provenance.state.virtualTokenReserves });
     if (s.canonicalMarket.mayhem) expect(result).toMatchObject({quoteUsd:null,valuationFailure:'UNSUPPORTED_MAYHEM'});
     expect(reads).toHaveLength(0);
 });
@@ -116,7 +120,9 @@ it.each(load('public-chain/pump-valuation-states.json').filter(s=>s.result.canon
         expect(method).toBe(read.method);expect(params).toEqual(read.params);return read.result;
     });
     const result=await pumpSwapValuation(expected.canonicalMarket,rpc,read.params[1].minContextSlot);
-    expect(result.nativeValuation).toEqual(expected.nativeValuation);
+    expect(result.nativeValuation).toEqual({ ...expected.nativeValuation,
+        tokenDecimals:6,
+        baseReserve:expected.nativeValuation.provenance.state.baseReserve });
     expect(result.quoteUsd).toEqual(expected.quoteUsd);
     expect(canonicalValuation(result.nativeValuation,result.quoteUsd,expected.canonicalMarket,null,expected.receivedAt).authorityEligible).toBe(true);
     expect(rpc).toHaveBeenCalledTimes(1);

@@ -56,16 +56,19 @@ it('backs off discovery after a production RPC rate limit without weakening mark
 });
 
 it('reports a sanitized rate-limit reason from the Worker market fallback', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => new Response(null, { status: 429 })));
     const origin = 'https://frontline.example';
+    const body = { status: 'degraded', error: { code: 'PROVIDER_RATE_LIMITED', retryable: true, retryAt: 123 } };
+    const objectFetch = vi.fn(async () => Response.json(body, { status: 503,
+        headers: { 'retry-after': '60', 'cache-control': 'no-store' } }));
     const response = await worker.fetch(new Request(`https://relay.example/market?mint=${MINT}`, {
         headers: { Origin: origin },
-    }), { HELIUS_API_KEY: 'test-only', DEFAULT_TOKEN_MINT: MINT, ALLOWED_ORIGINS: origin });
+    }), { DEFAULT_TOKEN_MINT: MINT, ALLOWED_ORIGINS: origin,
+        STREAM_HUB: { idFromName: (name) => name, get: () => ({ fetch: objectFetch }) } });
     expect(response.status).toBe(503);
     expect(response.headers.get('retry-after')).toBe('60');
-    expect(await response.json()).toEqual({ status: 'degraded',
-        error: { code: 'PROVIDER_RATE_LIMITED', retryable: true } });
-    vi.unstubAllGlobals();
+    expect(response.headers.get('access-control-expose-headers')).toBe('Retry-After');
+    expect(await response.json()).toEqual(body);
+    expect(new URL(objectFetch.mock.calls[0][0].url).pathname).toBe('/market');
 });
 
 it('recent endpoint forwards only mint identifiers to the same token-scoped Durable Object', async () => {

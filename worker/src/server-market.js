@@ -1,12 +1,20 @@
 import { selectMarket } from '../../js/market-selection.js';
 import { decodePoolIdentity, verifyPoolVaults } from './pool-identity.js';
 import { probePumpCurve, pumpSwapValuation } from './pump-market.js';
+import { AcquisitionError, createJsonRpcTransport } from './acquisition-policy.js';
+
+export function isTransientAcquisitionFailure(error) {
+    return error instanceof AcquisitionError
+        ? error.retryable || error.deferred
+        : /^(RPC_HTTP_429|RPC_HTTP_5|RPC_ERROR_|RPC_TIMEOUT|RPC_NETWORK|RPC_MALFORMED)/.test(error?.message || '');
+}
 
 export async function resolveServerMarket(mint, rpc, previous = null, fetchImpl = fetch) {
     let curve;
     try { curve = await probePumpCurve(mint, rpc); }
-    catch (e) { return {pools:[],canonicalMarket:null,selection:previous,unsupportedPools:1,identityFailure:e.message,
-        receivedAt:Date.now(),refreshIntervalMs:e.message === 'RPC_HTTP_429' ? 60_000 : 10_000}; }
+    catch (e) { return {pools:[],canonicalMarket:null,selection:previous,unsupportedPools:1,identityFailure:e.reason || e.message,
+        acquisitionFailure:isTransientAcquisitionFailure(e),retryAt:e.retryAt || null,
+        receivedAt:Date.now(),refreshIntervalMs:e.kind === 'RATE_LIMIT' || e.message === 'RPC_HTTP_429' ? 60_000 : 10_000}; }
     if (curve && !curve.complete) return {...curve,pools:curve.canonicalMarket.mayhem?[]:[curve.canonicalMarket],
         unsupportedPools:curve.canonicalMarket.mayhem?1:0,identityFailure:curve.canonicalMarket.mayhem?'UNSUPPORTED_MAYHEM':null,
         selection:{tokenMint:mint,pairAddress:curve.canonicalMarket.address,sourceEpoch:1},refreshIntervalMs:10_000};
@@ -50,21 +58,20 @@ export async function resolveServerMarket(mint, rpc, previous = null, fetchImpl 
     const supported=canonicalMarket?.compatibility==='POOL_STATE_AND_VAULTS_VERIFIED';
     return { ...native, pools: supported ? [{ ...primary, ...canonicalMarket }] : [], canonicalMarket,
         lifecycle:curve?.complete&&!canonicalMarket?'CURVE_COMPLETE_MIGRATING':canonicalMarket?.lifecycle,
-        refreshIntervalMs:curve||canonicalMarket?.protocol==='pumpswap'?10_000:60_000,
+        refreshIntervalMs:curve?10_000:60_000,nativeRefreshIntervalMs:canonicalMarket?.protocol==='pumpswap'?10_000:null,
         selection: selected.selection, unsupportedPools: supported ? 0 : 1, identityFailure, receivedAt: Date.now() };
 }
 
+export async function refreshServerMarket(market, rpc) {
+    if (market?.canonicalMarket?.protocol !== 'pumpswap') throw new Error('NATIVE_REFRESH_UNSUPPORTED');
+    const refreshed = await pumpSwapValuation(market.canonicalMarket, rpc, market.canonicalMarket.verifiedAtSlot);
+    const verifiedAtSlot = refreshed.nativeValuation?.slot ?? market.canonicalMarket.verifiedAtSlot;
+    const canonicalMarket = { ...market.canonicalMarket, verifiedAtSlot };
+    return { ...market, ...refreshed, canonicalMarket,
+        pools: market.pools.map((pool) => pool.address === canonicalMarket.address ? { ...pool, ...canonicalMarket } : pool),
+        receivedAt: market.receivedAt, nativeReceivedAt: Date.now() };
+}
+
 export function createRpcTransport(env, fetchImpl = fetch) {
-    return async (method, params, signal) => {
-        if (!env.HELIUS_API_KEY) throw new Error('RPC_NOT_CONFIGURED');
-        const response = await fetchImpl(`https://mainnet.helius-rpc.com/?api-key=${encodeURIComponent(env.HELIUS_API_KEY)}`, {
-            method: 'POST', headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
-            signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(8000)]) : AbortSignal.timeout(8000),
-        });
-        if (!response.ok) throw new Error(`RPC_HTTP_${response.status}`);
-        const payload = await response.json();
-        if (payload.error) throw new Error(`RPC_ERROR_${payload.error.code}`);
-        return payload.result;
-    };
+    return createJsonRpcTransport(env, fetchImpl);
 }

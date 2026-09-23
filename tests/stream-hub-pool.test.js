@@ -1,6 +1,7 @@
 import { afterEach, expect, it, vi } from 'vitest';
-vi.mock('../worker/src/server-market.js', () => ({ createRpcTransport: () => vi.fn(), resolveServerMarket: vi.fn() }));
-import { resolveServerMarket } from '../worker/src/server-market.js';
+vi.mock('../worker/src/server-market.js', () => ({ createRpcTransport: () => vi.fn(), resolveServerMarket: vi.fn(),
+    refreshServerMarket: vi.fn(), isTransientAcquisitionFailure: (error) => /RPC_/.test(error?.message || '') }));
+import { refreshServerMarket, resolveServerMarket } from '../worker/src/server-market.js';
 import { StreamHub } from '../worker/src/stream-hub.js';
 import { swapFixture, MINT, signatureFor } from './fixtures/integrity.js';
 import { readFileSync } from 'node:fs';
@@ -51,6 +52,8 @@ it('curve completion, unavailable migration pool and AMM adoption rebase without
     // Even a large new reserve-derived observation must be a new source basis.
     amm.nativeValuation={...curve.nativeValuation,marketIdentity:amm.canonicalMarket.address,
         rawQuoteValue:String(BigInt(curve.nativeValuation.rawQuoteValue)*50n)};
+    amm.canonicalMarket.tokenDecimals=curve.canonicalMarket.tokenDecimals;
+    amm.canonicalMarket.quoteDecimals=curve.canonicalMarket.quoteDecimals;
     amm.quoteUsd=curve.quoteUsd;
     resolveServerMarket.mockResolvedValueOnce(amm);
     await hub.ensureMarket();expect(hub.sourceEpoch).toBe(epoch+2);expect(hub.market.canonicalMarket.lifecycle).toBe('AMM');
@@ -70,6 +73,34 @@ it('keeps authoritative market state live when the verified execution window is 
     expect(diagnostics).toMatchObject({degraded:false,canonicalValuation:{authorityEligible:true},
         coverage:{confidence:'UNKNOWN',mentions:0,verifiedExecutions:0}});
     expect(hub.ingestion.snapshot()).toEqual([]);
+    hub.ingestion.destroy();
+});
+it('keeps the same identity and epoch across a transient discovery failure',async()=>{
+    const {hub,stored}=setup(),f=swapFixture();resolveServerMarket.mockResolvedValueOnce(market(f));
+    await hub.ensureMarket();const epoch=hub.sourceEpoch,ingestion=hub.ingestion;
+    hub.market.receivedAt=0;resolveServerMarket.mockResolvedValueOnce({pools:[],canonicalMarket:null,
+        acquisitionFailure:true,identityFailure:'RPC_HTTP_429',retryAt:Date.now()+60000,receivedAt:Date.now()});
+    await hub.ensureMarket();
+    expect(hub.sourceEpoch).toBe(epoch);expect(stored.get('marketEpoch')).toBe(epoch);
+    expect(hub.market.canonicalMarket.address).toBe(f.market.address);expect(hub.ingestion).toBe(ingestion);
+    expect(hub.diagnostics().health.discoveryAvailable).toMatchObject({available:false,reason:'RPC_HTTP_429'});
+    hub.ingestion.destroy();
+});
+it('coalesces 32 same-token indicative viewers into one token/SOL DAS pair',async()=>{
+    const {hub}=setup();hub.policy={run:async(_group,_key,operation)=>operation(),snapshot:()=>({})};
+    hub.rawRpc=vi.fn(async(_method,params)=>({id:params.id,token_info:{price_info:{price_per_token:params.id===MINT?0.25:100},
+        supply:'1000000000',decimals:6},content:{metadata:{symbol:'TEST',name:'Test'}}}));
+    const responses=await Promise.all(Array.from({length:32},()=>hub.fetchIndicativeMarket()));
+    expect(hub.rawRpc).toHaveBeenCalledTimes(2);expect(responses.every(response=>response.status===200)).toBe(true);
+});
+it('uses atomic PumpSwap refresh without repeating full discovery inside 60 seconds',async()=>{
+    resolveServerMarket.mockClear();refreshServerMarket.mockClear();
+    const {hub}=setup(),f=swapFixture(),first={...market(f),nativeValuation:null};
+    resolveServerMarket.mockResolvedValueOnce(first);await hub.ensureMarket();
+    hub.lastNativeAt=Date.now()-10_001;
+    refreshServerMarket.mockResolvedValueOnce({...first,nativeReceivedAt:Date.now()});
+    await hub.ensureMarket();
+    expect(resolveServerMarket).toHaveBeenCalledTimes(1);expect(refreshServerMarket).toHaveBeenCalledTimes(1);
     hub.ingestion.destroy();
 });
 it('idle teardown removes valuation, ingestion and cursors',async()=>{
