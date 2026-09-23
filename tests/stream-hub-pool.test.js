@@ -3,7 +3,8 @@ vi.mock('../worker/src/server-market.js', () => ({ createRpcTransport: () => vi.
     refreshServerMarket: vi.fn(), isTransientAcquisitionFailure: (error) => /RPC_/.test(error?.message || '') }));
 import { refreshServerMarket, resolveServerMarket } from '../worker/src/server-market.js';
 import { StreamHub } from '../worker/src/stream-hub.js';
-import { swapFixture, MINT, signatureFor } from './fixtures/integrity.js';
+import { AcquisitionError } from '../worker/src/acquisition-policy.js';
+import { swapFixture, MINT, SOL, USDC, signatureFor } from './fixtures/integrity.js';
 import { readFileSync } from 'node:fs';
 afterEach(()=>vi.restoreAllMocks());
 function setup() {
@@ -105,7 +106,71 @@ it('coalesces 32 same-token indicative viewers into one token/SOL DAS pair',asyn
     hub.rawRpc=vi.fn(async(_method,params)=>({id:params.id,token_info:{price_info:{price_per_token:params.id===MINT?0.25:100},
         supply:'1000000000',decimals:6},content:{metadata:{symbol:'TEST',name:'Test'}}}));
     const responses=await Promise.all(Array.from({length:32},()=>hub.fetchIndicativeMarket()));
-    expect(hub.rawRpc).toHaveBeenCalledTimes(2);expect(responses.every(response=>response.status===200)).toBe(true);
+    const bodies=await Promise.all(responses.map((response)=>response.json()));
+    expect(hub.rawRpc).toHaveBeenCalledTimes(2);expect(new Set(responses).size).toBe(32);
+    expect(responses.every(response=>response.status===200)).toBe(true);
+    expect(bodies.every(body=>body.price===0.25&&body.solPriceUsd===100)).toBe(true);
+    expect(new Set(bodies.map(body=>body.token.discovery.resolvedAt)).size).toBe(1);
+    const cached=await (await hub.fetchIndicativeMarket()).json();
+    expect(cached.token.discovery.resolvedAt).toBe(bodies[0].token.discovery.resolvedAt);
+    expect(hub.rawRpc).toHaveBeenCalledTimes(2);
+});
+it('gives every coalesced market caller an independent 503 body and retry metadata',async()=>{
+    const {hub}=setup();hub.policy={run:async(_group,_key,operation)=>operation(),snapshot:()=>({})};
+    hub.rawRpc=vi.fn(async()=>{throw new AcquisitionError('RPC_HTTP_429',{kind:'RATE_LIMIT',retryAt:Date.now()+60_000});});
+    const responses=await Promise.all(Array.from({length:32},()=>hub.fetchIndicativeMarket()));
+    const bodies=await Promise.all(responses.map((response)=>response.json()));
+    expect(hub.rawRpc).toHaveBeenCalledTimes(1);expect(new Set(responses).size).toBe(32);
+    expect(responses.every(response=>response.status===503&&Number(response.headers.get('retry-after'))>=59)).toBe(true);
+    expect(bodies.every(body=>body.error.code==='PROVIDER_RATE_LIMITED'&&body.error.retryable===true)).toBe(true);
+});
+it('gives every coalesced market caller an independent no-safe-pools body',async()=>{
+    const {hub}=setup();hub.tokenMint=USDC;
+    hub.policy={run:async(_group,_key,operation)=>operation(),snapshot:()=>({})};
+    hub.rawRpc=vi.fn(async(_method,params)=>({id:params.id,token_info:{price_info:{price_per_token:params.id===SOL?100:1},
+        supply:'1000000',decimals:6},content:{metadata:{symbol:'TEST',name:'Test'}}}));
+    const responses=await Promise.all(Array.from({length:32},()=>hub.fetchIndicativeMarket()));
+    const bodies=await Promise.all(responses.map((response)=>response.json()));
+    expect(hub.rawRpc).toHaveBeenCalledTimes(2);expect(new Set(responses).size).toBe(32);
+    expect(responses.every(response=>response.status===422&&response.headers.get('cache-control')==='no-store')).toBe(true);
+    expect(bodies.every(body=>body.error.code==='NO_SAFE_FALLBACK_POOLS')).toBe(true);
+});
+it('recovers token-success then SOL-rate-limit DAS ordering through an alternate-key probe',async()=>{
+    let now=1_000_000,providerRestored=false,calls=[];
+    vi.spyOn(Date,'now').mockImplementation(()=>now);
+    const stored=new Map(),ctx={storage:{get:async key=>stored.get(key),put:async(key,value)=>stored.set(key,structuredClone(value)),setAlarm:async()=>{}},getWebSockets:()=>[]};
+    const env={__testNow:()=>now,__testRandom:()=>0,__testSleep:async(ms)=>{now+=ms;}};
+    const hub=new StreamHub(ctx,env);hub.tokenMint=MINT;
+    hub.rawRpc=vi.fn(async(_method,params)=>{calls.push(params.id);
+        if(params.id===SOL&&!providerRestored)throw new AcquisitionError('RPC_HTTP_429',{kind:'RATE_LIMIT'});
+        return {id:params.id,token_info:{price_info:{price_per_token:params.id===SOL?100:0.25},supply:'1000000000',decimals:6},content:{metadata:{symbol:'TEST'}}};});
+    expect((await hub.fetchIndicativeMarket()).status).toBe(503);
+    expect(calls).toEqual([MINT,SOL]);
+    const retryAt=hub.policy.snapshot().das.nextRetryAt;providerRestored=true;now=retryAt;
+    const response=await hub.fetchIndicativeMarket();
+    expect(response.status).toBe(200);expect((await response.json()).price).toBe(0.25);
+    expect(calls).toEqual([MINT,SOL,MINT,SOL]);
+    expect(hub.policy.snapshot().das).toMatchObject({status:'HEALTHY',attemptsInRollingMinute:2});
+});
+it('recovers token-rate-limit DAS ordering after a cold object restart without starting early',async()=>{
+    let now=2_000_000,providerRestored=false;
+    vi.spyOn(Date,'now').mockImplementation(()=>now);
+    const stored=new Map(),storage={get:async key=>stored.get(key),put:async(key,value)=>stored.set(key,structuredClone(value)),setAlarm:async()=>{}};
+    const ctx=()=>({storage,getWebSockets:()=>[]});
+    const env={__testNow:()=>now,__testRandom:()=>0,__testSleep:async(ms)=>{now+=ms;}};
+    const first=new StreamHub(ctx(),env);first.tokenMint=MINT;
+    first.rawRpc=vi.fn(async(_method,params)=>{if(params.id===MINT&&!providerRestored)throw new AcquisitionError('RPC_HTTP_429',{kind:'RATE_LIMIT'});
+        return {id:params.id,token_info:{price_info:{price_per_token:params.id===SOL?100:0.25},supply:'1000000000',decimals:6},content:{metadata:{symbol:'TEST'}}};});
+    expect((await first.fetchIndicativeMarket()).status).toBe(503);
+    const retryAt=first.policy.snapshot().das.nextRetryAt;providerRestored=true;
+    const restarted=new StreamHub(ctx(),env);restarted.tokenMint=MINT;let restoredCalls=0;
+    restarted.rawRpc=vi.fn(async(_method,params)=>{restoredCalls+=1;return {id:params.id,
+        token_info:{price_info:{price_per_token:params.id===SOL?100:0.25},supply:'1000000000',decimals:6},content:{metadata:{symbol:'TEST'}}};});
+    expect((await restarted.fetchIndicativeMarket()).status).toBe(503);expect(restoredCalls).toBe(0);
+    now=retryAt;
+    const response=await restarted.fetchIndicativeMarket();
+    expect(response.status).toBe(200);expect(await response.json()).toMatchObject({price:0.25,solPriceUsd:100});
+    expect(restoredCalls).toBe(2);expect(restarted.policy.snapshot().das.status).toBe('HEALTHY');
 });
 it('uses atomic PumpSwap refresh without repeating full discovery inside 60 seconds',async()=>{
     resolveServerMarket.mockClear();refreshServerMarket.mockClear();
@@ -128,8 +193,11 @@ it('sends live status to a new client on an already-connected token object',asyn
     hub.ingestion.destroy();
 });
 it('idle teardown removes valuation, ingestion and cursors',async()=>{
+    let now=500_000;vi.spyOn(Date,'now').mockImplementation(()=>now);
     const {hub}=setup(),f=swapFixture();resolveServerMarket.mockResolvedValueOnce(market(f));await hub.ensureMarket();
-    hub.ctx.getWebSockets=()=>[];hub.lastClientAt=0;hub.cursorByPool.set(f.pool,'cursor');
+    hub.ctx.getWebSockets=()=>[];hub.lastClientAt=now-29_999;hub.cursorByPool.set(f.pool,'cursor');
+    await hub.alarm();expect(hub.market).not.toBeNull();expect(hub.ingestion).not.toBeNull();
+    now+=1;
     await hub.alarm();expect(hub.market).toBeNull();expect(hub.ingestion).toBeNull();expect(hub.cursorByPool.size).toBe(0);
     expect(hub.valuationBoundary.snapshot()).toBeNull();
 });

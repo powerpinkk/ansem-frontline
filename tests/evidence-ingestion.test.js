@@ -85,6 +85,16 @@ describe('bounded settlement ingestion', () => {
         expect(service.diagnostics().acquisition.transaction).toMatchObject({ status: 'HEALTHY', reason: null });
         service.destroy();
     });
+
+    it('records an explicit historical gap when a pending evidence job is discarded', async () => {
+        const f=swapFixture({signature:signatureFor(23)}),gaps=[];
+        const service=createEvidenceIngestion({tokenMint:MINT,canonicalMarket:f.market,
+            rpc:async()=>null,onGap:(gap)=>gaps.push(gap)});
+        service.observeSignature(f.signature,100);await service.drain();
+        expect(service.diagnostics().pendingEvidence).toBe(1);
+        service.destroy('HTTP_LEASE_EXPIRED');
+        expect(gaps).toContainEqual(expect.objectContaining({reason:'HTTP_LEASE_EXPIRED',signature:f.signature}));
+    });
     it('unknown reconciliation withdraws provisional authority and remains one identity', async () => {
         let now = 10_000; const f = swapFixture({ blockTime: 10 });
         const service = createEvidenceIngestion({ tokenMint: MINT, canonicalMarket: f.market, now: () => now,

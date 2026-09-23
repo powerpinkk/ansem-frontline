@@ -1,8 +1,8 @@
 export const ACQUISITION_POLICY_VERSION = 1;
 
 const LIMITS = Object.freeze({
-    standard: Object.freeze({ concurrency: 2, spacingMs: 250, rollingLimit: 162 }),
-    das: Object.freeze({ concurrency: 1, spacingMs: 1_000, rollingLimit: 4 }),
+    standard: Object.freeze({ concurrency: 2, spacingMs: 250, rollingLimit: 162, queueLimit: 256 }),
+    das: Object.freeze({ concurrency: 1, spacingMs: 1_000, rollingLimit: 4, queueLimit: 32 }),
 });
 
 const RETRYABLE_KINDS = new Set(['RATE_LIMIT', 'TIMEOUT', 'NETWORK', 'UPSTREAM_5XX', 'RPC_ERROR', 'MALFORMED']);
@@ -117,6 +117,11 @@ export function createAcquisitionPolicy({ storage = null, now = Date.now, random
     const lastStart = { standard: 0, das: 0 };
     const starts = { standard: [], das: [] };
     const inflightProbe = { standard: false, das: false };
+    const admission = {
+        standard: { tail: Promise.resolve(), depth: 0 },
+        das: { tail: Promise.resolve(), depth: 0 },
+    };
+    const capacityWaiters = { standard: new Set(), das: new Set() };
     const methodWaits = { standard: new Map(), das: new Map() };
     const methodStreaks = { standard: new Map(), das: new Map() };
     let loadPromise = null;
@@ -154,27 +159,63 @@ export function createAcquisitionPolicy({ storage = null, now = Date.now, random
     function defer(reason, retryAt) {
         return new AcquisitionError(reason, { kind: 'DEFERRED', retryAt, retryable: true, deferred: true });
     }
+    function waitForCapacity(group) {
+        return new Promise((resolve) => capacityWaiters[group].add(resolve));
+    }
+    function releaseCapacity(group) {
+        const waiters = [...capacityWaiters[group]];
+        capacityWaiters[group].clear();
+        for (const resolve of waiters) resolve();
+    }
+    async function reserveAdmission(group, key) {
+        const d = domains[group], limit = LIMITS[group];
+        while (true) {
+            const time = now();
+            trim(group, time);
+            const methodWait = methodWaits[group].get(key);
+            if (methodWait && time < methodWait.nextRetryAt) throw defer(`${key}_RETRY_WAIT`, methodWait.nextRetryAt);
+            if (methodWait) methodWaits[group].delete(key);
+            if (time < d.nextRetryAt) throw defer(`${group.toUpperCase()}_COOLDOWN`, d.nextRetryAt);
+            const halfOpen = d.status === 'RETRY_WAIT' || d.status === 'HALF_OPEN';
+            // D26: after the shared deadline, any necessary real read can prove
+            // provider-group reachability. The old key remains diagnostic only.
+            if (halfOpen && inflightProbe[group]) throw defer(`${group.toUpperCase()}_PROBE_INFLIGHT`, d.nextRetryAt || time);
+            if (starts[group].length >= limit.rollingLimit) {
+                throw defer(`${group.toUpperCase()}_ROLLING_BUDGET`, starts[group][0] + 60_000);
+            }
+            if (active[group] >= limit.concurrency) {
+                await waitForCapacity(group);
+                continue;
+            }
+            const spacing = Math.max(0, limit.spacingMs - (time - lastStart[group]));
+            if (spacing) {
+                await sleep(spacing);
+                continue;
+            }
+            // No await is permitted between this final check and reservation.
+            if (halfOpen) { inflightProbe[group] = true; d.status = 'HALF_OPEN'; }
+            active[group] += 1;
+            const startedAt = now();
+            lastStart[group] = startedAt;
+            starts[group].push(startedAt);
+            d.lastAttemptAt = startedAt;
+            d.generation += 1;
+            return { generation: d.generation, halfOpen, startedAt };
+        }
+    }
     async function admit(group, key) {
         await ready();
-        const time = now(), d = domains[group], limit = LIMITS[group];
-        trim(group, time);
-        const methodWait = methodWaits[group].get(key);
-        if (methodWait && time < methodWait.nextRetryAt) throw defer(`${key}_RETRY_WAIT`, methodWait.nextRetryAt);
-        if (methodWait) methodWaits[group].delete(key);
-        if (time < d.nextRetryAt) throw defer(`${group.toUpperCase()}_COOLDOWN`, d.nextRetryAt);
-        const halfOpen = d.status === 'RETRY_WAIT' || d.status === 'HALF_OPEN';
-        if (halfOpen && d.probeKey && d.probeKey !== key) throw defer(`${group.toUpperCase()}_PROBE_PENDING`, d.nextRetryAt || time);
-        if (halfOpen && inflightProbe[group]) throw defer(`${group.toUpperCase()}_PROBE_INFLIGHT`, d.nextRetryAt || time);
-        if (starts[group].length >= limit.rollingLimit) throw defer(`${group.toUpperCase()}_ROLLING_BUDGET`, starts[group][0] + 60_000);
-        while (active[group] >= limit.concurrency) await sleep(1);
-        const spacing = Math.max(0, limit.spacingMs - (now() - lastStart[group]));
-        if (spacing) await sleep(spacing);
-        if (halfOpen) { inflightProbe[group] = true; d.status = 'HALF_OPEN'; }
-        active[group] += 1;
-        const startedAt = now();
-        lastStart[group] = startedAt; starts[group].push(startedAt);
-        d.lastAttemptAt = startedAt; d.generation += 1;
-        return { generation: d.generation, halfOpen };
+        const queue = admission[group], limit = LIMITS[group];
+        if (queue.depth >= limit.queueLimit) {
+            throw defer(`${group.toUpperCase()}_QUEUE_FULL`, now() + limit.spacingMs);
+        }
+        queue.depth += 1;
+        const previous = queue.tail;
+        let release;
+        queue.tail = new Promise((resolve) => { release = resolve; });
+        await previous;
+        try { return await reserveAdmission(group, key); }
+        finally { queue.depth -= 1; release(); }
     }
     function jitter(base) { return Math.max(1, Math.floor(base * Math.max(0, Math.min(1, random())) * 0.2)); }
     async function failed(group, key, error, ticket) {
@@ -211,9 +252,9 @@ export function createAcquisitionPolicy({ storage = null, now = Date.now, random
     async function succeeded(group, key, ticket) {
         const d = domains[group], time = now();
         if (ticket.generation < d.generation && d.lastFailureAt && d.lastFailureAt > ticket.startedAt) return;
-        if (d.status === 'RETRY_WAIT' && !ticket.halfOpen) return;
-        // Only the affected key may close a half-open domain.
-        if (d.probeKey && d.probeKey !== key) return;
+        if (['RETRY_WAIT','HALF_OPEN'].includes(d.status) && !ticket.halfOpen) return;
+        // A half-open success proves only shared provider reachability. Method
+        // and evidence-job failures are retained and need their own proof.
         methodWaits[group].delete(key);
         methodStreaks[group].delete(key);
         d.streak = 0; d.transientStreak = 0; d.nextRetryAt = 0; d.probeKey = null;
@@ -223,7 +264,6 @@ export function createAcquisitionPolicy({ storage = null, now = Date.now, random
     async function run(group, key, operation) {
         if (!LIMITS[group]) throw new TypeError('Unknown acquisition group');
         const ticket = await admit(group, key);
-        ticket.startedAt = now();
         try {
             const result = await operation();
             await succeeded(group, key, ticket);
@@ -234,12 +274,14 @@ export function createAcquisitionPolicy({ storage = null, now = Date.now, random
         } finally {
             active[group] -= 1;
             if (ticket.halfOpen) inflightProbe[group] = false;
+            releaseCapacity(group);
         }
     }
     function snapshot() {
         const result = {};
         for (const [group, d] of Object.entries(domains)) result[group] = Object.freeze({ ...d,
-            attemptsInRollingMinute: (trim(group, now()), starts[group].length), active: active[group] });
+            attemptsInRollingMinute: (trim(group, now()), starts[group].length), active: active[group],
+            queued: Math.max(0, admission[group].depth - 1), queueLimit: LIMITS[group].queueLimit });
         return Object.freeze(result);
     }
     return Object.freeze({ run, snapshot, ready });

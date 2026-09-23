@@ -70,6 +70,24 @@ export function createEvidenceIngestion({ tokenMint, canonicalMarket = null, rpc
             onGap({ reason, signature: record.signature, sourceEpoch: canonicalMarket?.sourceEpoch || null, at: now() });
         }
     }
+    function coverageIssue(result) {
+        if (!result || ['FAILED','NON_SWAP','NON_DIRECTIONAL'].includes(result.status)) return null;
+        if ((result.unprovenSwapInvocations || 0) > 0) return 'UNPROVEN_SWAP_INVOCATION';
+        if ((result.unclassified || 0) > 0) return 'UNCLASSIFIED_POOL_INSTRUCTION';
+        if (result.status === 'UNSUPPORTED' || result.reason?.startsWith('UNSUPPORTED_')) return 'UNSUPPORTED_EXECUTION_EVIDENCE';
+        if ((result.executions || []).some((execution) => execution.status !== 'VERIFIED')) return 'UNVERIFIED_EXECUTION_EVIDENCE';
+        if (result.status === 'UNVERIFIED') return 'UNCLASSIFIED_EXECUTION_EVIDENCE';
+        return null;
+    }
+    function reportCoverageIssue(record, result) {
+        const reason = coverageIssue(result);
+        if (!reason) { record.coverageIssue = null; return; }
+        record.coverageIssue = { reason, at: now() };
+        if (!record.coverageGapReported) {
+            record.coverageGapReported = true;
+            onGap({ reason, signature: record.signature, sourceEpoch: canonicalMarket?.sourceEpoch || null, at: now() });
+        }
+    }
     function cleanup() {
         for (const [signature, r] of records) if (!r.running && now() - r.createdAt > policy.maxAgeMs) records.delete(signature);
         journal.values(now());
@@ -120,6 +138,7 @@ export function createEvidenceIngestion({ tokenMint, canonicalMarket = null, rpc
                 record.reason = result.reason;
                 if (!['NON_DIRECTIONAL','NON_SWAP'].includes(result.status)) counts[result.status === 'FAILED' ? 'rejected' : 'unverified'] += 1;
             }
+            reportCoverageIssue(record, result);
         } catch (error) {
             if (stopped) return;
             if (error instanceof AcquisitionError && error.deferred) {
@@ -204,11 +223,24 @@ export function createEvidenceIngestion({ tokenMint, canonicalMarket = null, rpc
         observeSignature, tick,
         async drain() { while (running.size && !stopped) await Promise.allSettled([...running]); },
         snapshot: () => journal.values(now(), true),
-        diagnostics: () => ({ ...counts, acquisition: structuredClone(acquisition),
+        diagnostics: () => {
+            const currentEvidenceIssues = [...records.values()].filter((record) => record.coverageIssue
+                && now() - record.coverageIssue.at < 60_000).map((record) => ({ ...record.coverageIssue }));
+            return { ...counts, acquisition: structuredClone(acquisition),
             coverage: canonicalMarket ? summarizePoolCoverage(records.values()) : summarizeCoverage(records.values()), records: records.size, running: running.size,
             pendingReconciliations: [...records.values()].filter((r) => ['CONFIRMED', 'FINALIZE_PENDING'].includes(r.state)).length,
             pendingEvidence: [...records.values()].filter((r) => ['PENDING','CONFIRMED','FINALIZE_PENDING'].includes(r.state)).length,
-            lastVerifiedSlot: journal.values(now()).reduce((s, e) => Math.max(s, e.slot), 0), journal: journal.diagnostics() }),
-        destroy() { stopped = true; abort.abort(); records.clear(); journal.clear(); },
+            currentEvidenceUncertainty: { count: currentEvidenceIssues.length,
+                reasons: [...new Set(currentEvidenceIssues.map((issue) => issue.reason))] },
+            lastVerifiedSlot: journal.values(now()).reduce((s, e) => Math.max(s, e.slot), 0), journal: journal.diagnostics() };
+        },
+        destroy(reason = 'EVIDENCE_DISCARDED') {
+            for (const record of records.values()) if (['PENDING','CONFIRMED','FINALIZE_PENDING'].includes(record.state)
+                && !record.gapReported && !record.discardedGapReported) {
+                record.discardedGapReported = true;
+                onGap({ reason, signature: record.signature, sourceEpoch: canonicalMarket?.sourceEpoch || null, at: now() });
+            }
+            stopped = true; abort.abort(); records.clear(); journal.clear();
+        },
     };
 }

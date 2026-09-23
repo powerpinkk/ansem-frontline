@@ -23,7 +23,11 @@ export class StreamHub {
         this.env = env;
         this.random = typeof env.__testRandom === 'function' ? env.__testRandom : Math.random;
         this.rawRpc = createRpcTransport(env);
-        this.policy = createAcquisitionPolicy({ storage: ctx.storage });
+        this.policy = createAcquisitionPolicy({ storage: ctx.storage,
+            ...(typeof env.__testNow === 'function' ? { now: env.__testNow } : {}),
+            ...(typeof env.__testRandom === 'function' ? { random: env.__testRandom } : {}),
+            ...(typeof env.__testSleep === 'function' ? { sleep: env.__testSleep } : {}) });
+        const recoveryPolicy = this.policy;
         this.rpc = (method, params, signal, meta = {}) => this.policy.run('standard', meta.capability || method,
             () => this.rawRpc(method, params, signal));
         this.dasRpc = (method, params, signal, meta = {}) => this.policy.run('das', meta.capability || method,
@@ -56,10 +60,10 @@ export class StreamHub {
             discovery: capability(), marketState: capability(), quoteUsd: capability(),
             valuation: capability(), execution: capability(),
         };
-        this.restorePromise = this.restoreRecoveryMetadata();
+        this.restorePromise = this.restoreRecoveryMetadata(recoveryPolicy);
     }
 
-    async restoreRecoveryMetadata() {
+    async restoreRecoveryMetadata(policy = this.policy) {
         const saved = await this.ctx.storage.get('recoveryMetadata:v1');
         if (saved?.schemaVersion === 1 && Array.isArray(saved.coverageGaps)) {
             this.coverageGaps = saved.coverageGaps.slice(-MAX_GAPS);
@@ -67,6 +71,19 @@ export class StreamHub {
         }
         const epoch = await this.ctx.storage.get('marketEpoch');
         if (Number.isSafeInteger(epoch) && epoch > this.sourceEpoch) this.sourceEpoch = epoch;
+        await policy.ready();
+        const standard = policy.snapshot().standard;
+        if (standard?.status === 'RETRY_WAIT' && ['getTransaction','getSignatureStatuses'].includes(standard.probeKey)) {
+            const duplicate = this.coverageGaps.some((gap) => gap.reason === 'EVIDENCE_JOB_LOST_ON_RESTART'
+                && gap.retryAt === standard.nextRetryAt && gap.acquisitionKey === standard.probeKey);
+            if (!duplicate) {
+                this.coverageGaps.push({ reason: 'EVIDENCE_JOB_LOST_ON_RESTART', at: Date.now(),
+                    sourceEpoch: this.sourceEpoch, retryAt: standard.nextRetryAt, acquisitionKey: standard.probeKey });
+                this.coverageGaps = this.coverageGaps.slice(-MAX_GAPS);
+                this.coverageIncomplete = true;
+                await this.ctx.storage.put('recoveryMetadata:v1', { schemaVersion: 1, coverageGaps: this.coverageGaps });
+            }
+        }
     }
 
     markCapability(name, ok, reason = null, retryAt = null, attemptedAt = Date.now()) {
@@ -144,18 +161,17 @@ export class StreamHub {
         if (this.indicativeCache && now - this.indicativeCache.cachedAt < 30_000) {
             return Response.json(this.indicativeCache.value, { headers: { 'cache-control': 'public, max-age=15' } });
         }
-        if (this.indicativePromise) return this.indicativePromise;
-        this.indicativePromise = (async () => {
+        if (!this.indicativePromise) this.indicativePromise = (async () => {
             try {
                 const token = await fetchHeliusAsset(this.dasRpc, this.tokenMint);
                 const sol = await fetchHeliusAsset(this.dasRpc, SOL_MINT);
                 const market = normalizeHeliusMarket(token, sol, { mint: this.tokenMint });
                 if (!market) throw new Error('DAS_PRICE_DATA_UNAVAILABLE');
-                if (!market.pools.length) return Response.json({ status: market.status,
+                if (!market.pools.length) return { body: { status: market.status,
                     error: { code: 'NO_SAFE_FALLBACK_POOLS', message: 'No verified fallback pools are configured for this mint' },
-                    token: market.token }, { status: 422, headers: { 'cache-control': 'no-store' } });
+                    token: market.token }, status: 422, headers: { 'cache-control': 'no-store' } };
                 this.indicativeCache = { cachedAt: now, value: market };
-                return Response.json(market, { headers: { 'cache-control': 'public, max-age=15' } });
+                return { body: market, status: 200, headers: { 'cache-control': 'public, max-age=15' } };
             } catch (error) {
                 const failure = acquisitionFailure(error);
                 const code = failure.kind === 'RATE_LIMIT' ? 'PROVIDER_RATE_LIMITED'
@@ -165,11 +181,18 @@ export class StreamHub {
                                 : 'MARKET_FALLBACK_UNAVAILABLE';
                 const headers = { 'cache-control': 'no-store' };
                 if (failure.retryAt) headers['retry-after'] = String(Math.max(1, Math.ceil((failure.retryAt - Date.now()) / 1000)));
-                return Response.json({ status: 'degraded', error: { code, retryable: failure.retryable,
-                    retryAt: failure.retryAt || null } }, { status: 503, headers });
-            } finally { this.indicativePromise = null; }
+                return { body: { status: 'degraded', error: { code, retryable: failure.retryable,
+                    retryAt: failure.retryAt || null } }, status: 503, headers };
+            }
         })();
-        return this.indicativePromise;
+        const pending = this.indicativePromise;
+        try {
+            const result = await pending;
+            // Coalesce immutable acquisition data, never the consumable body.
+            return Response.json(result.body, { status: result.status, headers: result.headers });
+        } finally {
+            if (this.indicativePromise === pending) this.indicativePromise = null;
+        }
     }
 
     ensureIngestion() {
@@ -213,6 +236,10 @@ export class StreamHub {
                 if (next.acquisitionFailure) {
                     this.markCapability('discovery', false, next.identityFailure, next.retryAt, attemptedAt);
                     if (this.market?.canonicalMarket) return this.market;
+                    // A transport failure is not a market identity transition.
+                    // Retain the retry envelope without manufacturing an epoch.
+                    this.market = next;
+                    return this.market;
                 } else this.markCapability('discovery', Boolean(next.canonicalMarket), next.identityFailure, next.retryAt, attemptedAt);
                 if (next.valuationAcquisitionFailure && this.market?.canonicalMarket?.address === next.canonicalMarket?.address) {
                     next = { ...next, nativeValuation: this.market.nativeValuation, quoteUsd: this.market.quoteUsd };
@@ -408,6 +435,15 @@ export class StreamHub {
             && ingestion?.acquisition?.status?.status !== 'RETRY_WAIT';
         const currentCoverage = this.coverageHealthySince !== null && now - this.coverageHealthySince >= 60_000
             && now - (this.capabilities.execution.lastSuccessAt || 0) <= 30_000;
+        const currentUncertainty = ingestion?.currentEvidenceUncertainty;
+        const currentWindowComplete = currentCoverage && evidenceOperational
+            && !(ingestion?.pendingEvidence > 0) && !(currentUncertainty?.count > 0);
+        const currentWindowReason = currentWindowComplete ? null
+            : !evidenceOperational ? ingestion?.acquisition?.transaction?.reason || ingestion?.acquisition?.status?.reason
+                || 'EVIDENCE_ACQUISITION_PENDING'
+                : ingestion?.pendingEvidence > 0 ? 'EVIDENCE_PENDING'
+                    : currentUncertainty?.count > 0 ? currentUncertainty.reasons[0] || 'EVIDENCE_UNCERTAIN'
+                        : this.pendingCoverageFailure?.reason || this.capabilities.execution.reason || 'OBSERVING_60S_WINDOW';
         const available = {
             discovery: this.capabilities.discovery.status === 'HEALTHY' && Boolean(this.market?.canonicalMarket),
             marketState: valuation?.gates?.identity === true && valuation?.gates?.formula === true
@@ -425,10 +461,9 @@ export class StreamHub {
             terrainAuthorityAvailable: { ...wrap('valuation'), available: available.valuation,
                 status: available.valuation ? 'HEALTHY' : 'UNAVAILABLE',
                 reason: available.valuation ? null : this.capabilities.valuation.reason },
-            currentWindow: { complete: currentCoverage && evidenceOperational && !(ingestion?.pendingEvidence > 0),
+            currentWindow: { complete: currentWindowComplete,
                 observedSince: this.coverageHealthySince,
-                pending: !currentCoverage, reason: currentCoverage ? null : this.pendingCoverageFailure?.reason
-                    || this.capabilities.execution.reason || 'OBSERVING_60S_WINDOW' },
+                pending: !currentWindowComplete, reason: currentWindowReason },
             historicalCoverage: { incomplete: this.coverageGaps.length > 0, gaps: this.coverageGaps.slice(-8), totalGaps: this.coverageGaps.length },
             workerConnected: true, executionTransport: this.streamStatus, policy: this.policy.snapshot(),
             evidence: ingestion?.acquisition || null };

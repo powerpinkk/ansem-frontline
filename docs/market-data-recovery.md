@@ -6,9 +6,11 @@ This recovery keeps the version-4 public envelope and adds `health.schemaVersion
 
 - One token-scoped Durable Object coordinates standard JSON-RPC work. DAS has an independent cooldown and rolling budget.
 - Standard RPC starts are limited to two concurrent requests, at least 250 ms apart, and 162 per rolling 60 seconds. DAS starts are limited to one concurrent request, at least one second apart, and four per rolling 60 seconds.
-- A 429 opens a shared group cooldown. `Retry-After` seconds and HTTP dates are honored; a longer provider deadline is never shortened. Only the affected method/capability may make the half-open probe.
+- A 429 opens a shared group cooldown. `Retry-After` seconds and HTTP dates are honored; a longer provider deadline is never shortened. After expiry, exactly one necessary real read may make the half-open provider-group probe.
 - Timeout, network, 5xx, JSON-RPC, and malformed-response failures use bounded retries. Authentication/configuration failures do not retry rapidly. Valid empty history and valid `getTransaction: null` responses are not transport failures.
 - Cooldown state and bounded historical gap metadata survive a Durable Object restart. Canonical snapshots and the execution journal remain intentionally non-durable.
+- Admission uses a bounded per-group queue and makes its final cooldown, half-open, capacity, spacing, and rolling-budget checks atomically. A queued request always rechecks after waiting, so a newly opened cooldown prevents it from starting.
+- An expired shared cooldown admits exactly one necessary real read as the provider-group probe even when the originally failing job no longer exists. That success reopens only transport admission; evidence jobs still require their own verified read or an explicit unknown/gap outcome.
 
 Stable PumpSwap identity is fully rediscovered and revalidated at cold start and no more than once per 60 seconds. Its atomic pool, mint, vault, live-supply, variant, and fixed-oracle observation refreshes no more than once per 10 seconds. Pump curves retain their full 10-second lifecycle check. Other supported AMMs retain 60-second discovery and gain no valuation formula.
 
@@ -22,6 +24,8 @@ Protocol unit price and protocol market cap use the same verified atomic inputs.
 
 A complete healthy 60-second observation window with fresh canonical state/quote and zero executions is `QUIET`: price and protocol market cap remain authoritative, Terrain remains live, and no directional pressure or combat evidence is generated. Pending work or a current gap is recovering/partial. Old gaps remain in historical diagnostics without poisoning a later complete window.
 
+Unclassified, unsupported, or unproven execution evidence makes only its affected current window incomplete and creates a bounded historical gap. A later independently complete 60-second window can recover without clearing that gap or lifetime counters. Valid `NON_SWAP` and on-chain `FAILED` results complete acquisition without creating executions.
+
 On authority loss, Terrain holds its last presentation coordinate, clears traversal and impact evidence, and produces no movement. The first valid observation after the gap is a silent `STATE_RECONCILIATION` baseline.
 
 ## Deterministic request ledger
@@ -32,10 +36,12 @@ The focused replay in `tests/recovery-budget.test.js` uses one active token, one
 | --- | ---: | ---: | ---: |
 | Cold canonical `/recent` | 5 | 0 | 0 |
 | Post-cold first-minute tail | 7 | 0 | 0 |
-| Next steady 60-second window | 12 | 0 | 0 |
+| Next steady 60-second window | 13 | 0 | 0 |
 | 32 simultaneous same-token `/market` viewers | 0 | 2 | 0 |
 
-The steady window contains one four-request full refresh, four atomic state reads, and four history reads. Transaction and status work is additive and remains bounded by 120 transaction starts and 20 status batches per rolling minute. Counts are per token object; account-wide traffic is the sum across tokens and other provider consumers.
+The steady window is measured through the real governor and contains one four-request full refresh, five due atomic state reads at the paced boundary, and four history reads. A finalized signature with one transient transaction retry measured three `getTransaction` starts and one status batch; the no-fault normal path remains two transaction reads plus status. Transaction and status work is additive and remains bounded by 120 transaction starts and 20 status batches per rolling minute. Counts are per token object; account-wide traffic is the sum across tokens and other provider consumers.
+
+Indicative acquisition coalesces normalized data rather than a Fetch `Response`; each HTTP caller receives a fresh independently consumable body. Success remains cached for 30 seconds with its original timestamps. Errors and no-safe-pool results remain uncached.
 
 ## Manual publication checklist (not authorized by this change)
 

@@ -10,6 +10,31 @@ function harness() {
             sleep: async (ms) => { time += ms; } }) };
 }
 
+function controlledHarness() {
+    let time = 1_000;
+    let automatic = true;
+    const sleepers = [];
+    const stored = new Map();
+    const storage = { get: async (key) => stored.get(key), put: async (key, value) => stored.set(key, structuredClone(value)) };
+    const sleep = (ms) => {
+        if (automatic) { time += ms; return Promise.resolve(); }
+        return new Promise((resolve) => sleepers.push({ at: time + ms, resolve }));
+    };
+    const flush = async () => { for (let i = 0; i < 12; i += 1) await Promise.resolve(); };
+    return { now: () => time, storage, setControlled: () => { automatic = false; },
+        async advance(ms) {
+            time += ms;
+            const due = [];
+            for (let index = sleepers.length - 1; index >= 0; index -= 1) {
+                if (sleepers[index].at <= time) due.push(...sleepers.splice(index, 1));
+            }
+            for (const item of due.reverse()) item.resolve();
+            await flush();
+        }, flush,
+        policy: createAcquisitionPolicy({ storage, now: () => time, random: () => 0, sleep }),
+    };
+}
+
 describe('typed token acquisition policy', () => {
     it('parses Retry-After delta/date and never shortens a provider deadline', async () => {
         expect(retryAfterMs('12', 1_000)).toBe(12_000);
@@ -87,5 +112,105 @@ describe('typed token acquisition policy', () => {
         const otherToken = createAcquisitionPolicy({ now: first.now, random: () => 0,
             sleep: async (ms) => first.advance(ms) });
         await expect(otherToken.run('standard', 'history', async () => 'isolated')).resolves.toBe('isolated');
+    });
+
+    it('atomically reserves standard admission near the rolling boundary under eight competing callers', async () => {
+        const h = controlledHarness();
+        const starts = [];
+        for (let i = 0; i < 160; i += 1) await h.policy.run('standard', `warm:${i}`, async () => { starts.push(h.now()); return true; });
+        h.setControlled();
+        let active = 0, maximumActive = 0;
+        const releases = [];
+        const contenders = Array.from({ length: 270 }, (_, index) => h.policy.run('standard', `contender:${index}`, async () => {
+            starts.push(h.now()); active += 1; maximumActive = Math.max(maximumActive, active);
+            await new Promise((resolve) => releases.push(resolve)); active -= 1; return index;
+        }));
+        await h.flush();
+        expect(h.policy.snapshot().standard).toMatchObject({ attemptsInRollingMinute: 160 });
+        expect(h.policy.snapshot().standard).toMatchObject({queued:255,queueLimit:256});
+        await h.advance(250);
+        await h.advance(250);
+        expect(starts).toHaveLength(162);
+        expect(starts.every((at,index)=>index===0||at-starts[index-1]>=250)).toBe(true);
+        expect(maximumActive).toBeLessThanOrEqual(2);
+        releases.splice(0).forEach((release) => release());
+        await h.flush();
+        const results = await Promise.allSettled(contenders);
+        expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(2);
+        expect(results.filter((result) => result.status === 'rejected')).toHaveLength(268);
+        expect(results.some((result)=>result.status==='rejected'&&result.reason.reason==='STANDARD_QUEUE_FULL')).toBe(true);
+        expect(h.policy.snapshot().standard.attemptsInRollingMinute).toBe(162);
+        for (const windowStart of starts) {
+            expect(starts.filter((at) => at >= windowStart && at < windowStart + 60_000).length).toBeLessThanOrEqual(162);
+        }
+    });
+
+    it('serializes DAS admission and rechecks a new 429 before queued work can start', async () => {
+        const h = controlledHarness();
+        for (let i = 0; i < 3; i += 1) await h.policy.run('das', `warm:${i}`, async () => true);
+        h.setControlled();
+        let rejectFirst;
+        const starts = [];
+        const first = h.policy.run('das', 'asset:first', async () => {
+            starts.push(h.now());
+            await new Promise((_resolve, reject) => { rejectFirst = reject; });
+        });
+        const waiting = Array.from({ length: 7 }, (_, index) => h.policy.run('das', `asset:waiting:${index}`, async () => {
+            starts.push(h.now()); return index;
+        }));
+        await h.flush();
+        await h.advance(1_000);
+        expect(starts).toHaveLength(1);
+        rejectFirst(new AcquisitionError('RPC_HTTP_429', { kind: 'RATE_LIMIT' }));
+        await expect(first).rejects.toMatchObject({ kind: 'RATE_LIMIT' });
+        await h.flush();
+        const results = await Promise.allSettled(waiting);
+        expect(results.every((result) => result.status === 'rejected')).toBe(true);
+        expect(starts).toHaveLength(1);
+        expect(h.policy.snapshot().das).toMatchObject({ status: 'RETRY_WAIT', active: 0 });
+    });
+
+    it('admits one real alternate-key half-open probe and renews cooldown when it fails', async () => {
+        const h = controlledHarness();
+        await expect(h.policy.run('standard', 'getTransaction', async () => {
+            throw new AcquisitionError('RPC_HTTP_429', { kind: 'RATE_LIMIT' });
+        })).rejects.toMatchObject({ kind: 'RATE_LIMIT' });
+        const retryAt = h.policy.snapshot().standard.nextRetryAt;
+        await expect(h.policy.run('standard', 'getMultipleAccounts', async () => true)).rejects.toMatchObject({ deferred: true });
+        h.setControlled();
+        await h.advance(retryAt - h.now());
+        let rejectProbe;
+        const starts = [];
+        const probe = h.policy.run('standard', 'getMultipleAccounts', async () => {
+            starts.push(h.now());
+            await new Promise((_resolve, reject) => { rejectProbe = reject; });
+        });
+        const competitors = Array.from({ length: 7 }, (_, index) => h.policy.run('standard', `other:${index}`, async () => {
+            starts.push(h.now()); return index;
+        }));
+        await h.flush();
+        expect(starts).toHaveLength(1);
+        rejectProbe(new AcquisitionError('RPC_HTTP_429', { kind: 'RATE_LIMIT' }));
+        await expect(probe).rejects.toMatchObject({ kind: 'RATE_LIMIT' });
+        const renewed = h.policy.snapshot().standard.nextRetryAt;
+        expect(renewed).toBeGreaterThan(retryAt);
+        const results = await Promise.allSettled(competitors);
+        expect(results.every((result) => result.status === 'rejected')).toBe(true);
+        expect(starts).toHaveLength(1);
+    });
+
+    it('lets an alternate necessary read reopen only the persisted provider group', async () => {
+        const first = harness();
+        await expect(first.policy.run('standard', 'getTransaction', async () => {
+            throw new AcquisitionError('RPC_HTTP_429', { kind: 'RATE_LIMIT' });
+        })).rejects.toMatchObject({ kind: 'RATE_LIMIT' });
+        const retryAt = first.policy.snapshot().standard.nextRetryAt;
+        const restarted = createAcquisitionPolicy({ storage: first.storage, now: first.now, random: () => 0,
+            sleep: async (ms) => first.advance(ms) });
+        await restarted.ready();
+        await expect(restarted.run('standard', 'getMultipleAccounts', async () => true)).rejects.toMatchObject({ deferred: true });
+        first.advance(retryAt - first.now());
+        await expect(restarted.run('standard', 'getMultipleAccounts', async () => 'bootstrap')).resolves.toBe('bootstrap');
+        expect(restarted.snapshot().standard).toMatchObject({ status: 'HEALTHY', reason: null, probeKey: null });
     });
 });
