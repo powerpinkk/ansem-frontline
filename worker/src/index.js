@@ -66,7 +66,15 @@ async function fetchFallbackMarket(env, origin, mint, allowedOrigins) {
         return Response.json(market, { headers: corsHeaders(origin, allowedOrigins) });
     } catch (error) {
         console.error('[market-fallback] request failed', error instanceof Error ? error.name : 'UnknownError');
-        return Response.json({ error: 'Market fallback unavailable' }, { status: 503, headers: corsHeaders(origin, allowedOrigins) });
+        const message = error instanceof Error ? error.message : '';
+        const code = message === 'Helius asset 429' ? 'PROVIDER_RATE_LIMITED'
+            : message.startsWith('Helius asset 5') ? 'PROVIDER_UPSTREAM_5XX'
+                : message.startsWith('Helius asset RPC ') ? 'PROVIDER_RPC_FAILURE'
+                    : message.startsWith('Helius asset ') ? 'PROVIDER_HTTP_FAILURE'
+                        : 'MARKET_FALLBACK_UNAVAILABLE';
+        const headers = corsHeaders(origin, allowedOrigins);
+        if (code === 'PROVIDER_RATE_LIMITED') headers['retry-after'] = '60';
+        return Response.json({ status: 'degraded', error: { code, retryable: true } }, { status: 503, headers });
     }
 }
 

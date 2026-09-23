@@ -6,7 +6,7 @@ export async function resolveServerMarket(mint, rpc, previous = null, fetchImpl 
     let curve;
     try { curve = await probePumpCurve(mint, rpc); }
     catch (e) { return {pools:[],canonicalMarket:null,selection:previous,unsupportedPools:1,identityFailure:e.message,
-        receivedAt:Date.now(),refreshIntervalMs:10_000}; }
+        receivedAt:Date.now(),refreshIntervalMs:e.message === 'RPC_HTTP_429' ? 60_000 : 10_000}; }
     if (curve && !curve.complete) return {...curve,pools:curve.canonicalMarket.mayhem?[]:[curve.canonicalMarket],
         unsupportedPools:curve.canonicalMarket.mayhem?1:0,identityFailure:curve.canonicalMarket.mayhem?'UNSUPPORTED_MAYHEM':null,
         selection:{tokenMint:mint,pairAddress:curve.canonicalMarket.address,sourceEpoch:1},refreshIntervalMs:10_000};

@@ -59,6 +59,19 @@ it('curve completion, unavailable migration pool and AMM adoption rebase without
     expect(sent.filter(m=>m.type==='snapshot').every(m=>m.trades.length===0)).toBe(true);
     hub.ingestion.destroy();
 });
+it('keeps authoritative market state live when the verified execution window is simply quiet',async()=>{
+    const curve=JSON.parse(readFileSync(new URL('./fixtures/public-chain/pump-current-states.json',import.meta.url)))[0];
+    vi.spyOn(Date,'now').mockReturnValue(curve.receivedAt);
+    const {hub}=setup();hub.tokenMint=curve.mint;
+    resolveServerMarket.mockResolvedValueOnce({...curve,pools:[curve.canonicalMarket],
+        selection:{tokenMint:curve.mint},receivedAt:Date.now()});
+    await hub.ensureMarket();
+    const diagnostics=hub.diagnostics();
+    expect(diagnostics).toMatchObject({degraded:false,canonicalValuation:{authorityEligible:true},
+        coverage:{confidence:'UNKNOWN',mentions:0,verifiedExecutions:0}});
+    expect(hub.ingestion.snapshot()).toEqual([]);
+    hub.ingestion.destroy();
+});
 it('idle teardown removes valuation, ingestion and cursors',async()=>{
     const {hub}=setup(),f=swapFixture();resolveServerMarket.mockResolvedValueOnce(market(f));await hub.ensureMarket();
     hub.ctx.getWebSockets=()=>[];hub.lastClientAt=0;hub.cursorByPool.set(f.pool,'cursor');

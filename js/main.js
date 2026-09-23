@@ -199,6 +199,7 @@ function mountRuntime(resolution) {
         onConnectionChange: active((status) => {
             setConnectionStatus(status);
             tokenUI?.setConnection(status);
+            updateDashboardUI();
         }),
         onActivityUpdate: active(updateActivityUI),
         onBootstrapComplete: active(showTradesReady),

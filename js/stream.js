@@ -22,6 +22,7 @@ export function connectTradeStream(url, handlers) {
         nextSocket.addEventListener('open', () => {
             if (stopped || socket !== nextSocket) return;
             retryDelay = 1_000;
+            handlers.onTransportStatus?.('connected');
             nextSocket.send(JSON.stringify({ type: 'configure', ...handlers.getConfiguration?.() }));
         });
         nextSocket.addEventListener('message', (event) => {
@@ -45,6 +46,7 @@ export function connectTradeStream(url, handlers) {
         nextSocket.addEventListener('close', () => {
             if (stopped || socket !== nextSocket) return;
             socket = null;
+            handlers.onTransportStatus?.('disconnected');
             window.clearTimeout(heartbeatTimer);
             reconnect();
         });
@@ -80,6 +82,7 @@ export function connectTradeStream(url, handlers) {
             window.clearTimeout(retryTimer);
             window.clearTimeout(heartbeatTimer);
             socket?.close();
+            handlers.onTransportStatus?.('disconnected');
         },
     };
 }

@@ -95,7 +95,7 @@ test('renders verified swaps and the WebGL battlefield', async ({ page }, testIn
     }
     expect(diagnostics.bullKing).not.toBeNull();
     await expect(page.locator('#battle-state-label')).toContainText(/ADVANCING|CONTESTED|QUIET/);
-    await expect(page.locator('#battle-state-flow')).toContainText(/BUYERS|SELLERS|NO VERIFIED FLOW/);
+    await expect(page.locator('#battle-state-flow')).toContainText(/BUYERS|SELLERS|QUIET|FLOW DEGRADED|FLOW WAITING/);
     await expect(page.locator('#visible-coverage')).toContainText('BULL FORCE');
     await expect(page.locator('#data-freshness')).toContainText('DATA');
     expect(diagnostics.render.calls).toBeLessThan(220);
@@ -308,6 +308,32 @@ test('paints market and verified swaps progressively without waiting for the cha
     expect(warmStartup.marketSource).toBe('startup-cache');
     expect(warmStartup.cacheMs).toBeLessThan(500);
     expect(warmStartup.firstTradeMs).toBeLessThan(500);
+});
+
+test('renders missing price as unavailable before an indicative provider observation arrives', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== 'desktop-chromium', 'One startup semantics check is sufficient');
+    await page.unroute('https://api.dexscreener.com/**');
+    await page.route('https://api.dexscreener.com/**', async (route) => {
+        await new Promise((resolve) => setTimeout(resolve, 1_500));
+        await route.fulfill({ json: { pairs: [pair(buyPool, 'pumpswap', 1_000_000)] } });
+    });
+    await page.unroute(relayMarketPattern);
+    await page.route(relayMarketPattern, async (route) => {
+        await new Promise((resolve) => setTimeout(resolve, 1_500));
+        await route.fulfill({ status: 503, json: { status: 'degraded',
+            error: { code: 'PROVIDER_RATE_LIMITED', retryable: true } } });
+    });
+    await page.unroute('https://ansem-frontline-stream.ansem-frontline.workers.dev/recent');
+    await page.route('https://ansem-frontline-stream.ansem-frontline.workers.dev/recent', (route) => route.fulfill({
+        json: { version: 4, tokenMint: token, canonicalMarket: null, sourceEpoch: 4, trades: [], pools: 0,
+            status: 'degraded', integrity: { tokenMint: token, identityFailure: 'RPC_HTTP_429',
+                canonicalMarket: null, sourceEpoch: 4, coverageIncomplete: true, degraded: true } },
+    }));
+    await page.goto('/');
+    await expect(page.locator('#price')).toHaveText('—');
+    await expect(page.locator('#change')).toHaveText('—');
+    await expect(page.locator('#battle-state-flow')).toContainText('FLOW DEGRADED');
+    await expect(page.locator('#price')).toHaveText('$0.250000', { timeout: 12_000 });
 });
 
 test('boots from the Helius market fallback when DexScreener is unavailable', async ({ page }) => {

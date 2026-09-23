@@ -47,6 +47,27 @@ it('fixed RPC transport rejects HTTP and JSON-RPC failures', async () => {
     await expect(rpc('getTransaction', [])).rejects.toThrow('429');
 });
 
+it('backs off discovery after a production RPC rate limit without weakening market identity', async () => {
+    const result = await resolveServerMarket(MINT, vi.fn(async () => {
+        throw new Error('RPC_HTTP_429');
+    }));
+    expect(result).toMatchObject({ pools: [], canonicalMarket: null, unsupportedPools: 1,
+        identityFailure: 'RPC_HTTP_429', refreshIntervalMs: 60_000 });
+});
+
+it('reports a sanitized rate-limit reason from the Worker market fallback', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(null, { status: 429 })));
+    const origin = 'https://frontline.example';
+    const response = await worker.fetch(new Request(`https://relay.example/market?mint=${MINT}`, {
+        headers: { Origin: origin },
+    }), { HELIUS_API_KEY: 'test-only', DEFAULT_TOKEN_MINT: MINT, ALLOWED_ORIGINS: origin });
+    expect(response.status).toBe(503);
+    expect(response.headers.get('retry-after')).toBe('60');
+    expect(await response.json()).toEqual({ status: 'degraded',
+        error: { code: 'PROVIDER_RATE_LIMITED', retryable: true } });
+    vi.unstubAllGlobals();
+});
+
 it('recent endpoint forwards only mint identifiers to the same token-scoped Durable Object', async () => {
     const forwarded = [];
     const fetchImpl = vi.fn(async (request) => { forwarded.push({ url: request.url, body: await request.json() });

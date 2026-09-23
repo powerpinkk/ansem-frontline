@@ -57,9 +57,11 @@ describe('trade stream lifecycle', () => {
     it('configures the socket and forwards normalized messages', () => {
         const onTrade = vi.fn();
         const onStatus = vi.fn();
+        const onTransportStatus = vi.fn();
         const controller = connectTradeStream('wss://example.test/stream', {
             onTrade,
             onStatus,
+            onTransportStatus,
             getConfiguration: () => ({ token: { mint: 'mint' }, pools: [{ address: 'pool' }] }),
         });
         const socket = FakeWebSocket.instances[0];
@@ -70,7 +72,9 @@ describe('trade stream lifecycle', () => {
         expect(JSON.parse(socket.sent[0])).toEqual({ type: 'configure', token: { mint: 'mint' }, pools: [{ address: 'pool' }] });
         expect(onTrade).toHaveBeenCalledWith({ txHash: 'tx' });
         expect(onStatus).toHaveBeenLastCalledWith('online');
+        expect(onTransportStatus).toHaveBeenCalledWith('connected');
         controller.stop();
+        expect(onTransportStatus).toHaveBeenLastCalledWith('disconnected');
     });
 
     it('reconfigures an open stream and reconnects a closed one immediately on demand', () => {

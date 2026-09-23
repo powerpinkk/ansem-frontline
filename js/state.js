@@ -53,6 +53,8 @@ function createRuntimeState() {
         solPriceUsd: 0,
         marketCoverage: 0,
         connection: 'connecting',
+        workerConnected: false,
+        executionStreamStatus: 'connecting',
         lastMarketAt: 0,
         lastTradeAt: 0,
         visibleCombatants: {

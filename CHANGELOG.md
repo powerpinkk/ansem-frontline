@@ -30,6 +30,8 @@ All notable changes are documented here. The project follows [Semantic Versionin
 
 ### Fixed
 
+- Preserve unavailable price as `—`, distinguish quiet flow from an unavailable execution stream, and expose sanitized market-capability diagnostics.
+- Back off canonical discovery after upstream RPC rate limits and return a typed, credential-free fallback failure reason.
 - Prevented the King from following an endlessly advancing defense target or leaving the automatic shot.
 - Prevented verified troops from vibrating behind aggregate ranks or visually occupying the same body space.
 - Corrected asymmetric landscape obstacle sizing on negative-Z terrain.

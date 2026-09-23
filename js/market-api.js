@@ -7,6 +7,7 @@ import { defaultTokenRuntime } from './state.js';
 import { createValuationBoundary, providerValuation } from './market-valuation.js';
 import { activeTrade, createTradeJournal } from './market-evidence.js';
 import { createCanonicalValuationBoundary } from './canonical-valuation.js';
+import { deriveMarketHealth } from './market-health.js';
 
 export function initAPI(callbacks = {}, { runtime = defaultTokenRuntime, initialMarket = null } = {}) {
     const { state } = runtime;
@@ -24,7 +25,6 @@ export function initAPI(callbacks = {}, { runtime = defaultTokenRuntime, initial
     let marketSequence = 0;
     let appliedSequence = 0;
     let historyStarted = false;
-    let providerDegraded = false;
     let lastChartAt = 0;
     let canonicalMarket = null;
     let marketEpoch = 0;
@@ -53,7 +53,8 @@ export function initAPI(callbacks = {}, { runtime = defaultTokenRuntime, initial
     function connection() {
         const fresh = valuation.snapshot();
         const next = state.priceFailures >= 3 ? 'offline'
-            : state.priceFailures || state.tradesFailures || providerDegraded || fresh?.freshness === 'STALE' ? 'degraded'
+            : state.priceFailures || state.tradesFailures || state.integrity?.degraded
+                || state.executionStreamStatus === 'offline' || fresh?.freshness === 'STALE' ? 'degraded'
                 : latestMarket ? 'online' : 'connecting';
         if (state.connection !== next) { state.connection = next; emit('onConnectionChange', next); }
     }
@@ -124,9 +125,16 @@ export function initAPI(callbacks = {}, { runtime = defaultTokenRuntime, initial
                 if (diagnostics.tokenMint !== mint) return;
                 if (!bindMarket(diagnostics.canonicalMarket, diagnostics.sourceEpoch)) return;
                 acceptCanonicalValuation(diagnostics.canonicalValuation);
-                state.integrity = diagnostics; providerDegraded = diagnostics.degraded; connection();
+                state.integrity = diagnostics; connection();
             },
-            onStatus: (status) => { if (status !== 'online') providerDegraded = true; connection(); },
+            onTransportStatus: (status) => {
+                state.workerConnected = status === 'connected';
+                connection();
+            },
+            onStatus: (status) => {
+                state.executionStreamStatus = status;
+                connection();
+            },
         });
     }
     function acceptCanonicalValuation(value) {
@@ -226,7 +234,6 @@ export function initAPI(callbacks = {}, { runtime = defaultTokenRuntime, initial
                 const snapshot = await json(CONFIG.RELAY_RECENT_URL, { type: 'configure', token: { mint, chain: 'solana' } });
                 if (snapshot.version !== 4 || snapshot.tokenMint !== mint || !Array.isArray(snapshot.trades)) throw new Error('UNVERIFIED_HISTORY_CONTRACT');
                 if (!bindMarket(snapshot.canonicalMarket, snapshot.sourceEpoch)) return;
-                providerDegraded = snapshot.status === 'degraded';
                 state.integrity = snapshot.integrity || null;
                 acceptCanonicalValuation(snapshot.integrity?.canonicalValuation ?? snapshot.canonicalValuation);
                 // All updates, including invalidations, use the same identity path.
@@ -297,6 +304,7 @@ export function initAPI(callbacks = {}, { runtime = defaultTokenRuntime, initial
         },
         getDiagnostics: () => ({ mint, namespace: runtime.namespace, destroyed, timers: timers.size, requests: requests.size,
             streamActive: !!stream, bootstrapPending: !!recentPromise, selection: state.marketSelection, canonicalMarket,
-            valuation: state.valuation, canonicalValuation:state.canonicalValuation, journal: journal.diagnostics(), integrity: state.integrity }),
+            valuation: state.valuation, canonicalValuation:state.canonicalValuation, journal: journal.diagnostics(), integrity: state.integrity,
+            ...deriveMarketHealth(state) }),
     };
 }
