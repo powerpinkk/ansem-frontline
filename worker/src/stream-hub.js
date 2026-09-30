@@ -29,7 +29,12 @@ export class StreamHub {
             ...(typeof env.__testSleep === 'function' ? { sleep: env.__testSleep } : {}) });
         const recoveryPolicy = this.policy;
         this.rpc = (method, params, signal, meta = {}) => this.policy.run('standard', meta.capability || method,
-            () => this.rawRpc(method, params, signal));
+            () => {
+                if (signal?.aborted) throw new AcquisitionError('RPC_CANCELLED_BEFORE_START', {
+                    kind: 'DEFERRED', deferred: true, retryable: false, retryAt: Date.now() + 1_000,
+                });
+                meta.onStart?.(); return this.rawRpc(method, params, signal);
+            });
         this.dasRpc = (method, params, signal, meta = {}) => this.policy.run('das', meta.capability || method,
             () => this.rawRpc(method, params, signal));
         this.tokenMint = null;
@@ -198,6 +203,7 @@ export class StreamHub {
     ensureIngestion() {
         if (this.ingestion || this.market?.canonicalMarket?.compatibility !== 'POOL_STATE_AND_VAULTS_VERIFIED') return;
         this.ingestion = createEvidenceIngestion({ tokenMint: this.tokenMint, canonicalMarket: this.market.canonicalMarket, rpc: this.rpc,
+            admissionAwareRpc: true,
             onChange: (event) => this.broadcast({ ...event, version: 4 }),
             onGap: (gap) => this.recordGap(gap.reason, { signature: gap.signature }) });
     }

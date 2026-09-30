@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createEvidenceIngestion, INGESTION_POLICY } from '../worker/src/evidence-ingestion.js';
+import { AcquisitionError } from '../worker/src/acquisition-policy.js';
 import { createTradeJournal } from '../js/market-evidence.js';
 import { calculatePressure } from '../js/market.js';
 import { swapFixture, canonicalEvent, signatureFor, MINT, USDC } from './fixtures/integrity.js';
@@ -113,6 +114,28 @@ describe('bounded settlement ingestion', () => {
         await service.drain(); expect(service.snapshot()).toEqual([]);
         now += 1;
         const next = createTradeJournal(USDC); expect(next.upsert(canonicalEvent(), now).accepted).toBe(false);
+    });
+    it.each(['STANDARD_QUEUE_FULL', 'STANDARD_PROBE_INFLIGHT', 'RPC_CANCELLED_BEFORE_START'])('does not spend attempts or spin on %s admission deferral', async (reason) => {
+        let now = 10_000; let admitted = false; let actualStarts = 0;
+        const f = swapFixture({ blockTime: 10 });
+        const service = createEvidenceIngestion({ tokenMint: MINT, canonicalMarket: f.market, now: () => now,
+            admissionAwareRpc: true, policy: { ...INGESTION_POLICY, maxTransactionReadsPerMinute: 1 },
+            rpc: async (_method, _params, _signal, meta) => {
+                if (!admitted) throw new AcquisitionError(reason, { kind: 'DEFERRED', deferred: true, retryAt: now });
+                meta.onStart(); actualStarts += 1; return f.transaction;
+            } });
+        service.observeSignature(f.signature); await service.drain();
+        expect(actualStarts).toBe(0);
+        expect(service.diagnostics()).toMatchObject({ pendingEvidence: 1, rpcFailures: 0,
+            acquisition: { transaction: { lastAttemptAt: null } } });
+        await service.tick(); await service.drain();
+        expect(actualStarts).toBe(0);
+        admitted = true; now += 999; await service.tick(); await service.drain();
+        expect(actualStarts).toBe(0);
+        now += 1; await service.tick(); await service.drain();
+        expect(actualStarts).toBe(1);
+        expect(service.snapshot()).toHaveLength(1);
+        service.destroy();
     });
 });
 

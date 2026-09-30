@@ -213,4 +213,90 @@ describe('typed token acquisition policy', () => {
         await expect(restarted.run('standard', 'getMultipleAccounts', async () => 'bootstrap')).resolves.toBe('bootstrap');
         expect(restarted.snapshot().standard).toMatchObject({ status: 'HEALTHY', reason: null, probeKey: null });
     });
+
+    it.each(['success-first', 'failure-first'])('retains a late shared throttle across concurrent %s completion and restart', async (order) => {
+        const h = controlledHarness();
+        let resolveState, rejectTransaction;
+        const transaction = h.policy.run('standard', 'getTransaction', async () => new Promise((_resolve, reject) => {
+            rejectTransaction = reject;
+        }));
+        await h.flush();
+        h.setControlled();
+        const state = h.policy.run('standard', 'getMultipleAccounts', async () => new Promise((resolve) => {
+            resolveState = resolve;
+        }));
+        await h.advance(250);
+        const rateLimit = () => rejectTransaction(new AcquisitionError('RPC_HTTP_429', {
+            kind: 'RATE_LIMIT', status: 429, retryAfterMs: 420_000,
+        }));
+        if (order === 'success-first') {
+            resolveState('state'); await expect(state).resolves.toBe('state');
+            await h.advance(250); rateLimit();
+        } else {
+            rateLimit(); await expect(transaction).rejects.toMatchObject({ kind: 'RATE_LIMIT' });
+            await h.advance(250); resolveState('state'); await expect(state).resolves.toBe('state');
+        }
+        if (order === 'success-first') await expect(transaction).rejects.toMatchObject({
+            kind: 'RATE_LIMIT', retryAt: expect.any(Number),
+        });
+        const closed = h.policy.snapshot().standard;
+        expect(closed).toMatchObject({ status: 'RETRY_WAIT', reason: 'RPC_HTTP_429' });
+        expect(closed.nextRetryAt - h.now()).toBeGreaterThanOrEqual(419_750);
+        await expect(h.policy.run('standard', 'history', async () => true)).rejects.toMatchObject({
+            deferred: true, retryAt: closed.nextRetryAt,
+        });
+        const restarted = createAcquisitionPolicy({ storage: h.storage, now: h.now, random: () => 0,
+            sleep: async () => {} });
+        await expect(restarted.run('standard', 'history', async () => true)).rejects.toMatchObject({
+            deferred: true, retryAt: closed.nextRetryAt,
+        });
+    });
+
+    it.each([
+        ['RATE_LIMIT', 10_000], ['TIMEOUT', null], ['NETWORK', null], ['UPSTREAM_5XX', null], ['AUTH', null],
+    ])('never shortens a longer shared deadline when a concurrent %s arrives', async (kind, retryAfterMs) => {
+        const h = controlledHarness();
+        let rejectLong, rejectOther;
+        const long = h.policy.run('standard', 'getTransaction', async () => new Promise((_resolve, reject) => { rejectLong = reject; }));
+        await h.flush(); h.setControlled();
+        const other = h.policy.run('standard', 'getMultipleAccounts', async () => new Promise((_resolve, reject) => { rejectOther = reject; }));
+        await h.advance(250);
+        rejectLong(new AcquisitionError('RPC_HTTP_429', { kind: 'RATE_LIMIT', retryAfterMs: 420_000 }));
+        await expect(long).rejects.toMatchObject({ kind: 'RATE_LIMIT' });
+        const established = h.policy.snapshot().standard.nextRetryAt;
+        await h.advance(250);
+        rejectOther(new AcquisitionError(`RPC_${kind}`, { kind, retryAfterMs }));
+        await expect(other).rejects.toMatchObject({ kind, retryAt: established });
+        expect(h.policy.snapshot().standard).toMatchObject({ status: 'RETRY_WAIT', nextRetryAt: established });
+        await expect(h.policy.run('standard', 'history', async () => true)).rejects.toMatchObject({
+            deferred: true, retryAt: established,
+        });
+    });
+
+    it('allows only an eligible due probe to reopen and ignores older success after a failed probe', async () => {
+        const h = controlledHarness();
+        let resolveOld;
+        const old = h.policy.run('standard', 'old-state', async () => new Promise((resolve) => { resolveOld = resolve; }));
+        await h.flush(); h.setControlled();
+        const initial = h.policy.run('standard', 'history', async () => {
+            throw new AcquisitionError('RPC_HTTP_429', { kind: 'RATE_LIMIT' });
+        });
+        await h.advance(250); await expect(initial).rejects.toMatchObject({ kind: 'RATE_LIMIT' });
+        const firstDeadline = h.policy.snapshot().standard.nextRetryAt;
+        await h.advance(firstDeadline - h.now());
+        let rejectProbe;
+        const probe = h.policy.run('standard', 'valuation', async () => new Promise((_resolve, reject) => { rejectProbe = reject; }));
+        const waiter = h.policy.run('standard', 'history:waiting', async () => true);
+        await h.flush();
+        rejectProbe(new AcquisitionError('RPC_TIMEOUT', { kind: 'TIMEOUT' }));
+        await expect(probe).rejects.toMatchObject({ kind: 'TIMEOUT', retryAt: expect.any(Number) });
+        const renewed = h.policy.snapshot().standard.nextRetryAt;
+        expect(renewed).toBeGreaterThan(firstDeadline);
+        resolveOld('late-success'); await expect(old).resolves.toBe('late-success');
+        await expect(waiter).rejects.toMatchObject({ deferred: true });
+        expect(h.policy.snapshot().standard).toMatchObject({ status: 'RETRY_WAIT', nextRetryAt: renewed });
+        await h.advance(renewed - h.now());
+        await expect(h.policy.run('standard', 'history', async () => 'recovered')).resolves.toBe('recovered');
+        expect(h.policy.snapshot().standard).toMatchObject({ status: 'HEALTHY', nextRetryAt: 0 });
+    });
 });

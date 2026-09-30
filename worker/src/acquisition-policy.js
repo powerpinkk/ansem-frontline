@@ -124,7 +124,9 @@ export function createAcquisitionPolicy({ storage = null, now = Date.now, random
     const capacityWaiters = { standard: new Set(), das: new Set() };
     const methodWaits = { standard: new Map(), das: new Map() };
     const methodStreaks = { standard: new Map(), das: new Map() };
+    const failureRevisions = { standard: 0, das: 0 };
     let loadPromise = null;
+    let persistTail = Promise.resolve();
 
     async function load() {
         if (!storage) return;
@@ -139,18 +141,22 @@ export function createAcquisitionPolicy({ storage = null, now = Date.now, random
             }
         }
     }
-    async function persist() {
+    function persist() {
         if (!storage) return;
-        const bounded = {};
-        for (const group of Object.keys(domains)) {
-            const d = domains[group];
-            bounded[group] = { streak: d.streak, transientStreak: d.transientStreak,
-                nextRetryAt: d.nextRetryAt, probeKey: d.probeKey, status: d.status,
-                reason: d.reason, lastFailureAt: d.lastFailureAt,
-                methods: Object.fromEntries([...methodWaits[group].entries()].slice(-16).map(([key, item]) => [key,
-                    { ...item, streak: methodStreaks[group].get(key) || 0 }])) };
-        }
-        await storage.put('acquisitionPolicy:v1', bounded);
+        const write = persistTail.catch(() => {}).then(async () => {
+            const bounded = {};
+            for (const group of Object.keys(domains)) {
+                const d = domains[group];
+                bounded[group] = { streak: d.streak, transientStreak: d.transientStreak,
+                    nextRetryAt: d.nextRetryAt, probeKey: d.probeKey, status: d.status,
+                    reason: d.reason, lastFailureAt: d.lastFailureAt,
+                    methods: Object.fromEntries([...methodWaits[group].entries()].slice(-16).map(([key, item]) => [key,
+                        { ...item, streak: methodStreaks[group].get(key) || 0 }])) };
+            }
+            await storage.put('acquisitionPolicy:v1', bounded);
+        });
+        persistTail = write;
+        return write;
     }
     function ready() { return loadPromise ||= load(); }
     function trim(group, time) {
@@ -200,7 +206,8 @@ export function createAcquisitionPolicy({ storage = null, now = Date.now, random
             starts[group].push(startedAt);
             d.lastAttemptAt = startedAt;
             d.generation += 1;
-            return { generation: d.generation, halfOpen, startedAt };
+            return { generation: d.generation, halfOpen, startedAt,
+                failureRevision: failureRevisions[group] };
         }
     }
     async function admit(group, key) {
@@ -220,16 +227,21 @@ export function createAcquisitionPolicy({ storage = null, now = Date.now, random
     function jitter(base) { return Math.max(1, Math.floor(base * Math.max(0, Math.min(1, random())) * 0.2)); }
     async function failed(group, key, error, ticket) {
         const d = domains[group], failure = classifyTransportError(error), time = now();
-        if (ticket.generation < d.generation && d.lastSuccessAt && d.lastSuccessAt >= ticket.startedAt) return failure;
+        failureRevisions[group] += 1;
         d.lastFailureAt = time; d.reason = failure.reason; d.probeKey = key;
+        const existingDeadline = d.status === 'RETRY_WAIT' || d.status === 'HALF_OPEN'
+            ? d.nextRetryAt || 0 : 0;
+        let failureDeadline = 0;
         if (failure.kind === 'RATE_LIMIT') {
             d.streak += 1; d.transientStreak += 1;
             const exponential = Math.min(300_000, 60_000 * 2 ** Math.min(8, d.streak - 1));
             const delay = Math.max(exponential, failure.retryAfterMs || 0);
-            d.nextRetryAt = time + delay + jitter(exponential);
+            failureDeadline = time + delay + jitter(exponential);
+            d.nextRetryAt = Math.max(existingDeadline, failureDeadline);
             d.status = 'RETRY_WAIT';
         } else if (failure.kind === 'AUTH' || failure.kind === 'CONFIGURATION') {
-            d.streak += 1; d.nextRetryAt = time + 300_000; d.status = 'RETRY_WAIT';
+            d.streak += 1; failureDeadline = time + 300_000;
+            d.nextRetryAt = Math.max(existingDeadline, failureDeadline); d.status = 'RETRY_WAIT';
         } else if (failure.retryable) {
             d.streak += 1;
             const transientStreak = (methodStreaks[group].get(key) || 0) + 1;
@@ -237,21 +249,25 @@ export function createAcquisitionPolicy({ storage = null, now = Date.now, random
             const base = Math.min(30_000, 1_000 * 2 ** Math.min(5, transientStreak - 1));
             const delay = transientStreak >= 3 ? Math.max(60_000, base) : base;
             const nextRetryAt = time + delay + jitter(base);
-            if (transientStreak >= 3) {
-                d.nextRetryAt = nextRetryAt; d.status = 'RETRY_WAIT';
+            failureDeadline = nextRetryAt;
+            methodWaits[group].set(key, { nextRetryAt, reason: failure.reason });
+            if (transientStreak >= 3 || existingDeadline || ticket.halfOpen) {
+                d.nextRetryAt = Math.max(existingDeadline, nextRetryAt); d.status = 'RETRY_WAIT';
             } else {
-                methodWaits[group].set(key, { nextRetryAt, reason: failure.reason });
                 d.nextRetryAt = 0; d.probeKey = null; d.status = 'HEALTHY';
             }
-            failure.retryAt = nextRetryAt;
+        } else if (existingDeadline || ticket.halfOpen) {
+            failureDeadline = ticket.halfOpen ? time + 60_000 : existingDeadline;
+            d.nextRetryAt = Math.max(existingDeadline, failureDeadline); d.status = 'RETRY_WAIT';
         }
-        failure.retryAt ||= d.nextRetryAt || null;
+        failure.retryAt = Math.max(failure.retryAt || 0, failureDeadline,
+            d.status === 'RETRY_WAIT' ? d.nextRetryAt || 0 : 0) || null;
         await persist();
         return failure;
     }
     async function succeeded(group, key, ticket) {
         const d = domains[group], time = now();
-        if (ticket.generation < d.generation && d.lastFailureAt && d.lastFailureAt > ticket.startedAt) return;
+        if (ticket.failureRevision !== failureRevisions[group]) return;
         if (['RETRY_WAIT','HALF_OPEN'].includes(d.status) && !ticket.halfOpen) return;
         // A half-open success proves only shared provider reachability. Method
         // and evidence-job failures are retained and need their own proof.

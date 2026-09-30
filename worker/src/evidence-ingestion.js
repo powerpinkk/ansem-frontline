@@ -10,7 +10,7 @@ export const INGESTION_POLICY = Object.freeze({ maxRecords: 1024, maxQueued: 128
     maxAgeMs: 300_000, retries: 3, reconciliationMs: 3000, reconciliationDeadlineMs: 90_000, statusBatch: 50, maxTransactionReadsPerMinute: 120 });
 
 export function createEvidenceIngestion({ tokenMint, canonicalMarket = null, rpc, now = Date.now,
-    onChange = () => {}, onGap = () => {}, policy = INGESTION_POLICY }) {
+    onChange = () => {}, onGap = () => {}, policy = INGESTION_POLICY, admissionAwareRpc = false }) {
     const records = new Map();
     const journal = createTradeJournal(tokenMint, { maxEntries: policy.maxRecords, maxAgeMs: policy.maxAgeMs }, canonicalMarket
         ? (e) => isCanonicalTrade(e) && e.poolAddress === canonicalMarket.address && e.sourceEpoch === canonicalMarket.sourceEpoch
@@ -21,6 +21,7 @@ export function createEvidenceIngestion({ tokenMint, canonicalMarket = null, rpc
     let reconciling = false;
     let lastReconcile = 0;
     let transactionStarts = [];
+    let transactionReservations = 0;
     const counts = { duplicates: 0, rejected: 0, unverified: 0, overflow: 0, rpcFailures: 0, reconciled: 0 };
     const acquisition = {
         transaction: { status: 'UNKNOWN', reason: null, lastAttemptAt: null, lastSuccessAt: null, lastFailureAt: null, nextRetryAt: null, generation: 0 },
@@ -106,10 +107,22 @@ export function createEvidenceIngestion({ tokenMint, canonicalMarket = null, rpc
     }
     async function fetchEvidence(record, commitment = 'confirmed') {
         record.running = true;
-        record.attempts += 1;
-        const ticket = acquisitionAttempt('transaction');
+        let started = false;
+        let ticket = null;
+        const markStarted = () => {
+            if (started) return;
+            started = true;
+            transactionReservations = Math.max(0, transactionReservations - 1);
+            transactionStarts = transactionStarts.filter((at) => now() - at < 60_000);
+            transactionStarts.push(now());
+            record.attempts += 1;
+            ticket = acquisitionAttempt('transaction');
+        };
         try {
-            const tx = await rpc('getTransaction', [record.signature, { encoding: 'jsonParsed', commitment, maxSupportedTransactionVersion: 0 }], abort.signal);
+            if (!admissionAwareRpc) markStarted();
+            const tx = await rpc('getTransaction', [record.signature, { encoding: 'jsonParsed', commitment, maxSupportedTransactionVersion: 0 }],
+                abort.signal, { capability: 'getTransaction', onStart: markStarted });
+            if (!started) markStarted();
             if (stopped) return;
             if (tx) failedJobs.transaction.delete(record.signature);
             acquisitionResult('transaction', ticket, true);
@@ -142,11 +155,11 @@ export function createEvidenceIngestion({ tokenMint, canonicalMarket = null, rpc
         } catch (error) {
             if (stopped) return;
             if (error instanceof AcquisitionError && error.deferred) {
-                record.attempts -= 1;
                 record.state = commitment === 'finalized' ? 'FINALIZE_PENDING' : 'PENDING';
-                record.nextAt = error.retryAt || now() + 1_000;
+                record.nextAt = Math.max(now() + 1_000, error.retryAt || 0);
                 return;
             }
+            if (!started) markStarted();
             counts.rpcFailures += 1;
             failedJobs.transaction.set(record.signature, acquisitionFailure(error));
             acquisitionResult('transaction', ticket, false, error);
@@ -156,7 +169,10 @@ export function createEvidenceIngestion({ tokenMint, canonicalMarket = null, rpc
                 record.state = commitment === 'finalized' ? 'FINALIZE_PENDING' : 'PENDING';
                 record.nextAt = now() + 1000 * 4 ** (record.attempts - 1);
             }
-        } finally { record.running = false; }
+        } finally {
+            if (!started) transactionReservations = Math.max(0, transactionReservations - 1);
+            record.running = false;
+        }
     }
     function pump() {
         if (stopped) return;
@@ -164,8 +180,8 @@ export function createEvidenceIngestion({ tokenMint, canonicalMarket = null, rpc
         for (const record of records.values()) {
             if (running.size >= policy.concurrency) break;
             if (record.running || !['PENDING', 'FINALIZE_PENDING'].includes(record.state) || record.nextAt > now()) continue;
-            if (transactionStarts.length >= policy.maxTransactionReadsPerMinute) break;
-            transactionStarts.push(now());
+            if (transactionStarts.length + transactionReservations >= policy.maxTransactionReadsPerMinute) break;
+            transactionReservations += 1;
             const task = fetchEvidence(record, record.state === 'FINALIZE_PENDING' ? 'finalized' : 'confirmed');
             running.add(task);
             void task.finally(() => { running.delete(task); pump(); });

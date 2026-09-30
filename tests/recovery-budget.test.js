@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { StreamHub } from '../worker/src/stream-hub.js';
 import { AcquisitionError, createAcquisitionPolicy } from '../worker/src/acquisition-policy.js';
 import { createEvidenceIngestion } from '../worker/src/evidence-ingestion.js';
-import { MINT, swapFixture } from './fixtures/integrity.js';
+import { MINT, signatureFor, swapFixture } from './fixtures/integrity.js';
 
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
@@ -83,5 +83,48 @@ it('meters confirmed, finalized and retry transaction attempts through the real 
     expect({transactionReads,statusBatches,standardStarts:starts.length}).toEqual({transactionReads:3,statusBatches:1,standardStarts:4});
     expect(starts.every((start,index)=>index===0||start.at-starts[index-1].at>=250)).toBe(true);
     expect(policy.snapshot().standard).toMatchObject({attemptsInRollingMinute:4,active:0});
+    ingestion.destroy();
+});
+
+it('charges evidence allowance only when the real governor starts a transaction read', async () => {
+    let now = 1_000;
+    const starts = [];
+    const policy = createAcquisitionPolicy({ now: () => now, random: () => 0, sleep: async (ms) => { now += ms; } });
+    await expect(policy.run('standard', 'history', async () => {
+        throw new AcquisitionError('RPC_HTTP_429', { kind: 'RATE_LIMIT' });
+    })).rejects.toMatchObject({ kind: 'RATE_LIMIT' });
+    const retryAt = policy.snapshot().standard.nextRetryAt;
+    now = 59_000;
+    const fixture = swapFixture({ blockTime: 59 });
+    const rpc = (method, params, signal, meta = {}) => policy.run('standard', method, async () => {
+        meta.onStart?.();
+        if (method === 'getTransaction') {
+            starts.push({ method, at: now, signature: params[0] });
+            return structuredClone(fixture.transaction);
+        }
+        return { value: params[0].map(() => ({ confirmationStatus: 'finalized', err: null })) };
+    });
+    const ingestion = createEvidenceIngestion({ tokenMint: MINT, rpc, now: () => now,
+        admissionAwareRpc: true });
+    for (let index = 1; index <= 120; index += 1) ingestion.observeSignature(signatureFor(index), 100);
+    await ingestion.drain();
+    expect(starts).toEqual([]);
+    expect(ingestion.diagnostics()).toMatchObject({ pendingEvidence: 120, rpcFailures: 0 });
+
+    now = retryAt;
+    await ingestion.tick(); await ingestion.drain();
+    expect(starts).toHaveLength(120);
+    expect(new Set(starts.map((start) => start.signature)).size).toBe(120);
+    for (const start of starts) {
+        expect(starts.filter((candidate) => candidate.at >= start.at && candidate.at < start.at + 60_000).length).toBeLessThanOrEqual(120);
+    }
+    const firstStart = starts[0].at;
+    now = firstStart + 59_999;
+    await ingestion.tick(); await ingestion.drain();
+    expect(starts).toHaveLength(120);
+    now = firstStart + 60_000;
+    await ingestion.tick(); await ingestion.drain();
+    expect(starts.length).toBeGreaterThan(120);
+    expect(starts.slice(120).every((start) => start.at >= firstStart + 60_000)).toBe(true);
     ingestion.destroy();
 });
