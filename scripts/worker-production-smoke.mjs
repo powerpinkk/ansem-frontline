@@ -1,5 +1,8 @@
 /* global console, process, setTimeout, clearTimeout, AbortController */
 import { pathToFileURL } from 'node:url';
+import { CANONICAL_VALUATION_POLICY, createCanonicalValuationBoundary } from '../js/canonical-valuation.js';
+import { activeTrade, createTradeJournal } from '../js/market-evidence.js';
+import { CONFIG } from '../js/config.js';
 
 export const WORKER_SMOKE_CONTRACT = Object.freeze({
     service: 'ansem-frontline-stream',
@@ -50,6 +53,11 @@ function isObject(value) {
 
 function positiveInteger(value) {
     return Number.isSafeInteger(value) && value > 0;
+}
+
+function canonicalPositiveDecimal(value) {
+    return typeof value === 'string' && /^\d+(\.\d+)?$/.test(value)
+        && Number.isFinite(Number(value)) && Number(value) > 0;
 }
 
 function safeTime(value) {
@@ -177,8 +185,45 @@ function capabilitySummary(health, name) {
     };
 }
 
-export function validateRecentResponse(sample, { mint, expectedBuildId, expectedOrigin }) {
+function summarizeExecutionWindow(body, market, epoch, evaluatedAt) {
+    const journal = createTradeJournal(body.tokenMint);
+    const temporalIssues = new Set();
+    if (market) {
+        for (const event of body.trades) {
+            const belongsToCurrentMarket = event?.tokenMint === body.tokenMint
+                && event.poolAddress === market.address && event.marketIdentity === market.address
+                && event.sourceEpoch === epoch;
+            if (!belongsToCurrentMarket || !activeTrade(event)) continue;
+            if (!Number.isFinite(event.timestamp) || event.timestamp > evaluatedAt) {
+                temporalIssues.add(event.id || `${event.signature || 'unknown'}:${event.invocationPath || 'unknown'}`);
+                continue;
+            }
+            journal.upsert(event, evaluatedAt);
+        }
+    }
+    const current = journal.values(evaluatedAt).filter((event) => Number.isFinite(event.timestamp)
+        && evaluatedAt - event.timestamp >= 0 && evaluatedAt - event.timestamp <= CONFIG.PRESSURE_WINDOW_MS);
+    const retainedCoverage = body.integrity.coverage;
+    return {
+        current: {
+            verifiedExecutions: current.length,
+            windowMs: CONFIG.PRESSURE_WINDOW_MS,
+            basis: 'ACTIVE_CANONICAL_EXECUTIONS_ORIGINAL_TIMESTAMP',
+            temporalEvidenceComplete: temporalIssues.size === 0,
+            temporalIssueCount: temporalIssues.size,
+        },
+        retained: {
+            verifiedExecutions: Number.isSafeInteger(retainedCoverage?.verifiedExecutions)
+                ? retainedCoverage.verifiedExecutions : null,
+            scope: retainedCoverage?.scope ?? null,
+        },
+    };
+}
+
+export function validateRecentResponse(sample, { mint, expectedBuildId, expectedOrigin,
+    evaluatedAt = sample.receivedAt }) {
     const { response, body } = sample;
+    requireContract(Number.isSafeInteger(evaluatedAt), 'RECENT_EVALUATION_TIME_INVALID');
     requireContract(response.status === 200, 'RECENT_HTTP_STATUS');
     requireContract(response.headers.get('cache-control') === 'no-store', 'RECENT_CACHE_POLICY_INVALID');
     cors(response, expectedOrigin);
@@ -231,42 +276,51 @@ export function validateRecentResponse(sample, { mint, expectedBuildId, expected
         valuationCoherent = true;
     }
 
-    const requiredValuationGates = ['identity', 'formula', 'supply', 'nativeFresh', 'quoteIdentity',
-        'quoteFresh', 'slot', 'lifecycle', 'supportedVariant', 'numeric'];
-    const valuationProofComplete = valuationCoherent
-        && valuation.protocolDefinition === 'PUMP_PROTOCOL_MARKET_CAP_V1'
-        && requiredValuationGates.every((gate) => valuation.gates?.[gate] === true)
-        && valuation.unitPrice?.kind === 'PROTOCOL_UNIT_PRICE'
-        && valuation.unitPrice?.evidenceLevel === 'PROTOCOL_CANONICAL'
-        && valuation.unitPrice?.authorityEligible === true
-        && valuation.unitPrice?.sourceEpoch === epoch;
-    const canonicalAcquisitionProven = canonicalIdentityCoherent
+    const valuationBoundary = canonicalIdentityCoherent ? createCanonicalValuationBoundary(mint) : null;
+    const evaluatedValuation = valuationCoherent
+        ? valuationBoundary.accept(valuation, market, evaluatedAt) : null;
+    const boundaryAccepted = evaluatedValuation !== null;
+    const economicValuesValid = valuationCoherent
+        && canonicalPositiveDecimal(valuation.valueUsd)
+        && canonicalPositiveDecimal(valuation.unitPriceUsd)
+        && canonicalPositiveDecimal(valuation.unitPrice?.valueUsd)
+        && valuation.unitPrice.valueUsd === valuation.unitPriceUsd;
+    const valuationProofAccepted = boundaryAccepted && economicValuesValid;
+    const nativeStateFresh = valuationProofAccepted && evaluatedValuation.nativeFreshness === 'FRESH'
+        && valuation.gates?.identity === true && valuation.gates?.formula === true
+        && valuation.gates?.supply === true && valuation.gates?.slot === true
+        && valuation.gates?.lifecycle === true && valuation.gates?.supportedVariant === true;
+    const canonicalAcquisitionProven = canonicalIdentityCoherent && nativeStateFresh
         && capabilities.marketStateAvailable.available === true;
-    const valuationEligible = valuationProofComplete
-        && valuation.authorityEligible === true
-        && valuation.freshness === 'FRESH'
-        && valuation.nativeFreshness === 'FRESH'
-        && valuation.quoteFreshness === 'FRESH'
+    const valuationEligible = canonicalAcquisitionProven && evaluatedValuation.authorityEligible === true
+        && evaluatedValuation.freshness === 'FRESH'
+        && evaluatedValuation.quoteFreshness === 'FRESH'
         && capabilities.quoteUsdAvailable.available === true
         && capabilities.valuationAvailable.available === true;
     const currentWindowComplete = health.currentWindow.complete === true;
+    const executionWindow = summarizeExecutionWindow(body, canonicalIdentityCoherent ? market : null, epoch, evaluatedAt);
+    const temporalEvidenceComplete = executionWindow.current.temporalEvidenceComplete;
     const reasons = [];
     if (!canonicalIdentityCoherent) reasons.push('CANONICAL_MARKET_NOT_PROVEN');
+    else if (!valuationProofAccepted) reasons.push('CANONICAL_STATE_NOT_PROVEN');
+    else if (evaluatedValuation.nativeFreshness !== 'FRESH') reasons.push('CANONICAL_STATE_EXPIRED_ON_RECEIPT');
     else if (!capabilities.marketStateAvailable.available) reasons.push('CANONICAL_STATE_UNAVAILABLE');
     if (!valuationCoherent) reasons.push('CANONICAL_VALUATION_NOT_PROVEN');
     else {
-        if (!valuationProofComplete) reasons.push('CANONICAL_VALUATION_PROOF_INCOMPLETE');
-        if (!valuation.authorityEligible) reasons.push('CANONICAL_VALUATION_INELIGIBLE');
-        if (valuation.freshness !== 'FRESH' || valuation.nativeFreshness !== 'FRESH') reasons.push('CANONICAL_STATE_STALE');
-        if (valuation.quoteFreshness !== 'FRESH' || !capabilities.quoteUsdAvailable.available) reasons.push('CANONICAL_QUOTE_UNAVAILABLE_OR_STALE');
+        if (!boundaryAccepted) reasons.push('CANONICAL_VALUATION_BOUNDARY_REJECTED');
+        if (!economicValuesValid) reasons.push('CANONICAL_ECONOMIC_VALUES_INVALID');
+        else if (boundaryAccepted && !evaluatedValuation.authorityEligible) reasons.push('CANONICAL_VALUATION_EXPIRED_ON_RECEIPT');
+        if (boundaryAccepted && evaluatedValuation.nativeFreshness !== 'FRESH') reasons.push('CANONICAL_STATE_EXPIRED_ON_RECEIPT');
+        if (boundaryAccepted && (evaluatedValuation.quoteFreshness !== 'FRESH'
+            || !capabilities.quoteUsdAvailable.available)) reasons.push('CANONICAL_QUOTE_EXPIRED_ON_RECEIPT');
         if (!capabilities.valuationAvailable.available) reasons.push('VALUATION_CAPABILITY_UNAVAILABLE');
     }
     if (!currentWindowComplete) reasons.push(health.currentWindow.reason || 'CURRENT_WINDOW_INCOMPLETE');
+    if (!temporalEvidenceComplete) reasons.push('CURRENT_WINDOW_TEMPORAL_EVIDENCE_INSUFFICIENT');
 
-    const verifiedExecutions = Number.isSafeInteger(body.integrity.coverage?.verifiedExecutions)
-        ? body.integrity.coverage.verifiedExecutions : body.trades.length;
     const windowState = currentWindowComplete
-        ? verifiedExecutions === 0 ? 'QUIET' : 'ACTIVE'
+        ? !temporalEvidenceComplete ? 'UNKNOWN'
+            : executionWindow.current.verifiedExecutions === 0 ? 'QUIET' : 'ACTIVE'
         : health.currentWindow.reason?.includes('GAP') ? 'GAPPED'
             : health.currentWindow.pending ? 'PENDING' : 'UNKNOWN';
     return {
@@ -274,7 +328,8 @@ export function validateRecentResponse(sample, { mint, expectedBuildId, expected
         status: response.status,
         canonicalAcquisitionProven,
         valuationEligible,
-        promotionEligible: canonicalAcquisitionProven && valuationEligible && currentWindowComplete,
+        promotionEligible: canonicalAcquisitionProven && valuationEligible
+            && currentWindowComplete && temporalEvidenceComplete,
         promotionReasons: reasons,
         sourceEpoch: positiveInteger(epoch) ? epoch : null,
         canonicalMarket: canonicalIdentityCoherent ? {
@@ -287,12 +342,20 @@ export function validateRecentResponse(sample, { mint, expectedBuildId, expected
         canonicalValuation: valuationCoherent ? {
             kind: valuation.kind,
             evidenceLevel: valuation.evidenceLevel ?? null,
-            authorityEligible: valuation.authorityEligible,
-            freshness: valuation.freshness ?? null,
-            nativeFreshness: valuation.nativeFreshness ?? null,
-            quoteFreshness: valuation.quoteFreshness ?? null,
+            boundaryAccepted,
+            economicValuesValid,
+            reportedAuthorityEligible: valuation.authorityEligible,
+            authorityEligible: evaluatedValuation?.authorityEligible ?? false,
+            freshness: evaluatedValuation?.freshness ?? valuation.freshness ?? null,
+            nativeFreshness: evaluatedValuation?.nativeFreshness ?? valuation.nativeFreshness ?? null,
+            quoteFreshness: evaluatedValuation?.quoteFreshness ?? valuation.quoteFreshness ?? null,
             nativeObservedAt: valuation.nativeObservedAt ?? null,
             quoteObservedAt: valuation.quoteObservedAt ?? null,
+            evaluatedAt,
+            nativeTtlMs: CANONICAL_VALUATION_POLICY.nativeTtlMs,
+            quoteTtlMs: CANONICAL_VALUATION_POLICY.quoteTtlMs,
+            valueUsd: valuation.valueUsd ?? null,
+            unitPriceUsd: valuation.unitPriceUsd ?? null,
             sourceEpoch: valuation.sourceEpoch,
             protocolDefinition: valuation.protocolDefinition ?? null,
             gates: valuation.gates ?? null,
@@ -316,7 +379,8 @@ export function validateRecentResponse(sample, { mint, expectedBuildId, expected
         } : null,
         capabilities,
         coverage: {
-            currentWindow: { ...health.currentWindow, state: windowState, verifiedExecutions },
+            currentWindow: { ...health.currentWindow, state: windowState, ...executionWindow.current },
+            retainedJournal: executionWindow.retained,
             historical: {
                 incomplete: health.historicalCoverage.incomplete,
                 totalGaps: health.historicalCoverage.totalGaps ?? null,
@@ -360,7 +424,9 @@ function makeRequestExecutor({ fetchImpl, now, setTimeoutImpl, clearTimeoutImpl,
                     const text = await response.text();
                     let body;
                     try { body = JSON.parse(text); } catch { throw new SmokeRequestError('RESPONSE_JSON_INVALID'); }
-                    return { response, body };
+                    const receivedAt = now();
+                    entry.receivedAt = receivedAt;
+                    return { response, body, receivedAt };
                 })();
                 return await Promise.race([operation, timedOut]);
             } finally {
@@ -422,6 +488,7 @@ export async function runWorkerSmoke({
             body: JSON.stringify({ type: 'configure', token: { mint, chain: 'solana' } }),
         }, 'recent');
     } catch (error) { samples.recentError = error; }
+    const evaluatedAt = now();
 
     let health;
     try {
@@ -433,13 +500,13 @@ export async function runWorkerSmoke({
     try {
         if (samples.marketError) throw samples.marketError;
         market = validateMarketResponse(samples.market, { mint,
-            expectedOrigin: WORKER_SMOKE_DEFAULTS.healthOrigin, sampledAt: startedAt });
+            expectedOrigin: WORKER_SMOKE_DEFAULTS.healthOrigin, sampledAt: samples.market.receivedAt });
     } catch (error) { market = failedResult(error); }
     let recent;
     try {
         if (samples.recentError) throw samples.recentError;
         recent = validateRecentResponse(samples.recent, { mint, expectedBuildId,
-            expectedOrigin: WORKER_SMOKE_DEFAULTS.recentOrigin });
+            expectedOrigin: WORKER_SMOKE_DEFAULTS.recentOrigin, evaluatedAt });
     } catch (error) { recent = failedResult(error); }
 
     const contractOk = health.contractOk === true && market.contractOk === true && recent.contractOk === true;
@@ -454,7 +521,15 @@ export async function runWorkerSmoke({
         request.calls.filter((call) => call.label === label).length]));
     return {
         mode: 'live',
-        sampledAt: new Date(startedAt).toISOString(),
+        sampledAt: new Date(evaluatedAt).toISOString(),
+        timing: {
+            startedAt,
+            healthReceivedAt: samples.health?.receivedAt ?? null,
+            marketReceivedAt: samples.market?.receivedAt ?? null,
+            recentReceivedAt: samples.recent?.receivedAt ?? null,
+            evaluatedAt,
+            completedAt: now(),
+        },
         mint,
         expectedBuildId,
         contract: { service: WORKER_SMOKE_CONTRACT.service,
@@ -467,7 +542,9 @@ export async function runWorkerSmoke({
         promotionEligible,
         promotionReason: promotionEligible ? null : [...new Set(promotionReasons.filter(Boolean))].join(',') || 'NOT_PROVEN',
         calls: { total: request.calls.length, byEndpoint,
-            attempts: request.calls.map(({ label, method, status, timeoutMs }) => ({ label, method, status, timeoutMs })) },
+            attempts: request.calls.map(({ label, method, status, timeoutMs, startedAt: callStartedAt,
+                receivedAt, finishedAt }) => ({ label, method, status, timeoutMs, startedAt: callStartedAt,
+                receivedAt: receivedAt ?? null, finishedAt: finishedAt ?? null })) },
         acquisition: recent.contractOk ? {
             canonicalAcquisitionProven: recent.canonicalAcquisitionProven,
             sourceEpoch: recent.sourceEpoch,

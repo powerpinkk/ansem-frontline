@@ -1,4 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { CANONICAL_VALUATION_POLICY, canonicalValuation } from '../js/canonical-valuation.js';
+import { CONFIG } from '../js/config.js';
 import {
     WORKER_SMOKE_DEFAULTS,
     runCli,
@@ -9,8 +12,10 @@ import {
 
 const BUILD = 'ansem-frontline-worker-recovery-v1';
 const MINT = WORKER_SMOKE_DEFAULTS.mint;
-const NOW = 1_800_000_000_000;
-const MARKET = 'market111111111111111111111111111111111111';
+const VALUATION_FIXTURE = JSON.parse(readFileSync(new URL('./fixtures/public-chain/pump-valuation-states.json', import.meta.url)))
+    .find((sample) => sample.mint === MINT).result;
+const NOW = VALUATION_FIXTURE.receivedAt;
+const MARKET = VALUATION_FIXTURE.canonicalMarket.address;
 
 function headers(origin, extra = {}) {
     return { 'access-control-allow-origin': origin, 'cache-control': 'no-store', ...extra };
@@ -36,34 +41,35 @@ function marketBody() {
 }
 
 function recentBody({ complete = true, historicalGap = false, canonical = true,
-    stale = false, quoteStale = false, epoch = 7, marketEpoch = epoch, valuationEpoch = epoch, overrides = {} } = {}) {
-    const market = canonical ? { tokenMint: MINT, address: MARKET, protocol: 'pumpswap',
-        compatibility: 'POOL_STATE_AND_VAULTS_VERIFIED', lifecycle: 'AMM', sourceEpoch: marketEpoch } : null;
-    const valuation = canonical ? { tokenMint: MINT, marketIdentity: MARKET, sourceEpoch: valuationEpoch,
-        kind: 'PROTOCOL_MARKET_CAP', protocolDefinition: 'PUMP_PROTOCOL_MARKET_CAP_V1', authorityEligible: !stale && !quoteStale,
-        freshness: stale || quoteStale ? 'DEGRADED' : 'FRESH', nativeFreshness: stale ? 'STALE' : 'FRESH',
-        quoteFreshness: quoteStale ? 'STALE' : 'FRESH', nativeObservedAt: NOW - 1_000, quoteObservedAt: NOW - 1_000,
-        gates: { identity: true, formula: true, supply: true, nativeFresh: !stale, quoteIdentity: true,
-            quoteFresh: !quoteStale, slot: true, lifecycle: true, supportedVariant: true, numeric: true },
-        unitPrice: { kind: 'PROTOCOL_UNIT_PRICE', evidenceLevel: 'PROTOCOL_CANONICAL',
-            authorityEligible: !stale && !quoteStale, sourceEpoch: valuationEpoch,
-            observedAt: NOW - 1_000, quoteObservedAt: NOW - 1_000 },
-        provenance: { native: { method: 'ATOMIC_ACCOUNT_READ' }, quote: { source: 'PYTH_ONCHAIN_FULL' } } } : null;
+    stale = false, quoteStale = false, epoch = 7, marketEpoch = epoch, valuationEpoch = epoch,
+    nativeObservedAt = null, quoteObservedAt = null, trades = [], retainedExecutions = trades.length,
+    windowReason = 'OBSERVING_60S_WINDOW', overrides = {} } = {}) {
+    const market = canonical ? { ...structuredClone(VALUATION_FIXTURE.canonicalMarket), sourceEpoch: marketEpoch } : null;
+    const native = canonical ? { ...structuredClone(VALUATION_FIXTURE.nativeValuation), sourceEpoch: valuationEpoch,
+        tokenDecimals: 6, baseReserve: VALUATION_FIXTURE.nativeValuation.provenance.state.baseReserve,
+        observedAt: nativeObservedAt ?? (stale ? NOW - CANONICAL_VALUATION_POLICY.nativeTtlMs - 1
+            : VALUATION_FIXTURE.nativeValuation.observedAt) } : null;
+    const quoteObservation = canonical ? { ...structuredClone(VALUATION_FIXTURE.quoteUsd),
+        observedAt: quoteObservedAt ?? (quoteStale ? NOW - CANONICAL_VALUATION_POLICY.quoteTtlMs - 1
+            : VALUATION_FIXTURE.quoteUsd.observedAt) } : null;
+    const valuation = canonical ? canonicalValuation(native, quoteObservation, market, null, NOW) : null;
+    if (valuation) valuation.sourceEpoch = valuationEpoch;
     const marketState = capability(canonical && !stale);
-    const quote = capability(canonical && !quoteStale);
+    const quoteCapability = capability(canonical && !quoteStale);
     const valuationAvailable = capability(canonical && !stale && !quoteStale);
     const currentWindow = { complete, pending: !complete,
         observedSince: complete ? NOW - 61_000 : NOW - 10_000,
-        reason: complete ? null : 'OBSERVING_60S_WINDOW' };
+        reason: complete ? null : windowReason };
     const historicalCoverage = { incomplete: historicalGap, totalGaps: historicalGap ? 1 : 0,
         gaps: historicalGap ? [{ reason: 'OLD_UNPROVEN_GAP', at: NOW - 600_000, sourceEpoch: epoch }] : [] };
     return { version: 4, healthSchemaVersion: 1, buildId: BUILD, tokenMint: MINT,
         status: canonical ? 'observed' : 'degraded', sourceEpoch: canonical ? epoch : 0,
-        canonicalMarket: market, canonicalValuation: valuation, trades: [],
+        canonicalMarket: market, canonicalValuation: valuation, trades,
         integrity: { canonicalMarket: market, sourceEpoch: canonical ? epoch : 0,
-            coverage: { verifiedExecutions: 0 }, health: { schemaVersion: 1,
+            coverage: { verifiedExecutions: retainedExecutions,
+                scope: 'RETAINED_CANONICAL_MARKET_MAX_5_MINUTES' }, health: { schemaVersion: 1,
                 discoveryAvailable: capability(canonical), marketStateAvailable: marketState,
-                quoteUsdAvailable: quote, valuationAvailable,
+                quoteUsdAvailable: quoteCapability, valuationAvailable,
                 executionStreamAvailable: capability(complete), terrainAuthorityAvailable: valuationAvailable,
                 currentWindow, historicalCoverage } }, ...overrides };
 }
@@ -92,11 +98,23 @@ function transport({ health = healthBody(), market = marketBody(), recent = rece
     return { fetchImpl, calls };
 }
 
-async function smoke(options = {}) {
+async function smoke(options = {}, evaluatedAt = NOW) {
     const fixture = transport(options);
     const report = await runWorkerSmoke({ live: true, expectedBuildId: BUILD,
-        fetchImpl: fixture.fetchImpl, now: () => NOW });
+        fetchImpl: fixture.fetchImpl, now: () => evaluatedAt });
     return { report, ...fixture };
+}
+
+function trade({ timestamp = NOW - 1_000, settlement = 'FINALIZED', sourceEpoch = 7,
+    signature = '1'.repeat(88), outerIndex = 0 } = {}) {
+    const invocationPath = `${outerIndex}.outer`;
+    return { tokenMint: MINT, signature, poolAddress: MARKET, marketIdentity: MARKET,
+        sourceEpoch, id: `${MINT}:${signature}:${MARKET}:${invocationPath}:pool-v1`,
+        executionOrder: { outerIndex, innerIndex: null }, invocationPath,
+        slot: VALUATION_FIXTURE.nativeValuation.slot, isBuy: true,
+        rawTokenAmount: '100', rawQuoteAmount: '200', settlement,
+        evidenceLevel: 'CHAIN_VERIFIED', verificationVersion: 'pool-execution-v1',
+        economicScope: 'CANONICAL_POOL_EXECUTION', timestamp };
 }
 
 describe('worker production smoke', () => {
@@ -135,20 +153,85 @@ describe('worker production smoke', () => {
         expect(report.promotionReason).toContain('CANONICAL_VALUATION_NOT_PROVEN');
     });
 
-    it('never promotes stale canonical valuation', async () => {
-        const { report } = await smoke({ recent: recentBody({ stale: true }) });
+    it('accepts a complete fresh canonical valuation produced by the real constructor', async () => {
+        const { report } = await smoke({ recent: recentBody() });
+        expect(report).toMatchObject({ contractOk: true, canonicalAcquisitionProven: true,
+            promotionEligible: true, acquisition: { canonicalValuation: {
+                boundaryAccepted: true, economicValuesValid: true, authorityEligible: true,
+                nativeFreshness: 'FRESH', quoteFreshness: 'FRESH' } } });
+    });
+
+    it('expires native authority on receipt using the existing 20 second policy', async () => {
+        const body = recentBody();
+        const evaluatedAt = body.canonicalValuation.nativeObservedAt + CANONICAL_VALUATION_POLICY.nativeTtlMs + 1;
+        const { report } = await smoke({ recent: body }, evaluatedAt);
         expect(report.contractOk).toBe(true);
         expect(report.canonicalAcquisitionProven).toBe(false);
         expect(report.promotionEligible).toBe(false);
-        expect(report.promotionReason).toContain('CANONICAL_STATE_STALE');
+        expect(report.promotionReason).toContain('CANONICAL_STATE_EXPIRED_ON_RECEIPT');
+        expect(report.acquisition.canonicalValuation).toMatchObject({ boundaryAccepted: true,
+            authorityEligible: false, nativeFreshness: 'STALE', evaluatedAt,
+            nativeTtlMs: CANONICAL_VALUATION_POLICY.nativeTtlMs });
     });
 
-    it('never promotes a stale quote while preserving the canonical state distinction', async () => {
-        const { report } = await smoke({ recent: recentBody({ quoteStale: true }) });
+    it('evaluates recent at its receipt time instead of the global smoke start', async () => {
+        const fixture = transport({ recent: recentBody() });
+        let clock = NOW;
+        const receivedAt = VALUATION_FIXTURE.nativeValuation.observedAt
+            + CANONICAL_VALUATION_POLICY.nativeTtlMs + 1;
+        const fetchImpl = vi.fn(async (input, init) => {
+            if (new URL(input).pathname === '/recent') clock = receivedAt;
+            return fixture.fetchImpl(input, init);
+        });
+        const report = await runWorkerSmoke({ live: true, expectedBuildId: BUILD,
+            fetchImpl, now: () => clock });
+        expect(report.timing).toMatchObject({ startedAt: NOW, recentReceivedAt: receivedAt, evaluatedAt: receivedAt });
+        expect(report.canonicalAcquisitionProven).toBe(false);
+        expect(report.promotionEligible).toBe(false);
+        expect(report.promotionReason).toContain('CANONICAL_STATE_EXPIRED_ON_RECEIPT');
+    });
+
+    it('expires the quote while preserving independently fresh native acquisition', async () => {
+        const quoteObservedAt = NOW - CANONICAL_VALUATION_POLICY.quoteTtlMs + 10_000;
+        const body = recentBody({ quoteObservedAt });
+        const evaluatedAt = NOW + 10_001;
+        const { report } = await smoke({ recent: body }, evaluatedAt);
         expect(report.contractOk).toBe(true);
         expect(report.canonicalAcquisitionProven).toBe(true);
         expect(report.promotionEligible).toBe(false);
-        expect(report.promotionReason).toContain('CANONICAL_QUOTE_UNAVAILABLE_OR_STALE');
+        expect(report.promotionReason).toContain('CANONICAL_QUOTE_EXPIRED_ON_RECEIPT');
+        expect(report.acquisition.canonicalValuation).toMatchObject({ authorityEligible: false,
+            nativeFreshness: 'FRESH', quoteFreshness: 'STALE', evaluatedAt,
+            quoteTtlMs: CANONICAL_VALUATION_POLICY.quoteTtlMs });
+    });
+
+    it.each([
+        ['missing market cap', (value) => { delete value.valueUsd; }],
+        ['missing unit price', (value) => { delete value.unitPriceUsd; }],
+        ['missing nested unit price', (value) => { delete value.unitPrice.valueUsd; }],
+        ['zero market cap', (value) => { value.valueUsd = '0'; }],
+        ['non-finite unit price', (value) => { value.unitPriceUsd = 'NaN'; value.unitPrice.valueUsd = 'NaN'; }],
+        ['incoherent unit price', (value) => { value.unitPrice.valueUsd = '999'; }],
+    ])('never promotes canonical economic data with %s', async (_label, mutate) => {
+        const body = recentBody();
+        mutate(body.canonicalValuation);
+        const { report } = await smoke({ recent: body });
+        expect(report.contractOk).toBe(true);
+        expect(report.canonicalAcquisitionProven).toBe(false);
+        expect(report.promotionEligible).toBe(false);
+        expect(report.promotionReason).toContain('CANONICAL_ECONOMIC_VALUES_INVALID');
+    });
+
+    it.each([
+        ['future observation timestamp', (value) => { value.nativeObservedAt = NOW + 1; }],
+        ['invalid slot', (value) => { value.slot = -1; }],
+    ])('rejects canonical valuation with %s', async (_label, mutate) => {
+        const body = recentBody();
+        mutate(body.canonicalValuation);
+        const { report } = await smoke({ recent: body });
+        expect(report).toMatchObject({ contractOk: true, canonicalAcquisitionProven: false,
+            promotionEligible: false });
+        expect(report.promotionReason).toContain('CANONICAL_VALUATION_BOUNDARY_REJECTED');
     });
 
     it('recognizes the explicit no-safe-pools contract without inventing authority', async () => {
@@ -179,11 +262,56 @@ describe('worker production smoke', () => {
                 historical: { incomplete: true, totalGaps: 1 } } } });
     });
 
+    it('keeps retained five-minute coverage separate from a quiet 60 second window', async () => {
+        const old = trade({ timestamp: NOW - 120_000 });
+        const { report } = await smoke({ recent: recentBody({ trades: [old], retainedExecutions: 1 }) });
+        expect(report).toMatchObject({ promotionEligible: true, acquisition: { coverage: {
+            currentWindow: { state: 'QUIET', verifiedExecutions: 0, windowMs: CONFIG.PRESSURE_WINDOW_MS },
+            retainedJournal: { verifiedExecutions: 1, scope: 'RETAINED_CANONICAL_MARKET_MAX_5_MINUTES' } } } });
+    });
+
+    it('counts one deduplicated active canonical execution inside the 60 second window', async () => {
+        const current = trade({ timestamp: NOW - CONFIG.PRESSURE_WINDOW_MS + 1 });
+        const { report } = await smoke({ recent: recentBody({ trades: [current, structuredClone(current)],
+            retainedExecutions: 1 }) });
+        expect(report.acquisition.coverage).toMatchObject({
+            currentWindow: { state: 'ACTIVE', verifiedExecutions: 1, temporalEvidenceComplete: true },
+            retainedJournal: { verifiedExecutions: 1 } });
+        expect(report.promotionEligible).toBe(true);
+    });
+
+    it('does not count inactive or wrong-epoch executions as current activity', async () => {
+        const inactive = trade({ settlement: 'RECONCILIATION_UNKNOWN', signature: '2'.repeat(88) });
+        const foreignEpoch = trade({ sourceEpoch: 8, signature: '3'.repeat(88) });
+        const { report } = await smoke({ recent: recentBody({ trades: [inactive, foreignEpoch], retainedExecutions: 2 }) });
+        expect(report.acquisition.coverage).toMatchObject({ currentWindow: {
+            state: 'QUIET', verifiedExecutions: 0, temporalEvidenceComplete: true },
+        retainedJournal: { verifiedExecutions: 2 } });
+    });
+
+    it.each([
+        ['lacks original time', null],
+        ['has a future original time', NOW + 1],
+    ])('keeps current activity unknown when an active canonical event %s', async (_label, timestamp) => {
+        const uncertain = trade({ timestamp });
+        const { report } = await smoke({ recent: recentBody({ trades: [uncertain], retainedExecutions: 1 }) });
+        expect(report).toMatchObject({ promotionEligible: false, acquisition: { coverage: { currentWindow: {
+            state: 'UNKNOWN', verifiedExecutions: 0, temporalEvidenceComplete: false, temporalIssueCount: 1 } } } });
+        expect(report.promotionReason).toContain('CURRENT_WINDOW_TEMPORAL_EVIDENCE_INSUFFICIENT');
+    });
+
     it('keeps a zero-swap pending window explicit and ineligible', async () => {
         const { report } = await smoke({ recent: recentBody({ complete: false }) });
         expect(report).toMatchObject({ contractOk: true, canonicalAcquisitionProven: true,
             promotionEligible: false, acquisition: { coverage: { currentWindow: { state: 'PENDING' } } } });
         expect(report.promotionReason).toContain('OBSERVING_60S_WINDOW');
+    });
+
+    it('keeps an incomplete gapped window explicit instead of classifying it quiet', async () => {
+        const { report } = await smoke({ recent: recentBody({ complete: false, windowReason: 'CURRENT_WINDOW_GAP' }) });
+        expect(report).toMatchObject({ promotionEligible: false,
+            acquisition: { coverage: { currentWindow: { state: 'GAPPED', verifiedExecutions: 0 } } } });
+        expect(report.promotionReason).toContain('CURRENT_WINDOW_GAP');
     });
 
     it('uses exactly one call per endpoint and the configured CORS origins', async () => {
