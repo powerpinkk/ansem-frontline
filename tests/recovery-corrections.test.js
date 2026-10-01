@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { AcquisitionError, createAcquisitionPolicy } from '../worker/src/acquisition-policy.js';
+import { AcquisitionError, createAcquisitionPolicy, createJsonRpcTransport } from '../worker/src/acquisition-policy.js';
 import { createEvidenceIngestion } from '../worker/src/evidence-ingestion.js';
 import { StreamHub } from '../worker/src/stream-hub.js';
 import { deriveMarketHealth } from '../js/market-health.js';
@@ -93,6 +93,39 @@ function ingestionFor(fixture, now, onGap) {
 }
 
 describe('current execution-window truth', () => {
+    it('an unsupported transaction invalidates the current window without stopping independent reads', async () => {
+        let now = 100_000;
+        vi.spyOn(Date, 'now').mockImplementation(() => now);
+        const f = swapFixture({ blockTime: 100 });
+        const hub = new StreamHub({ storage: storageFor(), getWebSockets: () => [] }, {
+            __testNow: () => now, __testRandom: () => 0, __testSleep: async (ms) => { now += ms; },
+        });
+        await hub.restorePromise;
+        hub.tokenMint = f.mint; hub.sourceEpoch = 1;
+        const requests = [];
+        hub.rawRpc = createJsonRpcTransport({ HELIUS_API_KEY: 'test' }, async (_url, init) => {
+            const { method } = JSON.parse(init.body); requests.push(method);
+            return Response.json(method === 'getTransaction' ? { error: { code: -32015,
+                message: 'Transaction version (2) is not supported by the requesting client.' } }
+                : { result: { context: { slot: 100 }, value: [] } });
+        });
+        hub.ingestion = createEvidenceIngestion({ tokenMint: f.mint, canonicalMarket: f.market, rpc: hub.rpc,
+            admissionAwareRpc: true, now: () => now,
+            onGap: (gap) => hub.recordGap(gap.reason, { signature: gap.signature }) });
+        hub.capabilities.execution = { status: 'HEALTHY', lastSuccessAt: now };
+        hub.coverageHealthySince = now - 60_001;
+        expect(hub.health().currentWindow.complete).toBe(true);
+        hub.ingestion.observeSignature(f.signature); await hub.ingestion.drain();
+        expect(hub.health()).toMatchObject({ currentWindow: { complete: false, pending: true },
+            historicalCoverage: { totalGaps: 1, gaps: [expect.objectContaining({ reason: 'UNSUPPORTED_TRANSACTION_VERSION' })] },
+            evidence: { transaction: { status: 'GAP_RECORDED', lastFailure: { rpcCode: -32015, transactionVersion: 2 } } } });
+        await expect(hub.rpc('getMultipleAccounts', [[], { encoding: 'base64' }]))
+            .resolves.toMatchObject({ context: { slot: 100 } });
+        expect(hub.health().currentWindow.complete).toBe(false);
+        expect(requests).toEqual(['getTransaction', 'getMultipleAccounts']);
+        hub.ingestion.destroy();
+    });
+
     it('keeps raw unproven evidence out of QUIET and later recovers a new complete window without erasing history', async () => {
         let time = 100_000;
         vi.spyOn(Date, 'now').mockImplementation(() => time);

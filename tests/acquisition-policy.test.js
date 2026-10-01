@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { AcquisitionError, createAcquisitionPolicy, createJsonRpcTransport, retryAfterMs } from '../worker/src/acquisition-policy.js';
+import { AcquisitionError, acquisitionFailure, createAcquisitionPolicy, createJsonRpcTransport, retryAfterMs } from '../worker/src/acquisition-policy.js';
 
 function harness() {
     let time = 1_000;
@@ -36,6 +36,64 @@ function controlledHarness() {
 }
 
 describe('typed token acquisition policy', () => {
+    it('records only typed version diagnostics and does not retry an unsupported transaction version', async () => {
+        const secret = 'provider-message-must-not-be-retained';
+        const rpc = createJsonRpcTransport({ HELIUS_API_KEY: 'test' }, async () => Response.json({
+            jsonrpc: '2.0', error: { code: -32015,
+                message: `Transaction version (2) is not supported by the requesting client. ${secret}`,
+                data: { secret } },
+        }));
+        const error = await rpc('getTransaction', []).catch((e) => e);
+        expect(error).toMatchObject({ reason: 'RPC_ERROR_-32015', kind: 'UNSUPPORTED_TRANSACTION_VERSION',
+            retryable: false, rpcCode: -32015, transactionVersion: 2 });
+        expect(acquisitionFailure(error)).toMatchObject({ rpcCode: -32015, transactionVersion: 2, retryable: false });
+        expect(JSON.stringify(error)).not.toContain(secret);
+        expect(error.message).not.toContain(secret);
+    });
+
+    it.each(['unknown provider text', 'Transaction version (999) is not supported', null])(
+        'does not invent a transaction version from %s', async (message) => {
+            const rpc = createJsonRpcTransport({ HELIUS_API_KEY: 'test' }, async () => Response.json({
+                error: { code: -32015, message },
+            }));
+            await expect(rpc('getTransaction', [])).rejects.toMatchObject({ retryable: false, transactionVersion: null });
+        });
+
+    it('unsupported transaction reads leave unrelated standard acquisition available', async () => {
+        const h = harness();
+        const rpc = createJsonRpcTransport({ HELIUS_API_KEY: 'test' }, async (_url, init) => {
+            const { method } = JSON.parse(init.body);
+            return Response.json(method === 'getTransaction' ? { error: { code: -32015,
+                message: 'Transaction version (2) is not supported by the requesting client.' } }
+                : { result: { context: { slot: 100 }, value: [] } });
+        });
+        for (let i = 0; i < 4; i += 1) {
+            await expect(h.policy.run('standard', 'getTransaction', () => rpc('getTransaction', [])))
+                .rejects.toMatchObject({ kind: 'UNSUPPORTED_TRANSACTION_VERSION', retryable: false });
+        }
+        expect(h.policy.snapshot().standard).toMatchObject({ status: 'HEALTHY', nextRetryAt: 0, transientStreak: 0 });
+        await expect(h.policy.run('standard', 'getMultipleAccounts', () => rpc('getMultipleAccounts', [])))
+            .resolves.toMatchObject({ context: { slot: 100 } });
+    });
+
+    it('an unsupported half-open probe cannot erase a pre-existing provider cooldown', async () => {
+        const h = harness();
+        await expect(h.policy.run('standard', 'history', async () => {
+            throw new AcquisitionError('RPC_HTTP_429', { kind: 'RATE_LIMIT' });
+        })).rejects.toMatchObject({ kind: 'RATE_LIMIT' });
+        const deadline = h.policy.snapshot().standard.nextRetryAt;
+        h.advance(deadline - h.now());
+        await expect(h.policy.run('standard', 'getTransaction', async () => {
+            throw new AcquisitionError('RPC_ERROR_-32015', { kind: 'UNSUPPORTED_TRANSACTION_VERSION', retryable: false });
+        })).rejects.toMatchObject({ retryable: false });
+        expect(h.policy.snapshot().standard.status).toBe('RETRY_WAIT');
+        expect(h.policy.snapshot().standard.nextRetryAt).toBeGreaterThan(deadline);
+        await expect(h.policy.run('standard', 'getMultipleAccounts', async () => true))
+            .rejects.toMatchObject({ deferred: true, reason: 'STANDARD_COOLDOWN' });
+        h.advance(h.policy.snapshot().standard.nextRetryAt - h.now());
+        await expect(h.policy.run('standard', 'getMultipleAccounts', async () => true)).resolves.toBe(true);
+    });
+
     it('parses Retry-After delta/date and never shortens a provider deadline', async () => {
         expect(retryAfterMs('12', 1_000)).toBe(12_000);
         expect(retryAfterMs(new Date(31_000).toUTCString(), 1_000)).toBe(30_000);
@@ -254,6 +312,7 @@ describe('typed token acquisition policy', () => {
 
     it.each([
         ['RATE_LIMIT', 10_000], ['TIMEOUT', null], ['NETWORK', null], ['UPSTREAM_5XX', null], ['AUTH', null],
+        ['UNSUPPORTED_TRANSACTION_VERSION', null],
     ])('never shortens a longer shared deadline when a concurrent %s arrives', async (kind, retryAfterMs) => {
         const h = controlledHarness();
         let rejectLong, rejectOther;

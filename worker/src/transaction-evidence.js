@@ -23,7 +23,7 @@ function verify(tx, signature, tokenMint, settlement) {
     const message = tx.transaction.message;
     if (!Array.isArray(message?.accountKeys) || message.accountKeys.length > 256) return reject('ACCOUNT_KEYS_MISSING');
     let resolved;
-    try { resolved = resolveTransactionAccounts(message, tx.meta); } catch (e) { return reject(e.message); }
+    try { resolved = resolveTransactionAccounts(message, tx.meta, tx.version); } catch (e) { return reject(e.message); }
     const { keys, signers, groups } = resolved;
     const invocations = successfulInvocations(tx.meta.logMessages);
     const invocationOffsets = new Map();

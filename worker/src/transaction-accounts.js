@@ -1,11 +1,37 @@
 import { validateSolanaMint } from '../../js/token-context.js';
 import { decodeBase58, TOKEN_PROGRAM, TOKEN_2022_PROGRAM } from './protocol-verifiers.js';
 
+export const MAX_SUPPORTED_TRANSACTION_VERSION = 1;
+
+function validateVersion(message, meta, version) {
+    // Older retained responses can omit the version. Explicit unknown versions
+    // or a v1 config under a legacy/v0 label must never inherit swap authority.
+    if (version !== undefined && version !== 'legacy' && version !== 0 && version !== MAX_SUPPORTED_TRANSACTION_VERSION) {
+        throw new Error('UNSUPPORTED_TRANSACTION_VERSION');
+    }
+    if (version !== 1) {
+        if (message.transactionConfig !== undefined) throw new Error('TRANSACTION_VERSION_MISMATCH');
+        return;
+    }
+    const config = message.transactionConfig;
+    if (!config || typeof config !== 'object' || Array.isArray(config)) throw new Error('TRANSACTION_CONFIG_MISSING');
+    // V1 has no address lookup tables. The RPC has decoded its wire format;
+    // transactionConfig is opaque here and cannot contribute economic amounts.
+    const lookups = message.addressTableLookups, loaded = meta.loadedAddresses;
+    if (lookups != null && (!Array.isArray(lookups) || lookups.length)
+        || loaded != null && (!Array.isArray(loaded.writable) || loaded.writable.length
+            || !Array.isArray(loaded.readonly) || loaded.readonly.length)
+        || message.accountKeys.some((key) => key?.source === 'lookupTable')) {
+        throw new Error('V1_LOOKUP_TABLES_UNSUPPORTED');
+    }
+}
+
 // jsonParsed already expands ALT keys. Compiled JSON uses static + writable +
 // readonly loaded keys in that order; signer flags apply only to static keys.
-export function resolveTransactionAccounts(message, meta) {
+export function resolveTransactionAccounts(message, meta, version) {
     const source = message?.accountKeys;
     if (!Array.isArray(source) || !source.length) throw new Error('ACCOUNT_KEYS_MISSING');
+    validateVersion(message, meta, version);
     if (!Array.isArray(message.instructions) || message.instructions.length > 512
         || (meta.innerInstructions || []).reduce((n, g) => n + g.instructions.length, message.instructions.length) > 512) throw new Error('INSTRUCTION_BUDGET');
     const parsed = source.every((k) => typeof k === 'object' && k !== null);

@@ -8,7 +8,7 @@ This recovery keeps the version-4 public envelope and adds `health.schemaVersion
 - Standard RPC starts are limited to two concurrent requests, at least 250 ms apart, and 162 per rolling 60 seconds. DAS starts are limited to one concurrent request, at least one second apart, and four per rolling 60 seconds.
 - A 429 opens a shared group cooldown. `Retry-After` seconds and HTTP dates are honored; a longer provider deadline is never shortened. After expiry, exactly one necessary real read may make the half-open provider-group probe.
 - Concurrent completions cannot erase or shorten an active shared wait: every applicable failure merges its effective deadline, including a late 429 from an older admitted request. Only a successful due half-open probe may reopen the group, and an older success cannot override a newer failure.
-- Timeout, network, 5xx, JSON-RPC, and malformed-response failures use bounded retries. Authentication/configuration failures do not retry rapidly. Valid empty history and valid `getTransaction: null` responses are not transport failures.
+- Timeout, network, 5xx, transient JSON-RPC, and malformed-response failures use bounded retries. Unsupported transaction versions (`-32015`) are terminal for the affected evidence job. Authentication/configuration failures do not retry rapidly. Valid empty history and valid `getTransaction: null` responses are not transport failures.
 - Cooldown state and bounded historical gap metadata survive a Durable Object restart. Canonical snapshots and the execution journal remain intentionally non-durable.
 - Admission uses a bounded per-group queue and makes its final cooldown, half-open, capacity, spacing, and rolling-budget checks atomically. A queued request always rechecks after waiting, so a newly opened cooldown prevents it from starting.
 - An expired shared cooldown admits exactly one necessary real read as the provider-group probe even when the originally failing job no longer exists. That success reopens only transport admission; evidence jobs still require their own verified read or an explicit unknown/gap outcome.
@@ -17,6 +17,14 @@ This recovery keeps the version-4 public envelope and adds `health.schemaVersion
 Stable PumpSwap identity is fully rediscovered and revalidated at cold start and no more than once per 60 seconds. Its atomic pool, mint, vault, live-supply, variant, and fixed-oracle observation refreshes no more than once per 10 seconds. Pump curves retain their full 10-second lifecycle check. Other supported AMMs retain 60-second discovery and gain no valuation formula.
 
 `/market` is served by the same token object without triggering canonical discovery. Its normalized token/SOL DAS pair is coalesced for 30 seconds and keeps the original observation timestamps. Failures are `no-store`, sanitized, and expose `Retry-After` plus `error.retryAt` when available.
+
+## Transaction versions
+
+Confirmed and finalized `getTransaction` reads use `jsonParsed` with `maxSupportedTransactionVersion: 1`. Legacy/v0 verification is preserved. V1 JSON must carry `transactionConfig` and static accounts; unknown versions, inconsistent version/config labels, or v1 lookup-table evidence cannot become verified trades. The trusted RPC decodes the binary format. This Worker does not deserialize v1 wire bytes or derive swap notional from compute-budget/priority-fee fields. See the [Solana RPC migration contract](https://solana.com/upgrades/larger-transaction-sizes).
+
+RPC `-32015` records one `UNSUPPORTED_TRANSACTION_VERSION` gap and withdraws provisional authority if finalization cannot be verified. It does not retry the same immutable transaction or create a shared standard cooldown. Existing provider cooldowns still apply and can only reopen through a successful eligible probe. Diagnostics retain the numeric RPC code and, when unambiguously present, the bounded transaction version, never the provider's raw message or data. Other transient failures retain their existing bounded policy.
+
+Contract tests cover parsed and compiled legacy/v0/v1 responses, direct and routed pool effects, independent user attribution, finalization, invalid versions/accounts and RPC error isolation. V1 variants are explicitly synthetic; these tests do not replace a bounded live observation of a deployed candidate.
 
 ## Health and authority
 

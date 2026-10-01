@@ -5,6 +5,7 @@ import { verificationCategory, summarizeCoverage } from './verification-coverage
 import { verifyPoolExecutions } from './pool-executions.js';
 import { summarizePoolCoverage } from './pool-coverage.js';
 import { acquisitionFailure, AcquisitionError } from './acquisition-policy.js';
+import { MAX_SUPPORTED_TRANSACTION_VERSION } from './transaction-accounts.js';
 
 export const INGESTION_POLICY = Object.freeze({ maxRecords: 1024, maxQueued: 128, concurrency: 2,
     maxAgeMs: 300_000, retries: 3, reconciliationMs: 3000, reconciliationDeadlineMs: 90_000, statusBatch: 50, maxTransactionReadsPerMinute: 120 });
@@ -41,7 +42,7 @@ export function createEvidenceIngestion({ tokenMint, canonicalMarket = null, rpc
         } else {
             const failure = acquisitionFailure(error);
             current.status = 'RETRY_WAIT'; current.reason = failure.reason; current.nextRetryAt = failure.retryAt;
-            current.lastFailureAt = now();
+            current.lastFailureAt = now(); current.lastFailure = failure;
         }
     }
 
@@ -120,7 +121,8 @@ export function createEvidenceIngestion({ tokenMint, canonicalMarket = null, rpc
         };
         try {
             if (!admissionAwareRpc) markStarted();
-            const tx = await rpc('getTransaction', [record.signature, { encoding: 'jsonParsed', commitment, maxSupportedTransactionVersion: 0 }],
+            const tx = await rpc('getTransaction', [record.signature, { encoding: 'jsonParsed', commitment,
+                maxSupportedTransactionVersion: MAX_SUPPORTED_TRANSACTION_VERSION }],
                 abort.signal, { capability: 'getTransaction', onStart: markStarted });
             if (!started) markStarted();
             if (stopped) return;
@@ -163,7 +165,9 @@ export function createEvidenceIngestion({ tokenMint, canonicalMarket = null, rpc
             counts.rpcFailures += 1;
             failedJobs.transaction.set(record.signature, acquisitionFailure(error));
             acquisitionResult('transaction', ticket, false, error);
-            if (record.attempts >= policy.retries) {
+            if (error instanceof AcquisitionError && error.kind === 'UNSUPPORTED_TRANSACTION_VERSION') {
+                unknown(record, 'UNSUPPORTED_TRANSACTION_VERSION');
+            } else if (record.attempts >= policy.retries) {
                 unknown(record, 'TRANSACTION_ACQUISITION_EXHAUSTED');
             } else {
                 record.state = commitment === 'finalized' ? 'FINALIZE_PENDING' : 'PENDING';

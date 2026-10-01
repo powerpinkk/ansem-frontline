@@ -14,6 +14,9 @@ export class AcquisitionError extends Error {
         this.reason = reason;
         this.kind = options.kind || 'UNKNOWN';
         this.status = Number.isInteger(options.status) ? options.status : null;
+        this.rpcCode = Number.isSafeInteger(options.rpcCode) ? options.rpcCode : null;
+        this.transactionVersion = Number.isInteger(options.transactionVersion)
+            && options.transactionVersion >= 0 && options.transactionVersion <= 127 ? options.transactionVersion : null;
         this.retryAfterMs = Number.isFinite(options.retryAfterMs) ? Math.max(0, options.retryAfterMs) : null;
         this.retryAt = Number.isFinite(options.retryAt) ? options.retryAt : null;
         this.retryable = options.retryable ?? RETRYABLE_KINDS.has(this.kind);
@@ -45,6 +48,8 @@ export function acquisitionFailure(error) {
         reason: failure.reason,
         kind: failure.kind,
         status: failure.status,
+        rpcCode: failure.rpcCode,
+        transactionVersion: failure.transactionVersion,
         retryAt: failure.retryAt,
         retryable: failure.retryable,
         deferred: failure.deferred,
@@ -92,7 +97,16 @@ export function createJsonRpcTransport(env, fetchImpl = fetch, options = {}) {
         }
         if (payload.error) {
             const code = Number.isInteger(payload.error.code) ? payload.error.code : 'UNKNOWN';
-            throw new AcquisitionError(`RPC_ERROR_${code}`, { kind: 'RPC_ERROR' });
+            // A fixed client version limit cannot be repaired by retrying the
+            // same request. Preserve only bounded, typed diagnostics, never the
+            // provider's arbitrary message/data (which may include credentials).
+            if (code === -32015) {
+                const message = typeof payload.error.message === 'string' ? payload.error.message.slice(0, 256) : '';
+                const version = /^Transaction version \((\d{1,3})\) is not supported\b/i.exec(message);
+                throw new AcquisitionError(`RPC_ERROR_${code}`, { kind: 'UNSUPPORTED_TRANSACTION_VERSION',
+                    retryable: false, rpcCode: code, transactionVersion: Number(version?.[1]) });
+            }
+            throw new AcquisitionError(`RPC_ERROR_${code}`, { kind: 'RPC_ERROR', rpcCode: code });
         }
         const result = payload.result;
         const valid = method === 'getMultipleAccounts'
