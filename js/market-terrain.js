@@ -25,6 +25,13 @@ export const MARKET_TERRAIN_POLICY = Object.freeze({
     maxImpactExecutions: 64,
 });
 
+export const TERRAIN_PRESENTATION_STATE = Object.freeze({
+    LIVE: 'LIVE',
+    FROZEN: 'FROZEN',
+    INDICATIVE: 'INDICATIVE',
+    UNANCHORED_WAITING: 'UNANCHORED_WAITING',
+});
+
 const MOVEMENT_CAUSES = Object.freeze({
     TOKEN_PRICE_UPDATE: 'TOKEN_NATIVE_MARKET_MOVE',
     TOKEN_PRICE_AND_QUOTE_FX: 'TOKEN_NATIVE_AND_QUOTE_FX_MOVE',
@@ -244,6 +251,38 @@ export function createVisibleTerrainWindow(logicalCoordinate, viewportWidth = 1_
     });
 }
 
+export function createUnanchoredTerrainWindow(viewportWidth = 1_280) {
+    const policy = viewportPolicy(viewportWidth);
+    const first = -policy.bandsBehind;
+    const last = policy.bandsAhead + 1;
+    const boundaries = [];
+    const minorMarks = [];
+    for (let coordinate = first; coordinate <= last; coordinate += 1) {
+        boundaries.push(Object.freeze({
+            coordinate: null,
+            valuation: null,
+            label: '',
+            localX: coordinate * MARKET_TERRAIN_POLICY.worldUnitsPerBand,
+            labelled: false,
+        }));
+        if (coordinate < last) {
+            for (let subdivision = 1; subdivision < 5; subdivision += 1) {
+                minorMarks.push(Object.freeze({ coordinate: null,
+                    localX: (coordinate + subdivision / 5) * MARKET_TERRAIN_POLICY.worldUnitsPerBand }));
+            }
+        }
+    }
+    return Object.freeze({
+        anchorCoordinate: null,
+        bandsBehind: policy.bandsBehind,
+        bandsAhead: policy.bandsAhead,
+        boundaries: Object.freeze(boundaries),
+        minorMarks: Object.freeze(minorMarks),
+        objectBudget: Object.freeze({ majorBoundaries: boundaries.length, minorMarks: minorMarks.length,
+            labels: 0, frontier: 0 }),
+    });
+}
+
 function emptyWindow() {
     return Object.freeze({ anchorCoordinate: 0, bandsBehind: 0, bandsAhead: 0,
         boundaries: Object.freeze([]), minorMarks: Object.freeze([]),
@@ -319,6 +358,15 @@ export function createMarketTerrain(tokenMint, options = {}) {
     let executions = [];
     let supersededTraversals = 0;
     let authorityLost = false;
+    let indicativeAnchor = null;
+
+    function presentationState() {
+        if (current) return status === 'LIVE'
+            ? TERRAIN_PRESENTATION_STATE.LIVE
+            : TERRAIN_PRESENTATION_STATE.FROZEN;
+        if (indicativeAnchor) return TERRAIN_PRESENTATION_STATE.INDICATIVE;
+        return TERRAIN_PRESENTATION_STATE.UNANCHORED_WAITING;
+    }
 
     function clearImpactWindow(now) {
         executions = executions.filter((event) => now - event.timestamp <= policy.impactWindowMs).slice(-policy.maxImpactExecutions);
@@ -327,17 +375,39 @@ export function createMarketTerrain(tokenMint, options = {}) {
     function snapshot(viewportWidth = 1_280) {
         const logicalCoordinate = current ? valuationToLogicalCoordinate(current.valueUsd) : null;
         const band = current ? marketBand(current.valueUsd) : null;
-        const window = presentationCoordinate === null ? emptyWindow() : createVisibleTerrainWindow(presentationCoordinate, viewportWidth);
+        const displayWindowAnchorCoordinate = presentationCoordinate ?? indicativeAnchor?.coordinate ?? null;
+        const rawWindow = displayWindowAnchorCoordinate === null
+            ? createUnanchoredTerrainWindow(viewportWidth)
+            : createVisibleTerrainWindow(displayWindowAnchorCoordinate, viewportWidth);
+        const mode = presentationState();
+        const window = Object.freeze({
+            ...rawWindow,
+            mode,
+            numericLabels: mode !== TERRAIN_PRESENTATION_STATE.UNANCHORED_WAITING,
+            objectBudget: Object.freeze({
+                ...rawWindow.objectBudget,
+                labels: mode === TERRAIN_PRESENTATION_STATE.UNANCHORED_WAITING ? 0 : rawWindow.objectBudget.labels,
+                frontier: current ? 1 : 0,
+            }),
+        });
         const distance = presentationCoordinate === null || targetCoordinate === null ? 0 : Math.abs(targetCoordinate - presentationCoordinate);
         return Object.freeze({
             tokenMint,
             status,
+            presentationState: mode,
             authoritativeValuation: current ? Number(current.valueUsd) : null,
             valuationLabel: current ? formatValuation(current.valueUsd) : '—',
             valuationKind: current?.kind ?? null,
             logicalCoordinate,
             presentationCoordinate,
             targetCoordinate,
+            displayWindowAnchorCoordinate,
+            displayWindowAnchorSource: current ? 'AUTHORITATIVE_PRESENTATION'
+                : indicativeAnchor ? 'PROVIDER_INDICATIVE' : 'UNANCHORED',
+            indicativeValuation: indicativeAnchor?.value ?? null,
+            indicativeValuationLabel: indicativeAnchor ? formatValuation(indicativeAnchor.value) : null,
+            indicativeValuationKind: indicativeAnchor?.kind ?? null,
+            hasAuthoritativeFrontier: Boolean(current),
             presentationLocalX: presentationCoordinate === null ? null
                 : (presentationCoordinate - window.anchorCoordinate) * policy.worldUnitsPerBand,
             targetLocalX: targetCoordinate === null ? null
@@ -357,6 +427,26 @@ export function createMarketTerrain(tokenMint, options = {}) {
     }
 
     return Object.freeze({
+        observeDisplayValuation(value) {
+            if (current) return snapshot();
+            const numeric = Number(value?.valueUsd);
+            const typedIndicative = value?.authorityEligible !== true
+                && value?.evidenceLevel === 'PROVIDER_INDICATIVE'
+                && (value?.kind === 'MARKET_CAP' || value?.kind === 'FDV')
+                && value?.tokenMint === tokenMint
+                && Number.isFinite(numeric)
+                && numeric > 0;
+            if (!typedIndicative) return snapshot();
+            indicativeAnchor = Object.freeze({
+                value: numeric,
+                kind: value.kind,
+                coordinate: valuationToLogicalCoordinate(String(value.valueUsd)),
+                evidenceLevel: value.evidenceLevel,
+            });
+            status = 'WAITING';
+            impact = null;
+            return snapshot();
+        },
         observeValuation(value, now = Date.now()) {
             if (!value || value.authorityEligible !== true || value.freshness !== 'FRESH') {
                 status = current ? 'DEGRADED' : 'WAITING';
@@ -367,6 +457,7 @@ export function createMarketTerrain(tokenMint, options = {}) {
             }
             if (value.tokenMint !== tokenMint || value.kind !== 'PROTOCOL_MARKET_CAP'
                 || typeof value.valueUsd !== 'string' || Number(value.valueUsd) <= 0) return snapshot();
+            if (current && value.sourceEpoch < current.sourceEpoch) return snapshot();
             const nextCoordinate = valuationToLogicalCoordinate(value.valueUsd);
             if (authorityLost && current) {
                 current = { ...value, movementCause: 'STATE_RECONCILIATION' };
@@ -376,6 +467,7 @@ export function createMarketTerrain(tokenMint, options = {}) {
             }
             if (!current) {
                 current = value;
+                indicativeAnchor = null;
                 presentationCoordinate = nextCoordinate;
                 targetCoordinate = nextCoordinate;
                 lastAdvanceAt = now;
@@ -385,11 +477,11 @@ export function createMarketTerrain(tokenMint, options = {}) {
                 authorityLost = false;
                 return snapshot();
             }
-            if (value.sourceEpoch < current.sourceEpoch) return snapshot();
             if (value.sourceEpoch !== current.sourceEpoch) {
                 rebase = Object.freeze({ fromSourceEpoch: current.sourceEpoch, toSourceEpoch: value.sourceEpoch,
                     fromValuation: Number(current.valueUsd), toValuation: Number(value.valueUsd), at: now });
                 current = value;
+                indicativeAnchor = null;
                 presentationCoordinate = nextCoordinate;
                 targetCoordinate = nextCoordinate;
                 lastAdvanceAt = now;
@@ -413,6 +505,7 @@ export function createMarketTerrain(tokenMint, options = {}) {
                 maxBoundaries: policy.maxTraversalBoundaries,
             });
             current = value;
+            indicativeAnchor = null;
             targetCoordinate = nextCoordinate;
             lastAdvanceAt = now;
             status = 'LIVE';
@@ -483,6 +576,7 @@ export function createMarketTerrain(tokenMint, options = {}) {
             current = null; presentationCoordinate = null; targetCoordinate = null; lastAdvanceAt = null;
             status = 'WAITING'; traversal = null; rebase = null; impact = null; executions = []; supersededTraversals = 0;
             authorityLost = false;
+            indicativeAnchor = null;
             return snapshot();
         },
         getSnapshot: snapshot,

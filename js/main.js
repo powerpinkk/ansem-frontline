@@ -162,6 +162,7 @@ function mountRuntime(resolution) {
         onMarketUpdate: active((market) => {
             updateMarketUI(market);
             updateBattleLogSnapshot(market);
+            runtime.state.marketTerrain = session.terrain.observeDisplayValuation(market?.valuation);
         }),
         onTrade: active((trade, meta) => {
             if (!meta.bootstrap) runtime.state.marketTerrain = session.terrain.observeExecution(trade);
@@ -338,6 +339,36 @@ function boot() {
     if (import.meta.env.MODE === 'e2e') {
         window.__ansemActivateTestChampion = () => championController.activateTestChampion({
             mint: currentSession?.context?.identity?.mint,
+        });
+        window.__ansemTerrainFixture = Object.freeze({
+            authoritative(value, { movementCause = 'TOKEN_PRICE_UPDATE', sourceEpoch = 1 } = {}) {
+                const mint = currentSession?.context?.identity?.mint;
+                if (!mint || !(Number(value) > 0)) throw new TypeError('Terrain fixture requires a positive value');
+                return currentSession.terrain.observeValuation({
+                    tokenMint: mint,
+                    marketIdentity: `e2e:${mint}`,
+                    sourceEpoch,
+                    kind: 'PROTOCOL_MARKET_CAP',
+                    protocolDefinition: 'PUMP_PROTOCOL_MARKET_CAP_V1',
+                    valueUsd: String(value),
+                    freshness: 'FRESH',
+                    authorityEligible: true,
+                    nativeObservedAt: Date.now(),
+                    movementCause,
+                });
+            },
+            degrade() { return currentSession?.terrain.observeValuation(null) || null; },
+            reset() { return currentSession?.terrain.reset() || null; },
+            indicative(value, kind = 'MARKET_CAP') {
+                const mint = currentSession?.context?.identity?.mint;
+                return currentSession?.terrain.observeDisplayValuation({
+                    tokenMint: mint,
+                    valueUsd: Number(value),
+                    kind,
+                    evidenceLevel: 'PROVIDER_INDICATIVE',
+                    authorityEligible: false,
+                }) || null;
+            },
         });
     }
 }

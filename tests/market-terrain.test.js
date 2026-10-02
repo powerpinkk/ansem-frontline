@@ -4,6 +4,7 @@ import {
     MARKET_TERRAIN_POLICY,
     createBandTraversal,
     createMarketTerrain,
+    createUnanchoredTerrainWindow,
     createVisibleTerrainWindow,
     formatValuation,
     logicalCoordinateToValuation,
@@ -86,6 +87,14 @@ describe('market terrain band policy', () => {
 });
 
 describe('band traversal and bounded windows', () => {
+    it('keeps a bounded, non-numeric terrain structure without a display anchor', () => {
+        const desktop = createUnanchoredTerrainWindow(1_440);
+        const mobile = createUnanchoredTerrainWindow(390);
+        expect(desktop.objectBudget).toMatchObject({ majorBoundaries: 10, minorMarks: 36, labels: 0, frontier: 0 });
+        expect(mobile.objectBudget).toMatchObject({ majorBoundaries: 6, minorMarks: 20, labels: 0, frontier: 0 });
+        expect(desktop.boundaries.every((boundary) => boundary.valuation === null && boundary.label === '')).toBe(true);
+    });
+
     it('enumerates 100K to 600K exactly without synthetic executions', () => {
         const traversal = createBandTraversal(100_000, 600_000, { sourceEpoch: 3, movementCause: 'TOKEN_PRICE_UPDATE' });
         expect(traversal.direction).toBe('BULLISH');
@@ -137,6 +146,60 @@ describe('band traversal and bounded windows', () => {
 });
 
 describe('market frontier authority and presentation', () => {
+    it('starts in an intentional unanchored waiting state without a frontier', () => {
+        const result = createMarketTerrain(MINT).getSnapshot(1_440);
+        expect(result).toMatchObject({
+            status: 'WAITING',
+            presentationState: 'UNANCHORED_WAITING',
+            authoritativeValuation: null,
+            displayWindowAnchorCoordinate: null,
+            displayWindowAnchorSource: 'UNANCHORED',
+            hasAuthoritativeFrontier: false,
+        });
+        expect(result.window.objectBudget).toMatchObject({ majorBoundaries: 10, minorMarks: 36, labels: 0, frontier: 0 });
+    });
+
+    it('uses typed provider-indicative valuation only as a display anchor', () => {
+        const terrain = createMarketTerrain(MINT);
+        const result = terrain.observeDisplayValuation({
+            tokenMint: MINT,
+            valueUsd: 600_000,
+            kind: 'MARKET_CAP',
+            evidenceLevel: 'PROVIDER_INDICATIVE',
+            authorityEligible: false,
+        });
+        expect(result).toMatchObject({
+            status: 'WAITING',
+            presentationState: 'INDICATIVE',
+            authoritativeValuation: null,
+            indicativeValuation: 600_000,
+            displayWindowAnchorSource: 'PROVIDER_INDICATIVE',
+            hasAuthoritativeFrontier: false,
+            impact: null,
+            traversal: null,
+        });
+        expect(result.displayWindowAnchorCoordinate).toBe(valuationToLogicalCoordinate('600000'));
+        expect(result.window.objectBudget.frontier).toBe(0);
+        expect(result.window.objectBudget.labels).toBeGreaterThan(0);
+        const afterExecution = terrain.observeExecution(canonicalEvent(), 1_100);
+        expect(afterExecution.impact).toBeNull();
+        expect(afterExecution.traversal).toBeNull();
+        expect(terrain.getDiagnostics().impactEvidenceCount).toBe(0);
+    });
+
+    it('refuses untyped or foreign indicative values as display anchors', () => {
+        const cases = [
+            { tokenMint: MINT, valueUsd: 600_000, kind: 'MARKET_CAP', authorityEligible: false },
+            { tokenMint: 'foreign', valueUsd: 600_000, kind: 'MARKET_CAP', evidenceLevel: 'PROVIDER_INDICATIVE', authorityEligible: false },
+            { tokenMint: MINT, valueUsd: 600_000, kind: 'UNKNOWN', evidenceLevel: 'PROVIDER_INDICATIVE', authorityEligible: false },
+        ];
+        for (const candidate of cases) {
+            const result = createMarketTerrain(MINT).observeDisplayValuation(candidate);
+            expect(result.presentationState).toBe('UNANCHORED_WAITING');
+            expect(result.displayWindowAnchorCoordinate).toBeNull();
+        }
+    });
+
     it('initializes around 20M without a fake zero-to-market traversal', () => {
         const terrain = createMarketTerrain(MINT);
         const result = terrain.observeValuation(valuation(20_000_000, { movementCause: 'SOURCE_REBASE' }), 1_000);
@@ -153,6 +216,34 @@ describe('market frontier authority and presentation', () => {
         expect(result.traversal).toBeNull();
         expect(result.presentationCoordinate).toBe(result.targetCoordinate);
         expect(result.authoritativeValuation).toBe(20_000_000);
+    });
+
+    it('does not delay presentation when the same live value refreshes before each frame', () => {
+        const baseline = createMarketTerrain(MINT);
+        const refreshed = createMarketTerrain(MINT);
+        for (const terrain of [baseline, refreshed]) {
+            terrain.observeValuation(valuation(100_000), 1_000);
+            terrain.observeValuation(valuation(600_000), 1_100);
+        }
+        for (const now of [1_150, 1_200, 1_250, 1_300]) {
+            refreshed.observeValuation(valuation(600_000), now);
+            expect(refreshed.advance(now).presentationCoordinate).toBe(baseline.advance(now).presentationCoordinate);
+        }
+    });
+
+    it('replaces an indicative window with canonical truth and cannot re-anchor it while frozen', () => {
+        const terrain = createMarketTerrain(MINT);
+        const indicative = { tokenMint: MINT, valueUsd: 600_000, kind: 'MARKET_CAP',
+            evidenceLevel: 'PROVIDER_INDICATIVE', authorityEligible: false };
+        terrain.observeDisplayValuation(indicative);
+        const live = terrain.observeValuation(valuation(1_200_000), 1_000);
+        expect(live).toMatchObject({ presentationState: 'LIVE', authoritativeValuation: 1_200_000,
+            indicativeValuation: null, hasAuthoritativeFrontier: true, traversal: null, impact: null });
+        const frozen = terrain.degrade();
+        expect(terrain.observeDisplayValuation({ ...indicative, valueUsd: 50_000_000 })).toEqual(frozen);
+        expect(terrain.advance(10_000)).toEqual(frozen);
+        expect(terrain.reset()).toMatchObject({ presentationState: 'UNANCHORED_WAITING',
+            authoritativeValuation: null, indicativeValuation: null, hasAuthoritativeFrontier: false });
     });
 
     it('rejects indicative, stale, degraded, Mayhem and foreign-token valuation authority', () => {
@@ -220,7 +311,7 @@ describe('market frontier authority and presentation', () => {
         expect(result.impact).toBeNull();
     });
 
-    it('freezes the last authoritative target while degraded and reconciles on recovery', () => {
+    it('freezes at the last presentation coordinate while degraded and reconciles on recovery', () => {
         const terrain = createMarketTerrain(MINT);
         terrain.observeValuation(valuation(1_000_000), 1_000);
         const live = terrain.observeValuation(valuation(2_000_000), 1_100);
@@ -228,11 +319,26 @@ describe('market frontier authority and presentation', () => {
         expect(frozen.status).toBe('DEGRADED');
         expect(frozen.targetCoordinate).toBe(live.presentationCoordinate);
         expect(terrain.advance(2_200).presentationCoordinate).toBe(frozen.presentationCoordinate);
+        expect(frozen.presentationState).toBe('FROZEN');
         const recovered = terrain.observeValuation(valuation(2_500_000, { movementCause: 'STATE_RECONCILIATION' }), 1_300);
         expect(recovered.status).toBe('LIVE');
         expect(recovered.authoritativeValuation).toBe(2_500_000);
         expect(recovered.presentationCoordinate).toBe(recovered.targetCoordinate);
         expect(recovered.traversal).toBeNull();expect(recovered.impact).toBeNull();
+    });
+
+    it('does not thaw frozen terrain from an older epoch before current authority recovers', () => {
+        const terrain = createMarketTerrain(MINT);
+        terrain.observeValuation(valuation(600_000, { sourceEpoch: 2 }), 1_000);
+        terrain.observeExecution(canonicalEvent({ sourceEpoch: 2 }), 1_050);
+        const frozen = terrain.observeValuation(null, 1_100);
+        expect(terrain.observeValuation(valuation(50_000_000, { sourceEpoch: 1 }), 1_200)).toEqual(frozen);
+        expect(terrain.getDiagnostics().impactEvidenceCount).toBe(0);
+        const recovered = terrain.observeValuation(valuation(1_200_000, { sourceEpoch: 2 }), 1_300);
+        expect(recovered).toMatchObject({ presentationState: 'LIVE', sourceEpoch: 2,
+            authoritativeValuation: 1_200_000, movementCause: 'RECOVERY_RECONCILIATION',
+            traversal: null, impact: null });
+        expect(recovered.presentationCoordinate).toBe(recovered.targetCoordinate);
     });
 
     it('isolates tokens and refuses a verified execution from another epoch', () => {

@@ -12,7 +12,7 @@ The implementation has three layers:
 
 1. `js/market-terrain.js` is a renderer-independent domain module. It owns scale conversion, band lookup, traversal descriptions, authoritative and presentation coordinates, bounded evidence aggregation, degradation, rebase, and diagnostics.
 2. Each token runtime in `js/main.js` owns one terrain controller. Token destruction discards its traversal and impact state; the reusable renderer pools remain global.
-3. `js/scene.js` projects the current bounded window onto the existing battlefield. It mutates preallocated Three.js instances and ten pooled DOM labels at no more than 20 Hz. It never creates geometry, textures, or labels on a market tick.
+3. `js/scene.js` projects the current bounded window onto the existing battlefield. It rewrites four preallocated terrain-conforming ribbon buffers and ten pooled DOM labels at no more than 20 Hz. It never creates geometry, textures, or labels on a market tick.
 
 `state.marketTerrain` exposes the lightweight token-scoped snapshot to existing presentation consumers. Pixel/PiP does not duplicate the 3D terrain and remains unchanged.
 
@@ -62,6 +62,27 @@ The renderer never materializes the path from zero or every crossed band. It onl
 
 The one-band look-ahead boundary closes the final visible interval. The window slides continuously around a fractional presentation coordinate, so marks move rather than popping only at integer boundaries. Large 10x/50x changes use the same fixed pools and final window.
 
+## Scale, display anchor, and frontier
+
+Three coordinates are intentionally separate:
+
+- **MarketScale** is the absolute, product-defined financial transform above. It never depends on a provider fallback or camera state.
+- **DisplayWindowAnchor** chooses which bounded part of that scale is visible. A live/frozen authoritative presentation uses its presentation coordinate; a typed provider-indicative valuation may center the window only; cold waiting has no numeric anchor.
+- **AuthoritativeFrontier** exists only after an accepted M10.1 canonical valuation. It is never created from a display anchor.
+
+An indicative anchor therefore cannot write canonical valuation, become `authorityEligible`, set the authoritative target, create traversal/impact, contribute pressure, or emit combat. It changes presentation only.
+
+## Terrain presentation states
+
+| State | Numeric bands | Authoritative frontier | Motion | Meaning |
+| --- | --- | --- | --- | --- |
+| `LIVE` | Yes | Yes | Normal bounded retargeting | Fresh eligible canonical MC |
+| `FROZEN` | Retained | Held at the frozen presentation coordinate | Stopped | Authority became stale/degraded; last accepted MC is labelled stale |
+| `INDICATIVE` | Yes, labelled as reference | No | None | Typed `PROVIDER_INDICATIVE` MC/FDV centers the window only |
+| `UNANCHORED_WAITING` | No numeric claims; structure remains | No | None | No safe valuation reference has ever been observed |
+
+Cold waiting and degraded data never pause the 3D loop. The renderer-interruption overlay remains reserved for WebGL context loss or fatal scene initialization. Pixel/PiP can still pause the main loop intentionally while its companion is active and restores the same terrain controller on return.
+
 ## MarketFrontier and presentation motion
 
 The canonical valuation immediately replaces the authoritative target and label. Presentation motion is deliberately separate: it approaches the latest target using elapsed-time interpolation, a maximum speed of 18 bands/second, and a three-second maximum visual-debt report. Financial state therefore never depends on frame count.
@@ -92,7 +113,7 @@ M10.1 movement causes map to readable terrain causes:
 - quote FX → `QUOTE_USD_FX_MOVE`;
 - supply change, provider correction, source rebase, and reconciliation retain distinct non-trade semantics.
 
-FX, supply-basis, correction, and reconciliation observations may move the USD-valued frontier when authoritative, but cannot manufacture buy/sell impact. If authority is missing, stale, or degraded, the last target is retained, impact is cleared, the UI shows a dashed degraded state, and no velocity extrapolation occurs. Recovery uses the newest accepted canonical state.
+FX, supply-basis, correction, and reconciliation observations may move the USD-valued frontier when authoritative, but cannot manufacture buy/sell impact. If established authority becomes missing, stale, or degraded, the presentation coordinate and visible window stop immediately. The target collapses to that frozen presentation coordinate, the last accepted valuation remains explicitly labelled stale, and traversal, impact and execution evidence are cleared. Recovery places presentation and target at the newest accepted canonical state as reconciliation, without replaying the missing interval. An older epoch cannot thaw frozen terrain, and an indicative reference cannot relocate its window. Identical live refreshes do not reset the presentation clock.
 
 ## MarketImpact
 
@@ -111,20 +132,24 @@ Unavailable inputs remain explicitly unavailable and their weights are removed r
 
 At most 64 active executions are retained and at most 16 IDs are exposed as evidence. Presentation coalesces them as `CLUSTERED_BUY_WAVE`, `CLUSTERED_SELL_WAVE`, or `RAPID_EXECUTION_CLUSTER`. It deliberately makes no bundle identity claim. Settlement reconciliation removes or replaces the same evidence identity instead of inventing an opposite trade.
 
-## Battlefield, themes, and accessibility
+## Battlefield rendering, themes, and accessibility
 
-The MarketFrontier is a terrain-width marker with a separate presentation-origin marker. Instanced major/minor lines make the scale spatially visible without changing combat state or `frontlineX`. A compact label near the battlefield states typed valuation, direction arrow, movement cause, and degraded status. Existing troop locomotion, facing, gait, charge, and knockback remain M11 work.
+The visual hierarchy is ground → minor subdivisions → major valuation boundaries → numeric labels → authoritative frontier. Major and minor marks are shallow triangle ribbons sampled in 28 depth segments so every strip follows the procedural battlefield height instead of intersecting one flat `z=0` plane. A 0.045–0.085 world-unit ground offset, depth testing, disabled depth writes, polygon offset, and deterministic render order prevent z-fighting without making the marks float. The frontier is wider and stronger than a major boundary; the presentation-origin marker is separate.
 
-Terrain materials reuse the active theme's environment and buy/sell accents. ANSEM, generic tokens, and Theme Studio therefore change presentation without changing financial semantics. Bullish/bearish meaning is also carried by arrow direction, relative marker position, and text; color is not the only signal. Mobile reduces marks and labels, maintains readable foreground contrast, and keeps the overlay pointer-transparent.
+The major, minor, frontier, and presentation ribbons are four pooled meshes. Major width/opacity is `0.34/0.68` in LIVE, minor width/opacity is `0.105/0.24`, and waiting/indicative/frozen modes reduce opacity without removing structure. Ten pooled DOM labels are projected from major boundaries, clipped to the viewport, compactly formatted, and reduced to three candidates on mobile. A compact status plate states typed valuation, movement cause, frozen state, indicative reference, or unanchored waiting.
+
+Theme tint is blended toward semantic contrast floors for major/minor marks, so Theme Studio cannot make core segmentation identical to the ground or fully transparent. Frontier color still follows the theme's buy/sell accent with a small white floor. ANSEM and generic themes therefore remain stylistically distinct without changing geometry or financial semantics. Direction, position, line weight, spacing, labels, and text carry meaning in addition to color. Existing troop locomotion, facing, gait, charge, and knockback are unchanged.
 
 ## Performance and lifecycle invariants
 
 The renderer allocates once:
 
-- two `InstancedMesh` pools (10 major and 36 minor instances);
-- two marker meshes;
-- four geometries and four materials;
+- two bounded dynamic ribbon buffers (10 major and 36 minor strips);
+- two one-strip marker buffers;
+- four meshes, four geometries, and four materials;
 - ten reusable DOM labels.
+
+At maximum desktop density the terrain contains 2,688 small triangles (1,680 major vertices, 6,048 minor vertices, plus the two 168-vertex markers) and still contributes at most four draw calls. The previous flat-box presentation used 576 terrain triangles; the visibility fix trades 2,112 additional simple triangles for ground conformance while preserving the same geometry/object/draw-call bounds and zero textures. Ribbon updates write existing typed arrays without per-segment allocations.
 
 The domain caps traversal boundaries at 64, impact executions at 64, and exposed impact evidence at 16. The renderer update cadence is 50 ms, and all target motion uses elapsed time. The controller creates no timer, listener, network request, texture, or Three.js object.
 
@@ -134,11 +159,16 @@ The dedicated 60-second domain soak covers rapid updates, small oscillations, re
 
 ## Development diagnostics
 
-Development mode or `?diagnostics=1` exposes `window.__ansemTerrainDiagnostics()` and the terrain section of `window.__ansemSceneDiagnostics()`. They report authoritative valuation and kind, logical/presentation/target coordinates, lower/upper band and progress, source epoch, movement cause, visual debt, traversal, rebase, impact category/score/evidence counts, and visible/rendered object counts. Diagnostics contain no secret or personal data and are absent from normal production mode.
+Development mode or `?diagnostics=1` exposes `window.__ansemTerrainDiagnostics()` and the terrain section of `window.__ansemSceneDiagnostics()`. They report presentation state, authoritative valuation and kind, indicative reference, display-anchor source, logical/presentation/target coordinates, lower/upper band and progress, source epoch, movement cause, visual debt, traversal, rebase, impact category/score/evidence counts, renderer activity, group/frontier visibility, ribbon bounds/vertices, material depth policy, and visible/rendered object counts. These terrain reports are read-only and contain no secret or personal data; other existing scene diagnostic controls are outside this change.
+
+The separate `window.__ansemTerrainFixture` mutation helper is compiled only in `e2e` mode and is absent from production bundles.
+
+Visual acceptance uses the real production renderer with deterministic routed M10.1 fixtures. Desktop captures cover $600K LIVE, $1.2M LIVE, frozen $600K, an indicative reference, unanchored cold waiting, and a generic token; mobile covers $600K LIVE. Assertions verify label counts/bounds, renderer activity, frontier presence/absence, responsive object budgets, and the exact local terrain coordinate `0.4` between $1M and $1.5M before camera projection. Degradation tests await the normal application refresh response instead of racing the acquisition poll. Screenshots and accompanying terrain/resource diagnostics are saved locally, inspected as framebuffer evidence, and not committed or used as brittle pixel-perfect snapshots.
 
 ## Invariants
 
-- Provider fallback, cached display data, unsupported Mayhem state, and non-canonical valuation kinds never move terrain.
+- Provider fallback may center only the display window when it remains explicitly typed `PROVIDER_INDICATIVE`; cached/indicative data, unsupported Mayhem state, and non-canonical valuation kinds never create or move an authoritative frontier.
+- `INDICATIVE` and `UNANCHORED_WAITING` cannot create traversal, execution evidence, pressure, MarketImpact, combat, or an authoritative frontier.
 - No market tick creates geometry, texture, DOM labels, synthetic trades, or unbounded arrays.
 - Authoritative target changes immediately; animation cannot rewrite financial truth.
 - Source rebase and quote FX never masquerade as trade shock.
