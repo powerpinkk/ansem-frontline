@@ -26,6 +26,7 @@ export function createTokenRuntime(initialContext) {
 function createRuntimeState() {
     return {
         price: 0,
+        indicativePrice: 0,
         mcap: null,
         valuation: null,
         canonicalValuation: null,
@@ -53,6 +54,8 @@ function createRuntimeState() {
         solPriceUsd: 0,
         marketCoverage: 0,
         connection: 'connecting',
+        workerConnected: false,
+        executionStreamStatus: 'connecting',
         lastMarketAt: 0,
         lastTradeAt: 0,
         visibleCombatants: {

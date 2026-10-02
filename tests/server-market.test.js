@@ -47,6 +47,30 @@ it('fixed RPC transport rejects HTTP and JSON-RPC failures', async () => {
     await expect(rpc('getTransaction', [])).rejects.toThrow('429');
 });
 
+it('backs off discovery after a production RPC rate limit without weakening market identity', async () => {
+    const result = await resolveServerMarket(MINT, vi.fn(async () => {
+        throw new Error('RPC_HTTP_429');
+    }));
+    expect(result).toMatchObject({ pools: [], canonicalMarket: null, unsupportedPools: 1,
+        identityFailure: 'RPC_HTTP_429', refreshIntervalMs: 60_000 });
+});
+
+it('reports a sanitized rate-limit reason from the Worker market fallback', async () => {
+    const origin = 'https://frontline.example';
+    const body = { status: 'degraded', error: { code: 'PROVIDER_RATE_LIMITED', retryable: true, retryAt: 123 } };
+    const objectFetch = vi.fn(async () => Response.json(body, { status: 503,
+        headers: { 'retry-after': '60', 'cache-control': 'no-store' } }));
+    const response = await worker.fetch(new Request(`https://relay.example/market?mint=${MINT}`, {
+        headers: { Origin: origin },
+    }), { DEFAULT_TOKEN_MINT: MINT, ALLOWED_ORIGINS: origin,
+        STREAM_HUB: { idFromName: (name) => name, get: () => ({ fetch: objectFetch }) } });
+    expect(response.status).toBe(503);
+    expect(response.headers.get('retry-after')).toBe('60');
+    expect(response.headers.get('access-control-expose-headers')).toBe('Retry-After');
+    expect(await response.json()).toEqual(body);
+    expect(new URL(objectFetch.mock.calls[0][0].url).pathname).toBe('/market');
+});
+
 it('recent endpoint forwards only mint identifiers to the same token-scoped Durable Object', async () => {
     const forwarded = [];
     const fetchImpl = vi.fn(async (request) => { forwarded.push({ url: request.url, body: await request.json() });

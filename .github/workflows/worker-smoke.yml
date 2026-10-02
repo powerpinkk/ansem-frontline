@@ -2,10 +2,24 @@ name: Worker Production Smoke
 
 on:
   workflow_dispatch:
+    inputs:
+      mode:
+        description: Run deterministic offline checks or the explicitly authorized live sample
+        required: true
+        default: offline
+        type: choice
+        options:
+          - offline
+          - live
+      expected_build_id:
+        description: Exact deployed Worker build ID required for live mode
+        required: false
+        type: string
   pull_request:
     paths:
       - "worker/**"
       - "scripts/worker-production-smoke.mjs"
+      - "tests/worker-production-smoke.test.js"
       - ".github/workflows/worker-smoke.yml"
 
 permissions:
@@ -16,7 +30,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  smoke:
+  offline-contract:
+    if: github.event_name == 'pull_request' || inputs.mode == 'offline'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -24,4 +39,26 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 22
-      - run: node scripts/worker-production-smoke.mjs
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm test -- tests/worker-production-smoke.test.js
+
+  live-sample:
+    if: github.event_name == 'workflow_dispatch' && inputs.mode == 'live'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      EXPECTED_BUILD_ID: ${{ inputs.expected_build_id }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Require an exact expected build ID
+        run: |
+          if [ -z "$EXPECTED_BUILD_ID" ]; then
+            echo "expected_build_id is required for live mode" >&2
+            exit 1
+          fi
+      - name: Run one bounded live sample
+        run: node scripts/worker-production-smoke.mjs --live --expected-build-id "$EXPECTED_BUILD_ID"

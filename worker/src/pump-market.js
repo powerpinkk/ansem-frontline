@@ -66,6 +66,7 @@ export async function probePumpCurve(mint, rpc) {
 function nativeObservation(market,value,mint,slot,observedAt,state,quoteSafe) {
     return {...value,tokenMint:market.tokenMint,marketIdentity:market.address,sourceEpoch:market.sourceEpoch,
         quoteMint:market.quoteMint,quoteDecimals:market.quoteDecimals,kind:'PROTOCOL_MARKET_CAP',
+        tokenDecimals:market.tokenDecimals,baseReserve:String(state.virtualTokenReserves ?? state.baseReserve),
         protocolDefinition:'PUMP_PROTOCOL_MARKET_CAP_V1',source:'ONCHAIN_PUMP_STATE',slot,observedAt,
         supplyVerified:mint.safeExtensions&&quoteSafe,
         provenance:{formula:market.protocol==='pump-curve'?'pump-sdk@2.0.0:bondingCurveMarketCap':'pump-swap-sdk@1.20.0:poolMarketCap',
@@ -95,7 +96,7 @@ export async function pumpSwapValuation(market,rpc,minContextSlot) {
     const value=protocolMarketCap({supply:mint.supply,baseReserve:vaults[baseIndex].amount,
         quoteReserve:vaults[quoteIndex].amount,virtualQuoteReserve:virtualQuote,protocol:'pumpswap'});
     const observedAt=Date.now();
-    const nativeValuation=nativeObservation({...market,quoteDecimals:quoteMint.decimals},value,mint,snapshot.context.slot,observedAt,
+    const nativeValuation=nativeObservation({...market,tokenDecimals:mint.decimals,quoteDecimals:quoteMint.decimals},value,mint,snapshot.context.slot,observedAt,
         {mintSupply:mint.supply,baseReserve:vaults[0].amount,quoteReserve:vaults[1].amount,virtualQuoteReserves:virtualQuote},quoteMint.safeExtensions);
     let quoteUsd=null,valuationFailure=null;
     if (feed) {try {quoteUsd=decodeQuoteUsd(snapshot.value.at(-1),market.quoteMint,snapshot.context.slot,observedAt);}catch(e){valuationFailure=e.message;}}

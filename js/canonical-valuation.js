@@ -32,28 +32,49 @@ export function canonicalValuation(native, quote, market, previous = null, now =
         lifecycle: ['CURVE_ACTIVE','AMM'].includes(market?.lifecycle),
         supportedVariant: market?.mayhem !== true && market?.compatibility !== 'UNSUPPORTED_MAYHEM',
     };
-    let valueUsd = null, quoteUsdPrice = null;
+    let valueUsd = null, quoteUsdPrice = null, unitPriceUsd = null;
     try {
-        const raw = unsigned(native.rawQuoteValue), price = unsigned(quote.price), exponent = quote.exponent;
+        const tokenDecimals = native.tokenDecimals ?? market?.tokenDecimals;
+        const baseReserve = native.baseReserve ?? native.provenance?.state?.virtualTokenReserves
+            ?? native.provenance?.state?.baseReserve;
+        const raw = unsigned(native.rawQuoteValue), effective = unsigned(native.effectiveQuoteReserve),
+            base = unsigned(baseReserve), price = unsigned(quote.price), exponent = quote.exponent;
         if (!raw || !price || !Number.isInteger(exponent) || Math.abs(exponent)>18
+            || !effective || !base || !Number.isInteger(tokenDecimals) || tokenDecimals < 0 || tokenDecimals > 18
             || !Number.isInteger(native.quoteDecimals) || native.quoteDecimals < 0 || native.quoteDecimals > 18) throw new Error('NUMERIC');
         const denominator = 10n**BigInt(native.quoteDecimals + Math.max(0,-exponent));
         valueUsd = decimalRatio(raw * price * 10n**BigInt(Math.max(0,exponent)),denominator);
         quoteUsdPrice = decimalRatio(price * 10n**BigInt(Math.max(0,exponent)),10n**BigInt(Math.max(0,-exponent)));
-        gates.numeric = Number.isFinite(Number(valueUsd)) && Number(valueUsd)>0;
+        unitPriceUsd = decimalRatio(effective * 10n**BigInt(tokenDecimals) * price * 10n**BigInt(Math.max(0,exponent)),
+            base * 10n**BigInt(native.quoteDecimals + Math.max(0,-exponent)), 24);
+        gates.numeric = Number.isFinite(Number(valueUsd)) && Number(valueUsd)>0
+            && Number.isFinite(Number(unitPriceUsd)) && Number(unitPriceUsd)>0;
     } catch { gates.numeric = false; }
     const rebase = !previous || previous.marketIdentity !== native?.marketIdentity || previous.sourceEpoch !== native?.sourceEpoch
         || previous.protocolDefinition !== native?.protocolDefinition;
     const basisChanged = previous && (previous.supplyBasis !== native?.supplyBasis || previous.supplyRaw !== native?.supplyRaw);
     const nativeChanged = previous && previous.nativeQuoteValue !== native?.rawQuoteValue;
     const fxChanged = previous && previous.quoteUsdPrice !== quoteUsdPrice;
+    const authorityEligible = Object.values(gates).every(Boolean);
+    const unitPrice = { kind:'PROTOCOL_UNIT_PRICE',valueUsd:unitPriceUsd,
+        tokenMint:native?.tokenMint ?? market?.tokenMint,marketIdentity:native?.marketIdentity ?? market?.address,
+        sourceEpoch:market?.sourceEpoch,evidenceLevel:'PROTOCOL_CANONICAL',authorityEligible,
+        observedAt:native?.observedAt,quoteObservedAt:quote?.observedAt,
+        provenance:{formula:'EFFECTIVE_QUOTE_PER_BASE_V1',native:native?.provenance,quote:quote?.provenance,
+            inputs:{effectiveQuoteReserve:native?.effectiveQuoteReserve,
+                baseReserve:native?.baseReserve ?? native?.provenance?.state?.virtualTokenReserves
+                    ?? native?.provenance?.state?.baseReserve,
+                tokenDecimals:native?.tokenDecimals ?? market?.tokenDecimals,quoteDecimals:native?.quoteDecimals}}};
     return { tokenMint:native?.tokenMint ?? market?.tokenMint, marketIdentity:native?.marketIdentity ?? market?.address,
         sourceEpoch:market?.sourceEpoch, kind:'PROTOCOL_MARKET_CAP',protocolDefinition:native?.protocolDefinition,
-        supplyBasis:native?.supplyBasis,supplyRaw:native?.supplyRaw,valueUsd,nativeQuoteValue:native?.rawQuoteValue,
+        supplyBasis:native?.supplyBasis,supplyRaw:native?.supplyRaw,valueUsd,unitPriceUsd,unitPrice,nativeQuoteValue:native?.rawQuoteValue,
+        effectiveQuoteReserve:native?.effectiveQuoteReserve,baseReserve:native?.baseReserve ?? native?.provenance?.state?.virtualTokenReserves
+            ?? native?.provenance?.state?.baseReserve,
+        tokenDecimals:native?.tokenDecimals ?? market?.tokenDecimals,quoteDecimals:native?.quoteDecimals,
         quoteMint:native?.quoteMint,quoteUsdPrice,nativeObservedAt:native?.observedAt,quoteObservedAt:quote?.observedAt,
         slot:native?.slot, provenance:{native:native?.provenance,quote:quote?.provenance}, gates,
         nativeFreshness:gates.nativeFresh?'FRESH':'STALE',quoteFreshness:gates.quoteFresh?'FRESH':'STALE',
-        freshness:Object.values(gates).every(Boolean)?'FRESH':'DEGRADED',authorityEligible:Object.values(gates).every(Boolean),
+        freshness:authorityEligible?'FRESH':'DEGRADED',authorityEligible,
         movementCause:rebase?'SOURCE_REBASE':basisChanged?'SUPPLY_BASIS_CHANGE':nativeChanged&&fxChanged?'TOKEN_PRICE_AND_QUOTE_FX'
             :nativeChanged?'TOKEN_PRICE_UPDATE':fxChanged?'QUOTE_USD_FX_UPDATE':'STATE_RECONCILIATION' };
 }
@@ -67,6 +88,8 @@ export function createCanonicalValuationBoundary(tokenMint) {
                 || value.quoteObservedAt!=null && (!Number.isSafeInteger(value.quoteObservedAt) || value.quoteObservedAt>now)) return null;
             if (value.authorityEligible && (value.kind!=='PROTOCOL_MARKET_CAP' || value.protocolDefinition!=='PUMP_PROTOCOL_MARKET_CAP_V1'
                 || typeof value.valueUsd!=='string' || !/^\d+(\.\d+)?$/.test(value.valueUsd)
+                || value.unitPrice?.kind!=='PROTOCOL_UNIT_PRICE' || value.unitPrice?.evidenceLevel!=='PROTOCOL_CANONICAL'
+                || value.unitPrice?.valueUsd!==value.unitPriceUsd || value.unitPrice?.authorityEligible!==true
                 || !Number.isFinite(Number(value.valueUsd)) || Number(value.valueUsd)<=0
                 || !['identity','formula','supply','nativeFresh','quoteIdentity','quoteFresh','slot','lifecycle','supportedVariant','numeric'].every(g=>value.gates?.[g]===true))) return null;
             if (current && (value.sourceEpoch<current.sourceEpoch || value.sourceEpoch===current.sourceEpoch
@@ -78,8 +101,9 @@ export function createCanonicalValuationBoundary(tokenMint) {
             if (!current) return null;
             const nativeFresh = fresh(current.nativeObservedAt,now,CANONICAL_VALUATION_POLICY.nativeTtlMs);
             const quoteFresh = fresh(current.quoteObservedAt,now,CANONICAL_VALUATION_POLICY.quoteTtlMs);
+            const authorityEligible=current.authorityEligible === true && nativeFresh && quoteFresh;
             return { ...current, nativeFreshness:nativeFresh?'FRESH':'STALE',quoteFreshness:quoteFresh?'FRESH':'STALE',
-                authorityEligible:current.authorityEligible === true && nativeFresh && quoteFresh,
+                authorityEligible,unitPrice:current.unitPrice?{...current.unitPrice,authorityEligible}:null,
                 freshness:current.authorityEligible && nativeFresh && quoteFresh?'FRESH':'DEGRADED' };
         },
         clear() { current=null; },

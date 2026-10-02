@@ -1,5 +1,7 @@
 // History only supplies candidates to the shared live verifier and journal.
 // Pools have already passed independent server discovery and owner checks.
+import { acquisitionFailure } from './acquisition-policy.js';
+
 export async function fetchRecentCandidates(rpc, pools, cursors, now = Date.now()) {
     const results = await Promise.allSettled(pools.slice(0, 5).map(async (pool) => {
         const until = cursors.get(pool.address);
@@ -11,7 +13,9 @@ export async function fetchRecentCandidates(rpc, pools, cursors, now = Date.now(
             Number.isFinite(s.blockTime) && now - s.blockTime * 1000 >= 0
             && now - s.blockTime * 1000 <= 300_000) };
     }));
+    const failures = results.filter((r) => r.status === 'rejected').map((r) => acquisitionFailure(r.reason));
     return { candidates: [...new Map(results.filter((r) => r.status === 'fulfilled')
         .flatMap((r) => r.value.candidates).map((s) => [s.signature, s])).values()],
-    cursors, coverageIncomplete: results.some((r) => r.status === 'rejected' || r.value.full) };
+    cursors, ...(failures.length ? { failures } : {}), coverageIncomplete: failures.length > 0
+        || results.some((r) => r.status === 'fulfilled' && r.value.full) };
 }

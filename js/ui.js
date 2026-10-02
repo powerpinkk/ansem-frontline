@@ -4,6 +4,7 @@ import { state } from './state.js';
 import { ANSEM_THEME } from './theme-presets.js';
 import { valuationLabel } from './market-valuation.js';
 import { formatQuote, formatUsdEstimate } from './notional.js';
+import { deriveMarketHealth, formatPriceDisplay } from './market-health.js';
 
 const DOM = {};
 let miniChartCtx = null;
@@ -119,6 +120,14 @@ export function setConnectionStatus(status) {
 
 export function updateValuationUI(provider = state.valuation) {
     const valuation = state.canonicalValuation?.authorityEligible ? state.canonicalValuation : provider;
+    if (DOM.price) {
+        const canonicalPrice = state.canonicalValuation?.authorityEligible
+            ? state.canonicalValuation.unitPrice?.valueUsd ?? state.canonicalValuation.unitPriceUsd : null;
+        DOM.price.textContent = formatPriceDisplay(canonicalPrice || state.indicativePrice || state.price);
+        DOM.price.title = canonicalPrice
+            ? 'Protocol unit price · verified reserves + live decimals + fixed Pyth quote · not an executable fill price'
+            : state.indicativePrice ? 'Provider indicative price · not canonical execution authority' : 'Price unavailable';
+    }
     if (DOM.mcapValue) {
         const mcap = valuation?.valueUsd;
         document.querySelector('#mcap-box .info-label').textContent = valuation?.kind==='PROTOCOL_MARKET_CAP'?'PUMP MC':valuationLabel(valuation);
@@ -133,11 +142,8 @@ export function updateValuationUI(provider = state.valuation) {
     }
 }
 
-export function updateMarketUI({ price, valuation, chg, pools, coverage, referencePool }) {
+export function updateMarketUI({ valuation, chg, pools, coverage, referencePool }) {
     updateValuationUI(valuation);
-    if (DOM.price) {
-        DOM.price.textContent = `$${price.toFixed(6)}`;
-    }
 
     if (DOM.change && Number.isFinite(chg)) {
         DOM.change.textContent = `${chg >= 0 ? '+' : ''}${chg.toFixed(2)}%`;
@@ -226,8 +232,16 @@ function updateBattleState() {
     setText(DOM.battleStateLabel, resolveBattleStateLabel(tactics.state, copy));
     const netSol = state.buySol60s - state.sellSol60s;
     if (DOM.battleStateFlow) {
+        const health = deriveMarketHealth(state);
+        const zeroFlow = health.flowState === 'QUIET'
+            ? 'QUIET · 0 VERIFIED SWAPS / 60S'
+            : health.flowState === 'RECOVERING'
+                ? 'FLOW RECOVERING · PARTIAL 60S WINDOW'
+            : health.flowState === 'DEGRADED'
+                ? 'FLOW DEGRADED · 0 VERIFIED SWAPS / 60S'
+                : 'FLOW WAITING · 0 VERIFIED SWAPS / 60S';
         setText(DOM.battleStateFlow, Math.abs(netSol) < 0.005
-            ? 'NO VERIFIED FLOW · 60S'
+            ? zeroFlow
             : `${netSol > 0 ? 'BUYERS' : 'SELLERS'} ${netSol > 0 ? '+' : '−'}${formatSol(Math.abs(netSol))} SOL · 60S`);
     }
     const detail = tactics.state === 'bull'
@@ -495,7 +509,7 @@ export function resetFrontlineUI() {
     if (DOM.awaySummary) DOM.awaySummary.className = 'away-summary';
     hideUnitInspector();
     setText(DOM.mcapValue, '—');
-    setText(DOM.price, '$0.000000');
+    setText(DOM.price, '—');
     setText(DOM.change, '—');
     if (DOM.change) DOM.change.className = 'neutral';
     setText(DOM.coverageValue, '—');

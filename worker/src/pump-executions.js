@@ -18,7 +18,7 @@ function verify(tx, signature, market, settlement) {
         || !validSignature(signature) || tx?.transaction?.signatures?.[0] !== signature || !tx.meta) return fail('IDENTITY_OR_METADATA_MISSING');
     if (tx.meta.err) return fail('TRANSACTION_FAILED','FAILED');
     if (!['CONFIRMED','FINALIZED'].includes(settlement) || !Number.isSafeInteger(tx.slot) || tx.slot < 0) return fail('SETTLEMENT_MISSING');
-    const { keys, groups } = resolveTransactionAccounts(tx.transaction.message, tx.meta);
+    const { keys, groups } = resolveTransactionAccounts(tx.transaction.message, tx.meta, tx.version);
     const invocations = successfulInvocations(tx.meta.logMessages), offsets = new Map();
     for (const ix of groups.flat()) {
         const key = `${ix.programId}:${ix.height}`, index = offsets.get(key) || 0;

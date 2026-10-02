@@ -318,6 +318,7 @@ export function createMarketTerrain(tokenMint, options = {}) {
     let impact = null;
     let executions = [];
     let supersededTraversals = 0;
+    let authorityLost = false;
 
     function clearImpactWindow(now) {
         executions = executions.filter((event) => now - event.timestamp <= policy.impactWindowMs).slice(-policy.maxImpactExecutions);
@@ -359,12 +360,20 @@ export function createMarketTerrain(tokenMint, options = {}) {
         observeValuation(value, now = Date.now()) {
             if (!value || value.authorityEligible !== true || value.freshness !== 'FRESH') {
                 status = current ? 'DEGRADED' : 'WAITING';
-                impact = null;
+                authorityLost = true;
+                if (presentationCoordinate !== null) targetCoordinate = presentationCoordinate;
+                traversal = null; impact = null; executions = [];
                 return snapshot();
             }
             if (value.tokenMint !== tokenMint || value.kind !== 'PROTOCOL_MARKET_CAP'
                 || typeof value.valueUsd !== 'string' || Number(value.valueUsd) <= 0) return snapshot();
             const nextCoordinate = valuationToLogicalCoordinate(value.valueUsd);
+            if (authorityLost && current) {
+                current = { ...value, movementCause: 'STATE_RECONCILIATION' };
+                presentationCoordinate = nextCoordinate; targetCoordinate = nextCoordinate; lastAdvanceAt = now;
+                status = 'LIVE'; traversal = null; rebase = null; impact = null; executions = []; authorityLost = false;
+                return snapshot();
+            }
             if (!current) {
                 current = value;
                 presentationCoordinate = nextCoordinate;
@@ -373,6 +382,7 @@ export function createMarketTerrain(tokenMint, options = {}) {
                 status = 'LIVE';
                 traversal = null;
                 rebase = null;
+                authorityLost = false;
                 return snapshot();
             }
             if (value.sourceEpoch < current.sourceEpoch) return snapshot();
@@ -447,6 +457,7 @@ export function createMarketTerrain(tokenMint, options = {}) {
             return snapshot();
         },
         advance(now = Date.now(), viewportWidth = 1_280) {
+            if (status !== 'LIVE') return snapshot(viewportWidth);
             if (presentationCoordinate === null || targetCoordinate === null) return snapshot(viewportWidth);
             const elapsedMs = lastAdvanceAt === null ? 0 : Math.max(0, now - lastAdvanceAt);
             lastAdvanceAt = now;
@@ -463,10 +474,15 @@ export function createMarketTerrain(tokenMint, options = {}) {
             if (Math.abs(targetCoordinate - presentationCoordinate) < 1e-4) presentationCoordinate = targetCoordinate;
             return snapshot(viewportWidth);
         },
-        degrade() { status = current ? 'DEGRADED' : 'WAITING'; impact = null; return snapshot(); },
+        degrade() {
+            status = current ? 'DEGRADED' : 'WAITING'; authorityLost = true;
+            if (presentationCoordinate !== null) targetCoordinate = presentationCoordinate;
+            traversal = null; impact = null; executions = []; return snapshot();
+        },
         reset() {
             current = null; presentationCoordinate = null; targetCoordinate = null; lastAdvanceAt = null;
             status = 'WAITING'; traversal = null; rebase = null; impact = null; executions = []; supersededTraversals = 0;
+            authorityLost = false;
             return snapshot();
         },
         getSnapshot: snapshot,

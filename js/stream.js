@@ -4,12 +4,13 @@ export function connectTradeStream(url, handlers) {
     let heartbeatTimer;
     let retryDelay = 1_000;
     let stopped = false;
-    const armHeartbeat = (nextSocket) => {
+    const random = handlers.random || Math.random;
+    const armHeartbeat = (nextSocket, delay = 30_000) => {
         window.clearTimeout(heartbeatTimer);
         heartbeatTimer = window.setTimeout(() => {
             handlers.onStatus?.('offline');
             nextSocket.close();
-        }, 30_000);
+        }, delay);
     };
 
     const connect = () => {
@@ -17,12 +18,14 @@ export function connectTradeStream(url, handlers) {
         if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) return;
         const nextSocket = new WebSocket(url);
         socket = nextSocket;
-        armHeartbeat(nextSocket);
+        armHeartbeat(nextSocket, 10_000);
         handlers.onStatus?.('connecting');
         nextSocket.addEventListener('open', () => {
             if (stopped || socket !== nextSocket) return;
             retryDelay = 1_000;
+            handlers.onTransportStatus?.('connected');
             nextSocket.send(JSON.stringify({ type: 'configure', ...handlers.getConfiguration?.() }));
+            armHeartbeat(nextSocket, 10_000);
         });
         nextSocket.addEventListener('message', (event) => {
             if (stopped || socket !== nextSocket) return;
@@ -45,6 +48,7 @@ export function connectTradeStream(url, handlers) {
         nextSocket.addEventListener('close', () => {
             if (stopped || socket !== nextSocket) return;
             socket = null;
+            handlers.onTransportStatus?.('disconnected');
             window.clearTimeout(heartbeatTimer);
             reconnect();
         });
@@ -55,7 +59,8 @@ export function connectTradeStream(url, handlers) {
         if (stopped) return;
         handlers.onStatus?.('offline');
         window.clearTimeout(retryTimer);
-        retryTimer = window.setTimeout(connect, retryDelay);
+        const jitter = Math.max(1, Math.floor(retryDelay * Math.max(0, Math.min(1, random())) * 0.2));
+        retryTimer = window.setTimeout(connect, retryDelay + jitter);
         retryDelay = Math.min(30_000, retryDelay * 2);
     };
 
@@ -80,6 +85,7 @@ export function connectTradeStream(url, handlers) {
             window.clearTimeout(retryTimer);
             window.clearTimeout(heartbeatTimer);
             socket?.close();
+            handlers.onTransportStatus?.('disconnected');
         },
     };
 }

@@ -39,7 +39,7 @@ describe('token API teardown', () => {
         })));
         const api = initAPI({}, { runtime: createTokenRuntime(DEFAULT_TOKEN_CONTEXT) });
         await vi.advanceTimersByTimeAsync(0);
-        expect(signals).toHaveLength(3); // provider pair + fallback + server curve bootstrap
+        expect(signals).toHaveLength(2); // provider pair + server bootstrap; DAS waits for provider failure
         api.destroy();
         expect(signals.every((signal) => signal.aborted)).toBe(true);
         await Promise.resolve();

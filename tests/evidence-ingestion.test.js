@@ -1,10 +1,76 @@
 import { describe, expect, it } from 'vitest';
 import { createEvidenceIngestion, INGESTION_POLICY } from '../worker/src/evidence-ingestion.js';
+import { AcquisitionError, createJsonRpcTransport, createAcquisitionPolicy } from '../worker/src/acquisition-policy.js';
 import { createTradeJournal } from '../js/market-evidence.js';
 import { calculatePressure } from '../js/market.js';
 import { swapFixture, canonicalEvent, signatureFor, MINT, USDC } from './fixtures/integrity.js';
 
 describe('bounded settlement ingestion', () => {
+    it('reads v1 at both commitments and finalizes the same verified identity once', async () => {
+        let now = 10_000; const calls = [], changes = [];
+        const f = swapFixture({ blockTime: 10 });
+        f.transaction.version = 1;
+        f.transaction.transaction.message.transactionConfig = {
+            computeUnitLimit: 200_000, loadedAccountsDataSizeLimit: 64_000_000, heapSize: null, priorityFee: null,
+        };
+        const rpc = createJsonRpcTransport({ HELIUS_API_KEY: 'test' }, async (_url, init) => {
+            const request = JSON.parse(init.body); calls.push(request);
+            if (request.method === 'getSignatureStatuses') return Response.json({ result: {
+                value: [{ confirmationStatus: 'finalized', err: null }],
+            } });
+            return Response.json(request.params[1].maxSupportedTransactionVersion === 1 ? { result: f.transaction }
+                : { error: { code: -32015, message: 'Transaction version (1) is not supported by the requesting client.' } });
+        });
+        const service = createEvidenceIngestion({ tokenMint: MINT, canonicalMarket: f.market, rpc,
+            now: () => now, onChange: (change) => changes.push(change) });
+        service.observeSignature(f.signature); await service.drain();
+        expect(service.snapshot()).toHaveLength(1);
+        expect(service.snapshot()[0].settlement).toBe('CONFIRMED');
+        now += 4_000; await service.tick(); await service.drain();
+        expect(service.snapshot()).toHaveLength(1);
+        expect(service.snapshot()[0].settlement).toBe('FINALIZED');
+        expect(changes.map((change) => change.type)).toEqual(['trade', 'reconcile']);
+        expect(new Set(changes.map((change) => change.data.id)).size).toBe(1);
+        expect(calls.filter((call) => call.method === 'getTransaction').map((call) => call.params[1]))
+            .toEqual(['confirmed', 'finalized'].map((commitment) => ({ encoding: 'jsonParsed', commitment, maxSupportedTransactionVersion: 1 })));
+        service.destroy();
+    });
+
+    it.each([false, true])('records one unsupported-version gap without retries (finalization=%s)', async (atFinalization) => {
+        let now = 10_000; const gaps = [], reads = [];
+        const f = swapFixture({ blockTime: 10 });
+        const policy = createAcquisitionPolicy({ now: () => now, random: () => 0,
+            sleep: async (ms) => { now += ms; } });
+        const transport = createJsonRpcTransport({ HELIUS_API_KEY: 'test' }, async (_url, init) => {
+            const { method, params } = JSON.parse(init.body);
+            if (method === 'getSignatureStatuses') return Response.json({ result: {
+                value: [{ confirmationStatus: 'finalized', err: null }],
+            } });
+            reads.push(params[1].commitment);
+            return Response.json(atFinalization && params[1].commitment === 'confirmed' ? { result: f.transaction }
+                : { error: { code: -32015, message: 'Transaction version (2) is not supported by the requesting client.' } });
+        });
+        const rpc = (method, params, signal, meta = {}) => policy.run('standard', meta.capability || method,
+            () => { meta.onStart?.(); return transport(method, params, signal); });
+        const service = createEvidenceIngestion({ tokenMint: MINT, canonicalMarket: f.market, rpc, admissionAwareRpc: true,
+            now: () => now, onGap: (gap) => gaps.push(gap) });
+        service.observeSignature(f.signature); await service.drain();
+        for (let i = 0; i < 5; i += 1) { now += 4_000; await service.tick(); await service.drain(); }
+        expect(reads).toEqual(atFinalization ? ['confirmed', 'finalized'] : ['confirmed']);
+        expect(gaps).toHaveLength(1);
+        expect(gaps[0]).toMatchObject({ reason: 'UNSUPPORTED_TRANSACTION_VERSION', signature: f.signature });
+        expect(service.diagnostics()).toMatchObject({ pendingEvidence: 0, rpcFailures: 1,
+            acquisition: { transaction: { status: 'GAP_RECORDED', lastFailure: {
+                rpcCode: -32015, transactionVersion: 2, retryable: false,
+            } } } });
+        expect(calculatePressure(service.snapshot(), now).totalSol).toBe(0);
+        expect(service.diagnostics().coverage.confidence).toBe('DEGRADED');
+        expect(policy.snapshot().standard.nextRetryAt).toBe(0);
+        expect(service.observeSignature(f.signature)).toBe(false);
+        await expect(policy.run('standard', 'getMultipleAccounts', async () => 'unaffected')).resolves.toBe('unaffected');
+        service.destroy();
+    });
+
     it('enforces the RPC budget and withdraws a queued finalization at its deadline', async () => {
         let now = 10_000; let txReads = 0;
         const f = swapFixture({ blockTime: 10 });
@@ -19,7 +85,7 @@ describe('bounded settlement ingestion', () => {
         expect(txReads).toBe(1);
         now += 11_000; await service.tick();
         expect(service.snapshot()[0].settlement).toBe('RECONCILIATION_UNKNOWN');
-        expect(service.diagnostics().overflow).toBeGreaterThan(0);
+        expect(service.diagnostics().overflow).toBe(0);
         service.destroy();
     });
     it('confirmed→finalized upgrades one event after independently re-verifying finalized data', async () => {
@@ -56,6 +122,45 @@ describe('bounded settlement ingestion', () => {
         for (let i = 0; i < 10; i += 1) { now += 10_000; await service.tick(); await service.drain(); }
         expect(requests).toBe(3); expect(service.snapshot()).toEqual([]); service.destroy();
     });
+    it('recovers current transaction acquisition after a failure without clearing lifetime diagnostics', async () => {
+        let now = 10_000; let attempts = 0; const f = swapFixture({ blockTime: 10 });
+        const service = createEvidenceIngestion({ tokenMint: MINT, canonicalMarket: f.market, now: () => now,
+            rpc: async () => { attempts += 1; if (attempts === 1) throw new Error('RPC_HTTP_429'); return f.transaction; } });
+        service.observeSignature(f.signature); await service.drain();
+        expect(service.diagnostics()).toMatchObject({ rpcFailures: 1, acquisition: { transaction: { status: 'RETRY_WAIT' } } });
+        now += 2_000; await service.tick(); await service.drain();
+        expect(service.snapshot()).toHaveLength(1);
+        expect(service.diagnostics()).toMatchObject({ rpcFailures: 1,
+            acquisition: { transaction: { status: 'HEALTHY', reason: null } } });
+        service.destroy();
+    });
+    it('does not heal an affected evidence job with an unrelated transaction success', async () => {
+        let now = 10_000; const failed = swapFixture({ blockTime: 10 });
+        const healthy = swapFixture({ blockTime: 10, signature: signatureFor(2) });
+        const attempts = new Map();
+        const service = createEvidenceIngestion({ tokenMint: MINT, canonicalMarket: failed.market, now: () => now,
+            rpc: async (_method, params) => {
+                const signature = params[0], count = (attempts.get(signature) || 0) + 1; attempts.set(signature, count);
+                if (signature === failed.signature && count === 1) throw new Error('RPC_HTTP_429');
+                return signature === healthy.signature ? healthy.transaction : failed.transaction;
+            } });
+        service.observeSignature(failed.signature); service.observeSignature(healthy.signature); await service.drain();
+        expect(service.diagnostics()).toMatchObject({ rpcFailures: 1,
+            acquisition: { transaction: { status: 'RETRY_WAIT' } } });
+        now += 2_000; await service.tick(); await service.drain();
+        expect(service.diagnostics().acquisition.transaction).toMatchObject({ status: 'HEALTHY', reason: null });
+        service.destroy();
+    });
+
+    it('records an explicit historical gap when a pending evidence job is discarded', async () => {
+        const f=swapFixture({signature:signatureFor(23)}),gaps=[];
+        const service=createEvidenceIngestion({tokenMint:MINT,canonicalMarket:f.market,
+            rpc:async()=>null,onGap:(gap)=>gaps.push(gap)});
+        service.observeSignature(f.signature,100);await service.drain();
+        expect(service.diagnostics().pendingEvidence).toBe(1);
+        service.destroy('HTTP_LEASE_EXPIRED');
+        expect(gaps).toContainEqual(expect.objectContaining({reason:'HTTP_LEASE_EXPIRED',signature:f.signature}));
+    });
     it('unknown reconciliation withdraws provisional authority and remains one identity', async () => {
         let now = 10_000; const f = swapFixture({ blockTime: 10 });
         const service = createEvidenceIngestion({ tokenMint: MINT, canonicalMarket: f.market, now: () => now,
@@ -74,6 +179,28 @@ describe('bounded settlement ingestion', () => {
         await service.drain(); expect(service.snapshot()).toEqual([]);
         now += 1;
         const next = createTradeJournal(USDC); expect(next.upsert(canonicalEvent(), now).accepted).toBe(false);
+    });
+    it.each(['STANDARD_QUEUE_FULL', 'STANDARD_PROBE_INFLIGHT', 'RPC_CANCELLED_BEFORE_START'])('does not spend attempts or spin on %s admission deferral', async (reason) => {
+        let now = 10_000; let admitted = false; let actualStarts = 0;
+        const f = swapFixture({ blockTime: 10 });
+        const service = createEvidenceIngestion({ tokenMint: MINT, canonicalMarket: f.market, now: () => now,
+            admissionAwareRpc: true, policy: { ...INGESTION_POLICY, maxTransactionReadsPerMinute: 1 },
+            rpc: async (_method, _params, _signal, meta) => {
+                if (!admitted) throw new AcquisitionError(reason, { kind: 'DEFERRED', deferred: true, retryAt: now });
+                meta.onStart(); actualStarts += 1; return f.transaction;
+            } });
+        service.observeSignature(f.signature); await service.drain();
+        expect(actualStarts).toBe(0);
+        expect(service.diagnostics()).toMatchObject({ pendingEvidence: 1, rpcFailures: 0,
+            acquisition: { transaction: { lastAttemptAt: null } } });
+        await service.tick(); await service.drain();
+        expect(actualStarts).toBe(0);
+        admitted = true; now += 999; await service.tick(); await service.drain();
+        expect(actualStarts).toBe(0);
+        now += 1; await service.tick(); await service.drain();
+        expect(actualStarts).toBe(1);
+        expect(service.snapshot()).toHaveLength(1);
+        service.destroy();
     });
 });
 

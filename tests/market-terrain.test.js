@@ -226,10 +226,13 @@ describe('market frontier authority and presentation', () => {
         const live = terrain.observeValuation(valuation(2_000_000), 1_100);
         const frozen = terrain.observeValuation(null, 1_200);
         expect(frozen.status).toBe('DEGRADED');
-        expect(frozen.targetCoordinate).toBe(live.targetCoordinate);
+        expect(frozen.targetCoordinate).toBe(live.presentationCoordinate);
+        expect(terrain.advance(2_200).presentationCoordinate).toBe(frozen.presentationCoordinate);
         const recovered = terrain.observeValuation(valuation(2_500_000, { movementCause: 'STATE_RECONCILIATION' }), 1_300);
         expect(recovered.status).toBe('LIVE');
         expect(recovered.authoritativeValuation).toBe(2_500_000);
+        expect(recovered.presentationCoordinate).toBe(recovered.targetCoordinate);
+        expect(recovered.traversal).toBeNull();expect(recovered.impact).toBeNull();
     });
 
     it('isolates tokens and refuses a verified execution from another epoch', () => {
