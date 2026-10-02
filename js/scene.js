@@ -144,6 +144,11 @@ let lastMarketTerrainUpdateAt = 0;
 let marketCombatReady = false;
 const MARKET_TERRAIN_MAJOR_CAPACITY = 10;
 const MARKET_TERRAIN_MINOR_CAPACITY = 36;
+const MARKET_TERRAIN_RIBBON_SEGMENTS = 28;
+const MARKET_TERRAIN_Z_MIN = -32;
+const MARKET_TERRAIN_Z_MAX = 32;
+let renderedMarketMajorBoundaries = 0;
+let renderedMarketMinorMarks = 0;
 let ambientLight, hemisphereLight, sunLight, rimLight;
 let bullKingRig, kingMount, kingRider, kingRiderHead, kingRiderArm, kingWingNear, kingWingFar, kingStaff, kingStaffGlow, kingMountAura, kingTail;
 let userChampionRig, userChampionBull, userChampionSentinel, userChampionAura, userChampionLight;
@@ -403,7 +408,9 @@ const _meleeDirection = new THREE.Vector3();
 const _chargeImpactPosition = new THREE.Vector3();
 const _screenVector = new THREE.Vector3();
 const _frontlineTransform = new THREE.Object3D();
-const _marketTerrainTransform = new THREE.Object3D();
+const _marketTerrainThemeColor = new THREE.Color();
+const _marketTerrainWhite = new THREE.Color(0xffffff);
+const _marketTerrainMinorFloor = new THREE.Color(0xd8eee1);
 const pointerStart = new THREE.Vector2();
 const pointerPosition = new THREE.Vector2();
 const unitRaycaster = new THREE.Raycaster();
@@ -850,9 +857,35 @@ export function initScene(callbacks = {}) {
                 visualDebtMs: marketTerrainSnapshot.visualDebtMs,
                 impact: marketTerrainSnapshot.impact,
                 objects: marketTerrainSnapshot.window.objectBudget,
-                renderedMajorBoundaries: marketMajorLines?.count || 0,
-                renderedMinorMarks: marketMinorLines?.count || 0,
+                groupVisible: marketTerrainGroup?.visible ?? false,
+                frontierVisible: marketFrontier?.visible ?? false,
+                presentationMarkerVisible: marketPresentationMarker?.visible ?? false,
+                rendererActive: loopActive && !contextLost,
+                renderedMajorBoundaries: renderedMarketMajorBoundaries,
+                renderedMinorMarks: renderedMarketMinorMarks,
                 renderedLabels: marketBandLabels.filter((label) => !label.hidden).length,
+                geometry: {
+                    primitive: 'TERRAIN_CONFORMING_TRIANGLE_RIBBONS',
+                    ribbonSegments: MARKET_TERRAIN_RIBBON_SEGMENTS,
+                    majorVertices: marketMajorLines?.geometry.drawRange.count || 0,
+                    minorVertices: marketMinorLines?.geometry.drawRange.count || 0,
+                    frustumCulled: marketMajorLines?.frustumCulled ?? null,
+                    majorBounds: marketMajorLines?.geometry.boundingBox ? {
+                        min: marketMajorLines.geometry.boundingBox.min.toArray(),
+                        max: marketMajorLines.geometry.boundingBox.max.toArray(),
+                    } : null,
+                },
+                materials: {
+                    major: marketMajorMaterial ? { color: marketMajorMaterial.color.getHex(), opacity: marketMajorMaterial.opacity, depthTest: marketMajorMaterial.depthTest,
+                        depthWrite: marketMajorMaterial.depthWrite, polygonOffset: marketMajorMaterial.polygonOffset,
+                        renderOrder: marketMajorLines.renderOrder } : null,
+                    minor: marketMinorMaterial ? { color: marketMinorMaterial.color.getHex(), opacity: marketMinorMaterial.opacity, depthTest: marketMinorMaterial.depthTest,
+                        depthWrite: marketMinorMaterial.depthWrite, polygonOffset: marketMinorMaterial.polygonOffset,
+                        renderOrder: marketMinorLines.renderOrder } : null,
+                    frontier: marketFrontierMaterial ? { opacity: marketFrontierMaterial.opacity, depthTest: marketFrontierMaterial.depthTest,
+                        depthWrite: marketFrontierMaterial.depthWrite, polygonOffset: marketFrontierMaterial.polygonOffset,
+                        renderOrder: marketFrontier.renderOrder } : null,
+                },
             } : null,
             frontlineX: state.frontlineX,
             viewport: renderer && canvasContainer ? {
@@ -2216,21 +2249,32 @@ function syncViewport(force = false) {
 function initMarketTerrainPresentation() {
     marketTerrainGroup = new THREE.Group();
     marketTerrainGroup.name = 'market-terrain';
-    const majorGeometry = new THREE.BoxGeometry(0.15, 0.05, 62);
-    const minorGeometry = new THREE.BoxGeometry(0.045, 0.025, 58);
-    marketMajorMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.34, depthWrite: false });
-    marketMinorMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.11, depthWrite: false });
+    const majorGeometry = createTerrainRibbonGeometry(MARKET_TERRAIN_MAJOR_CAPACITY);
+    const minorGeometry = createTerrainRibbonGeometry(MARKET_TERRAIN_MINOR_CAPACITY);
+    marketMajorMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.68,
+        depthTest: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4,
+        side: THREE.DoubleSide });
+    marketMinorMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.24,
+        depthTest: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3,
+        side: THREE.DoubleSide });
     marketFrontierMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff88, transparent: true, opacity: 0.82,
-        blending: THREE.AdditiveBlending, depthWrite: false });
-    marketPresentationMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.2, depthWrite: false });
-    marketMajorLines = new THREE.InstancedMesh(majorGeometry, marketMajorMaterial, MARKET_TERRAIN_MAJOR_CAPACITY);
-    marketMinorLines = new THREE.InstancedMesh(minorGeometry, marketMinorMaterial, MARKET_TERRAIN_MINOR_CAPACITY);
-    marketMajorLines.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-    marketMinorLines.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+        blending: THREE.AdditiveBlending, depthTest: true, depthWrite: false, polygonOffset: true,
+        polygonOffsetFactor: -6, polygonOffsetUnits: -6, side: THREE.DoubleSide });
+    marketPresentationMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.38,
+        depthTest: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -5, polygonOffsetUnits: -5,
+        side: THREE.DoubleSide });
+    marketMajorLines = new THREE.Mesh(majorGeometry, marketMajorMaterial);
+    marketMinorLines = new THREE.Mesh(minorGeometry, marketMinorMaterial);
     marketMajorLines.frustumCulled = false;
     marketMinorLines.frustumCulled = false;
-    marketFrontier = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.09, 64), marketFrontierMaterial);
-    marketPresentationMarker = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.04, 60), marketPresentationMaterial);
+    marketFrontier = new THREE.Mesh(createTerrainRibbonGeometry(1), marketFrontierMaterial);
+    marketPresentationMarker = new THREE.Mesh(createTerrainRibbonGeometry(1), marketPresentationMaterial);
+    marketFrontier.frustumCulled = false;
+    marketPresentationMarker.frustumCulled = false;
+    marketMinorLines.renderOrder = 3;
+    marketMajorLines.renderOrder = 4;
+    marketPresentationMarker.renderOrder = 5;
+    marketFrontier.renderOrder = 6;
     marketTerrainGroup.add(marketMinorLines, marketMajorLines, marketPresentationMarker, marketFrontier);
     marketTerrainGroup.visible = false;
     scene.add(marketTerrainGroup);
@@ -2252,6 +2296,47 @@ function initMarketTerrainPresentation() {
     }
 }
 
+function createTerrainRibbonGeometry(capacity) {
+    const geometry = new THREE.BufferGeometry();
+    const verticesPerRibbon = MARKET_TERRAIN_RIBBON_SEGMENTS * 6;
+    const position = new THREE.BufferAttribute(new Float32Array(capacity * verticesPerRibbon * 3), 3);
+    position.setUsage(THREE.DynamicDrawUsage);
+    geometry.setAttribute('position', position);
+    geometry.setDrawRange(0, 0);
+    return geometry;
+}
+
+function writeTerrainRibbons(mesh, entries, width, groundOffset) {
+    const position = mesh.geometry.getAttribute('position');
+    const values = position.array;
+    const zSpan = MARKET_TERRAIN_Z_MAX - MARKET_TERRAIN_Z_MIN;
+    let cursor = 0;
+    for (const entry of entries) {
+        const left = entry.localX - width / 2;
+        const right = entry.localX + width / 2;
+        for (let segment = 0; segment < MARKET_TERRAIN_RIBBON_SEGMENTS; segment += 1) {
+            const z0 = MARKET_TERRAIN_Z_MIN + zSpan * segment / MARKET_TERRAIN_RIBBON_SEGMENTS;
+            const z1 = MARKET_TERRAIN_Z_MIN + zSpan * (segment + 1) / MARKET_TERRAIN_RIBBON_SEGMENTS;
+            const y00 = getTrenchHeight(left, z0) + groundOffset;
+            const y10 = getTrenchHeight(right, z0) + groundOffset;
+            const y01 = getTrenchHeight(left, z1) + groundOffset;
+            const y11 = getTrenchHeight(right, z1) + groundOffset;
+            values[cursor++] = left; values[cursor++] = y00; values[cursor++] = z0;
+            values[cursor++] = right; values[cursor++] = y10; values[cursor++] = z0;
+            values[cursor++] = right; values[cursor++] = y11; values[cursor++] = z1;
+            values[cursor++] = left; values[cursor++] = y00; values[cursor++] = z0;
+            values[cursor++] = right; values[cursor++] = y11; values[cursor++] = z1;
+            values[cursor++] = left; values[cursor++] = y01; values[cursor++] = z1;
+        }
+    }
+    position.needsUpdate = true;
+    mesh.geometry.setDrawRange(0, cursor / 3);
+    if (cursor) {
+        mesh.geometry.computeBoundingBox();
+        mesh.geometry.computeBoundingSphere();
+    }
+}
+
 function updateMarketTerrainColors() {
     if (!marketFrontierMaterial || !marketTerrainSnapshot) return;
     const materials = activeScenePresentation?.materials;
@@ -2259,13 +2344,23 @@ function updateMarketTerrainColors() {
     const color = direction === 'BULLISH' ? materials?.buyAccent || '#00ff88'
         : direction === 'BEARISH' ? materials?.sellParticle || '#ff3366'
             : activeScenePresentation?.environment?.terrainTint || '#ffffff';
-    marketFrontierMaterial.color.set(color);
+    marketFrontierMaterial.color.set(color).lerp(_marketTerrainWhite, 0.12);
+    _marketTerrainThemeColor.set(activeScenePresentation?.environment?.terrainTint || '#ffffff');
+    marketMajorMaterial.color.copy(_marketTerrainThemeColor).lerp(_marketTerrainWhite, 0.72);
+    marketMinorMaterial.color.copy(_marketTerrainThemeColor).lerp(_marketTerrainMinorFloor, 0.52);
+    marketPresentationMaterial.color.copy(_marketTerrainThemeColor).lerp(_marketTerrainWhite, 0.82);
 }
 
 function updateMarketTerrainPresentation(now = Date.now(), force = false) {
     if (!marketTerrainGroup || !marketTerrainOverlay) return;
     if (!marketTerrainController) {
         marketTerrainGroup.visible = false;
+        renderedMarketMajorBoundaries = 0;
+        renderedMarketMinorMarks = 0;
+        marketMajorLines.geometry.setDrawRange(0, 0);
+        marketMinorLines.geometry.setDrawRange(0, 0);
+        marketFrontier.visible = false;
+        marketPresentationMarker.visible = false;
         marketTerrainOverlay.className = 'market-terrain-overlay waiting';
         marketFrontierDirection.textContent = '↔';
         marketFrontierValue.textContent = 'MARKET TERRAIN WAITING';
@@ -2289,43 +2384,49 @@ function updateMarketTerrainPresentation(now = Date.now(), force = false) {
             impactPresentation.cancelActive(now);
         }
     }
-    const hasAuthority = marketTerrainSnapshot.authoritativeValuation !== null;
-    marketTerrainGroup.visible = hasAuthority;
-    marketTerrainOverlay.className = `market-terrain-overlay ${marketTerrainSnapshot.status.toLowerCase()}`;
+    const hasAuthority = marketTerrainSnapshot.hasAuthoritativeFrontier;
+    const presentationState = marketTerrainSnapshot.presentationState;
+    marketTerrainGroup.visible = marketTerrainSnapshot.window.boundaries.length > 0;
+    marketTerrainOverlay.className = `market-terrain-overlay ${marketTerrainSnapshot.status.toLowerCase()} ${presentationState.toLowerCase().replaceAll('_', '-')}`;
     const arrow = marketTerrainSnapshot.direction === 'BULLISH' ? '→'
         : marketTerrainSnapshot.direction === 'BEARISH' ? '←' : '↔';
-    marketFrontierDirection.textContent = arrow;
+    marketFrontierDirection.textContent = hasAuthority ? arrow : '◇';
     marketFrontierValue.textContent = hasAuthority
         ? `${marketTerrainSnapshot.valuationKind === 'PROTOCOL_MARKET_CAP' ? 'MC' : marketTerrainSnapshot.valuationKind} ${marketTerrainSnapshot.valuationLabel}`
-        : 'MARKET TERRAIN WAITING';
-    marketFrontierStatus.textContent = marketTerrainSnapshot.status === 'LIVE'
+        : presentationState === 'INDICATIVE'
+            ? `${marketTerrainSnapshot.indicativeValuationKind === 'MARKET_CAP' ? 'MC' : marketTerrainSnapshot.indicativeValuationKind} REFERENCE ${marketTerrainSnapshot.indicativeValuationLabel}`
+            : 'VALUATION TERRAIN WAITING';
+    marketFrontierStatus.textContent = presentationState === 'LIVE'
         ? `${arrow} ${marketTerrainSnapshot.movementCause.replaceAll('_', ' ')}`
-        : 'STALE / DEGRADED · FRONTIER FROZEN';
-    if (!hasAuthority) {
-        marketBandLabels.forEach((label) => { label.hidden = true; });
-        return;
-    }
+        : presentationState === 'FROZEN'
+            ? 'STALE / DEGRADED · FRONTIER FROZEN'
+            : presentationState === 'INDICATIVE'
+                ? 'INDICATIVE REFERENCE · NO AUTH FRONTIER'
+                : 'UNANCHORED · AUTHORITATIVE DATA REQUIRED';
     const boundaries = marketTerrainSnapshot.window.boundaries.slice(0, MARKET_TERRAIN_MAJOR_CAPACITY);
     const minorMarks = marketTerrainSnapshot.window.minorMarks.slice(0, MARKET_TERRAIN_MINOR_CAPACITY);
-    marketMajorLines.count = boundaries.length;
-    boundaries.forEach((boundary, index) => {
-        _marketTerrainTransform.position.set(boundary.localX, getTrenchHeight(boundary.localX, 0) + 0.18, 0);
-        _marketTerrainTransform.updateMatrix();
-        marketMajorLines.setMatrixAt(index, _marketTerrainTransform.matrix);
-    });
-    marketMajorLines.instanceMatrix.needsUpdate = true;
-    marketMinorLines.count = minorMarks.length;
-    minorMarks.forEach((mark, index) => {
-        _marketTerrainTransform.position.set(mark.localX, getTrenchHeight(mark.localX, 0) + 0.12, 0);
-        _marketTerrainTransform.updateMatrix();
-        marketMinorLines.setMatrixAt(index, _marketTerrainTransform.matrix);
-    });
-    marketMinorLines.instanceMatrix.needsUpdate = true;
-    marketPresentationMarker.position.set(0, getTrenchHeight(0, 0) + 0.2, 0);
-    const targetX = clamp(marketTerrainSnapshot.targetLocalX, -48, 48);
-    marketFrontier.position.set(targetX, getTrenchHeight(targetX, 0) + 0.26, 0);
+    renderedMarketMajorBoundaries = boundaries.length;
+    renderedMarketMinorMarks = minorMarks.length;
+    writeTerrainRibbons(marketMajorLines, boundaries, 0.34, 0.055);
+    writeTerrainRibbons(marketMinorLines, minorMarks, 0.105, 0.045);
+    marketFrontier.visible = hasAuthority;
+    marketPresentationMarker.visible = hasAuthority;
+    if (hasAuthority) {
+        writeTerrainRibbons(marketPresentationMarker, [{ localX: 0 }], 0.14, 0.07);
+        const targetX = clamp(marketTerrainSnapshot.targetLocalX, -48, 48);
+        writeTerrainRibbons(marketFrontier, [{ localX: targetX }], 0.62, 0.085);
+    } else {
+        marketFrontier.geometry.setDrawRange(0, 0);
+        marketPresentationMarker.geometry.setDrawRange(0, 0);
+    }
+    const stateOpacity = presentationState === 'LIVE' ? [0.68, 0.24, 0.92, 0.38]
+        : presentationState === 'FROZEN' ? [0.58, 0.2, 0.7, 0.3]
+            : presentationState === 'INDICATIVE' ? [0.52, 0.18, 0, 0]
+                : [0.38, 0.13, 0, 0];
+    [marketMajorMaterial.opacity, marketMinorMaterial.opacity,
+        marketFrontierMaterial.opacity, marketPresentationMaterial.opacity] = stateOpacity;
     updateMarketTerrainColors();
-    updateMarketBandLabels(boundaries);
+    updateMarketBandLabels(marketTerrainSnapshot.window.numericLabels ? boundaries : []);
 }
 
 function stageDiagnosticMarketImpact(direction = 'BULLISH', category = 'SHOCK', overrides = {}) {
@@ -2372,14 +2473,16 @@ function updateMarketBandLabels(boundaries) {
         const boundary = boundaries[index];
         if (!boundary?.labelled) { label.hidden = true; return; }
         _screenVector.set(boundary.localX, getTrenchHeight(boundary.localX, -25) + 0.8, -25).project(camera);
-        if (_screenVector.z < -1 || _screenVector.z > 1 || Math.abs(_screenVector.x) > 1.05 || Math.abs(_screenVector.y) > 1.05) {
+        const left = (_screenVector.x * 0.5 + 0.5) * rect.width;
+        const top = (-_screenVector.y * 0.5 + 0.5) * rect.height;
+        if (_screenVector.z < -1 || _screenVector.z > 1 || left < 32 || left > rect.width - 32 || top < 12 || top > rect.height - 12) {
             label.hidden = true;
             return;
         }
         label.hidden = false;
         label.textContent = boundary.label;
-        label.style.left = `${(_screenVector.x * 0.5 + 0.5) * rect.width}px`;
-        label.style.top = `${(-_screenVector.y * 0.5 + 0.5) * rect.height}px`;
+        label.style.left = `${left}px`;
+        label.style.top = `${top}px`;
     });
 }
 

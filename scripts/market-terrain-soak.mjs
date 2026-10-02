@@ -19,6 +19,9 @@ let iterations = 0;
 let switches = 0;
 let rebases = 0;
 let degradedRecoveries = 0;
+let waitingStates = 0;
+let indicativeStates = 0;
+let frozenStates = 0;
 let firstHalfProcessingMs = 0;
 let firstHalfSamples = 0;
 let secondHalfProcessingMs = 0;
@@ -79,6 +82,22 @@ while (performance.now() - startedAt < durationMs) {
             tokenIndex = (tokenIndex + 1) % tokens.length;
             sourceEpoch = 1;
             terrain = createMarketTerrain(tokens[tokenIndex]);
+            const waiting = terrain.getSnapshot(iterations % 2 ? 390 : 1_440);
+            if (waiting.presentationState !== 'UNANCHORED_WAITING' || waiting.hasAuthoritativeFrontier || waiting.impact) {
+                throw new Error('Cold waiting created market truth');
+            }
+            observeMaxima(waiting);
+            waitingStates += 1;
+            if (switches % 2 === 0) {
+                const indicative = terrain.observeDisplayValuation({
+                    tokenMint: tokens[tokenIndex], valueUsd: values[iterations % values.length], kind: 'MARKET_CAP',
+                    evidenceLevel: 'PROVIDER_INDICATIVE', authorityEligible: false,
+                });
+                if (indicative.presentationState !== 'INDICATIVE' || indicative.hasAuthoritativeFrontier
+                    || indicative.traversal || indicative.impact) throw new Error('Indicative anchor created market truth');
+                observeMaxima(indicative);
+                indicativeStates += 1;
+            }
             terrain.observeValuation(canonicalValuation(values[iterations % values.length]), logicalNow);
             switches += 1;
         }
@@ -87,9 +106,14 @@ while (performance.now() - startedAt < durationMs) {
         if (iterations % 223 === 0) cause = 'SUPPLY_BASIS_CHANGE';
         if (iterations % 389 === 0) { sourceEpoch += 1; cause = 'SOURCE_REBASE'; rebases += 1; }
         if (iterations % 173 === 0) {
-            terrain.degrade();
+            const frozen = terrain.degrade();
+            const frozenCoordinate = frozen.presentationCoordinate;
+            const afterWait = terrain.advance(logicalNow + 10_000);
+            if (frozen.presentationState !== 'FROZEN' || afterWait.presentationCoordinate !== frozenCoordinate
+                || !frozen.hasAuthoritativeFrontier || frozen.impact) throw new Error('Degraded terrain did not freeze');
             cause = 'STATE_RECONCILIATION';
             degradedRecoveries += 1;
+            frozenStates += 1;
         }
         const snapshot = terrain.observeValuation(canonicalValuation(values[iterations % values.length], cause), logicalNow);
         if (iterations % 3 === 0 && cause === 'TOKEN_PRICE_UPDATE') terrain.observeExecution(execution(iterations, iterations % 5 !== 0), logicalNow);
@@ -118,6 +142,7 @@ if (secondHalfAverageUs > firstHalfAverageUs * 3 + 25) {
 
 console.log(JSON.stringify({
     durationMs: Math.round(performance.now() - startedAt), iterations, switches, rebases, degradedRecoveries,
+    waitingStates, indicativeStates, frozenStates,
     maxima, firstHalfAverageUs, secondHalfAverageUs, heapDeltaBytes: heapAfter - heapBefore,
     controllerTimers: 0, controllerListeners: 0,
 }, null, 2));

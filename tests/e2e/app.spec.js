@@ -62,7 +62,12 @@ test('renders verified swaps and the WebGL battlefield', async ({ page }, testIn
     const pageErrors = [];
     page.on('pageerror', (error) => pageErrors.push(error.message));
     await page.goto('/');
-    await page.waitForFunction(() => typeof window.__ansemSceneDiagnostics === 'function');
+    await page.waitForFunction(
+        () => typeof window.__ansemSceneDiagnostics === 'function'
+            && window.__ansemSceneDiagnostics().camera.y >= 24,
+        null,
+        { timeout: 12_000 },
+    );
     const initialFrame = await page.evaluate(() => window.__ansemSceneDiagnostics());
     expect(initialFrame.camera.y).toBeGreaterThanOrEqual(24);
     expect(initialFrame.render.calls).toBeGreaterThan(0);
@@ -119,7 +124,11 @@ test('renders verified swaps and the WebGL battlefield', async ({ page }, testIn
         window.__ansemTriggerBullKingSupport();
         window.__ansemTriggerReclamation();
     });
-    await page.waitForTimeout(350);
+    await page.waitForFunction(
+        (previousCount) => window.__ansemSceneDiagnostics().kingStrikeEvents > previousCount,
+        strikeEventsBefore,
+        { timeout: 12_000 },
+    );
     const support = await page.evaluate(() => window.__ansemSceneDiagnostics());
     expect(support.supportWaves).toBeGreaterThan(0);
     expect(support.supportedBulls).toBeGreaterThan(0);

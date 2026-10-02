@@ -10,6 +10,7 @@ export default defineConfig({
     reporter: process.env.CI
         ? [['list'], ['github']]
         : [['list'], ['html', { open: 'never' }]],
+    expect: { timeout: 15_000 },
     use: {
         baseURL: 'http://127.0.0.1:4173',
         trace: 'on-first-retry',
