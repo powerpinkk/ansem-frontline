@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { mkdir, writeFile } from 'node:fs/promises';
 
 const ANSEM = '9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump';
 const USDC = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
@@ -17,6 +18,48 @@ const POOLS = {
 test.beforeEach(async ({ page }) => {
     await installMarketRoutes(page);
 });
+
+async function writeClockEvidence(name, value) {
+    await mkdir('.artifacts/m12-clock-correction', { recursive: true });
+    await writeFile(`.artifacts/m12-clock-correction/${name}.json`, `${JSON.stringify(value, null, 2)}\n`);
+}
+
+async function samplePresentationFrames(page, count = 6) {
+    return page.evaluate((frameCount) => new Promise((resolve) => {
+        const samples = [];
+        const sample = () => {
+            const diagnostics = window.__ansemSceneDiagnostics();
+            const ranks = [...diagnostics.ranks.bull, ...diagnostics.ranks.bear]
+                .filter((rank) => !rank.retiring);
+            const oscillations = ranks.map((rank) => rank.presentationOscillationZ);
+            samples.push({
+                ...diagnostics.presentationTiming,
+                motionSamples: diagnostics.locomotion.updatePerformance.samples,
+                commanderFrames: diagnostics.commander.animationFrames,
+                formationRankCount: ranks.length,
+                formationOscillationMax: oscillations.length
+                    ? Math.max(...oscillations.map((value) => Math.abs(value))) : 0,
+                formationOscillationSum: oscillations.reduce((sum, value) => sum + value, 0),
+            });
+            if (samples.length >= frameCount) resolve(samples);
+            else requestAnimationFrame(sample);
+        };
+        requestAnimationFrame(sample);
+    }), count);
+}
+
+function expectActiveGenericPresentation(samples) {
+    const first = samples[0];
+    const last = samples.at(-1);
+    const advancedFrames = last.motionSamples - first.motionSamples;
+    expect(advancedFrames).toBeGreaterThan(0);
+    expect(last.sceneTime).toBeGreaterThan(first.sceneTime);
+    expect(last.sceneTime - first.sceneTime).toBeLessThanOrEqual((advancedFrames + 1) * 0.101);
+    expect(new Set(samples.map((sample) => sample.frontlineOpacity.toFixed(5))).size).toBeGreaterThan(1);
+    expect(samples.every((sample) => sample.formationRankCount > 0)).toBe(true);
+    expect(samples.some((sample) => sample.formationOscillationMax > 0.001)).toBe(true);
+    expect(new Set(samples.map((sample) => sample.formationOscillationSum.toFixed(5))).size).toBeGreaterThan(1);
+}
 
 test('base URL starts the default ANSEM runtime', async ({ page }) => {
     await page.goto('/');
@@ -66,7 +109,14 @@ for (const [mint, symbol] of [[USDC, 'USDC'], [JUP, 'JUP']]) {
         });
         await page.waitForFunction(() => window.__ansemSceneDiagnostics().entities
             .some((entity) => entity.runtimeRole === 'market-impact-actor'));
-        await page.waitForTimeout(300);
+        await page.waitForFunction(() => {
+            const diagnostics = window.__ansemSceneDiagnostics();
+            return diagnostics.ranks.bull.length + diagnostics.ranks.bear.length > 0;
+        });
+        const impactActorsAtStart = await page.evaluate(() => window.__ansemSceneDiagnostics().entities
+            .filter((entity) => entity.runtimeRole === 'market-impact-actor').length);
+        await page.evaluate(async () => (await import('/js/scene.js')).applyTradeImpulse(true, 20, true));
+        const presentationSamples = await samplePresentationFrames(page);
 
         const result = await page.evaluate(() => {
             const diagnostics = window.__ansemSceneDiagnostics();
@@ -95,14 +145,79 @@ for (const [mint, symbol] of [[USDC, 'USDC'], [JUP, 'JUP']]) {
         expect(result.feed).not.toMatch(/KING'S RECLAMATION|VANGUARD WARD|KING'S WARD/);
         expect(result.bullTroops).toBeGreaterThan(0);
         expect(result.bearTroops).toBeGreaterThan(0);
-        expect(result.impactActors).toBe(1);
+        expect(impactActorsAtStart).toBe(1);
+        expectActiveGenericPresentation(presentationSamples);
+        expect(presentationSamples.some((sample) => Math.abs(sample.cameraShakeX) > 0.0001)).toBe(true);
         expect(pageErrors).toEqual([]);
+        await writeClockEvidence(`cold-${symbol.toLowerCase()}-${testInfo.project.name}`, {
+            mint,
+            impactActorsAtStart,
+            presentationSamples,
+            commander: result.diagnostics.commander,
+            camera: result.diagnostics.camera,
+            kingStrikeEvents: result.diagnostics.kingStrikeEvents,
+            pageErrors,
+        });
         await page.screenshot({
             path: `.artifacts/m12-cold-${symbol.toLowerCase()}-${testInfo.project.name}.png`,
             fullPage: true,
         });
     });
 }
+
+test('generic presentation clock pauses cleanly and resumes without hidden-time jumps', async ({ page }, testInfo) => {
+    await page.goto(`/?token=${USDC}`);
+    await page.waitForFunction(() => {
+        const diagnostics = window.__ansemSceneDiagnostics?.();
+        return diagnostics?.commander?.present === false && diagnostics.presentationTiming.sceneTime > 0;
+    });
+    await page.evaluate(() => {
+        Object.defineProperty(document, 'hidden', { configurable: true, value: true });
+        window.__ansemHandleVisibility();
+    });
+    const paused = await page.evaluate(() => window.__ansemSceneDiagnostics());
+    await page.waitForTimeout(350);
+    const stillPaused = await page.evaluate(() => window.__ansemSceneDiagnostics());
+    expect(stillPaused.presentationTiming.sceneTime).toBe(paused.presentationTiming.sceneTime);
+    expect(stillPaused.locomotion.updatePerformance.samples).toBe(paused.locomotion.updatePerformance.samples);
+    expect(stillPaused.commander.animationFrames).toBe(paused.commander.animationFrames);
+
+    const resumed = await page.evaluate(() => new Promise((resolve) => {
+        Object.defineProperty(document, 'hidden', { configurable: true, value: false });
+        window.__ansemHandleVisibility();
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve(window.__ansemSceneDiagnostics())));
+    }));
+    expect(resumed.presentationTiming.sceneTime).toBeGreaterThan(paused.presentationTiming.sceneTime);
+    expect(resumed.presentationTiming.sceneTime - paused.presentationTiming.sceneTime).toBeLessThanOrEqual(0.202);
+    expect(resumed.presentationTiming.commanderTime).toBe(0);
+    expect(resumed.commander.present).toBe(false);
+    await writeClockEvidence(`pause-resume-${testInfo.project.name}`, {
+        paused: paused.presentationTiming,
+        stillPaused: stillPaused.presentationTiming,
+        resumed: resumed.presentationTiming,
+    });
+});
+
+test('reduced motion advances generic time without pulse, shake or formation oscillation', async ({ page }, testInfo) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.goto(`/?token=${USDC}`);
+    await page.waitForFunction(() => {
+        const diagnostics = window.__ansemSceneDiagnostics?.();
+        return diagnostics?.presentationTiming?.reducedMotion === true
+            && diagnostics.ranks.bull.length + diagnostics.ranks.bear.length > 0;
+    });
+    await page.evaluate(async () => {
+        window.__ansemSpawnStressBattle(4);
+        (await import('/js/scene.js')).applyTradeImpulse(true, 20, true);
+    });
+    const samples = await samplePresentationFrames(page);
+    expect(samples.at(-1).sceneTime).toBeGreaterThan(samples[0].sceneTime);
+    expect(samples.every((sample) => sample.frontlineOpacity === 0.42)).toBe(true);
+    expect(samples.every((sample) => sample.cameraShakeX === 0 && sample.cameraShakeY === 0)).toBe(true);
+    expect(samples.every((sample) => sample.formationOscillationMax === 0)).toBe(true);
+    expect(samples.every((sample) => sample.commanderTime === 0)).toBe(true);
+    await writeClockEvidence(`reduced-motion-${testInfo.project.name}`, { samples });
+});
 
 test('Commander identity follows mint across generic tokens, themes and history', async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== 'desktop-chromium', 'One deterministic lifecycle sequence is sufficient');
@@ -136,7 +251,12 @@ test('Commander identity follows mint across generic tokens, themes and history'
             window.__ansemTriggerKingDefense();
             return window.__ansemSceneDiagnostics().commander.animationFrames;
         });
-        await page.waitForTimeout(300);
+        await page.waitForFunction(() => {
+            const diagnostics = window.__ansemSceneDiagnostics();
+            return diagnostics.ranks.bull.length + diagnostics.ranks.bear.length > 0;
+        });
+        await page.evaluate(async () => (await import('/js/scene.js')).applyTradeImpulse(true, 20, true));
+        const genericPresentation = await samplePresentationFrames(page);
         const generic = await page.evaluate(() => ({
             diagnostics: window.__ansemSceneDiagnostics(),
             feed: document.getElementById('killfeed')?.textContent || '',
@@ -150,6 +270,7 @@ test('Commander identity follows mint across generic tokens, themes and history'
         expect(generic.feed).not.toMatch(/KING'S RECLAMATION|VANGUARD WARD|KING'S WARD/);
         expect(generic.diagnostics.commander.sceneObjectCount).toBe(0);
         expect(generic.diagnostics.bullKing).toBeNull();
+        expectActiveGenericPresentation(genericPresentation);
     }
 
     await page.evaluate(() => window.__ansemApplyTheme('ansem'));
@@ -195,6 +316,14 @@ test('Commander identity follows mint across generic tokens, themes and history'
     const restored = await page.evaluate(() => window.__ansemSceneDiagnostics().commander);
     expect(restored.sceneObjectCount).toBe(1);
     expect(restored.actorId).not.toBe(firstActorId);
+    const restoredPresentation = await samplePresentationFrames(page);
+    const restoredFirst = restoredPresentation[0];
+    const restoredLast = restoredPresentation.at(-1);
+    const restoredFrames = restoredLast.motionSamples - restoredFirst.motionSamples;
+    expect(restoredLast.sceneTime).toBeGreaterThan(restoredFirst.sceneTime);
+    expect(restoredLast.commanderTime).toBeGreaterThan(restoredFirst.commanderTime);
+    expect(restoredLast.commanderTime - restoredFirst.commanderTime)
+        .toBeLessThanOrEqual((restoredFrames + 1) * 0.251);
     const strikesBeforeReclamation = await page.evaluate(() => {
         window.__ansemSpawnStressBattle(1);
         const diagnostics = window.__ansemSceneDiagnostics();
@@ -219,6 +348,11 @@ test('Commander identity follows mint across generic tokens, themes and history'
     expect(roles.commander).toMatchObject({ present: true, sceneObjectCount: 1, role: 'commander' });
     expect(roles.impactActors).toHaveLength(1);
     expect(roles.impactActors[0].runtimeRole).not.toBe(roles.commander.role);
+    await writeClockEvidence('lifecycle-desktop-chromium', {
+        restoredPresentation,
+        commander: roles.commander,
+        impactActorCount: roles.impactActors.length,
+    });
     await page.screenshot({ path: '.artifacts/m12-ansem-shock-role-separation.png', fullPage: true });
 });
 

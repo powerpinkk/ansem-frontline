@@ -156,7 +156,10 @@ let userChampionRig, userChampionBull, userChampionSentinel, userChampionAura, u
 let userChampionSnapshot = null;
 let commanderSnapshot = Object.freeze({ role: 'commander', present: false, lifecycleState: 'empty' });
 const kingLegs = [];
-let kingTime = 0;
+// Scene presentation time advances once per active frame and is shared only by
+// token-generic visuals. Commander time advances separately while its actor is active.
+let scenePresentationTime = 0;
+let commanderAnimationTime = 0;
 let bullSupportUntil = 0;
 let lastFrontlineFitX = Number.POSITIVE_INFINITY;
 let viewportObserver;
@@ -783,6 +786,9 @@ export function initScene(callbacks = {}) {
                 combatSequence: agent.combat.sequence,
                 combatHits: agent.combat.totalHits,
                 combatMisses: agent.combat.totalMisses,
+                formationTargetX: agent.formationTargetX,
+                formationTargetZ: agent.formationTargetZ,
+                presentationOscillationZ: agent.presentationOscillationZ || 0,
             }))])),
             locomotion: getLocomotionDiagnostics(),
             bullKing: isCommanderActorActive() ? {
@@ -851,6 +857,15 @@ export function initScene(callbacks = {}) {
                 actionSpread: lastCameraActionSpread,
                 commanderIncluded: lastCameraCommanderIncluded,
             } : null,
+            presentationTiming: {
+                sceneTime: scenePresentationTime,
+                commanderTime: commanderAnimationTime,
+                reducedMotion: prefersReducedMotion,
+                frontlineOpacity: frontlineMaterial?.opacity ?? null,
+                screenShake: state.screenShake,
+                cameraShakeX: cameraShakeOffsetX,
+                cameraShakeY: cameraShakeOffsetY,
+            },
             environment: scene?.background ? {
                 background: scene.background.getHex(),
                 target: _environmentTarget.getHex(),
@@ -1301,7 +1316,7 @@ export function setCommanderSnapshot(snapshot) {
 }
 
 function clearCommanderPresentation() {
-    kingTime = 0;
+    commanderAnimationTime = 0;
     kingDefenseUntil = 0;
     kingThreat = null;
     kingDefenseTargetX = null;
@@ -1473,6 +1488,9 @@ export function removeTradePresentation(eventId) {
 
 export function resetTokenPresentation() {
     if (!scene) return;
+    // A token runtime owns its generic presentation phase. Commander lifecycle
+    // changes inside that runtime never reset this clock.
+    scenePresentationTime = 0;
     while (entities.length) retireEntity(entities.at(-1));
     while (projectiles.length) removeProjectile(projectiles.length - 1);
     for (const particle of particles) {
@@ -3749,7 +3767,7 @@ function updateEntities(delta) {
     frontlineLaser.position.x = state.frontlineX;
     fitFrontlineToTerrain();
     if (frontlineMaterial) {
-        const pulse = prefersReducedMotion ? 0 : Math.sin(kingTime * 2.6) * 0.08;
+        const pulse = prefersReducedMotion ? 0 : Math.sin(scenePresentationTime * 2.6) * 0.08;
         frontlineMaterial.opacity = 0.42 + pulse;
     }
 
@@ -4544,18 +4562,22 @@ function updateCrowdSide(type, doctrine, delta) {
                 : agent.role === 'support' ? 0.94
                     : agent.role === 'reserve' ? 0.9 : 1;
         const rankDepth = agent.depthRank * (0.9 + doctrine.cohesion * 0.22) + agent.depthJitter;
-        const wave = Math.sin(kingTime * (0.28 + crowdBattle.intensity * 0.16) + agent.phase);
+        const wave = prefersReducedMotion
+            ? 0
+            : Math.sin(scenePresentationTime * (0.28 + crowdBattle.intensity * 0.16) + agent.phase);
         let targetX;
         const rankCurve = Math.sin(agent.depthRank * 1.37 + agent.phase * 0.73) * 0.28;
         const roleDrift = agent.role === 'flank' ? agent.flankSide * 0.38 : 0;
+        let presentationOscillationZ = wave * (agent.role === 'skirmisher' ? 0.82 : 0.46);
         let targetZ = agent.lane + (order?.fileOffset || 0) + agent.laneBias + rankCurve + roleDrift
-            + wave * (agent.role === 'skirmisher' ? 0.82 : 0.46);
+            + presentationOscillationZ;
         let opponent = null;
         let opponentDistance = Number.POSITIVE_INFINITY;
 
         if (agent.retiring) {
             targetX = agent.x;
             targetZ = agent.z;
+            presentationOscillationZ = 0;
             agent.life = Math.max(0, agent.life - delta * 0.72);
         } else {
             agent.life = Math.min(1, agent.life + delta * 1.45);
@@ -4618,8 +4640,11 @@ function updateCrowdSide(type, doctrine, delta) {
             const sectorX = sectorContactX - direction * preferredDistance * 0.5;
             targetX = THREE.MathUtils.lerp(pursuitX, sectorX, agent.engaged ? 0.24 : 0.38);
             const sharedLane = (agent.lane + partner.lane) * 0.5 + (order?.fileOffset || 0);
-            targetZ = sharedLane + agent.laneBias * 0.88 + rankCurve * 0.45
-                + direction * Math.sin(agent.phase + kingTime * 1.9) * (agent.engaged ? 0.34 : 0.15);
+            const contactOscillation = prefersReducedMotion
+                ? 0
+                : direction * Math.sin(agent.phase + scenePresentationTime * 1.9) * (agent.engaged ? 0.34 : 0.15);
+            presentationOscillationZ = contactOscillation;
+            targetZ = sharedLane + agent.laneBias * 0.88 + rankCurve * 0.45 + contactOscillation;
         } else if (!agent.retiring && order?.leader) {
             // Reinforcements advance as a queue behind their own vanguard. They
             // inherit the open ground when the leader falls instead of trying to
@@ -4629,12 +4654,18 @@ function updateCrowdSide(type, doctrine, delta) {
             const supportFan = order.assisting
                 ? agent.avoidanceSide * (0.32 + order.depth * 0.12)
                 : 0;
+            const reinforcementOscillation = prefersReducedMotion
+                ? 0
+                : Math.sin(agent.phase + scenePresentationTime * (order.assisting ? 1.15 : 0.55))
+                    * (order.assisting ? 0.24 : 0.12);
+            presentationOscillationZ = reinforcementOscillation;
             targetZ = agent.lane + (order.fileOffset || 0) + agent.laneBias + rankCurve + roleDrift + supportFan
-                + Math.sin(agent.phase + kingTime * (order.assisting ? 1.15 : 0.55)) * (order.assisting ? 0.24 : 0.12);
+                + reinforcementOscillation;
         }
 
         agent.formationTargetX = targetX;
         agent.formationTargetZ = targetZ;
+        agent.presentationOscillationZ = presentationOscillationZ;
 
         const dx = targetX - agent.x;
         const dz = targetZ - agent.z;
@@ -5823,7 +5854,7 @@ function enforceArenaBounds(entity) {
 function updateBullKing(delta) {
     if (!isCommanderActorActive()) return;
     kingAnimationFrames += 1;
-    kingTime += delta;
+    commanderAnimationTime += delta;
     const now = Date.now();
     const { tactics } = getSceneTactics(now);
     const reactionAge = (now - kingReactionAt) / 1000;
@@ -5887,13 +5918,13 @@ function updateBullKing(delta) {
         const orbitX = kingMode === 'lead' ? 3.6 : kingMode === 'guard' ? 1.8 : 2.8;
         const orbitZ = kingMode === 'marshal' ? 4.4 : 3.4;
         targetX = clamp(
-            Math.min(commandBaseX + Math.sin(kingTime * patrolRate) * orbitX, bullFrontReference - 6.5),
+            Math.min(commandBaseX + Math.sin(commanderAnimationTime * patrolRate) * orbitX, bullFrontReference - 6.5),
             ARENA.minX + 8,
             ARENA.maxX - 16,
         );
-        targetZ = clamp(targetZ + Math.cos(kingTime * patrolRate * 0.83) * orbitZ, ARENA.minZ + 5, ARENA.maxZ - 5);
+        targetZ = clamp(targetZ + Math.cos(commanderAnimationTime * patrolRate * 0.83) * orbitZ, ARENA.minZ + 5, ARENA.maxZ - 5);
     }
-    const hover = Math.sin(kingTime * (1.25 + tactics.flowIntensity * 0.35)) * (prefersReducedMotion ? 0.18 : 0.62)
+    const hover = Math.sin(commanderAnimationTime * (1.25 + tactics.flowIntensity * 0.35)) * (prefersReducedMotion ? 0.18 : 0.62)
         + reaction * 0.22;
     _kingTarget.set(targetX, getTrenchHeight(targetX, targetZ) + directive.altitude + hover, targetZ);
     const travelX = _kingTarget.x - bullKingRig.position.x;
@@ -5941,43 +5972,44 @@ function updateBullKing(delta) {
     const flapAmplitude = prefersReducedMotion
         ? 0.07
         : 0.27 + tactics.flowIntensity * 0.08 + reaction * 0.05 + (defending ? 0.1 : 0);
-    const flap = Math.sin(kingTime * flapRate) * flapAmplitude;
+    const flap = Math.sin(commanderAnimationTime * flapRate) * flapAmplitude;
     kingWingNear.rotation.x = 0.12 + flap;
     kingWingFar.rotation.x = -0.12 - flap;
     kingLegs.forEach((leg, index) => {
         const base = index < 2 ? -0.58 : 0.58;
-        leg.rotation.z = base + Math.sin(kingTime * 3.2 + index * Math.PI) * (0.08 + reaction * 0.05);
+        leg.rotation.z = base + Math.sin(commanderAnimationTime * 3.2 + index * Math.PI) * (0.08 + reaction * 0.05);
     });
     if (kingMount) {
-        kingMount.position.y = Math.sin(kingTime * 1.7) * 0.16;
-        kingMount.rotation.z = Math.sin(kingTime * 0.92) * 0.035 - reaction * 0.02 - commandGesture * 0.025;
+        kingMount.position.y = Math.sin(commanderAnimationTime * 1.7) * 0.16;
+        kingMount.rotation.z = Math.sin(commanderAnimationTime * 0.92) * 0.035 - reaction * 0.02 - commandGesture * 0.025;
     }
     if (kingTail) {
-        kingTail.rotation.y = Math.sin(kingTime * 2.1) * 0.32;
-        kingTail.rotation.z = Math.sin(kingTime * 1.35) * 0.12;
+        kingTail.rotation.y = Math.sin(commanderAnimationTime * 2.1) * 0.32;
+        kingTail.rotation.z = Math.sin(commanderAnimationTime * 1.35) * 0.12;
     }
-    if (kingRider) kingRider.rotation.z = Math.sin(kingTime * 1.15) * 0.045 - reaction * 0.035 - commandGesture * 0.055;
+    if (kingRider) kingRider.rotation.z = Math.sin(commanderAnimationTime * 1.15) * 0.045 - reaction * 0.035 - commandGesture * 0.055;
     if (kingRiderHead) {
-        kingRiderHead.rotation.y = -0.18 + Math.sin(kingTime * 0.48) * 0.1;
+        kingRiderHead.rotation.y = -0.18 + Math.sin(commanderAnimationTime * 0.48) * 0.1;
         kingRiderHead.rotation.z = commandGesture * 0.08;
     }
     if (kingRiderArm) {
         kingRiderArm.rotation.z = -0.82 - reaction * 0.16 - commandGesture * 0.42;
         kingRiderArm.rotation.x = commandGesture * 0.22;
     }
-    if (kingStaff) kingStaff.rotation.z = -0.58 - reaction * 0.16 - (defending ? 0.18 : 0) - commandGesture * 0.34 + Math.sin(kingTime * 1.8) * 0.065;
+    if (kingStaff) kingStaff.rotation.z = -0.58 - reaction * 0.16 - (defending ? 0.18 : 0) - commandGesture * 0.34
+        + Math.sin(commanderAnimationTime * 1.8) * 0.065;
     if (kingMountAura) {
         kingMountAura.material.opacity = clamp(
             0.13 + (supporting ? 0.13 : 0) + (kingMode === 'guard' ? 0.07 : 0) + commandGesture * 0.1
-                + Math.sin(kingTime * 2.2) * 0.025,
+                + Math.sin(commanderAnimationTime * 2.2) * 0.025,
             0.08,
             0.38,
         );
-        kingMountAura.scale.setScalar(1 + commandGesture * 0.22 + Math.sin(kingTime * 1.6) * 0.03);
+        kingMountAura.scale.setScalar(1 + commandGesture * 0.22 + Math.sin(commanderAnimationTime * 1.6) * 0.03);
     }
     if (kingStaffGlow) kingStaffGlow.intensity = supporting
-        ? 11 + Math.sin(kingTime * 11) * 3
-        : 4.5 + Math.sin(kingTime * 2) * 1.2 + reaction * 4 + commandGesture * 6;
+        ? 11 + Math.sin(commanderAnimationTime * 11) * 3
+        : 4.5 + Math.sin(commanderAnimationTime * 2) * 1.2 + reaction * 4 + commandGesture * 6;
 }
 
 function setKingMode(nextMode, now = Date.now()) {
@@ -6077,8 +6109,8 @@ function updateCamera(delta) {
 
         if (state.screenShake > 0) {
             if (!prefersReducedMotion) {
-                cameraShakeOffsetX = Math.sin(kingTime * 38) * state.screenShake;
-                cameraShakeOffsetY = Math.sin(kingTime * 31 + 0.8) * state.screenShake * 0.42;
+                cameraShakeOffsetX = Math.sin(scenePresentationTime * 38) * state.screenShake;
+                cameraShakeOffsetY = Math.sin(scenePresentationTime * 31 + 0.8) * state.screenShake * 0.42;
                 camera.position.x += cameraShakeOffsetX;
                 camera.position.y += cameraShakeOffsetY;
             }
@@ -6320,6 +6352,7 @@ function gameLoop(timestamp) {
     // remains elapsed-time based; no state advances by an assumed frame count.
     const simulationDelta = Math.min(elapsed, 0.25);
     const presentationDelta = Math.min(elapsed, 0.1);
+    scenePresentationTime += presentationDelta;
     const motionUpdateStartedAt = performance.now();
     updateProjectiles(simulationDelta);
     updateEntities(simulationDelta);

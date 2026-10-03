@@ -264,10 +264,22 @@ test('renderer interruption remains tied to WebGL loss and recovers independentl
     test.skip(testInfo.project.name !== 'desktop-chromium', 'One WebGL lifecycle check is sufficient');
     await page.goto('/?diagnostics=1');
     await expect(page.locator('#market-frontier-value')).toHaveText('MC $600K', { timeout: 45_000 });
+    const beforeClock = await page.evaluate(() => window.__ansemSceneDiagnostics().presentationTiming.sceneTime);
     await page.locator('#three-canvas').evaluate((canvas) => canvas.dispatchEvent(new Event('webglcontextlost', { cancelable: true })));
     await expect(page.locator('#renderer-status')).toBeVisible();
     expect((await page.evaluate(() => window.__ansemSceneDiagnostics().marketTerrain.rendererActive))).toBe(false);
-    await page.locator('#three-canvas').evaluate((canvas) => canvas.dispatchEvent(new Event('webglcontextrestored')));
+    const lostClock = await page.evaluate(() => window.__ansemSceneDiagnostics().presentationTiming.sceneTime);
+    expect(lostClock).toBeGreaterThanOrEqual(beforeClock);
+    await page.waitForTimeout(350);
+    expect(await page.evaluate(() => window.__ansemSceneDiagnostics().presentationTiming.sceneTime)).toBe(lostClock);
+    const firstRestoredClock = await page.locator('#three-canvas').evaluate((canvas) => new Promise((resolve) => {
+        canvas.dispatchEvent(new Event('webglcontextrestored'));
+        requestAnimationFrame(() => requestAnimationFrame(() => (
+            resolve(window.__ansemSceneDiagnostics().presentationTiming.sceneTime)
+        )));
+    }));
+    expect(firstRestoredClock).toBeGreaterThan(lostClock);
+    expect(firstRestoredClock - lostClock).toBeLessThanOrEqual(0.202);
     await expect(page.locator('#renderer-status')).toBeHidden();
     await expect.poll(() => page.evaluate(() => window.__ansemSceneDiagnostics().marketTerrain.rendererActive)).toBe(true);
     expect((await page.evaluate(() => window.__ansemTerrainDiagnostics().presentationState))).toBe('LIVE');
