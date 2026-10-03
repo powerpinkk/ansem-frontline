@@ -193,6 +193,8 @@ let kingModeSince = Date.now();
 let kingModeChanges = 0;
 let kingSpeed = 0;
 let kingTurnRate = 0;
+let kingAnimationFrames = 0;
+let lastCameraCommanderIncluded = false;
 let kingGestureStartedAt = 0;
 let kingNextGestureAt = 0;
 let kingCommandGestures = 0;
@@ -783,7 +785,7 @@ export function initScene(callbacks = {}) {
                 combatMisses: agent.combat.totalMisses,
             }))])),
             locomotion: getLocomotionDiagnostics(),
-            bullKing: bullKingRig?.parent ? {
+            bullKing: isCommanderActorActive() ? {
                 x: bullKingRig.position.x,
                 y: bullKingRig.position.y,
                 z: bullKingRig.position.z,
@@ -801,7 +803,7 @@ export function initScene(callbacks = {}) {
             } : null,
             commander: {
                 role: 'commander',
-                present: commanderSnapshot.present && Boolean(bullKingRig?.parent),
+                present: isCommanderActorActive(),
                 lifecycleState: commanderSnapshot.lifecycleState,
                 actorId: commanderSnapshot.actorId || null,
                 profileId: commanderSnapshot.profile?.id || null,
@@ -813,7 +815,8 @@ export function initScene(callbacks = {}) {
                 animationSetId: commanderSnapshot.animationSetId || null,
                 combatArchetype: commanderSnapshot.combatArchetype || null,
                 capabilities: commanderSnapshot.capabilities || [],
-                sceneObjectCount: commanderSnapshot.present && bullKingRig?.parent ? 1 : 0,
+                sceneObjectCount: isCommanderActorActive() ? 1 : 0,
+                animationFrames: kingAnimationFrames,
             },
             userChampion: userChampionRig ? {
                 entityKind: userChampionRig.userData.entityKind,
@@ -846,6 +849,7 @@ export function initScene(callbacks = {}) {
                 fov: camera.fov,
                 eventWeight: lastCameraEventWeight,
                 actionSpread: lastCameraActionSpread,
+                commanderIncluded: lastCameraCommanderIncluded,
             } : null,
             environment: scene?.background ? {
                 background: scene.background.getHex(),
@@ -1137,7 +1141,7 @@ export function initScene(callbacks = {}) {
         };
         window.__ansemTriggerKingDefense = (pressure = {}) => {
             const bear = entities.find((entity) => entity.type === 'bear' && !entity.retired);
-            if (!bear || !bullKingRig) return;
+            if (!bear || !isCommanderActorActive()) return;
             bear.mesh.position.set(
                 bullKingRig.position.x + 5,
                 getTrenchHeight(bullKingRig.position.x + 5, bullKingRig.position.z + 8),
@@ -1234,7 +1238,7 @@ export function applyThemePresentation(presentation) {
     applyMaterialPalette(materials);
     applyUserChampionTheme(presentation.champion);
 
-    if (bullKingRig) bullKingRig.visible = Boolean(commanderSnapshot.present && presentation.hero.visible);
+    if (bullKingRig) bullKingRig.visible = Boolean(isCommanderActorActive() && presentation.hero.visible);
     if (kingMountAura?.material) kingMountAura.material.color.set(materials.heroBeam);
     if (kingStaffGlow) kingStaffGlow.color.set(materials.heroEnergyEmissive);
     for (const entity of entities) applyEntityTheme(entity, materials);
@@ -1274,7 +1278,7 @@ export function setCommanderSnapshot(snapshot) {
         renderNow();
         return commanderSnapshot;
     }
-    if (commanderSnapshot.actorId === snapshot.actorId && bullKingRig?.parent) return commanderSnapshot;
+    if (commanderSnapshot.actorId === snapshot.actorId && isCommanderActorActive()) return commanderSnapshot;
     clearCommanderPresentation();
     commanderSnapshot = snapshot;
     if (!scene) return commanderSnapshot;
@@ -1284,6 +1288,7 @@ export function setCommanderSnapshot(snapshot) {
     bullKingRig.userData.runtimeRole = 'commander';
     bullKingRig.userData.actorId = snapshot.actorId;
     bullKingRig.userData.profileKey = snapshot.profileKey;
+    bullKingRig.userData.tokenMint = snapshot.tokenMint;
     bullKingRig.scale.setScalar(snapshot.profile.scale);
     bullKingRig.position.set(-26, 10, -7);
     bullKingRig.rotation.set(0, 0, 0);
@@ -1296,6 +1301,7 @@ export function setCommanderSnapshot(snapshot) {
 }
 
 function clearCommanderPresentation() {
+    kingTime = 0;
     kingDefenseUntil = 0;
     kingThreat = null;
     kingDefenseTargetX = null;
@@ -1303,8 +1309,27 @@ function clearCommanderPresentation() {
     kingFocusUntil = 0;
     kingFocusStartedAt = 0;
     kingFocusPeakUntil = 0;
+    kingFocusX = 0;
+    kingFocusZ = 0;
     kingReactionAt = 0;
     kingReactionStrength = 0;
+    lastKingReclaimAt = 0;
+    lastKingDefenseAt = 0;
+    bullControlSince = 0;
+    kingCommandZ = -7;
+    kingCommandZUntil = 0;
+    kingSpeed = 0;
+    kingTurnRate = 0;
+    kingGestureStartedAt = 0;
+    kingNextGestureAt = 0;
+    kingCommandGestures = 0;
+    kingMode = 'overwatch';
+    kingModeSince = Date.now();
+    kingModeChanges = 0;
+    kingStrikeEvents = 0;
+    lastTerritoryAuditAt = 0;
+    lastCameraEventWeight = 0;
+    lastCameraCommanderIncluded = false;
     bullSupportUntil = 0;
     for (const strike of kingStrikes) {
         scene?.remove(strike.beam, strike.impact);
@@ -1316,7 +1341,24 @@ function clearCommanderPresentation() {
         bullKingRig.visible = false;
         bullKingRig.userData.actorId = null;
         bullKingRig.userData.profileKey = null;
+        bullKingRig.userData.tokenMint = null;
     }
+    resetMotionState(commanderMotion, { x: -26, z: -7, seed: 1201, targetIdentity: null });
+}
+
+function isCommanderActorActive() {
+    const actorId = commanderSnapshot?.actorId;
+    return commanderSnapshot?.present === true
+        && commanderSnapshot.lifecycleState === 'active'
+        && Boolean(actorId)
+        && Boolean(commanderSnapshot.profileKey)
+        && Boolean(commanderSnapshot.tokenMint)
+        && Boolean(scene)
+        && Boolean(bullKingRig)
+        && bullKingRig.parent === scene
+        && bullKingRig.userData.actorId === actorId
+        && bullKingRig.userData.profileKey === commanderSnapshot.profileKey
+        && bullKingRig.userData.tokenMint === commanderSnapshot.tokenMint;
 }
 
 export function setMarketTerrainController(controller) {
@@ -1948,7 +1990,7 @@ export function setFrontlineColor(colorHex) {
 
 export function applyTradeImpulse(isBuy, solValue, isWhale) {
     const strength = clamp(0.35 + Math.log1p(Math.max(0, solValue)) / Math.log(21) + (isWhale ? 0.65 : 0), 0.35, 1.8);
-    if (isBuy) {
+    if (isBuy && isCommanderActorActive()) {
         kingReactionAt = Date.now();
         kingReactionStrength = strength;
     }
@@ -1958,7 +2000,7 @@ export function applyTradeImpulse(isBuy, solValue, isWhale) {
 }
 
 export function handleTerritoryShift(trade, meta = {}) {
-    if (meta.bootstrap || !trade?.isBuy || !bullKingRig || !kingStaffGlow) return;
+    if (meta.bootstrap || !trade?.isBuy || !isCommanderActorActive()) return;
     const previous = Number(meta.previousFrontlineX);
     const next = Number(meta.nextFrontlineX);
     if (!Number.isFinite(previous) || !Number.isFinite(next) || next <= previous) return;
@@ -1979,6 +2021,7 @@ export function handleTerritoryShift(trade, meta = {}) {
 }
 
 function updateTerritorialControl() {
+    if (!isCommanderActorActive()) return;
     const now = Date.now();
     if (now - lastTerritoryAuditAt < 400) return;
     lastTerritoryAuditAt = now;
@@ -2005,7 +2048,8 @@ function updateTerritorialControl() {
 }
 
 function defendKingSanctum(now, tactics) {
-    if (!bullKingRig || !shouldKingWard(tactics) || now - lastKingDefenseAt < KING_DEFENSE_COOLDOWN_MS) return false;
+    if (!isCommanderActorActive() || !shouldKingWard(tactics)
+        || now - lastKingDefenseAt < KING_DEFENSE_COOLDOWN_MS) return false;
     const intruders = entities.filter((entity) => {
         if (entity.type !== 'bear' || entity.retired || (import.meta.env.DEV && entity.diagnosticFixturePinned)
             || entity.hp <= 0 || entity.forcedRetreatUntil > now) return false;
@@ -2021,6 +2065,7 @@ function defendKingSanctum(now, tactics) {
 }
 
 function castKingWard(intruders, tactics) {
+    if (!isCommanderActorActive() || !intruders.length) return false;
     const now = Date.now();
     _rayTarget.set(0, 0, 0);
     intruders.forEach((entity) => _rayTarget.add(entity.mesh.position));
@@ -2068,9 +2113,11 @@ function castKingWard(intruders, tactics) {
         bullPercent: (tactics.balance + 1) * 50,
     });
     playTone(145, 'sawtooth', 0.52, 0.035);
+    return true;
 }
 
 function castKingReclamation(stranded, solValue, previous, next, reason = 'trade-reversal', tactics = null) {
+    if (!isCommanderActorActive() || !stranded.length) return false;
     _rayTarget.set(0, 0, 0);
     stranded.forEach((entity) => _rayTarget.add(entity.mesh.position));
     _rayTarget.multiplyScalar(1 / stranded.length);
@@ -2101,18 +2148,22 @@ function castKingReclamation(stranded, solValue, previous, next, reason = 'trade
         bullPercent: tactics ? (tactics.balance + 1) * 50 : null,
     });
     playTone(170, 'sawtooth', 0.75, 0.045);
+    return true;
 }
 
 function beginKingCameraFocus(target, holdMs) {
+    if (!isCommanderActorActive()) return false;
     const now = Date.now();
     kingFocusStartedAt = now;
     kingFocusPeakUntil = now + holdMs;
     kingFocusUntil = kingFocusPeakUntil + 1_300;
     kingFocusX = (bullKingRig.position.x + target.x) * 0.5;
     kingFocusZ = (bullKingRig.position.z + target.z) * 0.5;
+    return true;
 }
 
 function spawnKingStrike(target) {
+    if (!isCommanderActorActive() || !kingStaffGlow) return false;
     scene.updateMatrixWorld(true);
     kingStaffGlow.getWorldPosition(_rayStart);
     _rayDirection.subVectors(target, _rayStart);
@@ -2135,13 +2186,14 @@ function spawnKingStrike(target) {
     scene.add(beam, impact);
     kingStrikes.push({ beam, impact, material, age: 0 });
     kingStrikeEvents += 1;
+    return true;
 }
 
 export function triggerBullSupport({ buySol, dominance }) {
     const now = Date.now();
     const duration = 6_500 + Math.min(3_500, buySol * 120);
     bullSupportUntil = now + duration;
-    if (bullKingRig?.parent) {
+    if (isCommanderActorActive()) {
         kingReactionAt = now;
         kingReactionStrength = clamp(1 + buySol / 20, 1, 2.2);
     }
@@ -2157,7 +2209,7 @@ export function triggerBullSupport({ buySol, dominance }) {
 
 function spawnSupportWave(delay, strength) {
     const material = new THREE.MeshBasicMaterial({
-        color: bullKingRig?.parent
+        color: isCommanderActorActive()
             ? activeScenePresentation?.materials?.heroBeam || 0x00ff88
             : activeScenePresentation?.materials?.buyAccent || 0x00ff88,
         transparent: true,
@@ -2170,7 +2222,7 @@ function spawnSupportWave(delay, strength) {
     mesh.rotation.y = Math.PI / 2;
     mesh.visible = false;
     scene.add(mesh);
-    const origin = bullKingRig?.parent
+    const origin = isCommanderActorActive()
         ? bullKingRig.position.clone().add(new THREE.Vector3(2.8, 4.2, 0.8))
         : new THREE.Vector3(
             crowdBattle.bullFrontX,
@@ -5769,7 +5821,8 @@ function enforceArenaBounds(entity) {
 }
 
 function updateBullKing(delta) {
-    if (!bullKingRig) return;
+    if (!isCommanderActorActive()) return;
+    kingAnimationFrames += 1;
     kingTime += delta;
     const now = Date.now();
     const { tactics } = getSceneTactics(now);
@@ -6097,9 +6150,12 @@ function calculateCameraFraming(now) {
         totalWeight += crowdWeight;
     }
 
+    const commanderActive = isCommanderActorActive();
+    lastCameraCommanderIncluded = commanderActive;
+
     // Keep the commander inside the wider establishing shot even outside a
     // scripted ward. His weight is intentionally smaller than the two armies.
-    if (bullKingRig) {
+    if (commanderActive) {
         const kingWeight = 9.5;
         weightedX += bullKingRig.position.x * kingWeight;
         weightedZ += bullKingRig.position.z * kingWeight;
@@ -6122,7 +6178,7 @@ function calculateCameraFraming(now) {
         variance += crowdBattle.spread * crowdBattle.spread * crowdWeight;
         varianceWeight += crowdWeight;
     }
-    if (bullKingRig) {
+    if (commanderActive) {
         const dx = bullKingRig.position.x - x;
         const dz = bullKingRig.position.z - z;
         variance += (dx * dx + dz * dz * 0.45) * 3.2;
@@ -6133,7 +6189,9 @@ function calculateCameraFraming(now) {
 }
 
 function getKingViewDiagnostics() {
-    if (!bullKingRig || !camera) return { inView: false, screenX: null, screenY: null, screenDepth: null };
+    if (!isCommanderActorActive() || !camera) {
+        return { inView: false, screenX: null, screenY: null, screenDepth: null };
+    }
     const projected = bullKingRig.position.clone().project(camera);
     return {
         inView: projected.z >= -1 && projected.z <= 1 && Math.abs(projected.x) <= 0.96 && Math.abs(projected.y) <= 0.94,
@@ -6153,6 +6211,7 @@ function clearCameraShakeOffset() {
 }
 
 function getKingCameraWeight(now) {
+    if (!isCommanderActorActive()) return 0;
     if (now < kingFocusStartedAt || now >= kingFocusUntil) return 0;
     const fadeIn = smoothstep(0, 480, now - kingFocusStartedAt);
     const fadeOut = 1 - smoothstep(kingFocusPeakUntil, kingFocusUntil, now);

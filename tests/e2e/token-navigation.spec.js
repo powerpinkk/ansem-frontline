@@ -37,11 +37,92 @@ test('base URL starts the default ANSEM runtime', async ({ page }) => {
     });
 });
 
+for (const [mint, symbol] of [[USDC, 'USDC'], [JUP, 'JUP']]) {
+    test(`cold ${symbol} keeps Commander consumers inactive while troops and MarketImpact run`, async ({ page }, testInfo) => {
+        const pageErrors = [];
+        page.on('pageerror', (error) => pageErrors.push(error.message));
+        await page.goto(`/?token=${mint}`);
+        await expect(page.locator('#token-symbol')).toHaveText(symbol);
+        await page.waitForFunction((expectedMint) => {
+            const diagnostics = window.__ansemSceneDiagnostics?.();
+            return diagnostics?.commander?.tokenMint === expectedMint
+                && diagnostics.commander.present === false
+                && diagnostics.camera.commanderIncluded === false;
+        }, mint);
+
+        const animationFramesBefore = await page.evaluate(() => {
+            window.__ansemSpawnStressBattle(4);
+            window.__ansemSetBattlePressure({
+                buySol: 20,
+                sellSol: 2,
+                verifiedBuyCount: 2,
+                verifiedSellCount: 1,
+            });
+            window.__ansemTriggerReclamation();
+            window.__ansemTriggerKingDefense();
+            const shock = window.__ansemStageBullCharge();
+            if (!shock) throw new Error('Expected a generic MarketImpact fixture');
+            return window.__ansemSceneDiagnostics().commander.animationFrames;
+        });
+        await page.waitForFunction(() => window.__ansemSceneDiagnostics().entities
+            .some((entity) => entity.runtimeRole === 'market-impact-actor'));
+        await page.waitForTimeout(300);
+
+        const result = await page.evaluate(() => {
+            const diagnostics = window.__ansemSceneDiagnostics();
+            return {
+                diagnostics,
+                impactActors: diagnostics.entities
+                    .filter((entity) => entity.runtimeRole === 'market-impact-actor').length,
+                bullTroops: diagnostics.entities.filter((entity) => entity.type === 'bull').length,
+                bearTroops: diagnostics.entities.filter((entity) => entity.type === 'bear').length,
+                forcedRetreats: diagnostics.entities.filter((entity) => entity.forcedRetreat).length,
+                feed: document.getElementById('killfeed')?.textContent || '',
+            };
+        });
+        expect(result.diagnostics.commander).toMatchObject({
+            present: false,
+            tokenMint: mint,
+            sceneObjectCount: 0,
+            animationFrames: animationFramesBefore,
+        });
+        expect(result.diagnostics.bullKing).toBeNull();
+        expect(result.diagnostics.camera.commanderIncluded).toBe(false);
+        expect(result.diagnostics.camera.eventWeight).toBe(0);
+        expect(result.diagnostics.kingStrikeEvents).toBe(0);
+        expect(result.diagnostics.kingStrikes).toBe(0);
+        expect(result.forcedRetreats).toBe(0);
+        expect(result.feed).not.toMatch(/KING'S RECLAMATION|VANGUARD WARD|KING'S WARD/);
+        expect(result.bullTroops).toBeGreaterThan(0);
+        expect(result.bearTroops).toBeGreaterThan(0);
+        expect(result.impactActors).toBe(1);
+        expect(pageErrors).toEqual([]);
+        await page.screenshot({
+            path: `.artifacts/m12-cold-${symbol.toLowerCase()}-${testInfo.project.name}.png`,
+            fullPage: true,
+        });
+    });
+}
+
 test('Commander identity follows mint across generic tokens, themes and history', async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== 'desktop-chromium', 'One deterministic lifecycle sequence is sufficient');
     await page.goto('/');
-    await page.waitForFunction(() => window.__ansemSceneDiagnostics?.().commander?.present === true);
-    const firstActorId = await page.evaluate(() => window.__ansemSceneDiagnostics().commander.actorId);
+    await page.waitForFunction(() => {
+        const diagnostics = window.__ansemSceneDiagnostics?.();
+        return diagnostics?.commander?.present === true
+            && diagnostics.commander.animationFrames > 0
+            && diagnostics.camera.commanderIncluded === true;
+    });
+    const initial = await page.evaluate(() => {
+        window.__ansemSpawnStressBattle(1);
+        return window.__ansemSceneDiagnostics();
+    });
+    const firstActorId = initial.commander.actorId;
+    await page.evaluate(() => window.__ansemTriggerKingDefense());
+    const initialDefense = await page.evaluate(() => window.__ansemSceneDiagnostics());
+    expect(initialDefense.kingStrikeEvents).toBeGreaterThan(initial.kingStrikeEvents);
+    expect(initialDefense.entities.some((entity) => entity.type === 'bear' && entity.forcedRetreat)).toBe(true);
+    await expect(page.locator('#killfeed')).toContainText("KING'S WARD");
 
     for (const [mint, symbol] of [[USDC, 'USDC'], [JUP, 'JUP'], [UNKNOWN, 'TOKEN']]) {
         await selectToken(page, mint, symbol);
@@ -49,9 +130,26 @@ test('Commander identity follows mint across generic tokens, themes and history'
             const diagnostics = window.__ansemSceneDiagnostics?.();
             return diagnostics?.commander?.tokenMint === expectedMint && diagnostics.commander.present === false;
         }, mint);
-        const generic = await page.evaluate(() => window.__ansemSceneDiagnostics());
-        expect(generic.commander.sceneObjectCount).toBe(0);
-        expect(generic.bullKing).toBeNull();
+        const animationFramesBefore = await page.evaluate(() => {
+            window.__ansemSpawnStressBattle(1);
+            window.__ansemTriggerReclamation();
+            window.__ansemTriggerKingDefense();
+            return window.__ansemSceneDiagnostics().commander.animationFrames;
+        });
+        await page.waitForTimeout(300);
+        const generic = await page.evaluate(() => ({
+            diagnostics: window.__ansemSceneDiagnostics(),
+            feed: document.getElementById('killfeed')?.textContent || '',
+        }));
+        expect(generic.diagnostics.commander.animationFrames).toBe(animationFramesBefore);
+        expect(generic.diagnostics.camera.commanderIncluded).toBe(false);
+        expect(generic.diagnostics.camera.eventWeight).toBe(0);
+        expect(generic.diagnostics.kingStrikeEvents).toBe(0);
+        expect(generic.diagnostics.kingStrikes).toBe(0);
+        expect(generic.diagnostics.entities.some((entity) => entity.forcedRetreat)).toBe(false);
+        expect(generic.feed).not.toMatch(/KING'S RECLAMATION|VANGUARD WARD|KING'S WARD/);
+        expect(generic.diagnostics.commander.sceneObjectCount).toBe(0);
+        expect(generic.diagnostics.bullKing).toBeNull();
     }
 
     await page.evaluate(() => window.__ansemApplyTheme('ansem'));
@@ -87,10 +185,26 @@ test('Commander identity follows mint across generic tokens, themes and history'
     await expect(page.locator('#token-symbol')).toHaveText('JUP');
     expect((await page.evaluate(() => window.__ansemSceneDiagnostics().commander.present))).toBe(false);
     await page.locator('#token-default-btn').click();
-    await page.waitForFunction(() => window.__ansemSceneDiagnostics?.().commander?.present === true);
+    const inactiveAnimationFrames = await page.evaluate(() => window.__ansemSceneDiagnostics().commander.animationFrames);
+    await page.waitForFunction((previousFrames) => {
+        const diagnostics = window.__ansemSceneDiagnostics?.();
+        return diagnostics?.commander?.present === true
+            && diagnostics.commander.animationFrames > previousFrames
+            && diagnostics.camera.commanderIncluded === true;
+    }, inactiveAnimationFrames);
     const restored = await page.evaluate(() => window.__ansemSceneDiagnostics().commander);
     expect(restored.sceneObjectCount).toBe(1);
     expect(restored.actorId).not.toBe(firstActorId);
+    const strikesBeforeReclamation = await page.evaluate(() => {
+        window.__ansemSpawnStressBattle(1);
+        const diagnostics = window.__ansemSceneDiagnostics();
+        window.__ansemTriggerReclamation();
+        return diagnostics.kingStrikeEvents;
+    });
+    await page.waitForFunction((previousCount) => (
+        window.__ansemSceneDiagnostics().kingStrikeEvents > previousCount
+    ), strikesBeforeReclamation);
+    await expect(page.locator('#killfeed')).toContainText("KING'S RECLAMATION");
     await page.evaluate(() => {
         window.__ansemSpawnStressBattle(4);
         window.__ansemStageBullCharge();
