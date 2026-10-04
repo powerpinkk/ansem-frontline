@@ -32,6 +32,7 @@ import {
     createMotionState,
     finalizeMotionFrame,
     integrateMotion,
+    resetMotionState,
     sampleQuadrupedGait,
     syncMotionPosition,
 } from './locomotion.js';
@@ -153,8 +154,12 @@ let ambientLight, hemisphereLight, sunLight, rimLight;
 let bullKingRig, kingMount, kingRider, kingRiderHead, kingRiderArm, kingWingNear, kingWingFar, kingStaff, kingStaffGlow, kingMountAura, kingTail;
 let userChampionRig, userChampionBull, userChampionSentinel, userChampionAura, userChampionLight;
 let userChampionSnapshot = null;
+let commanderSnapshot = Object.freeze({ role: 'commander', present: false, lifecycleState: 'empty' });
 const kingLegs = [];
-let kingTime = 0;
+// Scene presentation time advances once per active frame and is shared only by
+// token-generic visuals. Commander time advances separately while its actor is active.
+let scenePresentationTime = 0;
+let commanderAnimationTime = 0;
 let bullSupportUntil = 0;
 let lastFrontlineFitX = Number.POSITIVE_INFINITY;
 let viewportObserver;
@@ -191,6 +196,8 @@ let kingModeSince = Date.now();
 let kingModeChanges = 0;
 let kingSpeed = 0;
 let kingTurnRate = 0;
+let kingAnimationFrames = 0;
+let lastCameraCommanderIncluded = false;
 let kingGestureStartedAt = 0;
 let kingNextGestureAt = 0;
 let kingCommandGestures = 0;
@@ -376,8 +383,8 @@ const _cameraDirection = new THREE.Vector3();
 const _cameraFramingCenter = new THREE.Vector3();
 const _cameraFramingDesired = new THREE.Vector3();
 const _cameraFramingMove = new THREE.Vector3();
-const _kingMove = new THREE.Vector3();
 const _kingPreviousPosition = new THREE.Vector3(-26, 10, -7);
+const commanderMotion = createMotionState({ x: -26, z: -7, seed: 1201 });
 const _crowdTransform = new THREE.Object3D();
 const _crowdLegTransform = new THREE.Object3D();
 const _crowdLegMatrix = new THREE.Matrix4();
@@ -661,6 +668,7 @@ export function initScene(callbacks = {}) {
             entities: entities.map((entity) => ({
                 id: entity.trade?.txHash || entity.trade?.id || `${entity.type}-${entity.bornAt}`,
                 type: entity.type,
+                runtimeRole: entity.runtimeRole,
                 isWhale: entity.isWhale,
                 hp: entity.hp,
                 x: entity.mesh.position.x,
@@ -778,9 +786,12 @@ export function initScene(callbacks = {}) {
                 combatSequence: agent.combat.sequence,
                 combatHits: agent.combat.totalHits,
                 combatMisses: agent.combat.totalMisses,
+                formationTargetX: agent.formationTargetX,
+                formationTargetZ: agent.formationTargetZ,
+                presentationOscillationZ: agent.presentationOscillationZ || 0,
             }))])),
             locomotion: getLocomotionDiagnostics(),
-            bullKing: bullKingRig ? {
+            bullKing: isCommanderActorActive() ? {
                 x: bullKingRig.position.x,
                 y: bullKingRig.position.y,
                 z: bullKingRig.position.z,
@@ -796,6 +807,23 @@ export function initScene(callbacks = {}) {
                 turnRate: kingTurnRate,
                 ...getKingViewDiagnostics(),
             } : null,
+            commander: {
+                role: 'commander',
+                present: isCommanderActorActive(),
+                lifecycleState: commanderSnapshot.lifecycleState,
+                actorId: commanderSnapshot.actorId || null,
+                profileId: commanderSnapshot.profile?.id || null,
+                profileVersion: commanderSnapshot.profile?.version || null,
+                profileKey: commanderSnapshot.profileKey || null,
+                tokenMint: commanderSnapshot.tokenMint || null,
+                assetId: commanderSnapshot.assetId || null,
+                rigType: commanderSnapshot.rigType || null,
+                animationSetId: commanderSnapshot.animationSetId || null,
+                combatArchetype: commanderSnapshot.combatArchetype || null,
+                capabilities: commanderSnapshot.capabilities || [],
+                sceneObjectCount: isCommanderActorActive() ? 1 : 0,
+                animationFrames: kingAnimationFrames,
+            },
             userChampion: userChampionRig ? {
                 entityKind: userChampionRig.userData.entityKind,
                 active: userChampionRig.visible,
@@ -827,7 +855,17 @@ export function initScene(callbacks = {}) {
                 fov: camera.fov,
                 eventWeight: lastCameraEventWeight,
                 actionSpread: lastCameraActionSpread,
+                commanderIncluded: lastCameraCommanderIncluded,
             } : null,
+            presentationTiming: {
+                sceneTime: scenePresentationTime,
+                commanderTime: commanderAnimationTime,
+                reducedMotion: prefersReducedMotion,
+                frontlineOpacity: frontlineMaterial?.opacity ?? null,
+                screenShake: state.screenShake,
+                cameraShakeX: cameraShakeOffsetX,
+                cameraShakeY: cameraShakeOffsetY,
+            },
             environment: scene?.background ? {
                 background: scene.background.getHex(),
                 target: _environmentTarget.getHex(),
@@ -1118,7 +1156,7 @@ export function initScene(callbacks = {}) {
         };
         window.__ansemTriggerKingDefense = (pressure = {}) => {
             const bear = entities.find((entity) => entity.type === 'bear' && !entity.retired);
-            if (!bear || !bullKingRig) return;
+            if (!bear || !isCommanderActorActive()) return;
             bear.mesh.position.set(
                 bullKingRig.position.x + 5,
                 getTrenchHeight(bullKingRig.position.x + 5, bullKingRig.position.z + 8),
@@ -1215,7 +1253,7 @@ export function applyThemePresentation(presentation) {
     applyMaterialPalette(materials);
     applyUserChampionTheme(presentation.champion);
 
-    if (bullKingRig) bullKingRig.visible = presentation.hero.visible;
+    if (bullKingRig) bullKingRig.visible = Boolean(isCommanderActorActive() && presentation.hero.visible);
     if (kingMountAura?.material) kingMountAura.material.color.set(materials.heroBeam);
     if (kingStaffGlow) kingStaffGlow.color.set(materials.heroEnergyEmissive);
     for (const entity of entities) applyEntityTheme(entity, materials);
@@ -1236,6 +1274,106 @@ export function setUserChampionSnapshot(snapshot) {
         userChampionRig.position.set(-14, getTrenchHeight(-14, 10), 10);
     }
     renderNow();
+}
+
+export function setCommanderSnapshot(snapshot) {
+    const supported = snapshot?.role === 'commander'
+        && snapshot.present === true
+        && snapshot.profile?.assetId === 'black-bull-v1'
+        && snapshot.profile?.rigType === 'QUADRUPED_BULL_RIDER'
+        && snapshot.profile?.animationSetId === 'bull-commander-v1';
+    if (!supported) {
+        commanderSnapshot = Object.freeze({
+            role: 'commander',
+            present: false,
+            lifecycleState: snapshot?.lifecycleState || 'empty',
+            tokenMint: snapshot?.tokenMint || null,
+        });
+        clearCommanderPresentation();
+        renderNow();
+        return commanderSnapshot;
+    }
+    if (commanderSnapshot.actorId === snapshot.actorId && isCommanderActorActive()) return commanderSnapshot;
+    clearCommanderPresentation();
+    commanderSnapshot = snapshot;
+    if (!scene) return commanderSnapshot;
+    if (!bullKingRig) createFlyingBullKing();
+    else scene.add(bullKingRig);
+    bullKingRig.userData.entityKind = 'commander';
+    bullKingRig.userData.runtimeRole = 'commander';
+    bullKingRig.userData.actorId = snapshot.actorId;
+    bullKingRig.userData.profileKey = snapshot.profileKey;
+    bullKingRig.userData.tokenMint = snapshot.tokenMint;
+    bullKingRig.scale.setScalar(snapshot.profile.scale);
+    bullKingRig.position.set(-26, 10, -7);
+    bullKingRig.rotation.set(0, 0, 0);
+    bullKingRig.visible = activeScenePresentation?.hero?.visible !== false;
+    _kingPreviousPosition.copy(bullKingRig.position);
+    resetMotionState(commanderMotion, { x: -26, z: -7, seed: 1201, targetIdentity: snapshot.actorId });
+    kingCommandZ = bullKingRig.position.z;
+    renderNow();
+    return commanderSnapshot;
+}
+
+function clearCommanderPresentation() {
+    commanderAnimationTime = 0;
+    kingDefenseUntil = 0;
+    kingThreat = null;
+    kingDefenseTargetX = null;
+    kingDefenseTargetZ = null;
+    kingFocusUntil = 0;
+    kingFocusStartedAt = 0;
+    kingFocusPeakUntil = 0;
+    kingFocusX = 0;
+    kingFocusZ = 0;
+    kingReactionAt = 0;
+    kingReactionStrength = 0;
+    lastKingReclaimAt = 0;
+    lastKingDefenseAt = 0;
+    bullControlSince = 0;
+    kingCommandZ = -7;
+    kingCommandZUntil = 0;
+    kingSpeed = 0;
+    kingTurnRate = 0;
+    kingGestureStartedAt = 0;
+    kingNextGestureAt = 0;
+    kingCommandGestures = 0;
+    kingMode = 'overwatch';
+    kingModeSince = Date.now();
+    kingModeChanges = 0;
+    kingStrikeEvents = 0;
+    lastTerritoryAuditAt = 0;
+    lastCameraEventWeight = 0;
+    lastCameraCommanderIncluded = false;
+    bullSupportUntil = 0;
+    for (const strike of kingStrikes) {
+        scene?.remove(strike.beam, strike.impact);
+        strike.material.dispose();
+    }
+    kingStrikes = [];
+    if (bullKingRig?.parent) bullKingRig.parent.remove(bullKingRig);
+    if (bullKingRig) {
+        bullKingRig.visible = false;
+        bullKingRig.userData.actorId = null;
+        bullKingRig.userData.profileKey = null;
+        bullKingRig.userData.tokenMint = null;
+    }
+    resetMotionState(commanderMotion, { x: -26, z: -7, seed: 1201, targetIdentity: null });
+}
+
+function isCommanderActorActive() {
+    const actorId = commanderSnapshot?.actorId;
+    return commanderSnapshot?.present === true
+        && commanderSnapshot.lifecycleState === 'active'
+        && Boolean(actorId)
+        && Boolean(commanderSnapshot.profileKey)
+        && Boolean(commanderSnapshot.tokenMint)
+        && Boolean(scene)
+        && Boolean(bullKingRig)
+        && bullKingRig.parent === scene
+        && bullKingRig.userData.actorId === actorId
+        && bullKingRig.userData.profileKey === commanderSnapshot.profileKey
+        && bullKingRig.userData.tokenMint === commanderSnapshot.tokenMint;
 }
 
 export function setMarketTerrainController(controller) {
@@ -1350,6 +1488,9 @@ export function removeTradePresentation(eventId) {
 
 export function resetTokenPresentation() {
     if (!scene) return;
+    // A token runtime owns its generic presentation phase. Commander lifecycle
+    // changes inside that runtime never reset this clock.
+    scenePresentationTime = 0;
     while (entities.length) retireEntity(entities.at(-1));
     while (projectiles.length) removeProjectile(projectiles.length - 1);
     for (const particle of particles) {
@@ -1445,6 +1586,12 @@ export function resetTokenPresentation() {
         bullKingRig.position.set(-26, 10, -7);
         bullKingRig.rotation.set(0, 0, 0);
         _kingPreviousPosition.copy(bullKingRig.position);
+        resetMotionState(commanderMotion, {
+            x: -26,
+            z: -7,
+            seed: 1201,
+            targetIdentity: commanderSnapshot.actorId || null,
+        });
     }
     lastFrontlineFitX = Number.POSITIVE_INFINITY;
     setKingMode('overwatch');
@@ -1638,6 +1785,7 @@ export function spawnUnit(type, initial = false, isWhale = false, trade = null) 
         },
         aura,
         type,
+        runtimeRole: 'normal-troop',
         isWhale,
         hp: isWhale ? 1500 : 250,
         cooldown: 0,
@@ -1860,7 +2008,7 @@ export function setFrontlineColor(colorHex) {
 
 export function applyTradeImpulse(isBuy, solValue, isWhale) {
     const strength = clamp(0.35 + Math.log1p(Math.max(0, solValue)) / Math.log(21) + (isWhale ? 0.65 : 0), 0.35, 1.8);
-    if (isBuy) {
+    if (isBuy && isCommanderActorActive()) {
         kingReactionAt = Date.now();
         kingReactionStrength = strength;
     }
@@ -1870,7 +2018,7 @@ export function applyTradeImpulse(isBuy, solValue, isWhale) {
 }
 
 export function handleTerritoryShift(trade, meta = {}) {
-    if (meta.bootstrap || !trade?.isBuy || !bullKingRig || !kingStaffGlow) return;
+    if (meta.bootstrap || !trade?.isBuy || !isCommanderActorActive()) return;
     const previous = Number(meta.previousFrontlineX);
     const next = Number(meta.nextFrontlineX);
     if (!Number.isFinite(previous) || !Number.isFinite(next) || next <= previous) return;
@@ -1891,6 +2039,7 @@ export function handleTerritoryShift(trade, meta = {}) {
 }
 
 function updateTerritorialControl() {
+    if (!isCommanderActorActive()) return;
     const now = Date.now();
     if (now - lastTerritoryAuditAt < 400) return;
     lastTerritoryAuditAt = now;
@@ -1917,7 +2066,8 @@ function updateTerritorialControl() {
 }
 
 function defendKingSanctum(now, tactics) {
-    if (!bullKingRig || !shouldKingWard(tactics) || now - lastKingDefenseAt < KING_DEFENSE_COOLDOWN_MS) return false;
+    if (!isCommanderActorActive() || !shouldKingWard(tactics)
+        || now - lastKingDefenseAt < KING_DEFENSE_COOLDOWN_MS) return false;
     const intruders = entities.filter((entity) => {
         if (entity.type !== 'bear' || entity.retired || (import.meta.env.DEV && entity.diagnosticFixturePinned)
             || entity.hp <= 0 || entity.forcedRetreatUntil > now) return false;
@@ -1933,6 +2083,7 @@ function defendKingSanctum(now, tactics) {
 }
 
 function castKingWard(intruders, tactics) {
+    if (!isCommanderActorActive() || !intruders.length) return false;
     const now = Date.now();
     _rayTarget.set(0, 0, 0);
     intruders.forEach((entity) => _rayTarget.add(entity.mesh.position));
@@ -1980,9 +2131,11 @@ function castKingWard(intruders, tactics) {
         bullPercent: (tactics.balance + 1) * 50,
     });
     playTone(145, 'sawtooth', 0.52, 0.035);
+    return true;
 }
 
 function castKingReclamation(stranded, solValue, previous, next, reason = 'trade-reversal', tactics = null) {
+    if (!isCommanderActorActive() || !stranded.length) return false;
     _rayTarget.set(0, 0, 0);
     stranded.forEach((entity) => _rayTarget.add(entity.mesh.position));
     _rayTarget.multiplyScalar(1 / stranded.length);
@@ -2013,18 +2166,22 @@ function castKingReclamation(stranded, solValue, previous, next, reason = 'trade
         bullPercent: tactics ? (tactics.balance + 1) * 50 : null,
     });
     playTone(170, 'sawtooth', 0.75, 0.045);
+    return true;
 }
 
 function beginKingCameraFocus(target, holdMs) {
+    if (!isCommanderActorActive()) return false;
     const now = Date.now();
     kingFocusStartedAt = now;
     kingFocusPeakUntil = now + holdMs;
     kingFocusUntil = kingFocusPeakUntil + 1_300;
     kingFocusX = (bullKingRig.position.x + target.x) * 0.5;
     kingFocusZ = (bullKingRig.position.z + target.z) * 0.5;
+    return true;
 }
 
 function spawnKingStrike(target) {
+    if (!isCommanderActorActive() || !kingStaffGlow) return false;
     scene.updateMatrixWorld(true);
     kingStaffGlow.getWorldPosition(_rayStart);
     _rayDirection.subVectors(target, _rayStart);
@@ -2047,15 +2204,17 @@ function spawnKingStrike(target) {
     scene.add(beam, impact);
     kingStrikes.push({ beam, impact, material, age: 0 });
     kingStrikeEvents += 1;
+    return true;
 }
 
-export function triggerBullKingSupport({ buySol, dominance }) {
-    if (!bullKingRig) return;
+export function triggerBullSupport({ buySol, dominance }) {
     const now = Date.now();
     const duration = 6_500 + Math.min(3_500, buySol * 120);
     bullSupportUntil = now + duration;
-    kingReactionAt = now;
-    kingReactionStrength = clamp(1 + buySol / 20, 1, 2.2);
+    if (isCommanderActorActive()) {
+        kingReactionAt = now;
+        kingReactionStrength = clamp(1 + buySol / 20, 1, 2.2);
+    }
     entities.forEach((entity) => {
         if (entity.type === 'bull' && entity.hp > 0 && !entity.retired) entity.supportUntil = bullSupportUntil;
     });
@@ -2068,7 +2227,9 @@ export function triggerBullKingSupport({ buySol, dominance }) {
 
 function spawnSupportWave(delay, strength) {
     const material = new THREE.MeshBasicMaterial({
-        color: activeScenePresentation?.materials?.heroBeam || 0x00ff88,
+        color: isCommanderActorActive()
+            ? activeScenePresentation?.materials?.heroBeam || 0x00ff88
+            : activeScenePresentation?.materials?.buyAccent || 0x00ff88,
         transparent: true,
         opacity: 0,
         side: THREE.DoubleSide,
@@ -2079,8 +2240,19 @@ function spawnSupportWave(delay, strength) {
     mesh.rotation.y = Math.PI / 2;
     mesh.visible = false;
     scene.add(mesh);
-    supportWaves.push({ mesh, age: -delay, strength });
+    const origin = isCommanderActorActive()
+        ? bullKingRig.position.clone().add(new THREE.Vector3(2.8, 4.2, 0.8))
+        : new THREE.Vector3(
+            crowdBattle.bullFrontX,
+            getTrenchHeight(crowdBattle.bullFrontX, crowdBattle.hotspotZ) + 1.6,
+            crowdBattle.hotspotZ,
+        );
+    supportWaves.push({ mesh, age: -delay, strength, origin, runtimeRole: 'market-impact-actor' });
 }
+
+// Kept as a compatibility surface for deterministic M4-M11 fixtures. The
+// support effect itself is now a generic bullish presentation, not Commander identity.
+export const triggerBullKingSupport = triggerBullSupport;
 
 function getTrenchHeight(x, z) {
     const broadRelief = Math.sin(x * 0.036) * 1.15 + Math.cos(z * 0.075) * 0.58;
@@ -2189,7 +2361,6 @@ function init3D() {
     createLandscapeProps();
     createGrassTufts();
     createCrowdArmies();
-    createFlyingBullKing();
     createUserChampionRig();
 
     frontlineLaser = new THREE.Group();
@@ -2865,7 +3036,7 @@ function createFlyingBullKing() {
     [body, chest, head, kingWingNear.children[0], kingWingFar.children[0], rider.children[0]].forEach((mesh) => {
         if (mesh?.isMesh) mesh.castShadow = true;
     });
-    bullKingRig.scale.setScalar(1.22);
+    bullKingRig.scale.setScalar(1);
     bullKingRig.position.set(-26, 10, -7);
     _kingPreviousPosition.copy(bullKingRig.position);
     kingCommandZ = bullKingRig.position.z;
@@ -3193,6 +3364,7 @@ function removeProjectile(index) {
 
 function resetCharge(entity, cooldownMs = entity.chargeProfile?.cooldownMs || 0) {
     const wasActivePresentation = activeChargeEntity === entity;
+    entity.runtimeRole = 'normal-troop';
     entity.chargePhase = 'idle';
     entity.chargePhaseStartedAt = 0;
     entity.chargeCooldownUntil = Date.now() + Math.max(0, cooldownMs);
@@ -3283,6 +3455,7 @@ function startImpactCharge(entity, request, target, now) {
         intensity: request.intensity,
         direction: request.direction,
     };
+    entity.runtimeRole = 'market-impact-actor';
     entity.chargePhase = 'windup';
     entity.chargePhaseStartedAt = now;
     entity.chargeDirectionX = target.directionX;
@@ -3594,7 +3767,7 @@ function updateEntities(delta) {
     frontlineLaser.position.x = state.frontlineX;
     fitFrontlineToTerrain();
     if (frontlineMaterial) {
-        const pulse = prefersReducedMotion ? 0 : Math.sin(kingTime * 2.6) * 0.08;
+        const pulse = prefersReducedMotion ? 0 : Math.sin(scenePresentationTime * 2.6) * 0.08;
         frontlineMaterial.opacity = 0.42 + pulse;
     }
 
@@ -4389,18 +4562,22 @@ function updateCrowdSide(type, doctrine, delta) {
                 : agent.role === 'support' ? 0.94
                     : agent.role === 'reserve' ? 0.9 : 1;
         const rankDepth = agent.depthRank * (0.9 + doctrine.cohesion * 0.22) + agent.depthJitter;
-        const wave = Math.sin(kingTime * (0.28 + crowdBattle.intensity * 0.16) + agent.phase);
+        const wave = prefersReducedMotion
+            ? 0
+            : Math.sin(scenePresentationTime * (0.28 + crowdBattle.intensity * 0.16) + agent.phase);
         let targetX;
         const rankCurve = Math.sin(agent.depthRank * 1.37 + agent.phase * 0.73) * 0.28;
         const roleDrift = agent.role === 'flank' ? agent.flankSide * 0.38 : 0;
+        let presentationOscillationZ = wave * (agent.role === 'skirmisher' ? 0.82 : 0.46);
         let targetZ = agent.lane + (order?.fileOffset || 0) + agent.laneBias + rankCurve + roleDrift
-            + wave * (agent.role === 'skirmisher' ? 0.82 : 0.46);
+            + presentationOscillationZ;
         let opponent = null;
         let opponentDistance = Number.POSITIVE_INFINITY;
 
         if (agent.retiring) {
             targetX = agent.x;
             targetZ = agent.z;
+            presentationOscillationZ = 0;
             agent.life = Math.max(0, agent.life - delta * 0.72);
         } else {
             agent.life = Math.min(1, agent.life + delta * 1.45);
@@ -4463,8 +4640,11 @@ function updateCrowdSide(type, doctrine, delta) {
             const sectorX = sectorContactX - direction * preferredDistance * 0.5;
             targetX = THREE.MathUtils.lerp(pursuitX, sectorX, agent.engaged ? 0.24 : 0.38);
             const sharedLane = (agent.lane + partner.lane) * 0.5 + (order?.fileOffset || 0);
-            targetZ = sharedLane + agent.laneBias * 0.88 + rankCurve * 0.45
-                + direction * Math.sin(agent.phase + kingTime * 1.9) * (agent.engaged ? 0.34 : 0.15);
+            const contactOscillation = prefersReducedMotion
+                ? 0
+                : direction * Math.sin(agent.phase + scenePresentationTime * 1.9) * (agent.engaged ? 0.34 : 0.15);
+            presentationOscillationZ = contactOscillation;
+            targetZ = sharedLane + agent.laneBias * 0.88 + rankCurve * 0.45 + contactOscillation;
         } else if (!agent.retiring && order?.leader) {
             // Reinforcements advance as a queue behind their own vanguard. They
             // inherit the open ground when the leader falls instead of trying to
@@ -4474,12 +4654,18 @@ function updateCrowdSide(type, doctrine, delta) {
             const supportFan = order.assisting
                 ? agent.avoidanceSide * (0.32 + order.depth * 0.12)
                 : 0;
+            const reinforcementOscillation = prefersReducedMotion
+                ? 0
+                : Math.sin(agent.phase + scenePresentationTime * (order.assisting ? 1.15 : 0.55))
+                    * (order.assisting ? 0.24 : 0.12);
+            presentationOscillationZ = reinforcementOscillation;
             targetZ = agent.lane + (order.fileOffset || 0) + agent.laneBias + rankCurve + roleDrift + supportFan
-                + Math.sin(agent.phase + kingTime * (order.assisting ? 1.15 : 0.55)) * (order.assisting ? 0.24 : 0.12);
+                + reinforcementOscillation;
         }
 
         agent.formationTargetX = targetX;
         agent.formationTargetZ = targetZ;
+        agent.presentationOscillationZ = presentationOscillationZ;
 
         const dx = targetX - agent.x;
         const dz = targetZ - agent.z;
@@ -5666,8 +5852,9 @@ function enforceArenaBounds(entity) {
 }
 
 function updateBullKing(delta) {
-    if (!bullKingRig) return;
-    kingTime += delta;
+    if (!isCommanderActorActive()) return;
+    kingAnimationFrames += 1;
+    commanderAnimationTime += delta;
     const now = Date.now();
     const { tactics } = getSceneTactics(now);
     const reactionAge = (now - kingReactionAt) / 1000;
@@ -5731,27 +5918,50 @@ function updateBullKing(delta) {
         const orbitX = kingMode === 'lead' ? 3.6 : kingMode === 'guard' ? 1.8 : 2.8;
         const orbitZ = kingMode === 'marshal' ? 4.4 : 3.4;
         targetX = clamp(
-            Math.min(commandBaseX + Math.sin(kingTime * patrolRate) * orbitX, bullFrontReference - 6.5),
+            Math.min(commandBaseX + Math.sin(commanderAnimationTime * patrolRate) * orbitX, bullFrontReference - 6.5),
             ARENA.minX + 8,
             ARENA.maxX - 16,
         );
-        targetZ = clamp(targetZ + Math.cos(kingTime * patrolRate * 0.83) * orbitZ, ARENA.minZ + 5, ARENA.maxZ - 5);
+        targetZ = clamp(targetZ + Math.cos(commanderAnimationTime * patrolRate * 0.83) * orbitZ, ARENA.minZ + 5, ARENA.maxZ - 5);
     }
-    const hover = Math.sin(kingTime * (1.25 + tactics.flowIntensity * 0.35)) * (prefersReducedMotion ? 0.18 : 0.62)
+    const hover = Math.sin(commanderAnimationTime * (1.25 + tactics.flowIntensity * 0.35)) * (prefersReducedMotion ? 0.18 : 0.62)
         + reaction * 0.22;
     _kingTarget.set(targetX, getTrenchHeight(targetX, targetZ) + directive.altitude + hover, targetZ);
     const travelX = _kingTarget.x - bullKingRig.position.x;
     const travelZ = _kingTarget.z - bullKingRig.position.z;
     const previousYaw = bullKingRig.rotation.y;
     _kingPreviousPosition.copy(bullKingRig.position);
-    dampVector(bullKingRig.position, _kingTarget, directive.response, directive.maxSpeed, delta, _kingMove);
+    beginMotionFrame(commanderMotion, bullKingRig.position.x, bullKingRig.position.z);
+    integrateMotion(commanderMotion, {
+        targetX: _kingTarget.x,
+        targetZ: _kingTarget.z,
+        targetIdentity: commanderSnapshot.actorId,
+        maxSpeed: directive.maxSpeed,
+        maxAcceleration: 16 + directive.response * 8,
+        arrivalRadius: 3.2,
+    }, delta);
+    bullKingRig.position.x = commanderMotion.positionX;
+    bullKingRig.position.z = commanderMotion.positionZ;
+    bullKingRig.position.y = THREE.MathUtils.damp(
+        bullKingRig.position.y,
+        _kingTarget.y,
+        directive.response,
+        delta,
+    );
     const watchX = defending ? kingDefenseTargetX : crowdBattle.hotspotX;
     const watchZ = defending ? kingDefenseTargetZ : kingCommandZ;
     const desiredYaw = Math.atan2(-(watchZ - bullKingRig.position.z), watchX - bullKingRig.position.x);
     const yawDelta = Math.atan2(Math.sin(desiredYaw - bullKingRig.rotation.y), Math.cos(desiredYaw - bullKingRig.rotation.y));
     const maxYawSpeed = defending ? 3.2 : 1.45;
     bullKingRig.rotation.y += clamp(yawDelta, -maxYawSpeed * delta, maxYawSpeed * delta);
-    kingSpeed = bullKingRig.position.distanceTo(_kingPreviousPosition) / Math.max(0.001, delta);
+    finalizeMotionFrame(commanderMotion, {
+        x: bullKingRig.position.x,
+        z: bullKingRig.position.z,
+        speedLimit: directive.maxSpeed,
+        explicitFacingX: watchX - bullKingRig.position.x,
+        explicitFacingZ: watchZ - bullKingRig.position.z,
+    }, delta);
+    kingSpeed = commanderMotion.speed;
     kingTurnRate = Math.abs(Math.atan2(
         Math.sin(bullKingRig.rotation.y - previousYaw),
         Math.cos(bullKingRig.rotation.y - previousYaw),
@@ -5762,43 +5972,44 @@ function updateBullKing(delta) {
     const flapAmplitude = prefersReducedMotion
         ? 0.07
         : 0.27 + tactics.flowIntensity * 0.08 + reaction * 0.05 + (defending ? 0.1 : 0);
-    const flap = Math.sin(kingTime * flapRate) * flapAmplitude;
+    const flap = Math.sin(commanderAnimationTime * flapRate) * flapAmplitude;
     kingWingNear.rotation.x = 0.12 + flap;
     kingWingFar.rotation.x = -0.12 - flap;
     kingLegs.forEach((leg, index) => {
         const base = index < 2 ? -0.58 : 0.58;
-        leg.rotation.z = base + Math.sin(kingTime * 3.2 + index * Math.PI) * (0.08 + reaction * 0.05);
+        leg.rotation.z = base + Math.sin(commanderAnimationTime * 3.2 + index * Math.PI) * (0.08 + reaction * 0.05);
     });
     if (kingMount) {
-        kingMount.position.y = Math.sin(kingTime * 1.7) * 0.16;
-        kingMount.rotation.z = Math.sin(kingTime * 0.92) * 0.035 - reaction * 0.02 - commandGesture * 0.025;
+        kingMount.position.y = Math.sin(commanderAnimationTime * 1.7) * 0.16;
+        kingMount.rotation.z = Math.sin(commanderAnimationTime * 0.92) * 0.035 - reaction * 0.02 - commandGesture * 0.025;
     }
     if (kingTail) {
-        kingTail.rotation.y = Math.sin(kingTime * 2.1) * 0.32;
-        kingTail.rotation.z = Math.sin(kingTime * 1.35) * 0.12;
+        kingTail.rotation.y = Math.sin(commanderAnimationTime * 2.1) * 0.32;
+        kingTail.rotation.z = Math.sin(commanderAnimationTime * 1.35) * 0.12;
     }
-    if (kingRider) kingRider.rotation.z = Math.sin(kingTime * 1.15) * 0.045 - reaction * 0.035 - commandGesture * 0.055;
+    if (kingRider) kingRider.rotation.z = Math.sin(commanderAnimationTime * 1.15) * 0.045 - reaction * 0.035 - commandGesture * 0.055;
     if (kingRiderHead) {
-        kingRiderHead.rotation.y = -0.18 + Math.sin(kingTime * 0.48) * 0.1;
+        kingRiderHead.rotation.y = -0.18 + Math.sin(commanderAnimationTime * 0.48) * 0.1;
         kingRiderHead.rotation.z = commandGesture * 0.08;
     }
     if (kingRiderArm) {
         kingRiderArm.rotation.z = -0.82 - reaction * 0.16 - commandGesture * 0.42;
         kingRiderArm.rotation.x = commandGesture * 0.22;
     }
-    if (kingStaff) kingStaff.rotation.z = -0.58 - reaction * 0.16 - (defending ? 0.18 : 0) - commandGesture * 0.34 + Math.sin(kingTime * 1.8) * 0.065;
+    if (kingStaff) kingStaff.rotation.z = -0.58 - reaction * 0.16 - (defending ? 0.18 : 0) - commandGesture * 0.34
+        + Math.sin(commanderAnimationTime * 1.8) * 0.065;
     if (kingMountAura) {
         kingMountAura.material.opacity = clamp(
             0.13 + (supporting ? 0.13 : 0) + (kingMode === 'guard' ? 0.07 : 0) + commandGesture * 0.1
-                + Math.sin(kingTime * 2.2) * 0.025,
+                + Math.sin(commanderAnimationTime * 2.2) * 0.025,
             0.08,
             0.38,
         );
-        kingMountAura.scale.setScalar(1 + commandGesture * 0.22 + Math.sin(kingTime * 1.6) * 0.03);
+        kingMountAura.scale.setScalar(1 + commandGesture * 0.22 + Math.sin(commanderAnimationTime * 1.6) * 0.03);
     }
     if (kingStaffGlow) kingStaffGlow.intensity = supporting
-        ? 11 + Math.sin(kingTime * 11) * 3
-        : 4.5 + Math.sin(kingTime * 2) * 1.2 + reaction * 4 + commandGesture * 6;
+        ? 11 + Math.sin(commanderAnimationTime * 11) * 3
+        : 4.5 + Math.sin(commanderAnimationTime * 2) * 1.2 + reaction * 4 + commandGesture * 6;
 }
 
 function setKingMode(nextMode, now = Date.now()) {
@@ -5816,10 +6027,7 @@ function updateSupportWaves(delta) {
         if (!wave.launched) {
             wave.launched = true;
             wave.mesh.visible = true;
-            wave.mesh.position.copy(bullKingRig.position);
-            wave.mesh.position.x += 2.8;
-            wave.mesh.position.y += 4.2;
-            wave.mesh.position.z += 0.8;
+            wave.mesh.position.copy(wave.origin);
         }
         wave.mesh.position.x += (20 + wave.strength * 3) * delta;
         wave.mesh.scale.setScalar(1 + wave.age * (3.2 + wave.strength));
@@ -5901,8 +6109,8 @@ function updateCamera(delta) {
 
         if (state.screenShake > 0) {
             if (!prefersReducedMotion) {
-                cameraShakeOffsetX = Math.sin(kingTime * 38) * state.screenShake;
-                cameraShakeOffsetY = Math.sin(kingTime * 31 + 0.8) * state.screenShake * 0.42;
+                cameraShakeOffsetX = Math.sin(scenePresentationTime * 38) * state.screenShake;
+                cameraShakeOffsetY = Math.sin(scenePresentationTime * 31 + 0.8) * state.screenShake * 0.42;
                 camera.position.x += cameraShakeOffsetX;
                 camera.position.y += cameraShakeOffsetY;
             }
@@ -5974,9 +6182,12 @@ function calculateCameraFraming(now) {
         totalWeight += crowdWeight;
     }
 
+    const commanderActive = isCommanderActorActive();
+    lastCameraCommanderIncluded = commanderActive;
+
     // Keep the commander inside the wider establishing shot even outside a
     // scripted ward. His weight is intentionally smaller than the two armies.
-    if (bullKingRig) {
+    if (commanderActive) {
         const kingWeight = 9.5;
         weightedX += bullKingRig.position.x * kingWeight;
         weightedZ += bullKingRig.position.z * kingWeight;
@@ -5999,7 +6210,7 @@ function calculateCameraFraming(now) {
         variance += crowdBattle.spread * crowdBattle.spread * crowdWeight;
         varianceWeight += crowdWeight;
     }
-    if (bullKingRig) {
+    if (commanderActive) {
         const dx = bullKingRig.position.x - x;
         const dz = bullKingRig.position.z - z;
         variance += (dx * dx + dz * dz * 0.45) * 3.2;
@@ -6010,7 +6221,9 @@ function calculateCameraFraming(now) {
 }
 
 function getKingViewDiagnostics() {
-    if (!bullKingRig || !camera) return { inView: false, screenX: null, screenY: null, screenDepth: null };
+    if (!isCommanderActorActive() || !camera) {
+        return { inView: false, screenX: null, screenY: null, screenDepth: null };
+    }
     const projected = bullKingRig.position.clone().project(camera);
     return {
         inView: projected.z >= -1 && projected.z <= 1 && Math.abs(projected.x) <= 0.96 && Math.abs(projected.y) <= 0.94,
@@ -6030,6 +6243,7 @@ function clearCameraShakeOffset() {
 }
 
 function getKingCameraWeight(now) {
+    if (!isCommanderActorActive()) return 0;
     if (now < kingFocusStartedAt || now >= kingFocusUntil) return 0;
     const fadeIn = smoothstep(0, 480, now - kingFocusStartedAt);
     const fadeOut = 1 - smoothstep(kingFocusPeakUntil, kingFocusUntil, now);
@@ -6138,6 +6352,7 @@ function gameLoop(timestamp) {
     // remains elapsed-time based; no state advances by an assumed frame count.
     const simulationDelta = Math.min(elapsed, 0.25);
     const presentationDelta = Math.min(elapsed, 0.1);
+    scenePresentationTime += presentationDelta;
     const motionUpdateStartedAt = performance.now();
     updateProjectiles(simulationDelta);
     updateEntities(simulationDelta);

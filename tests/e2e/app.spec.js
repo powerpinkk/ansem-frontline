@@ -176,7 +176,14 @@ test('pauses 3D work while hidden and resumes from a clean frame', async ({ page
         Object.defineProperty(document, 'hidden', { configurable: true, value: false });
         window.__ansemHandleVisibility();
     });
-    await page.waitForTimeout(650);
+    await page.waitForFunction((before) => {
+        const current = window.__ansemSceneDiagnostics().bullKing;
+        return Math.hypot(
+            current.x - before.x,
+            current.y - before.y,
+            current.z - before.z,
+        ) > 0.003;
+    }, stillPaused.bullKing, { timeout: 5_000 });
     const resumed = await page.evaluate(() => window.__ansemSceneDiagnostics());
     expect(Math.hypot(
         resumed.bullKing.x - stillPaused.bullKing.x,
