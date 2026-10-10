@@ -1,6 +1,8 @@
 import { canonicalEvent, swapFixture } from '../fixtures/integrity.js';
+import { countPresentLocomotionModes } from '../../js/battlefield.js';
 import { providerValuation } from '../../js/market-valuation.js';
 import { expect, test } from '@playwright/test';
+import { writeFile } from 'node:fs/promises';
 
 const token = '9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump';
 const sol = 'So11111111111111111111111111111111111111112';
@@ -663,12 +665,7 @@ test('keeps resolved locomotion, orientation and quadruped gait coherent through
 
     expect(bullish.locomotion.moving).toBeGreaterThan(0);
     expect(bullish.locomotion.quadrupedAnimated).toBeGreaterThan(0);
-    expect(new Set([
-        bullish.locomotion.idle,
-        bullish.locomotion.walk,
-        bullish.locomotion.run,
-        bullish.locomotion.charge,
-    ].filter((count) => count > 0)).size).toBeGreaterThanOrEqual(2);
+    expect(countPresentLocomotionModes(bullish.locomotion)).toBeGreaterThanOrEqual(2);
     expect(reversed.locomotion.assertions).toEqual({
         nonFinite: 0,
         recoveryLoops: 0,
@@ -724,6 +721,14 @@ test('keeps giant combatants stable while navigating dense ranks', async ({ page
                     stuckTime: entity.stuckTime,
                     frameTravel: entity.frameTravel,
                     crowdStrikes: entity.crowdStrikes,
+                    behavior: entity.behavior,
+                    frontContact: entity.frontContact,
+                    targetId: entity.targetId,
+                    combatState: entity.combatState,
+                    progressState: entity.progressState,
+                    recoveryAttempts: entity.recoveryAttempts,
+                    avoidanceSide: entity.avoidanceSide,
+                    avoidanceMs: entity.avoidanceMs,
                 })));
             await new Promise((resolve) => window.setTimeout(resolve, 100));
         }
@@ -740,10 +745,12 @@ test('keeps giant combatants stable while navigating dense ranks', async ({ page
     let worstReversals = 0;
     let maximumStuckTime = 0;
     let movingWhales = 0;
-    for (const track of tracks.values()) {
+    const trackDiagnostics = [];
+    for (const [id, track] of tracks) {
         let reversals = 0;
         let previousStep = null;
         let travel = 0;
+        const steps = [];
         for (let index = 1; index < track.length; index++) {
             const step = {
                 x: track[index].x - track[index - 1].x,
@@ -752,19 +759,41 @@ test('keeps giant combatants stable while navigating dense ranks', async ({ page
             const magnitude = Math.hypot(step.x, step.z);
             travel += magnitude;
             maximumStuckTime = Math.max(maximumStuckTime, track[index].stuckTime);
+            let alignment = null;
             if (previousStep) {
                 const previousMagnitude = Math.hypot(previousStep.x, previousStep.z);
                 const dot = step.x * previousStep.x + step.z * previousStep.z;
-                if (magnitude > 0.012 && previousMagnitude > 0.012
-                    && dot / (magnitude * previousMagnitude) < -0.72) reversals += 1;
+                alignment = magnitude > 0.012 && previousMagnitude > 0.012
+                    ? dot / (magnitude * previousMagnitude)
+                    : null;
+                if (alignment !== null && alignment < -0.72) reversals += 1;
             }
             // A genuine vibration reverses on consecutive movement samples.
             // After a stationary combat hold, resuming toward a new target is
             // a state transition rather than a back-and-forth oscillation.
             previousStep = magnitude > 0.012 ? step : null;
+            steps.push({
+                ...step,
+                magnitude,
+                alignment,
+                from: track[index - 1],
+                to: track[index],
+            });
         }
         if (travel > 0.8 || track.at(-1).crowdStrikes > 0) movingWhales += 1;
         worstReversals = Math.max(worstReversals, reversals);
+        trackDiagnostics.push({ id, reversals, travel, steps });
+    }
+    if (worstReversals > 4) {
+        const diagnosticsPath = testInfo.outputPath('whale-motion-diagnostics.json');
+        await writeFile(
+            diagnosticsPath,
+            JSON.stringify({ worstReversals, maximumStuckTime, tracks: trackDiagnostics }, null, 2),
+        );
+        await testInfo.attach('whale-motion-diagnostics', {
+            path: diagnosticsPath,
+            contentType: 'application/json',
+        });
     }
     expect(maximumStuckTime).toBeLessThan(1.7);
     expect(worstReversals).toBeLessThanOrEqual(4);

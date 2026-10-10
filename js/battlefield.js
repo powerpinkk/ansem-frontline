@@ -7,6 +7,63 @@ function clamp(value, min, max) {
     return Math.max(min, Math.min(max, value));
 }
 
+export const CHAMPION_CROWD_RANGE = Object.freeze({
+    regular: Object.freeze({ attack: 4.6, retention: 6.9 }),
+    whale: Object.freeze({ attack: 7.2, retention: 10.1 }),
+});
+
+export function classifyChampionCrowdContact({
+    entityX = 0,
+    entityZ = 0,
+    contactX = 0,
+    contactZ = 0,
+    isWhale = false,
+} = {}) {
+    const dx = finiteCoordinate(contactX) - finiteCoordinate(entityX);
+    const dz = finiteCoordinate(contactZ) - finiteCoordinate(entityZ);
+    const distance = Math.hypot(dx, dz);
+    const ranges = isWhale ? CHAMPION_CROWD_RANGE.whale : CHAMPION_CROWD_RANGE.regular;
+    return {
+        dx,
+        dz,
+        distance,
+        attackRange: ranges.attack,
+        inAttackRange: distance <= ranges.attack,
+        retainable: distance <= ranges.retention,
+    };
+}
+
+export function crowdProgressExempt({ retiring = false, holdMovement = false } = {}) {
+    return Boolean(retiring || holdMovement);
+}
+
+export function arenaRecoveryDirection({
+    z = 0,
+    minZ = -32,
+    maxZ = 32,
+    forwardX = 1,
+    currentDirection = 1,
+    padding = 1.2,
+} = {}) {
+    const positionZ = finiteCoordinate(z);
+    const forwardSign = finiteCoordinate(forwardX) < 0 ? -1 : 1;
+    if (positionZ <= finiteCoordinate(minZ) + Math.max(0, Number(padding) || 0)) return forwardSign;
+    if (positionZ >= finiteCoordinate(maxZ) - Math.max(0, Number(padding) || 0)) return -forwardSign;
+    return finiteCoordinate(currentDirection) < 0 ? -1 : 1;
+}
+
+export function countPresentLocomotionModes(counts = {}) {
+    return ['idle', 'walk', 'run', 'charge'].reduce(
+        (total, mode) => total + (finiteNumber(counts[mode]) > 0 ? 1 : 0),
+        0,
+    );
+}
+
+function finiteCoordinate(value) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+}
+
 function sideForce(sol, activityCount, hourlyCount, verifiedCount, cap) {
     const activity = finiteNumber(activityCount);
     const hourly = finiteNumber(hourlyCount);

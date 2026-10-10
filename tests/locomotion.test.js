@@ -3,6 +3,7 @@ import {
     LOCOMOTION_STATE,
     PROGRESS_STATE,
     beginMotionFrame,
+    continueMotionFrame,
     createMotionState,
     finalizeMotionFrame,
     integrateMotion,
@@ -69,6 +70,71 @@ describe('locomotion foundation', () => {
         expect(motion.positionX).toBeGreaterThan(0);
         expect(motion.positionX).toBeLessThan(2);
         expect(Number.isFinite(motion.speed)).toBe(true);
+    });
+
+    it('measures the full physical frame when an external writer moves a rank before integration', () => {
+        const motion = createMotionState({ x: 0, z: 0, facing: 0 });
+        beginMotionFrame(motion, 0, 0);
+        continueMotionFrame(motion, 0, 3);
+        integrateMotion(motion, {
+            targetX: 20,
+            targetZ: 3,
+            maxSpeed: 8,
+            maxAcceleration: 24,
+        }, 1 / 60);
+        finalizeMotionFrame(motion, {
+            x: motion.positionX,
+            z: motion.positionZ,
+            speedLimit: 12,
+        }, 1 / 60);
+        expect(motion.frameDistance).toBeGreaterThanOrEqual(3);
+        expect(motion.distanceTravelled).toBe(motion.frameDistance);
+        expect(motion.positionZ).toBeCloseTo(3);
+        expect(motion.speed).toBeLessThanOrEqual(12);
+        expect(motion.locomotionState).not.toBe(LOCOMOTION_STATE.IDLE);
+    });
+
+    it('uses a caller-supplied inward recovery side without exceeding the attempt budget', () => {
+        const motion = createMotionState({ seed: 2 });
+        let inwardRecoveryObserved = false;
+        for (let frame = 0; frame < 240; frame++) {
+            beginMotionFrame(motion, 0, -31.3);
+            integrateMotion(motion, {
+                targetX: 20,
+                targetZ: -31.3,
+                maxSpeed: 8,
+                recoveryDirection: 1,
+            }, 1 / 60);
+            if (motion.recovering && motion.desiredVelocityZ > 0) inwardRecoveryObserved = true;
+            finalizeMotionFrame(motion, { x: 0, z: -31.3 }, 1 / 60);
+        }
+        expect(inwardRecoveryObserved).toBe(true);
+        expect(motion.maxRecoveryAttemptsObserved).toBeLessThanOrEqual(3);
+    });
+
+    it('does not mistake repeated lateral yield for progress toward a pending target', () => {
+        const motion = createMotionState({ seed: 7 });
+        let recoveryObserved = false;
+        for (let frame = 0; frame < 180; frame++) {
+            beginMotionFrame(motion, 0, 0);
+            continueMotionFrame(motion, 0, frame % 2 === 0 ? 0.8 : -0.8);
+            integrateMotion(motion, {
+                targetX: 20,
+                targetZ: 0,
+                maxSpeed: 8,
+                maxAcceleration: 30,
+            }, 1 / 60);
+            finalizeMotionFrame(motion, {
+                x: 0,
+                z: 0,
+                speedLimit: 12,
+            }, 1 / 60);
+            if (motion.recovering) recoveryObserved = true;
+        }
+        expect(recoveryObserved).toBe(true);
+        expect(motion.frameProgress).toBe(0);
+        expect(motion.gaitPhase).toBe(0);
+        expect(motion.maxRecoveryAttemptsObserved).toBeLessThanOrEqual(3);
     });
 
     it('detects zero progress and enters bounded deterministic recovery', () => {

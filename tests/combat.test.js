@@ -18,6 +18,7 @@ import {
     resetCombatState,
     resolveCombatImpulse,
     sampleCombatPose,
+    selectEffectiveMeleeTarget,
     stableContactNormal,
     sweptCircleIntersects,
 } from '../js/combat.js';
@@ -115,6 +116,88 @@ describe('giant bull charge', () => {
 });
 
 describe('deterministic melee combat', () => {
+    it.each(['bull', 'bear'])('keeps one effective crowd target through complete %s attack sequences', (archetype) => {
+        for (const fps of [30, 60, 120]) {
+            const combat = createCombatState({ archetype, seed: fps });
+            const crowdContact = { id: 43, type: archetype === 'bull' ? 'bear' : 'bull' };
+            let hitEdges = 0;
+            const hitSequences = new Set();
+            for (let frame = 0; frame < fps * 4; frame++) {
+                const effective = selectEffectiveMeleeTarget({
+                    detailedTarget: null,
+                    crowdContact,
+                });
+                expect(effective).toMatchObject({ kind: 'crowd', target: crowdContact });
+                const update = advanceMeleeCombat(combat, {
+                    targetIdentity: `crowd-${crowdContact.type}-${crowdContact.id}`,
+                    targetValid: true,
+                    distance: 4.2,
+                    enterRange: 4.6,
+                    leaveRange: 5.5,
+                    contactRange: 4.6,
+                }, 1 / fps);
+                if (update.hit) {
+                    hitEdges += 1;
+                    expect(hitSequences.has(update.sequence)).toBe(false);
+                    hitSequences.add(update.sequence);
+                }
+            }
+            expect(hitEdges).toBeGreaterThan(1);
+            expect(combat.cancelled).toBe(0);
+            expect(combat.totalHits).toBe(hitEdges);
+        }
+    });
+
+    it('cancels an obsolete crowd target once and permits a replacement sequence', () => {
+        const combat = createCombatState({ archetype: 'bear', seed: 91 });
+        const first = { id: 1 };
+        const second = { id: 2 };
+        for (let frame = 0; frame < 10; frame++) {
+            const effective = selectEffectiveMeleeTarget({ crowdContact: first });
+            advanceMeleeCombat(combat, {
+                targetIdentity: `crowd-${effective.target.id}`,
+                targetValid: true,
+                distance: 2,
+                enterRange: 4.6,
+                leaveRange: 5.5,
+                contactRange: 4.6,
+            }, 1 / 60);
+        }
+        const priorSequence = combat.sequence;
+        advanceMeleeCombat(combat, {
+            targetIdentity: `crowd-${second.id}`,
+            targetValid: true,
+            distance: 2,
+            enterRange: 4.6,
+            leaveRange: 5.5,
+            contactRange: 4.6,
+        }, 1 / 60);
+        expect(combat.cancelled).toBe(1);
+        for (let frame = 0; frame < 120; frame++) {
+            advanceMeleeCombat(combat, {
+                targetIdentity: `crowd-${second.id}`,
+                targetValid: true,
+                distance: 2,
+                enterRange: 4.6,
+                leaveRange: 5.5,
+                contactRange: 4.6,
+            }, 1 / 60);
+        }
+        expect(combat.sequence).toBeGreaterThan(priorSequence);
+        expect(combat.totalHits).toBeGreaterThan(0);
+    });
+
+    it('suppresses melee ownership during retreat and charge', () => {
+        const detailedTarget = { id: 'detailed' };
+        const crowdContact = { id: 'crowd' };
+        expect(selectEffectiveMeleeTarget({ detailedTarget, crowdContact })).toEqual({
+            kind: 'crowd',
+            target: crowdContact,
+        });
+        expect(selectEffectiveMeleeTarget({ detailedTarget, crowdContact, forcedRetreat: true })).toBeNull();
+        expect(selectEffectiveMeleeTarget({ detailedTarget, crowdContact, chargeActive: true })).toBeNull();
+    });
+
     it('retains every transition when one slow simulation step crosses transient states', () => {
         const state = createCombatState({ archetype: 'bear', seed: 17 });
         const visited = [];

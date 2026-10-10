@@ -47,6 +47,7 @@ export function resetMotionState(state, { x = 0, z = 0, facing = 0, targetIdenti
     state.facing = normalizeAngle(facing);
     state.distanceTravelled = 0;
     state.frameDistance = 0;
+    state.frameProgress = 0;
     state.locomotionState = LOCOMOTION_STATE.IDLE;
     state.targetIdentity = targetIdentity;
     state.progressState = PROGRESS_STATE.NORMAL;
@@ -83,6 +84,16 @@ export function beginMotionFrame(state, x, z) {
     state.positionX = safeX;
     state.positionZ = safeZ;
     state.frameDistance = 0;
+    state.frameProgress = 0;
+    return state;
+}
+
+export function continueMotionFrame(state, x, z) {
+    const safeX = finiteOr(x, state.positionX);
+    const safeZ = finiteOr(z, state.positionZ);
+    if (!Number.isFinite(x) || !Number.isFinite(z)) state.nonFiniteCorrections += 1;
+    state.positionX = safeX;
+    state.positionZ = safeZ;
     return state;
 }
 
@@ -125,6 +136,9 @@ export function integrateMotion(state, input = {}, delta = 0) {
     );
 
     if (state.progressState === PROGRESS_STATE.RECOVERY && !hold) {
+        if (Number.isFinite(input.recoveryDirection) && input.recoveryDirection !== 0) {
+            state.recoveryDirection = input.recoveryDirection < 0 ? -1 : 1;
+        }
         const forwardX = directionX;
         const forwardZ = directionZ;
         const lateralX = -forwardZ * state.recoveryDirection;
@@ -202,6 +216,12 @@ export function finalizeMotionFrame(state, input = {}, delta = 0) {
     const dx = actualX - state.previousX;
     const dz = actualZ - state.previousZ;
     const distance = Math.hypot(dx, dz);
+    const goalX = state.targetX - state.previousX;
+    const goalZ = state.targetZ - state.previousZ;
+    const goalDistance = Math.hypot(goalX, goalZ);
+    const goalProgress = goalDistance > EPSILON
+        ? Math.max(0, (dx * goalX + dz * goalZ) / goalDistance)
+        : distance;
     const actualVelocityX = dx / dt;
     const actualVelocityZ = dz / dt;
     const measuredSpeed = distance / dt;
@@ -210,6 +230,7 @@ export function finalizeMotionFrame(state, input = {}, delta = 0) {
     state.positionX = actualX;
     state.positionZ = actualZ;
     state.frameDistance = distance;
+    state.frameProgress = goalProgress;
     state.distanceTravelled += distance;
     state.resolvedVelocityX = finiteOr(actualVelocityX * velocityScale, 0);
     state.resolvedVelocityZ = finiteOr(actualVelocityZ * velocityScale, 0);
@@ -261,7 +282,7 @@ export function finalizeMotionFrame(state, input = {}, delta = 0) {
         || charge;
     if (!progressExempt && requestedSpeed > 0.45) {
         const expected = requestedSpeed * dt;
-        const progressRatio = expected > EPSILON ? distance / expected : 1;
+        const progressRatio = expected > EPSILON ? goalProgress / expected : 1;
         state.lowProgressTime = progressRatio < 0.12
             ? state.lowProgressTime + dt
             : Math.max(0, state.lowProgressTime - dt * 2.4);
@@ -285,6 +306,7 @@ export function syncMotionPosition(state, x, z, facing = state.facing) {
     state.desiredVelocityZ = 0;
     state.speed = 0;
     state.frameDistance = 0;
+    state.frameProgress = 0;
     state.gaitPhase = 0;
     state.facing = normalizeAngle(facing);
     state.lowProgressTime = 0;
