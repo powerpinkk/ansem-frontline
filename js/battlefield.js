@@ -37,19 +37,24 @@ export function crowdProgressExempt({ retiring = false, holdMovement = false } =
     return Boolean(retiring || holdMovement);
 }
 
-export function arenaRecoveryDirection({
+export function arenaRecoveryPolicy({
     z = 0,
     minZ = -32,
     maxZ = 32,
-    forwardX = 1,
+    steeringX = 0,
     currentDirection = 1,
     padding = 1.2,
 } = {}) {
     const positionZ = finiteCoordinate(z);
-    const forwardSign = finiteCoordinate(forwardX) < 0 ? -1 : 1;
-    if (positionZ <= finiteCoordinate(minZ) + Math.max(0, Number(padding) || 0)) return forwardSign;
-    if (positionZ >= finiteCoordinate(maxZ) - Math.max(0, Number(padding) || 0)) return -forwardSign;
-    return finiteCoordinate(currentDirection) < 0 ? -1 : 1;
+    const edgePadding = Math.max(0, Number(padding) || 0);
+    const normalZ = positionZ <= finiteCoordinate(minZ) + edgePadding ? 1
+        : positionZ >= finiteCoordinate(maxZ) - edgePadding ? -1 : 0;
+    const fallbackDirection = finiteCoordinate(currentDirection) < 0 ? -1 : 1;
+    const effectiveX = finiteCoordinate(steeringX);
+    const direction = normalZ !== 0 && Math.abs(effectiveX) > 1e-6
+        ? (normalZ * effectiveX < 0 ? -1 : 1)
+        : fallbackDirection;
+    return { direction, normalX: 0, normalZ };
 }
 
 export function countPresentLocomotionModes(counts = {}) {

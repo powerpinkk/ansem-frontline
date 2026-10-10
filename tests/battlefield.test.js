@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-    arenaRecoveryDirection,
+    arenaRecoveryPolicy,
     classifyChampionCrowdContact,
     countPresentLocomotionModes,
     crowdProgressExempt,
@@ -82,11 +82,17 @@ describe('battle integration policy', () => {
         expect(crowdProgressExempt({ retiring: true, holdMovement: false })).toBe(true);
     });
 
-    it('biases recovery toward the arena interior for both factions', () => {
-        expect(arenaRecoveryDirection({ z: -31.3, forwardX: 8, currentDirection: -1 })).toBe(1);
-        expect(arenaRecoveryDirection({ z: -31.3, forwardX: -8, currentDirection: 1 })).toBe(-1);
-        expect(arenaRecoveryDirection({ z: 31.3, forwardX: 8, currentDirection: 1 })).toBe(-1);
-        expect(arenaRecoveryDirection({ z: 0, forwardX: 8, currentDirection: -1 })).toBe(-1);
+    it('derives edge recovery from effective steering and exposes the inward normal', () => {
+        expect(arenaRecoveryPolicy({ z: -31.3, steeringX: 0.7, currentDirection: -1 }))
+            .toEqual({ direction: 1, normalX: 0, normalZ: 1 });
+        expect(arenaRecoveryPolicy({ z: -31.3, steeringX: -0.7, currentDirection: 1 }))
+            .toEqual({ direction: -1, normalX: 0, normalZ: 1 });
+        expect(arenaRecoveryPolicy({ z: 31.3, steeringX: 0.7, currentDirection: 1 }))
+            .toEqual({ direction: -1, normalX: 0, normalZ: -1 });
+        expect(arenaRecoveryPolicy({ z: 31.3, steeringX: 0, currentDirection: 1 }))
+            .toEqual({ direction: 1, normalX: 0, normalZ: -1 });
+        expect(arenaRecoveryPolicy({ z: 0, steeringX: 0.7, currentDirection: -1 }))
+            .toEqual({ direction: -1, normalX: 0, normalZ: 0 });
     });
 
     it('counts locomotion modes present even when their populations are equal', () => {

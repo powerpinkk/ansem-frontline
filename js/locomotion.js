@@ -25,6 +25,7 @@ export const MOTION_LIMITS = Object.freeze({
 
 const TAU = Math.PI * 2;
 const EPSILON = 1e-6;
+const RECOVERY_INWARD_FLOOR = 0.55;
 
 export function createMotionState({ x = 0, z = 0, facing = 0, targetIdentity = null, seed = 0 } = {}) {
     const state = {};
@@ -57,6 +58,8 @@ export function resetMotionState(state, { x = 0, z = 0, facing = 0, targetIdenti
     state.recoveryAttempts = 0;
     state.maxRecoveryAttemptsObserved = 0;
     state.recoveryDirection = (Math.abs(Math.trunc(seed)) % 2 === 0) ? 1 : -1;
+    state.recoveryNormalX = 0;
+    state.recoveryNormalZ = 0;
     state.seed = Math.abs(Math.trunc(seed)) || 1;
     state.backwardTime = 0;
     state.backwardViolations = 0;
@@ -148,6 +151,30 @@ export function integrateMotion(state, input = {}, delta = 0) {
         const recoveryLength = Math.hypot(directionX, directionZ) || 1;
         directionX /= recoveryLength;
         directionZ /= recoveryLength;
+        const inputRecoveryNormalX = finiteOr(input.recoveryNormalX, 0);
+        const inputRecoveryNormalZ = finiteOr(input.recoveryNormalZ, 0);
+        if (Math.hypot(inputRecoveryNormalX, inputRecoveryNormalZ) > EPSILON) {
+            state.recoveryNormalX = inputRecoveryNormalX;
+            state.recoveryNormalZ = inputRecoveryNormalZ;
+        }
+        const recoveryNormalX = state.recoveryNormalX;
+        const recoveryNormalZ = state.recoveryNormalZ;
+        const recoveryNormalLength = Math.hypot(recoveryNormalX, recoveryNormalZ);
+        if (recoveryNormalLength > EPSILON) {
+            const normalX = recoveryNormalX / recoveryNormalLength;
+            const normalZ = recoveryNormalZ / recoveryNormalLength;
+            const inwardComponent = directionX * normalX + directionZ * normalZ;
+            if (inwardComponent < RECOVERY_INWARD_FLOOR) {
+                const tangentX = directionX - normalX * inwardComponent;
+                const tangentZ = directionZ - normalZ * inwardComponent;
+                const tangentLength = Math.hypot(tangentX, tangentZ);
+                const tangentScale = tangentLength > EPSILON
+                    ? Math.sqrt(1 - RECOVERY_INWARD_FLOOR ** 2) / tangentLength
+                    : 0;
+                directionX = tangentX * tangentScale + normalX * RECOVERY_INWARD_FLOOR;
+                directionZ = tangentZ * tangentScale + normalZ * RECOVERY_INWARD_FLOOR;
+            }
+        }
     }
 
     let desiredX = directionX * maxSpeed * arrival;
@@ -312,6 +339,8 @@ export function syncMotionPosition(state, x, z, facing = state.facing) {
     state.lowProgressTime = 0;
     state.progressState = PROGRESS_STATE.NORMAL;
     state.recoveryTime = 0;
+    state.recoveryNormalX = 0;
+    state.recoveryNormalZ = 0;
     state.recovering = false;
     state.intentionalHold = true;
     state.locomotionState = LOCOMOTION_STATE.IDLE;
@@ -387,6 +416,8 @@ function updateRecoveryState(state, dt, requestedSpeed, progressExempt) {
         if (state.recoveryTime >= MOTION_LIMITS.recoveryDuration) {
             state.progressState = PROGRESS_STATE.NORMAL;
             state.recoveryTime = 0;
+            state.recoveryNormalX = 0;
+            state.recoveryNormalZ = 0;
             state.recoveryCooldown = MOTION_LIMITS.recoveryCooldown;
             state.lowProgressTime = 0;
             state.recovering = false;

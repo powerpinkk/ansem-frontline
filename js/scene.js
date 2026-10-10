@@ -3,7 +3,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { CONFIG } from './config.js';
 import {
-    arenaRecoveryDirection,
+    arenaRecoveryPolicy,
     classifyChampionCrowdContact,
     crowdProgressExempt,
     deriveForceDoctrine,
@@ -4767,13 +4767,16 @@ function updateCrowdSide(type, doctrine, delta) {
         motionInput.externalVelocityX = agent.combat.impulseX;
         motionInput.externalVelocityZ = agent.combat.impulseZ;
         motionInput.maxExternalSpeed = 3.2;
-        motionInput.recoveryDirection = arenaRecoveryDirection({
+        const recoveryPolicy = arenaRecoveryPolicy({
             z: agent.z,
             minZ: ARENA.minZ,
             maxZ: ARENA.maxZ,
-            forwardX: dx,
+            steeringX: steering.x,
             currentDirection: agent.motion.recoveryDirection,
         });
+        motionInput.recoveryDirection = recoveryPolicy.direction;
+        motionInput.recoveryNormalX = recoveryPolicy.normalX;
+        motionInput.recoveryNormalZ = recoveryPolicy.normalZ;
         integrateMotion(agent.motion, motionInput, delta);
         agent.vx = agent.motion.resolvedVelocityX;
         agent.vz = agent.motion.resolvedVelocityZ;
