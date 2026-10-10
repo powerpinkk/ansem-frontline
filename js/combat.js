@@ -90,6 +90,18 @@ export function resetCombatState(state, { archetype = state.archetype || 'bull',
     return state;
 }
 
+export function selectEffectiveMeleeTarget({
+    detailedTarget = null,
+    crowdContact = null,
+    forcedRetreat = false,
+    chargeActive = false,
+} = {}) {
+    if (forcedRetreat || chargeActive) return null;
+    if (crowdContact) return { kind: 'crowd', target: crowdContact };
+    if (detailedTarget) return { kind: 'detailed', target: detailedTarget };
+    return null;
+}
+
 function transitionCombat(state, next, observeState = null) {
     if (state.state === next) return true;
     if (!isLegalCombatTransition(state.state, next)) {

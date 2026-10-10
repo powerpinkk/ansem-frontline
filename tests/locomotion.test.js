@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
+import { arenaRecoveryPolicy } from '../js/battlefield.js';
 import {
     LOCOMOTION_STATE,
     PROGRESS_STATE,
     beginMotionFrame,
+    continueMotionFrame,
     createMotionState,
     finalizeMotionFrame,
     integrateMotion,
@@ -10,6 +12,7 @@ import {
     syncMotionPosition,
     turnTowards,
 } from '../js/locomotion.js';
+import { ARENA, clamp } from '../js/navigation.js';
 
 function simulate({ fps = 60, seconds = 2, targetX = 30, targetZ = 0, maxSpeed = 8 } = {}) {
     const motion = createMotionState();
@@ -69,6 +72,140 @@ describe('locomotion foundation', () => {
         expect(motion.positionX).toBeGreaterThan(0);
         expect(motion.positionX).toBeLessThan(2);
         expect(Number.isFinite(motion.speed)).toBe(true);
+    });
+
+    it('measures the full physical frame when an external writer moves a rank before integration', () => {
+        const motion = createMotionState({ x: 0, z: 0, facing: 0 });
+        beginMotionFrame(motion, 0, 0);
+        continueMotionFrame(motion, 0, 3);
+        integrateMotion(motion, {
+            targetX: 20,
+            targetZ: 3,
+            maxSpeed: 8,
+            maxAcceleration: 24,
+        }, 1 / 60);
+        finalizeMotionFrame(motion, {
+            x: motion.positionX,
+            z: motion.positionZ,
+            speedLimit: 12,
+        }, 1 / 60);
+        expect(motion.frameDistance).toBeGreaterThanOrEqual(3);
+        expect(motion.distanceTravelled).toBe(motion.frameDistance);
+        expect(motion.positionZ).toBeCloseTo(3);
+        expect(motion.speed).toBeLessThanOrEqual(12);
+        expect(motion.locomotionState).not.toBe(LOCOMOTION_STATE.IDLE);
+    });
+
+    it('uses a caller-supplied inward recovery side without exceeding the attempt budget', () => {
+        const motion = createMotionState({ seed: 2 });
+        let inwardRecoveryObserved = false;
+        for (let frame = 0; frame < 240; frame++) {
+            beginMotionFrame(motion, 0, -31.3);
+            integrateMotion(motion, {
+                targetX: 20,
+                targetZ: -31.3,
+                maxSpeed: 8,
+                recoveryDirection: 1,
+            }, 1 / 60);
+            if (motion.recovering && motion.desiredVelocityZ > 0) inwardRecoveryObserved = true;
+            finalizeMotionFrame(motion, { x: 0, z: -31.3 }, 1 / 60);
+        }
+        expect(inwardRecoveryObserved).toBe(true);
+        expect(motion.maxRecoveryAttemptsObserved).toBeLessThanOrEqual(3);
+    });
+
+    it.each([
+        ['bull', 'min', -0.7376599214, -0.6751724523],
+        ['bear', 'min', 0.7376599214, -0.6751724523],
+        ['bull', 'max', -0.7376599214, 0.6751724523],
+        ['bear', 'max', 0.7376599214, 0.6751724523],
+        ['bull', 'min', 1e-9, -1],
+        ['bear', 'max', -1e-9, 1],
+    ])('escapes the %s %s edge with modified steering (%s,%s) through caller constraints', (
+        type,
+        edge,
+        steeringX,
+        steeringZ,
+    ) => {
+        const direction = type === 'bull' ? 1 : -1;
+        const startZ = edge === 'min' ? ARENA.minZ + 0.7 : ARENA.maxZ - 0.7;
+        const inwardSign = edge === 'min' ? 1 : -1;
+        for (const delta of [1 / 30, 1 / 60, 1 / 120, 0.25]) {
+            const motion = createMotionState({ x: -4.423167931255541, z: startZ, seed: 488 });
+            motion.progressState = PROGRESS_STATE.RECOVERY;
+            let x = motion.positionX;
+            let z = motion.positionZ;
+            let maximumFrameDistance = 0;
+            let maximumInwardDisplacement = 0;
+            let inwardDesiredObserved = false;
+            for (let frame = 0; frame < Math.ceil(1.5 / delta); frame++) {
+                const previousX = x;
+                beginMotionFrame(motion, x, z);
+                const recovery = arenaRecoveryPolicy({
+                    z,
+                    minZ: ARENA.minZ,
+                    maxZ: ARENA.maxZ,
+                    steeringX,
+                    steeringZ,
+                    currentDirection: motion.recoveryDirection,
+                });
+                integrateMotion(motion, {
+                    targetX: x + direction * 3.4,
+                    targetZ: edge === 'min' ? -27.90134790294266 : 27.90134790294266,
+                    maxSpeed: 6.84,
+                    maxAcceleration: 32,
+                    arrivalRadius: 0,
+                    steeringX,
+                    steeringZ,
+                    recoveryDirection: recovery.direction,
+                    recoveryNormalX: recovery.normalX,
+                    recoveryNormalZ: recovery.normalZ,
+                }, delta);
+                if (motion.recovering && inwardSign * motion.desiredVelocityZ > 0) inwardDesiredObserved = true;
+                let nextX = clamp(motion.positionX, ARENA.minX + 0.7, ARENA.maxX - 0.7);
+                const nextZ = clamp(motion.positionZ, ARENA.minZ + 0.7, ARENA.maxZ - 0.7);
+                if (direction * (nextX - previousX) < 0) nextX = previousX;
+                x = nextX;
+                z = nextZ;
+                finalizeMotionFrame(motion, { x, z, speedLimit: 11 }, delta);
+                maximumFrameDistance = Math.max(maximumFrameDistance, motion.frameDistance);
+                maximumInwardDisplacement = Math.max(
+                    maximumInwardDisplacement,
+                    inwardSign * (z - startZ),
+                );
+            }
+            expect(inwardDesiredObserved).toBe(true);
+            expect(maximumInwardDisplacement).toBeGreaterThan(0.5);
+            expect(direction * (x - motion.previousX)).toBeGreaterThanOrEqual(-1e-9);
+            expect(maximumFrameDistance).toBeLessThan(3);
+            expect(motion.recoveryLoops).toBe(0);
+            expect(motion.maxRecoveryAttemptsObserved).toBeLessThanOrEqual(3);
+        }
+    });
+
+    it('does not mistake repeated lateral yield for progress toward a pending target', () => {
+        const motion = createMotionState({ seed: 7 });
+        let recoveryObserved = false;
+        for (let frame = 0; frame < 180; frame++) {
+            beginMotionFrame(motion, 0, 0);
+            continueMotionFrame(motion, 0, frame % 2 === 0 ? 0.8 : -0.8);
+            integrateMotion(motion, {
+                targetX: 20,
+                targetZ: 0,
+                maxSpeed: 8,
+                maxAcceleration: 30,
+            }, 1 / 60);
+            finalizeMotionFrame(motion, {
+                x: 0,
+                z: 0,
+                speedLimit: 12,
+            }, 1 / 60);
+            if (motion.recovering) recoveryObserved = true;
+        }
+        expect(recoveryObserved).toBe(true);
+        expect(motion.frameProgress).toBe(0);
+        expect(motion.gaitPhase).toBe(0);
+        expect(motion.maxRecoveryAttemptsObserved).toBeLessThanOrEqual(3);
     });
 
     it('detects zero progress and enters bounded deterministic recovery', () => {

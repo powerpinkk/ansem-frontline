@@ -7,6 +7,68 @@ function clamp(value, min, max) {
     return Math.max(min, Math.min(max, value));
 }
 
+export const CHAMPION_CROWD_RANGE = Object.freeze({
+    regular: Object.freeze({ attack: 4.6, retention: 6.9 }),
+    whale: Object.freeze({ attack: 7.2, retention: 10.1 }),
+});
+
+export function classifyChampionCrowdContact({
+    entityX = 0,
+    entityZ = 0,
+    contactX = 0,
+    contactZ = 0,
+    isWhale = false,
+} = {}) {
+    const dx = finiteCoordinate(contactX) - finiteCoordinate(entityX);
+    const dz = finiteCoordinate(contactZ) - finiteCoordinate(entityZ);
+    const distance = Math.hypot(dx, dz);
+    const ranges = isWhale ? CHAMPION_CROWD_RANGE.whale : CHAMPION_CROWD_RANGE.regular;
+    return {
+        dx,
+        dz,
+        distance,
+        attackRange: ranges.attack,
+        inAttackRange: distance <= ranges.attack,
+        retainable: distance <= ranges.retention,
+    };
+}
+
+export function crowdProgressExempt({ retiring = false, holdMovement = false } = {}) {
+    return Boolean(retiring || holdMovement);
+}
+
+export function arenaRecoveryPolicy({
+    z = 0,
+    minZ = -32,
+    maxZ = 32,
+    steeringX = 0,
+    currentDirection = 1,
+    padding = 1.2,
+} = {}) {
+    const positionZ = finiteCoordinate(z);
+    const edgePadding = Math.max(0, Number(padding) || 0);
+    const normalZ = positionZ <= finiteCoordinate(minZ) + edgePadding ? 1
+        : positionZ >= finiteCoordinate(maxZ) - edgePadding ? -1 : 0;
+    const fallbackDirection = finiteCoordinate(currentDirection) < 0 ? -1 : 1;
+    const effectiveX = finiteCoordinate(steeringX);
+    const direction = normalZ !== 0 && Math.abs(effectiveX) > 1e-6
+        ? (normalZ * effectiveX < 0 ? -1 : 1)
+        : fallbackDirection;
+    return { direction, normalX: 0, normalZ };
+}
+
+export function countPresentLocomotionModes(counts = {}) {
+    return ['idle', 'walk', 'run', 'charge'].reduce(
+        (total, mode) => total + (finiteNumber(counts[mode]) > 0 ? 1 : 0),
+        0,
+    );
+}
+
+function finiteCoordinate(value) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+}
+
 function sideForce(sol, activityCount, hourlyCount, verifiedCount, cap) {
     const activity = finiteNumber(activityCount);
     const hourly = finiteNumber(hourlyCount);

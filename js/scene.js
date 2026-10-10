@@ -2,7 +2,15 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { CONFIG } from './config.js';
-import { deriveForceDoctrine, deriveKingDirective, deriveVisualForces, shouldKingWard } from './battlefield.js';
+import {
+    arenaRecoveryPolicy,
+    classifyChampionCrowdContact,
+    crowdProgressExempt,
+    deriveForceDoctrine,
+    deriveKingDirective,
+    deriveVisualForces,
+    shouldKingWard,
+} from './battlefield.js';
 import {
     COMBAT_POLICY,
     COMBAT_STATE,
@@ -19,6 +27,7 @@ import {
     resetCombatState,
     resolveCombatImpulse,
     sampleCombatPose,
+    selectEffectiveMeleeTarget,
     stableContactNormal,
     sweptCircleIntersects,
 } from './combat.js';
@@ -29,6 +38,7 @@ import {
     LOCOMOTION_STATE,
     PROGRESS_STATE,
     beginMotionFrame,
+    continueMotionFrame,
     createMotionState,
     finalizeMotionFrame,
     integrateMotion,
@@ -63,6 +73,7 @@ let diagnosticImpactSequence = 0;
 let diagnosticCombatTraceSequence = 0;
 const impactPresentation = createImpactPresentationController();
 const COMBAT_VISUAL_TRACE_LIMIT = 4;
+const CHAMPION_CROWD_RESELECT_SECONDS = 1.6;
 const combatVisualTraces = [];
 const NO_TARGET_COMBAT_INPUT = Object.freeze({ targetValid: false });
 const MAX_ENTITIES_PER_SIDE = CONFIG.MAX_VISIBLE_UNITS_PER_SIDE;
@@ -1000,6 +1011,7 @@ export function initScene(callbacks = {}) {
                     entity.frontContact = null;
                     entity.frontContactUntil = 0;
                     entity.frontContactHoldX = null;
+                    entity.frontContactReselectCooldown = 0;
                     entity.crowdStrikeProgress = 0;
                     entity.stuckTime = 0;
                     entity.lastPosition.set(entity.mesh.position.x, entity.mesh.position.z);
@@ -1026,6 +1038,7 @@ export function initScene(callbacks = {}) {
             bull.frontContact = null;
             bull.frontContactUntil = 0;
             bull.frontContactHoldX = null;
+            bull.frontContactReselectCooldown = 0;
             bull.crowdStrikeProgress = 0;
             bull.stuckTime = 0;
             bull.lastPosition.set(bull.mesh.position.x, bull.mesh.position.z);
@@ -1080,6 +1093,7 @@ export function initScene(callbacks = {}) {
                 entity.frontContact = null;
                 entity.frontContactUntil = 0;
                 entity.frontContactHoldX = null;
+                entity.frontContactReselectCooldown = 0;
                 entity.forcedRetreatUntil = 0;
                 entity.laneTarget = z;
             }
@@ -1820,6 +1834,7 @@ export function spawnUnit(type, initial = false, isWhale = false, trade = null) 
         frontContact: null,
         frontContactUntil: 0,
         frontContactHoldX: null,
+        frontContactReselectCooldown: 0,
         crowdStrikeProgress: 0,
         crowdStrikes: 0,
         lastFrameTravel: 0,
@@ -3477,6 +3492,7 @@ function startImpactCharge(entity, request, target, now) {
     entity.frontContact = null;
     entity.frontContactUntil = 0;
     entity.frontContactHoldX = null;
+    entity.frontContactReselectCooldown = 0;
     entity.crowdStrikeProgress = 0;
     entity.vx = 0;
     entity.vz = 0;
@@ -3786,6 +3802,7 @@ function updateEntities(delta) {
         const frameStartX = e.mesh.position.x;
         const frameStartZ = e.mesh.position.z;
         beginMotionFrame(e.motion, frameStartX, frameStartZ);
+        e.frontContactReselectCooldown = Math.max(0, e.frontContactReselectCooldown - delta);
 
         e.body.scale.lerp(e.baseScale, 10 * delta);
         const isSupported = e.type === 'bull' && e.supportUntil > now;
@@ -3814,7 +3831,18 @@ function updateEntities(delta) {
         e.mesh.position.y = getTrenchHeight(e.mesh.position.x, e.mesh.position.z);
         const forcedRetreat = e.forcedRetreatUntil > now;
         if (forcedRetreat && isChargeActive(e)) resetCharge(e, 2_500);
-        const activeFrontContact = isChargeActive(e) ? null : getActiveChampionCrowdContact(e, now);
+        const chargeActive = isChargeActive(e);
+        const activeFrontContact = chargeActive ? null : getActiveChampionCrowdContact(e, now);
+        if (!chargeActive && e.frontContact && !activeFrontContact) {
+            e.frontContact = null;
+            e.frontContactUntil = 0;
+            e.frontContactHoldX = null;
+            e.frontContactReselectCooldown = Math.max(
+                e.frontContactReselectCooldown,
+                CHAMPION_CROWD_RESELECT_SECONDS,
+            );
+            e.crowdStrikeProgress = 0;
+        }
         if (forcedRetreat || e.target?.hp <= 0 || e.target?.retired) e.target = null;
         if (activeFrontContact) e.target = null;
 
@@ -3834,10 +3862,12 @@ function updateEntities(delta) {
             }
             e.target = closest;
         }
-        if (!e.target && e.combat.state !== COMBAT_STATE.APPROACH) {
-            const combatUpdate = advanceMeleeCombat(e.combat, NO_TARGET_COMBAT_INPUT, delta, e.combatUpdate);
-            if (combatUpdate.miss) combatMissCount += 1;
-        }
+        const effectiveCombatTarget = selectEffectiveMeleeTarget({
+            detailedTarget: e.target,
+            crowdContact: activeFrontContact,
+            forcedRetreat,
+            chargeActive,
+        });
 
         const speed = e.isWhale ? 8 : 9;
         const supportMultiplier = isSupported ? 1.18 : 1;
@@ -3845,6 +3875,8 @@ function updateEntities(delta) {
         let isMoving = false;
         let animatedFrontContact = false;
         let chargeAnimated = false;
+        let combatAdvanced = false;
+        let combatHoldMovement = false;
 
         if (!isChargeActive(e)) applySeparation(e, delta);
 
@@ -3864,14 +3896,36 @@ function updateEntities(delta) {
                 steering.x, steering.z, 'forced-retreat',
             );
             isMoving = true;
-        } else if (activeFrontContact) {
-            integrateDetailedMotion(
-                e, e.mesh.position.x, e.mesh.position.z, 0, delta,
-                undefined, undefined, `crowd-${activeFrontContact.id}`, 0.35, 0, true, true,
-            );
-            animateChampionCrowdCombat(e, activeFrontContact, delta);
+        } else if (effectiveCombatTarget?.kind === 'crowd') {
+            const contact = effectiveCombatTarget.target;
+            const combatUpdate = animateChampionCrowdCombat(e, contact, delta);
+            combatAdvanced = true;
+            combatHoldMovement = combatUpdate.holdMovement;
+            if (combatUpdate.holdMovement) {
+                integrateDetailedMotion(
+                    e, e.mesh.position.x, e.mesh.position.z, 0, delta,
+                    undefined, undefined, `crowd-${contact.id}`, 0.35, 0, true, true,
+                );
+            } else {
+                const contactPolicy = classifyChampionCrowdContact({
+                    entityX: e.mesh.position.x,
+                    entityZ: e.mesh.position.z,
+                    contactX: contact.x,
+                    contactZ: contact.z,
+                    isWhale: e.isWhale,
+                });
+                const distance = Math.max(0.001, contactPolicy.distance);
+                const steering = getSteering(e, contactPolicy.dx / distance, contactPolicy.dz / distance);
+                integrateDetailedMotion(
+                    e, contact.x, contact.z, speed, delta,
+                    steering.x, steering.z, `crowd-${contact.id}`,
+                    contactPolicy.attackRange + 0.35, 0.24,
+                );
+                isMoving = true;
+            }
             animatedFrontContact = true;
-        } else if (e.target) {
+        } else if (effectiveCombatTarget?.kind === 'detailed') {
+            e.target = effectiveCombatTarget.target;
             e.behavior = 'engage';
             e.lineProximityAt = 0;
             const dx = e.target.mesh.position.x - e.mesh.position.x;
@@ -3891,6 +3945,8 @@ function updateEntities(delta) {
             combatInput.timingScale = 1 - presentationDiagnostics.latestIntensity * 0.16;
             combatInput.canAttack = true;
             const combatUpdate = advanceMeleeCombat(e.combat, combatInput, delta, e.combatUpdate);
+            combatAdvanced = true;
+            combatHoldMovement = combatUpdate.holdMovement;
             if (combatUpdate.miss) combatMissCount += 1;
 
             if (!combatUpdate.holdMovement) {
@@ -3983,12 +4039,15 @@ function updateEntities(delta) {
                 e.frontContact = crowdContact;
                 e.frontContactUntil = now + 950;
                 e.target = null;
-                isMoving = false;
-                if (!animatedFrontContact || crowdContact !== activeFrontContact) {
-                    animateChampionCrowdCombat(e, crowdContact, delta);
+            } else {
+                if (e.frontContact) {
+                    e.frontContactReselectCooldown = Math.max(
+                        e.frontContactReselectCooldown,
+                        CHAMPION_CROWD_RESELECT_SECONDS,
+                    );
                 }
-            } else if (!activeFrontContact) {
                 e.frontContact = null;
+                e.frontContactUntil = 0;
                 e.frontContactHoldX = null;
                 e.crowdStrikeProgress = 0;
             }
@@ -3996,6 +4055,11 @@ function updateEntities(delta) {
             // Friendly ranks open a corridor; enemy ranks are handled by the
             // swept collision pass and never by the rigid frontline lock.
             makeFriendlyCrowdYieldToChampion(e);
+        }
+        if (!combatAdvanced && e.combat.state !== COMBAT_STATE.APPROACH) {
+            const combatUpdate = advanceMeleeCombat(e.combat, NO_TARGET_COMBAT_INPUT, delta, e.combatUpdate);
+            combatHoldMovement = combatUpdate.holdMovement;
+            if (combatUpdate.miss) combatMissCount += 1;
         }
         if (e.behavior === 'patrol') {
             const forwardDirection = e.type === 'bull' ? 1 : -1;
@@ -4034,7 +4098,7 @@ function updateEntities(delta) {
 
         if (import.meta.env.DEV) syncCombatVisualTrace(e);
         e.motionCharge = chargeAnimated && isMoving;
-        e.motionProgressExempt = chargeAnimated || animatedFrontContact || !isMoving;
+        e.motionProgressExempt = chargeAnimated || combatHoldMovement || !isMoving;
         e.motionCombatPose = animatedFrontContact || e.combat.state !== COMBAT_STATE.APPROACH;
         e.motionChargeAnimated = chargeAnimated;
         if (!e.physicsReady) e.physicsReady = true;
@@ -4243,6 +4307,12 @@ function updateCrowdForces(delta) {
     updateCrowdSnapshot(tactics, delta);
     updateCrowdClashEffects(delta);
     publishVisibleUnitCount();
+}
+
+function beginCrowdMotionFrames() {
+    for (const type of ['bull', 'bear']) {
+        for (const agent of crowdAgents[type]) beginMotionFrame(agent.motion, agent.x, agent.z);
+    }
 }
 
 function syncCrowdPopulation(type, target, delta) {
@@ -4554,7 +4624,7 @@ function updateCrowdSide(type, doctrine, delta) {
     const combatIntensity = impactPresentation.getDiagnostics().latestIntensity;
     for (const agent of agents) {
         const previousX = agent.x;
-        beginMotionFrame(agent.motion, agent.x, agent.z);
+        continueMotionFrame(agent.motion, agent.x, agent.z);
         advanceCombatImpulse(agent.combat, delta, null);
         const order = crowdOrders[type].get(agent);
         const roleSpeed = agent.role === 'vanguard' ? 1.1
@@ -4683,7 +4753,11 @@ function updateCrowdSide(type, doctrine, delta) {
         motionInput.arrivalRadius = 0;
         motionInput.arrivalFloor = arrivalFloor;
         motionInput.intentionalHold = agent.retiring || combatUpdate.holdMovement;
-        motionInput.progressExempt = agent.retiring || agent.engaged || combatUpdate.holdMovement;
+        const progressExempt = crowdProgressExempt({
+            retiring: agent.retiring,
+            holdMovement: combatUpdate.holdMovement,
+        });
+        motionInput.progressExempt = progressExempt;
         motionInput.targetIdentity = opponent ? `${opponent.type}-${opponent.id}` : `${agent.intent}-${agent.laneSlot}`;
         motionInput.steeringX = steering.x;
         motionInput.steeringZ = steering.z;
@@ -4693,6 +4767,16 @@ function updateCrowdSide(type, doctrine, delta) {
         motionInput.externalVelocityX = agent.combat.impulseX;
         motionInput.externalVelocityZ = agent.combat.impulseZ;
         motionInput.maxExternalSpeed = 3.2;
+        const recoveryPolicy = arenaRecoveryPolicy({
+            z: agent.z,
+            minZ: ARENA.minZ,
+            maxZ: ARENA.maxZ,
+            steeringX: steering.x,
+            currentDirection: agent.motion.recoveryDirection,
+        });
+        motionInput.recoveryDirection = recoveryPolicy.direction;
+        motionInput.recoveryNormalX = recoveryPolicy.normalX;
+        motionInput.recoveryNormalZ = recoveryPolicy.normalZ;
         integrateMotion(agent.motion, motionInput, delta);
         agent.vx = agent.motion.resolvedVelocityX;
         agent.vz = agent.motion.resolvedVelocityZ;
@@ -4708,6 +4792,7 @@ function updateCrowdSide(type, doctrine, delta) {
         agent.x = clamp(agent.motion.positionX, ARENA.minX + 0.7, ARENA.maxX - 0.7);
         agent.z = clamp(agent.motion.positionZ, ARENA.minZ + 0.7, ARENA.maxZ - 0.7);
         agent.motionFacingTarget = opponent;
+        agent.motionProgressExempt = progressExempt;
         const contactPartner = agent.engagementPartner;
         if (contactPartner && !contactPartner.retiring) {
             const contactSpacing = 3.25;
@@ -5018,6 +5103,10 @@ function retireCrowdPenetrations(entity, primaryContact) {
             entity.frontContact = null;
             entity.frontContactUntil = 0;
             entity.frontContactHoldX = null;
+            entity.frontContactReselectCooldown = Math.max(
+                entity.frontContactReselectCooldown,
+                CHAMPION_CROWD_RESELECT_SECONDS,
+            );
             entity.crowdStrikeProgress = 0;
         }
     }
@@ -5405,7 +5494,7 @@ function finalizeCrowdMotions(delta) {
             input.speedLimit = 11;
             input.turnSpeed = agent.engaged ? 3.2 : 2.35;
             input.charge = false;
-            input.progressExempt = agent.retiring || agent.engaged;
+            input.progressExempt = agent.motionProgressExempt;
             input.allowExplicitFacing = Boolean(target) && agent.engaged;
             input.explicitFacingX = target ? target.x - agent.x : 0;
             input.explicitFacingZ = target ? target.z - agent.z : 0;
@@ -5436,6 +5525,15 @@ function integrateDetailedMotion(
     progressExempt = false,
 ) {
     const input = entity.motionInput;
+    const externalVelocityX = entity.combat.impulseX;
+    const externalVelocityZ = entity.combat.impulseZ;
+    if (intentionalHold && Math.hypot(externalVelocityX, externalVelocityZ) < 0.001) {
+        // A combat hold owns purposeful locomotion for this frame. Let the
+        // final contact solver preserve physical clearance, but do not carry
+        // approach velocity or steering separation through windup/recovery.
+        entity.motion.resolvedVelocityX = 0;
+        entity.motion.resolvedVelocityZ = 0;
+    }
     input.targetX = targetX;
     input.targetZ = targetZ;
     input.maxSpeed = maxSpeed;
@@ -5447,11 +5545,11 @@ function integrateDetailedMotion(
     input.targetIdentity = targetIdentity;
     input.steeringX = steeringX;
     input.steeringZ = steeringZ;
-    input.separationX = entity.separationX * 3.2 + entity.vx;
-    input.separationZ = entity.separationZ * 3.2 + entity.vz;
+    input.separationX = intentionalHold ? 0 : entity.separationX * 3.2 + entity.vx;
+    input.separationZ = intentionalHold ? 0 : entity.separationZ * 3.2 + entity.vz;
     input.maxSeparationSpeed = entity.isWhale ? 2.2 : 1.8;
-    input.externalVelocityX = entity.combat.impulseX;
-    input.externalVelocityZ = entity.combat.impulseZ;
+    input.externalVelocityX = externalVelocityX;
+    input.externalVelocityZ = externalVelocityZ;
     input.maxExternalSpeed = COMBAT_POLICY.maxImpulseSpeed;
     integrateMotion(entity.motion, input, delta);
     entity.mesh.position.x = entity.motion.positionX;
@@ -5746,7 +5844,8 @@ function makeFriendlyCrowdYieldToChampion(entity) {
 }
 
 function resolveChampionCrowdContact(entity) {
-    if (entity.forcedRetreatUntil > Date.now()) return null;
+    const now = Date.now();
+    if (entity.forcedRetreatUntil > now || entity.frontContactReselectCooldown > 0) return null;
     const direction = entity.type === 'bull' ? 1 : -1;
     const enemyType = entity.type === 'bull' ? 'bear' : 'bull';
     const radius = entity.isWhale ? 5.1 : 3.05;
@@ -5757,7 +5856,16 @@ function resolveChampionCrowdContact(entity) {
         && direction * (agent.x - entity.mesh.position.x) >= -radius - 0.8
     ));
     if (!candidates.length) return null;
-    const lockedContact = entity.frontContactUntil > Date.now() && candidates.includes(entity.frontContact)
+    const lockedPolicy = entity.frontContact && classifyChampionCrowdContact({
+        entityX: entity.mesh.position.x,
+        entityZ: entity.mesh.position.z,
+        contactX: entity.frontContact.x,
+        contactZ: entity.frontContact.z,
+        isWhale: entity.isWhale,
+    });
+    const lockedContact = entity.frontContactUntil > now
+        && candidates.includes(entity.frontContact)
+        && lockedPolicy.retainable
         ? entity.frontContact
         : null;
     const blocker = lockedContact || candidates.reduce((front, agent) => (
@@ -5766,6 +5874,18 @@ function resolveChampionCrowdContact(entity) {
     const limit = blocker.x - direction * (radius + blocker.size * 0.42);
     const distanceToLimit = direction * (limit - entity.mesh.position.x);
     if (distanceToLimit > 0.7) return null;
+    const contactPolicy = classifyChampionCrowdContact({
+        entityX: entity.mesh.position.x,
+        entityZ: entity.mesh.position.z,
+        contactX: blocker.x,
+        contactZ: blocker.z,
+        isWhale: entity.isWhale,
+    });
+    if (!contactPolicy.retainable) return null;
+    if (!contactPolicy.inAttackRange) {
+        entity.frontContactHoldX = null;
+        return blocker;
+    }
     if (entity.frontContact !== blocker || !Number.isFinite(entity.frontContactHoldX)) {
         // Contact begins where the verified champion already is. Snapping it
         // backwards to the aggregate rank's theoretical radius created a
@@ -5788,20 +5908,29 @@ function getActiveChampionCrowdContact(entity, now) {
     if (!contact || entity.frontContactUntil <= now || contact.retiring) return null;
     const enemyType = entity.type === 'bull' ? 'bear' : 'bull';
     if (!crowdAgents[enemyType].includes(contact)) return null;
-    const maxLateral = entity.isWhale ? 8.5 : 5.6;
-    const maxLongitudinal = entity.isWhale ? 11 : 7;
-    if (Math.abs(contact.z - entity.mesh.position.z) > maxLateral) return null;
-    if (Math.abs(contact.x - entity.mesh.position.x) > maxLongitudinal) return null;
+    const policy = classifyChampionCrowdContact({
+        entityX: entity.mesh.position.x,
+        entityZ: entity.mesh.position.z,
+        contactX: contact.x,
+        contactZ: contact.z,
+        isWhale: entity.isWhale,
+    });
+    if (!policy.retainable) return null;
     return contact;
 }
 
 function animateChampionCrowdCombat(entity, contact, delta) {
     entity.behavior = 'frontline';
     entity.lineProximityAt = 0;
-    const dx = contact.x - entity.mesh.position.x;
-    const dz = contact.z - entity.mesh.position.z;
-    const distance = Math.hypot(dx, dz);
-    const attackRange = entity.isWhale ? 7.2 : 4.6;
+    const contactPolicy = classifyChampionCrowdContact({
+        entityX: entity.mesh.position.x,
+        entityZ: entity.mesh.position.z,
+        contactX: contact.x,
+        contactZ: contact.z,
+        isWhale: entity.isWhale,
+    });
+    const distance = contactPolicy.distance;
+    const attackRange = contactPolicy.attackRange;
     const combatInput = entity.combatInput;
     combatInput.targetIdentity = `crowd-${contact.type}-${contact.id}`;
     combatInput.targetValid = !contact.retiring;
@@ -5822,15 +5951,19 @@ function animateChampionCrowdCombat(entity, contact, delta) {
         spawnParticles(_crowdImpact, entity.type === 'bull' ? matParticleBull : matParticleBear, false, false, entity.isWhale ? 0.8 : 0.55);
     }
     const defeatAfter = entity.isWhale ? 1 : 2;
-    if (entity.crowdStrikeProgress < defeatAfter || contact.retiring) return;
-    contact.retiring = true;
-    contact.life = Math.min(contact.life, 0.82);
-    const partner = contact.engagementPartner;
-    contact.engagementPartner = null;
-    if (partner?.engagementPartner === contact) partner.engagementPartner = null;
-    entity.crowdStrikeProgress = 0;
-    entity.frontContactUntil = 0;
-    entity.frontContactHoldX = null;
+    if (entity.crowdStrikeProgress >= defeatAfter && !contact.retiring) {
+        contact.retiring = true;
+        contact.life = Math.min(contact.life, 0.82);
+        const partner = contact.engagementPartner;
+        contact.engagementPartner = null;
+        if (partner?.engagementPartner === contact) partner.engagementPartner = null;
+        entity.crowdStrikeProgress = 0;
+        entity.frontContact = null;
+        entity.frontContactUntil = 0;
+        entity.frontContactHoldX = null;
+        entity.frontContactReselectCooldown = CHAMPION_CROWD_RESELECT_SECONDS;
+    }
+    return combatUpdate;
 }
 
 function enforceArenaBounds(entity) {
@@ -6355,6 +6488,7 @@ function gameLoop(timestamp) {
     scenePresentationTime += presentationDelta;
     const motionUpdateStartedAt = performance.now();
     updateProjectiles(simulationDelta);
+    beginCrowdMotionFrames();
     updateEntities(simulationDelta);
     updateCrowdForces(simulationDelta);
     finalizeEntityMotions(simulationDelta);

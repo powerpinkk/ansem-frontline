@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { deriveForceDoctrine, deriveKingDirective, deriveVisualForces, shouldKingWard } from '../js/battlefield.js';
+import {
+    arenaRecoveryPolicy,
+    classifyChampionCrowdContact,
+    countPresentLocomotionModes,
+    crowdProgressExempt,
+    deriveForceDoctrine,
+    deriveKingDirective,
+    deriveVisualForces,
+    shouldKingWard,
+} from '../js/battlefield.js';
 
 describe('volume-weighted battlefield forces', () => {
     it('scales from quiet skirmishes to hundreds without claiming one whale is hundreds of swaps', () => {
@@ -48,5 +57,46 @@ describe('battle doctrines', () => {
         expect(shouldKingWard({ balance: -0.82 })).toBe(false);
         expect(shouldKingWard({ balance: -0.14 })).toBe(true);
         expect(shouldKingWard({ balance: 0.5 })).toBe(true);
+    });
+});
+
+describe('battle integration policy', () => {
+    it('retains a diagonal crowd target for approach without treating it as attack-range hold', () => {
+        const diagonal = classifyChampionCrowdContact({
+            entityX: 0,
+            entityZ: 0,
+            contactX: 3,
+            contactZ: 5,
+            isWhale: false,
+        });
+        expect(diagonal.distance).toBeCloseTo(Math.hypot(3, 5));
+        expect(diagonal.attackRange).toBe(4.6);
+        expect(diagonal.retainable).toBe(true);
+        expect(diagonal.inAttackRange).toBe(false);
+        expect(classifyChampionCrowdContact({ contactX: 7.1 }).retainable).toBe(false);
+    });
+
+    it('exempts only a real combat hold or retirement, not proximity alone', () => {
+        expect(crowdProgressExempt({ retiring: false, holdMovement: false })).toBe(false);
+        expect(crowdProgressExempt({ retiring: false, holdMovement: true })).toBe(true);
+        expect(crowdProgressExempt({ retiring: true, holdMovement: false })).toBe(true);
+    });
+
+    it('derives edge recovery from effective steering and exposes the inward normal', () => {
+        expect(arenaRecoveryPolicy({ z: -31.3, steeringX: 0.7, currentDirection: -1 }))
+            .toEqual({ direction: 1, normalX: 0, normalZ: 1 });
+        expect(arenaRecoveryPolicy({ z: -31.3, steeringX: -0.7, currentDirection: 1 }))
+            .toEqual({ direction: -1, normalX: 0, normalZ: 1 });
+        expect(arenaRecoveryPolicy({ z: 31.3, steeringX: 0.7, currentDirection: 1 }))
+            .toEqual({ direction: -1, normalX: 0, normalZ: -1 });
+        expect(arenaRecoveryPolicy({ z: 31.3, steeringX: 0, currentDirection: 1 }))
+            .toEqual({ direction: 1, normalX: 0, normalZ: -1 });
+        expect(arenaRecoveryPolicy({ z: 0, steeringX: 0.7, currentDirection: -1 }))
+            .toEqual({ direction: -1, normalX: 0, normalZ: 0 });
+    });
+
+    it('counts locomotion modes present even when their populations are equal', () => {
+        expect(countPresentLocomotionModes({ idle: 4, walk: 4, run: 0, charge: 0 })).toBe(2);
+        expect(countPresentLocomotionModes({ idle: 0, walk: 0, run: 7, charge: 1 })).toBe(2);
     });
 });
