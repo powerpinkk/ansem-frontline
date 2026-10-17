@@ -77,6 +77,7 @@ const CHAMPION_CROWD_RESELECT_SECONDS = 1.6;
 const combatVisualTraces = [];
 const NO_TARGET_COMBAT_INPUT = Object.freeze({ targetValid: false });
 const MAX_ENTITIES_PER_SIDE = CONFIG.MAX_VISIBLE_UNITS_PER_SIDE;
+const WHALE_POINT_LIGHT_SLOTS = MAX_ENTITIES_PER_SIDE * 2;
 const MAX_ACTIVE_PARTICLES = 36;
 const obstacles = [];
 const crowdAgents = { bull: [], bear: [] };
@@ -162,6 +163,10 @@ const MARKET_TERRAIN_Z_MAX = 32;
 let renderedMarketMajorBoundaries = 0;
 let renderedMarketMinorMarks = 0;
 let ambientLight, hemisphereLight, sunLight, rimLight;
+let dynamicPointLightRoot;
+const dynamicPointLights = [];
+const whalePointLights = [];
+let fixedPointLightTopology = false;
 let bullKingRig, kingMount, kingRider, kingRiderHead, kingRiderArm, kingWingNear, kingWingFar, kingStaff, kingStaffGlow, kingMountAura, kingTail;
 let userChampionRig, userChampionBull, userChampionSentinel, userChampionAura, userChampionLight;
 let userChampionSnapshot = null;
@@ -855,6 +860,13 @@ export function initScene(callbacks = {}) {
                 textures: renderer.info.memory.textures,
                 pixelRatio: renderer.getPixelRatio(),
                 contextLost,
+                dynamicPointLights: {
+                    total: dynamicPointLights.length,
+                    active: dynamicPointLights.filter((light) => light.userData.owner !== null).length,
+                    parked: dynamicPointLights.filter((light) => light.userData.owner === null).length,
+                    roles: dynamicPointLights.map((light) => light.userData.role),
+                    strategy: fixedPointLightTopology ? 'fixed-parallel' : 'retained-fallback',
+                },
             } : null,
             camera: camera ? {
                 x: camera.position.x,
@@ -1281,6 +1293,8 @@ export function applyThemePresentation(presentation) {
 export function setUserChampionSnapshot(snapshot) {
     userChampionSnapshot = snapshot?.status === 'active' && snapshot.expiresAt > Date.now() ? snapshot : null;
     if (!userChampionRig) return;
+    if (userChampionSnapshot) activateReservedPointLight(userChampionLight, userChampionRig, 'user-champion', 5, 18, [0, 3.2, 0]);
+    else parkDynamicPointLight(userChampionLight);
     userChampionRig.visible = Boolean(userChampionSnapshot);
     userChampionRig.userData.activationId = userChampionSnapshot?.activationId || null;
     userChampionRig.userData.mint = userChampionSnapshot?.mint || null;
@@ -1313,6 +1327,7 @@ export function setCommanderSnapshot(snapshot) {
     if (!scene) return commanderSnapshot;
     if (!bullKingRig) createFlyingBullKing();
     else scene.add(bullKingRig);
+    activateReservedPointLight(kingStaffGlow, kingStaff, 'commander', 5, 18, [0, 2.35, 0]);
     bullKingRig.userData.entityKind = 'commander';
     bullKingRig.userData.runtimeRole = 'commander';
     bullKingRig.userData.actorId = snapshot.actorId;
@@ -1365,6 +1380,7 @@ function clearCommanderPresentation() {
         strike.material.dispose();
     }
     kingStrikes = [];
+    parkDynamicPointLight(kingStaffGlow);
     if (bullKingRig?.parent) bullKingRig.parent.remove(bullKingRig);
     if (bullKingRig) {
         bullKingRig.visible = false;
@@ -1472,6 +1488,77 @@ function applyLight(lightObject, definition) {
     if (!lightObject) return;
     lightObject.color.set(definition.color);
     lightObject.intensity = definition.intensity;
+}
+
+function initDynamicPointLightPool() {
+    dynamicPointLightRoot = new THREE.Group();
+    dynamicPointLightRoot.name = 'dynamic-point-light-pool';
+    scene.add(dynamicPointLightRoot);
+    // Three.js keys lit programs by the exact PointLight count. On drivers with
+    // parallel compilation, keep the bounded scene topology constant so whale,
+    // Champion and Commander lifecycle changes reuse one prepared variant.
+    fixedPointLightTopology = renderer.extensions.has('KHR_parallel_shader_compile');
+    const initialWhaleSlots = fixedPointLightTopology ? WHALE_POINT_LIGHT_SLOTS : 0;
+    for (let index = 0; index < initialWhaleSlots; index++) whalePointLights.push(createDynamicPointLight());
+    userChampionLight = createDynamicPointLight();
+    kingStaffGlow = createDynamicPointLight();
+}
+
+function createDynamicPointLight() {
+    const light = new THREE.PointLight(0xffffff, 0, 22, 2);
+    light.userData.poolSlot = dynamicPointLights.length;
+    light.userData.owner = null;
+    light.userData.role = 'parked';
+    light.position.set(0, -1_000 - light.userData.poolSlot, 0);
+    dynamicPointLights.push(light);
+    dynamicPointLightRoot.add(light);
+    return light;
+}
+
+function parkDynamicPointLight(light) {
+    if (!light || !dynamicPointLightRoot) return;
+    light.intensity = 0;
+    light.userData.owner = null;
+    light.userData.role = 'parked';
+    light.userData.themeSide = null;
+    dynamicPointLightRoot.add(light);
+    light.position.set(0, -1_000 - light.userData.poolSlot, 0);
+}
+
+function activateReservedPointLight(light, parent, role, intensity, distance, position) {
+    if (!light || !parent) return null;
+    light.userData.owner = role;
+    light.userData.role = role;
+    light.intensity = intensity;
+    light.distance = distance;
+    light.decay = 2;
+    parent.add(light);
+    light.position.set(...position);
+    return light;
+}
+
+function acquireWhalePointLight(type, parent) {
+    let light = whalePointLights.find((candidate) => candidate.userData.owner === null);
+    if (!light && whalePointLights.length < WHALE_POINT_LIGHT_SLOTS) {
+        // Synchronous-only drivers avoid the pathological cost of compiling the
+        // maximum topology at boot. Slots grow on demand, then remain parked and
+        // reusable so retirement/recycling never recreates an old variant.
+        light = createDynamicPointLight();
+        whalePointLights.push(light);
+    }
+    if (!light) return null;
+    light.color.set(type === 'bull'
+        ? (activeScenePresentation?.materials?.buyAccent || 0x00ff88)
+        : (activeScenePresentation?.materials?.sellParticle || 0xff224f));
+    light.userData.owner = 'whale';
+    light.userData.role = 'whale';
+    light.userData.themeSide = type;
+    light.intensity = 7;
+    light.distance = 22;
+    light.decay = 2;
+    parent.add(light);
+    light.position.set(0, 2, 0);
+    return light;
 }
 
 export function startGameLoop() {
@@ -1688,19 +1775,11 @@ export function spawnUnit(type, initial = false, isWhale = false, trade = null) 
     const legs = [];
     let head;
     let torso;
+    let whaleLight = null;
 
     if (isWhale) {
         group.scale.set(2.8, 2.8, 2.8);
-        const materials = activeScenePresentation?.materials;
-        const whaleLight = new THREE.PointLight(
-            isBull ? (materials?.buyAccent || 0x00ff88) : (materials?.sellParticle || 0xff224f),
-            7,
-            22,
-            2,
-        );
-        whaleLight.userData.themeSide = type;
-        whaleLight.position.set(0, 2, 0);
-        group.add(whaleLight);
+        whaleLight = acquireWhalePointLight(type, group);
     }
 
     const aura = createAura(type);
@@ -1798,6 +1877,7 @@ export function spawnUnit(type, initial = false, isWhale = false, trade = null) 
             hindRight: legs[3],
         },
         aura,
+        whaleLight,
         type,
         runtimeRole: 'normal-troop',
         isWhale,
@@ -1962,6 +2042,7 @@ function retireEntity(entity) {
     for (let i = projectiles.length - 1; i >= 0; i--) {
         if (projectiles[i].target === entity || projectiles[i].attacker === entity) removeProjectile(i);
     }
+    parkDynamicPointLight(entity.whaleLight);
     scene.remove(entity.mesh);
     entity.aura?.material.dispose();
     entities.splice(index, 1);
@@ -2326,6 +2407,8 @@ function init3D() {
     rimLight = new THREE.DirectionalLight(0x00aaff, 1.5);
     rimLight.position.set(-30, 20, -30);
     scene.add(rimLight);
+
+    initDynamicPointLightPool();
 
     orbitControls = new OrbitControls(camera, renderer.domElement);
     orbitControls.enableDamping = true;
@@ -2946,8 +3029,8 @@ function createUserChampionRig() {
     userChampionAura.rotation.x = -Math.PI / 2;
     userChampionAura.position.y = 0.12;
     userChampionAura.scale.setScalar(1.7);
-    userChampionLight = new THREE.PointLight(0x00ff88, 5, 18, 2);
-    userChampionLight.position.set(0, 3.2, 0);
+    userChampionLight.color.set(0x00ff88);
+    activateReservedPointLight(userChampionLight, userChampionRig, 'user-champion', 5, 18, [0, 3.2, 0]);
     userChampionRig.add(userChampionBull, userChampionSentinel, userChampionAura, userChampionLight);
     userChampionRig.traverse((child) => {
         if (child.isMesh) child.castShadow = false;
@@ -2968,6 +3051,7 @@ function createUserChampionRig() {
     applyUserChampionTheme(activeScenePresentation?.champion || {
         style: 'black-bull', primary: '#050807', accent: '#ffd700', glow: '#00ff88',
     });
+    parkDynamicPointLight(userChampionLight);
     userChampionRig.visible = false;
 }
 
@@ -3189,8 +3273,8 @@ function createBullKingRider() {
     const staffCrown = createMesh(geoCone, matKingEnergy, 0.42, 0.92, 0.42);
     staffCrown.position.y = 2.78;
     staff.add(staffCrown);
-    kingStaffGlow = new THREE.PointLight(0x00ff88, 5, 18, 2);
-    kingStaffGlow.position.set(0, 2.35, 0);
+    kingStaffGlow.color.set(0x00ff88);
+    activateReservedPointLight(kingStaffGlow, staff, 'commander', 5, 18, [0, 2.35, 0]);
     staff.add(kingStaffGlow);
     rider.add(staff);
 
