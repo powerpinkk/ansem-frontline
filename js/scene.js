@@ -167,6 +167,10 @@ let dynamicPointLightRoot;
 const dynamicPointLights = [];
 const whalePointLights = [];
 let fixedPointLightTopology = false;
+let commanderLightIntensity = 5;
+let lastRenderedPointLightCount = null;
+let pointLightTopologySequence = 0;
+const pointLightTopologyTransitions = [];
 let bullKingRig, kingMount, kingRider, kingRiderHead, kingRiderArm, kingWingNear, kingWingFar, kingStaff, kingStaffGlow, kingMountAura, kingTail;
 let userChampionRig, userChampionBull, userChampionSentinel, userChampionAura, userChampionLight;
 let userChampionSnapshot = null;
@@ -864,7 +868,21 @@ export function initScene(callbacks = {}) {
                     total: dynamicPointLights.length,
                     active: dynamicPointLights.filter((light) => light.userData.owner !== null).length,
                     parked: dynamicPointLights.filter((light) => light.userData.owner === null).length,
+                    renderable: dynamicPointLights.filter(isDynamicPointLightRenderable).length,
                     roles: dynamicPointLights.map((light) => light.userData.role),
+                    lights: dynamicPointLights.map((light) => ({
+                        slot: light.userData.poolSlot,
+                        owner: light.userData.owner,
+                        role: light.userData.role,
+                        intensity: light.intensity,
+                        color: light.color.getHex(),
+                        renderable: isDynamicPointLightRenderable(light),
+                        parent: light.parent?.name || light.parent?.type || null,
+                        position: light.position.toArray(),
+                    })),
+                    lastRendered: lastRenderedPointLightCount,
+                    topologySequence: pointLightTopologySequence,
+                    topologyTransitions: pointLightTopologyTransitions.map((transition) => ({ ...transition })),
                     strategy: fixedPointLightTopology ? 'fixed-parallel' : 'retained-fallback',
                 },
             } : null,
@@ -1279,7 +1297,7 @@ export function applyThemePresentation(presentation) {
     applyMaterialPalette(materials);
     applyUserChampionTheme(presentation.champion);
 
-    if (bullKingRig) bullKingRig.visible = Boolean(isCommanderActorActive() && presentation.hero.visible);
+    syncCommanderPresentationVisibility();
     if (kingMountAura?.material) kingMountAura.material.color.set(materials.heroBeam);
     if (kingStaffGlow) kingStaffGlow.color.set(materials.heroEnergyEmissive);
     for (const entity of entities) applyEntityTheme(entity, materials);
@@ -1327,7 +1345,6 @@ export function setCommanderSnapshot(snapshot) {
     if (!scene) return commanderSnapshot;
     if (!bullKingRig) createFlyingBullKing();
     else scene.add(bullKingRig);
-    activateReservedPointLight(kingStaffGlow, kingStaff, 'commander', 5, 18, [0, 2.35, 0]);
     bullKingRig.userData.entityKind = 'commander';
     bullKingRig.userData.runtimeRole = 'commander';
     bullKingRig.userData.actorId = snapshot.actorId;
@@ -1336,7 +1353,7 @@ export function setCommanderSnapshot(snapshot) {
     bullKingRig.scale.setScalar(snapshot.profile.scale);
     bullKingRig.position.set(-26, 10, -7);
     bullKingRig.rotation.set(0, 0, 0);
-    bullKingRig.visible = activeScenePresentation?.hero?.visible !== false;
+    syncCommanderPresentationVisibility();
     _kingPreviousPosition.copy(bullKingRig.position);
     resetMotionState(commanderMotion, { x: -26, z: -7, seed: 1201, targetIdentity: snapshot.actorId });
     kingCommandZ = bullKingRig.position.z;
@@ -1346,6 +1363,7 @@ export function setCommanderSnapshot(snapshot) {
 
 function clearCommanderPresentation() {
     commanderAnimationTime = 0;
+    commanderLightIntensity = 5;
     kingDefenseUntil = 0;
     kingThreat = null;
     kingDefenseTargetX = null;
@@ -1404,6 +1422,25 @@ function isCommanderActorActive() {
         && bullKingRig.userData.actorId === actorId
         && bullKingRig.userData.profileKey === commanderSnapshot.profileKey
         && bullKingRig.userData.tokenMint === commanderSnapshot.tokenMint;
+}
+
+function syncCommanderPresentationVisibility() {
+    if (!bullKingRig) return;
+    const visible = Boolean(isCommanderActorActive() && activeScenePresentation?.hero?.visible !== false);
+    if (visible) {
+        bullKingRig.visible = true;
+        activateReservedPointLight(
+            kingStaffGlow,
+            kingStaff,
+            'commander',
+            commanderLightIntensity,
+            18,
+            [0, 2.35, 0],
+        );
+        return;
+    }
+    parkDynamicPointLight(kingStaffGlow);
+    bullKingRig.visible = false;
 }
 
 export function setMarketTerrainController(controller) {
@@ -1537,6 +1574,38 @@ function activateReservedPointLight(light, parent, role, intensity, distance, po
     return light;
 }
 
+function isDynamicPointLightRenderable(light) {
+    if (!light || !scene || !camera || !light.layers.test(camera.layers)) return false;
+    let current = light;
+    while (current) {
+        if (current.visible === false) return false;
+        if (current === scene) return true;
+        current = current.parent;
+    }
+    return false;
+}
+
+function recordPointLightTopology() {
+    if (!import.meta.env.DEV) return;
+    const renderable = dynamicPointLights.filter(isDynamicPointLightRenderable).length;
+    if (renderable === lastRenderedPointLightCount) return;
+    lastRenderedPointLightCount = renderable;
+    pointLightTopologySequence += 1;
+    pointLightTopologyTransitions.push({
+        sequence: pointLightTopologySequence,
+        renderable,
+        total: dynamicPointLights.length,
+        roles: dynamicPointLights.filter(isDynamicPointLightRenderable).map((light) => light.userData.role),
+    });
+    if (pointLightTopologyTransitions.length > 64) pointLightTopologyTransitions.shift();
+}
+
+function renderScene() {
+    if (!renderer || !scene || !camera) return;
+    recordPointLightTopology();
+    renderer.render(scene, camera);
+}
+
 function acquireWhalePointLight(type, parent) {
     let light = whalePointLights.find((candidate) => candidate.userData.owner === null);
     if (!light && whalePointLights.length < WHALE_POINT_LIGHT_SLOTS) {
@@ -1589,6 +1658,16 @@ export function removeTradePresentation(eventId) {
 
 export function resetTokenPresentation() {
     if (!scene) return;
+    // Token changes can synchronously render Commander/Terrain before the
+    // Champion controller switches mint. Detach its reserved light first so a
+    // hidden rig can never reduce the PointLight topology for that render.
+    userChampionSnapshot = null;
+    parkDynamicPointLight(userChampionLight);
+    if (userChampionRig) {
+        userChampionRig.visible = false;
+        userChampionRig.userData.activationId = null;
+        userChampionRig.userData.mint = null;
+    }
     // A token runtime owns its generic presentation phase. Commander lifecycle
     // changes inside that runtime never reset this clock.
     scenePresentationTime = 0;
@@ -1723,12 +1802,6 @@ export function resetTokenPresentation() {
         bearStance: 'muster',
     });
     selectedEntity = null;
-    userChampionSnapshot = null;
-    if (userChampionRig) {
-        userChampionRig.visible = false;
-        userChampionRig.userData.activationId = null;
-        userChampionRig.userData.mint = null;
-    }
     onInspectUnit(null);
     floatContainer?.replaceChildren();
     setFrontlineState('neutral');
@@ -2277,9 +2350,12 @@ function beginKingCameraFocus(target, holdMs) {
 }
 
 function spawnKingStrike(target) {
-    if (!isCommanderActorActive() || !kingStaffGlow) return false;
+    if (!isCommanderActorActive() || !kingStaff) return false;
     scene.updateMatrixWorld(true);
-    kingStaffGlow.getWorldPosition(_rayStart);
+    // The reserved light can be parked while Theme Studio hides the actor.
+    // Keep combat/effect geometry anchored to the staff itself, independent of
+    // that presentation-only light lifecycle.
+    kingStaff.localToWorld(_rayStart.set(0, 2.35, 0));
     _rayDirection.subVectors(target, _rayStart);
     const length = _rayDirection.length();
     const material = new THREE.MeshBasicMaterial({
@@ -2842,7 +2918,7 @@ function updateAdaptiveQuality(delta) {
 }
 
 function renderNow() {
-    if (renderer && scene && camera) renderer.render(scene, camera);
+    renderScene();
 }
 
 function createLandscapeProps() {
@@ -3044,10 +3120,10 @@ function createUserChampionRig() {
     userChampionRig.visible = true;
     userChampionBull.visible = true;
     userChampionSentinel.visible = false;
-    renderer.render(scene, camera);
+    renderScene();
     userChampionBull.visible = false;
     userChampionSentinel.visible = true;
-    renderer.render(scene, camera);
+    renderScene();
     applyUserChampionTheme(activeScenePresentation?.champion || {
         style: 'black-bull', primary: '#050807', accent: '#ffd700', glow: '#00ff88',
     });
@@ -6224,9 +6300,10 @@ function updateBullKing(delta) {
         );
         kingMountAura.scale.setScalar(1 + commandGesture * 0.22 + Math.sin(commanderAnimationTime * 1.6) * 0.03);
     }
-    if (kingStaffGlow) kingStaffGlow.intensity = supporting
+    commanderLightIntensity = supporting
         ? 11 + Math.sin(commanderAnimationTime * 11) * 3
         : 4.5 + Math.sin(commanderAnimationTime * 2) * 1.2 + reaction * 4 + commandGesture * 6;
+    if (kingStaffGlow) kingStaffGlow.intensity = bullKingRig.visible ? commanderLightIntensity : 0;
 }
 
 function setKingMode(nextMode, now = Date.now()) {
@@ -6590,7 +6667,7 @@ function gameLoop(timestamp) {
     updateUserChampion(timestamp);
     updateCamera(presentationDelta);
     updateMarketTerrainPresentation(Date.now());
-    renderer.render(scene, camera);
+    renderScene();
     updateAdaptiveQuality(simulationDelta);
 }
 

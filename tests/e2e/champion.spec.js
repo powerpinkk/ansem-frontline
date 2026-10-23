@@ -99,6 +99,50 @@ test('token navigation, Back and Forward keep mint-scoped Champion state', async
     await expect(page.locator('#champion-status')).toBeHidden();
 });
 
+test('Champion reset keeps every reserved light renderable through token and history transitions', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== 'desktop-chromium', 'One synchronous render-topology check is sufficient');
+    await installPointLightShaderObserver(page);
+    await page.goto('/');
+    await ready(page, 'ANSEM');
+    await page.evaluate(() => window.__ansemActivateSimulatedChampion());
+    const baseline = await pointLightTopology(page);
+    expect(await pointLightShaderVariants(page)).toContain(baseline.total);
+    await clearPointLightShaderVariants(page);
+
+    await page.evaluate((mint) => window.__ansemSelectToken(mint), USDC);
+    await ready(page, 'USDC');
+    let topology = await pointLightTopology(page);
+    expect(await pointLightShaderVariants(page)).not.toContain(baseline.total - 1);
+    expect(topology.renderable).toBe(topology.total);
+    expect(topology.lights.filter((light) => light.role === 'user-champion')).toHaveLength(0);
+    expect(topology.lights.filter((light) => light.intensity === 0).length).toBeGreaterThanOrEqual(2);
+    expect(topology.topologyTransitions.filter((entry) => entry.sequence > baseline.topologySequence))
+        .toEqual([]);
+
+    await page.goBack();
+    await ready(page, 'ANSEM');
+    topology = await pointLightTopology(page);
+    expect(topology.renderable).toBe(topology.total);
+    expect(topology.lights.find((light) => light.role === 'user-champion')).toMatchObject({
+        owner: 'user-champion', intensity: 5, renderable: true,
+    });
+    await page.goForward();
+    await ready(page, 'USDC');
+    await page.goBack();
+    await ready(page, 'ANSEM');
+    topology = await pointLightTopology(page);
+    expect(topology.topologyTransitions.filter((entry) => entry.sequence > baseline.topologySequence))
+        .toEqual([]);
+
+    await page.evaluate(() => window.__ansemDeactivateChampion());
+    await page.waitForTimeout(100);
+    topology = await pointLightTopology(page);
+    expect(topology.renderable).toBe(topology.total);
+    expect(topology.lights.filter((light) => light.role === 'user-champion')).toHaveLength(0);
+    expect(topology.topologyTransitions.filter((entry) => entry.sequence > baseline.topologySequence))
+        .toEqual([]);
+});
+
 test('Generic presentation, theme-only preview and Theme Studio preserve the same Champion', async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== 'desktop-chromium', 'One theme isolation check is sufficient');
     await page.goto(`/?token=${JUP}`);
@@ -237,6 +281,34 @@ async function renderResources(page) {
         const render = window.__ansemSceneDiagnostics().render;
         return { geometries: render.geometries, textures: render.textures };
     });
+}
+
+async function pointLightTopology(page) {
+    return page.evaluate(() => window.__ansemSceneDiagnostics().render.dynamicPointLights);
+}
+
+async function installPointLightShaderObserver(page) {
+    await page.addInitScript(() => {
+        window.__ansemE2EPointLightVariants = [];
+        for (const api of [window.WebGLRenderingContext, window.WebGL2RenderingContext]) {
+            if (!api?.prototype || api.prototype.__ansemE2EPointLightObserver) continue;
+            const shaderSource = api.prototype.shaderSource;
+            api.prototype.shaderSource = function observedShaderSource(shader, source) {
+                const count = Number(source.match(/uniform\s+PointLight\s+pointLights\s*\[\s*(\d+)\s*\]/)?.[1]);
+                if (Number.isFinite(count)) window.__ansemE2EPointLightVariants.push(count);
+                return shaderSource.call(this, shader, source);
+            };
+            Object.defineProperty(api.prototype, '__ansemE2EPointLightObserver', { value: true });
+        }
+    });
+}
+
+async function pointLightShaderVariants(page) {
+    return page.evaluate(() => [...new Set(window.__ansemE2EPointLightVariants)]);
+}
+
+async function clearPointLightShaderVariants(page) {
+    await page.evaluate(() => window.__ansemE2EPointLightVariants.splice(0));
 }
 
 async function installMarketRoutes(page) {
