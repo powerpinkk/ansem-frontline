@@ -107,6 +107,15 @@ test('renders verified swaps and the WebGL battlefield', async ({ page }, testIn
     await expect(page.locator('#data-freshness')).toContainText('DATA');
     expect(diagnostics.render.calls).toBeLessThan(220);
     expect(diagnostics.render.geometries).toBeLessThan(80);
+    expect(diagnostics.comicFortress).toMatchObject({
+        style: 'COMIC_FORTRESS_V1',
+        owner: 'comic-fortress-environment',
+        obstacleVisuals: 102,
+        lavaAnimated: true,
+        drawMeshes: 5,
+        ownedGeometries: 4,
+        sharedPointLights: 0,
+    });
     await page.waitForTimeout(350);
     const animated = await page.evaluate(() => window.__ansemSceneDiagnostics());
     const entityTravel = Math.max(...animated.entities.map((entity, index) => Math.hypot(

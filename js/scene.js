@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { CONFIG } from './config.js';
+import { createComicFortress } from './comic-fortress.js';
 import {
     arenaRecoveryPolicy,
     classifyChampionCrowdContact,
@@ -148,6 +149,7 @@ const crowdBattle = {
 };
 
 let scene, camera, renderer, frontlineLaser, frontlineMaterial, orbitControls, terrainMaterial;
+let comicFortress = null;
 let marketTerrainController = null;
 let marketTerrainSnapshot = null;
 let marketTerrainGroup, marketMajorLines, marketMinorLines, marketFrontier, marketPresentationMarker;
@@ -388,6 +390,14 @@ const projectileGlowMaterials = {
     bull: new THREE.MeshBasicMaterial({ color: 0x00ff88, transparent: true, opacity: 0.4, blending: THREE.AdditiveBlending, depthWrite: false }),
     bear: new THREE.MeshBasicMaterial({ color: 0xff3366, transparent: true, opacity: 0.4, blending: THREE.AdditiveBlending, depthWrite: false }),
 };
+
+const comicFacetMaterials = [
+    matBullBody, matBullHead, matBullHorn, matBearBody, matBearHead, matBearDarkFur, matSnout,
+    matKingBlack, matKingWing, matKingSkin, matKingCloth, matKingHair, matKingEnergy, matKingSaddle, matKingGold,
+    matUserChampionPrimary, matUserChampionAccent, matBearEye,
+    matCrowdBull, matCrowdBullAccent, matCrowdBullDetail, matCrowdBear, matCrowdBearAccent, matCrowdBearDetail,
+];
+comicFacetMaterials.forEach((material) => { material.flatShading = true; });
 
 const landscapeRandom = mulberry32(0xA45E9);
 
@@ -911,6 +921,7 @@ export function initScene(callbacks = {}) {
                 background: scene.background.getHex(),
                 target: _environmentTarget.getHex(),
             } : null,
+            comicFortress: comicFortress?.diagnostics() || null,
             theme: {
                 id: activeScenePresentation?.themeId || 'ansem',
                 applications: sceneThemeApplications,
@@ -1284,6 +1295,7 @@ export function applyThemePresentation(presentation) {
     if (marketMajorMaterial) marketMajorMaterial.color.set(environment.terrainTint);
     if (marketMinorMaterial) marketMinorMaterial.color.set(environment.terrainTint);
     if (marketPresentationMaterial) marketPresentationMaterial.color.set(environment.terrainTint);
+    comicFortress?.applyTheme(presentation);
     updateMarketTerrainColors();
 
     applyLight(ambientLight, lighting.ambient);
@@ -2491,39 +2503,45 @@ function init3D() {
     orbitControls.dampingFactor = 0.05;
     orbitControls.enabled = false;
 
-    const planeGeo = new THREE.PlaneGeometry(480, 360, 160, 120);
+    const planeGeo = new THREE.PlaneGeometry(168, 76, 112, 64);
     planeGeo.rotateX(-Math.PI / 2);
     const posAttribute = planeGeo.attributes.position;
     const colors = [];
-    const dryDirt = new THREE.Color(0x6f5234);
-    const darkSoil = new THREE.Color(0x35271c);
-    const grass = new THREE.Color(0x284b2d);
-    const highGrass = new THREE.Color(0x537242);
-    const moss = new THREE.Color(0x365d35);
+    const panelWarm = new THREE.Color(0xa8784d);
+    const panelLight = new THREE.Color(0xc99a63);
+    const panelJoint = new THREE.Color(0x111824);
+    const panelEdge = new THREE.Color(0x243246);
+    const panelColor = new THREE.Color();
 
     for (let i = 0; i < posAttribute.count; i++) {
         const localX = posAttribute.getX(i);
         const localZ = posAttribute.getZ(i);
-        const grain = (landscapeRandom() - 0.5) * 0.13;
+        const grain = (landscapeRandom() - 0.5) * 0.08;
         const height = getTrenchHeight(localX, localZ) + grain;
         posAttribute.setY(i, height);
-        const laneBlend = smoothstep(7, 28, Math.abs(localZ));
-        const trackRuts = Math.max(0, Math.cos(localZ * 0.72) * 0.5 + 0.5) * (1 - laneBlend) * 0.16;
-        const terrainVariation = Math.sin(localX * 0.19 + localZ * 0.31) * 0.5 + 0.5;
-        const soil = darkSoil.clone().lerp(dryDirt, 0.48 + terrainVariation * 0.28 - trackRuts);
-        const vegetation = moss.clone().lerp(height > 0.65 ? highGrass : grass, terrainVariation * 0.55);
-        const color = soil.lerp(vegetation, laneBlend * (0.78 + terrainVariation * 0.22));
-        color.offsetHSL(0, 0, grain * 0.18);
-        colors.push(color.r, color.g, color.b);
+        const panelX = Math.abs((((localX + 6) % 12) + 12) % 12 - 6);
+        const panelZ = Math.abs((((localZ + 4) % 8) + 8) % 8 - 4);
+        const joint = panelX > 5.15 || panelZ > 3.3;
+        const edge = Math.abs(localZ) > 30.2 || Math.abs(localX) > 70.5;
+        const variation = Math.sin(localX * 0.19 + localZ * 0.31) * 0.5 + 0.5;
+        panelColor.copy(edge ? panelEdge : joint ? panelJoint : panelWarm).lerp(
+            edge || joint ? panelJoint : panelLight,
+            edge ? 0.18 : joint ? 0.12 : variation * 0.42,
+        );
+        colors.push(panelColor.r, panelColor.g, panelColor.b);
     }
+    // The old ground consumed one deterministic sample per 161x121 vertex.
+    // Preserve that offset so obstacle positions and therefore combat routing
+    // remain identical while the visual mesh uses fewer triangles.
+    for (let i = posAttribute.count; i < 161 * 121; i++) landscapeRandom();
     planeGeo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
     planeGeo.computeVertexNormals();
 
     terrainMaterial = new THREE.MeshStandardMaterial({
         color: 0xffffff,
-        roughness: 0.96,
-        metalness: 0,
-        flatShading: false,
+        roughness: 0.76,
+        metalness: 0.18,
+        flatShading: true,
         vertexColors: true,
     });
     const plane = new THREE.Mesh(planeGeo, terrainMaterial);
@@ -2532,8 +2550,13 @@ function init3D() {
 
     initMarketTerrainPresentation();
 
-    createLandscapeProps();
-    createGrassTufts();
+    const obstacleVisuals = createFortressObstacleVisuals();
+    comicFortress = createComicFortress({
+        scene,
+        getHeight: getTrenchHeight,
+        obstacleVisuals,
+        presentation: activeScenePresentation,
+    });
     createCrowdArmies();
     createUserChampionRig();
 
@@ -2921,9 +2944,7 @@ function renderNow() {
     renderScene();
 }
 
-function createLandscapeProps() {
-    const rockGeo = new THREE.DodecahedronGeometry(1, 0);
-    const rockMat = new THREE.MeshStandardMaterial({ color: 0x4b443b, roughness: 1 });
+function createFortressObstacleVisuals() {
     const rockTransforms = [];
     for (let i = 0; i < 52; i++) {
         const x = (landscapeRandom() - 0.5) * 230;
@@ -2942,48 +2963,36 @@ function createLandscapeProps() {
         if (Math.abs(z) < 30) obstacles.push({ x, z, radius: scale * 1.35 });
     }
     createBattleEdgeRocks(rockTransforms);
-    const rocks = new THREE.InstancedMesh(rockGeo, rockMat, rockTransforms.length);
-    const rockDummy = new THREE.Object3D();
-    rockTransforms.forEach((transform, index) => {
-        rockDummy.position.set(transform.x, transform.y, transform.z);
-        rockDummy.rotation.set(transform.rotationX, transform.rotationY, 0);
-        rockDummy.scale.set(transform.scale, transform.scale * 0.7, transform.scale);
-        rockDummy.updateMatrix();
-        rocks.setMatrixAt(index, rockDummy.matrix);
-    });
-    rocks.instanceMatrix.needsUpdate = true;
-    rocks.castShadow = true;
-    rocks.receiveShadow = true;
-    scene.add(rocks);
+    const obstacleVisuals = rockTransforms.map((transform) => ({
+        x: transform.x,
+        y: transform.y + transform.scale * 0.55,
+        z: transform.z,
+        sx: transform.scale * 1.45,
+        sy: transform.scale * 1.25,
+        sz: transform.scale * 1.45,
+        rx: transform.rotationX * 0.18,
+        ry: transform.rotationY,
+    }));
 
-    const trunkGeo = new THREE.CylinderGeometry(0.35, 0.55, 5, 7);
-    const crownGeo = new THREE.ConeGeometry(2.4, 6.5, 9);
-    const trunkMat = new THREE.MeshStandardMaterial({ color: 0x3a2416, roughness: 1 });
-    const crownMat = new THREE.MeshStandardMaterial({ color: 0x173d22, roughness: 0.95 });
-    const trunks = new THREE.InstancedMesh(trunkGeo, trunkMat, 38);
-    const crowns = new THREE.InstancedMesh(crownGeo, crownMat, 38);
-    const treeDummy = new THREE.Object3D();
     for (let i = 0; i < 38; i++) {
         const x = (landscapeRandom() - 0.5) * 235;
         const z = signedOuterPosition(25, 67);
         const absZ = Math.abs(z);
         const scale = absZ > 20 && absZ < 55 ? 0.72 + landscapeRandom() * 0.2 : 0.75 + landscapeRandom() * 0.7;
         const groundY = getTrenchHeight(x, z);
-        treeDummy.position.set(x, groundY + 2.5 * scale, z);
-        treeDummy.rotation.set(0, landscapeRandom() * Math.PI, 0);
-        treeDummy.scale.setScalar(scale);
-        treeDummy.updateMatrix();
-        trunks.setMatrixAt(i, treeDummy.matrix);
-        treeDummy.position.y = groundY + 7 * scale;
-        treeDummy.updateMatrix();
-        crowns.setMatrixAt(i, treeDummy.matrix);
+        const rotationY = landscapeRandom() * Math.PI;
+        obstacleVisuals.push({
+            x,
+            y: groundY + 2.1 * scale,
+            z,
+            sx: 1.4 * scale,
+            sy: 4.2 * scale,
+            sz: 1.4 * scale,
+            ry: rotationY,
+        });
         if (absZ < ARENA.maxZ + 2) obstacles.push({ x, z, radius: Math.max(0.9, scale * 1.15) });
     }
-    trunks.instanceMatrix.needsUpdate = true;
-    crowns.instanceMatrix.needsUpdate = true;
-    trunks.castShadow = crowns.castShadow = true;
-    trunks.receiveShadow = crowns.receiveShadow = true;
-    scene.add(trunks, crowns);
+    return obstacleVisuals;
 }
 
 function createBattleEdgeRocks(rockTransforms) {
@@ -3006,28 +3015,6 @@ function createBattleEdgeRocks(rockTransforms) {
 function signedOuterPosition(min, max) {
     const value = min + landscapeRandom() * (max - min);
     return landscapeRandom() < 0.5 ? -value : value;
-}
-
-function createGrassTufts() {
-    const bladeGeo = new THREE.ConeGeometry(0.16, 1.5, 4);
-    bladeGeo.translate(0, 0.75, 0);
-    const bladeMat = new THREE.MeshStandardMaterial({ color: 0x426b38, roughness: 1, vertexColors: false });
-    const count = 720;
-    const grassMesh = new THREE.InstancedMesh(bladeGeo, bladeMat, count);
-    grassMesh.receiveShadow = true;
-    const dummy = new THREE.Object3D();
-    for (let i = 0; i < count; i++) {
-        const x = (landscapeRandom() - 0.5) * 250;
-        const z = signedOuterPosition(13, 67);
-        dummy.position.set(x, getTrenchHeight(x, z), z);
-        dummy.rotation.y = landscapeRandom() * Math.PI;
-        const scale = 0.55 + landscapeRandom() * 0.9;
-        dummy.scale.set(scale * (0.7 + landscapeRandom() * 0.5), scale, scale);
-        dummy.updateMatrix();
-        grassMesh.setMatrixAt(i, dummy.matrix);
-    }
-    grassMesh.instanceMatrix.needsUpdate = true;
-    scene.add(grassMesh);
 }
 
 function createCrowdArmies() {
@@ -6566,6 +6553,7 @@ function updateEnvironment(delta) {
         environmentBlend,
     );
     frontlineMaterial.color.lerp(_frontlineColorTarget, accentBlend);
+    comicFortress?.update(delta, prefersReducedMotion);
 }
 
 function spawnParticles(pos, material, isExplosion, isWhale = false, sizeScale = 1) {
