@@ -59,6 +59,24 @@ describe('locomotion foundation', () => {
         expect(Math.abs(motion.facing - 0.9)).toBeLessThan(0.001);
     });
 
+    it.each([['bull', 0, 1], ['bear', Math.PI, -1]])(
+        'keeps %s target facing while collision resolution slides it away', (_family, facing, direction) => {
+            const motion = createMotionState({ x: 10, z: 10, facing });
+            for (let tick = 0; tick < 120; tick++) {
+                beginMotionFrame(motion, motion.positionX, motion.positionZ);
+                finalizeMotionFrame(motion, {
+                    x: motion.positionX - direction * .02,
+                    z: motion.positionZ + Math.sin(tick) * .005,
+                    allowExplicitFacing: true, preferExplicitFacing: true,
+                    explicitFacingX: direction, explicitFacingZ: 0, turnSpeed: 5.4,
+                }, 1 / 60);
+                const error = Math.atan2(Math.sin(motion.facing - facing), Math.cos(motion.facing - facing));
+                expect(Math.abs(error)).toBeLessThan(.001);
+                expect(motion.frameDistance).toBeGreaterThan(0);
+            }
+        },
+    );
+
     it('is distance-stable at 30, 60 and 120 fps', () => {
         const distances = [30, 60, 120].map((fps) => simulate({ fps, seconds: 3 }).positionX);
         expect(Math.max(...distances) - Math.min(...distances)).toBeLessThan(0.1);

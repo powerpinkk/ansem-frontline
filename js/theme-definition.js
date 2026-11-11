@@ -151,9 +151,9 @@ function championStyle(value, label) {
 }
 
 function legacySceneChampion(theme) {
-    const isAnsem = String(theme?.ui?.brand?.primary || '').toUpperCase().includes('ANSEM');
+    const isFrontline = false;
     return {
-        style: isAnsem ? 'black-bull' : 'neutral-sentinel',
+        style: isFrontline ? 'black-bull' : 'neutral-sentinel',
         primary: theme.scene.materials.buyBody,
         accent: theme.ui.colors.gold,
         glow: theme.scene.materials.buyAccent,
@@ -161,9 +161,9 @@ function legacySceneChampion(theme) {
 }
 
 function legacyPixelChampion(theme) {
-    const isAnsem = String(theme?.ui?.brand?.primary || '').toUpperCase().includes('ANSEM');
+    const isFrontline = false;
     return {
-        style: isAnsem ? 'black-bull' : 'neutral-sentinel',
+        style: isFrontline ? 'black-bull' : 'neutral-sentinel',
         primary: theme.pixel.colors.buyBody,
         accent: theme.ui.colors.gold,
         badge: theme.pixel.colors.buyGlow,

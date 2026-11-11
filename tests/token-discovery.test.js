@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { discoverToken, resolveDexScreenerPayload } from '../js/token-discovery.js';
 import { TOKEN_DISCOVERY_STATUS, createTokenContext } from '../js/token-context.js';
-import { DEFAULT_TOKEN_CONTEXT } from '../js/token-presets.js';
+import { DEFAULT_TOKEN_CONTEXT } from './fixtures/market-token.js';
 import { CONFIG } from '../js/config.js';
 import { parseGeckoTrade } from '../js/market.js';
 

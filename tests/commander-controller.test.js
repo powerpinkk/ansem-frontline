@@ -1,9 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createCommanderController, COMMANDER_LIFECYCLE } from '../js/commander-controller.js';
-import { COMMANDER_PROFILE_REGISTRY } from '../js/commander-profile.js';
+import { DEMO_COMMANDER_PROFILE, createCommanderProfileRegistry } from '../js/commander-profile.js';
 import { createTokenContext } from '../js/token-context.js';
-import { ANSEM_MINT } from '../js/token-presets.js';
+import { FIXTURE_MINT } from './fixtures/market-token.js';
 
+const COMMANDER_PROFILE_REGISTRY = createCommanderProfileRegistry([{ ...DEMO_COMMANDER_PROFILE, tokenMint: FIXTURE_MINT }]);
 const USDC = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
 const JUP = 'JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN';
 const context = (mint, symbol = 'TEST') => createTokenContext({ mint, symbol, name: `${symbol} token` });
@@ -12,8 +13,8 @@ describe('token-scoped Commander lifecycle', () => {
     it('spawns exactly one ANSEM Commander and does not duplicate identical observations', () => {
         const instantiate = vi.fn((profile, identity) => ({ profile, ...identity }));
         const controller = createCommanderController({ registry: COMMANDER_PROFILE_REGISTRY, instantiate });
-        const first = controller.setTokenContext(context(ANSEM_MINT, 'ANSEM'));
-        const second = controller.setTokenContext(context(ANSEM_MINT, 'ANSEM'));
+        const first = controller.setTokenContext(context(FIXTURE_MINT, 'ANSEM'));
+        const second = controller.setTokenContext(context(FIXTURE_MINT, 'ANSEM'));
         expect(first).toMatchObject({ present: true, lifecycleState: COMMANDER_LIFECYCLE.ACTIVE, role: 'commander' });
         expect(second.actorId).toBe(first.actorId);
         expect(instantiate).toHaveBeenCalledTimes(1);
@@ -26,9 +27,9 @@ describe('token-scoped Commander lifecycle', () => {
             registry: COMMANDER_PROFILE_REGISTRY,
             instantiate: (_profile, identity) => ({ ...identity, destroy: () => destroyed.push(identity.actorId) }),
         });
-        const first = controller.setTokenContext(context(ANSEM_MINT, 'ANSEM'));
+        const first = controller.setTokenContext(context(FIXTURE_MINT, 'ANSEM'));
         const generic = controller.setTokenContext(context(USDC, 'USDC'));
-        const second = controller.setTokenContext(context(ANSEM_MINT, 'ANSEM'));
+        const second = controller.setTokenContext(context(FIXTURE_MINT, 'ANSEM'));
         expect(generic).toMatchObject({ present: false, lifecycleState: COMMANDER_LIFECYCLE.EMPTY, tokenMint: USDC });
         expect(first.actorId).not.toBe(second.actorId);
         expect(destroyed).toEqual([first.actorId]);
@@ -42,7 +43,7 @@ describe('token-scoped Commander lifecycle', () => {
             registry: COMMANDER_PROFILE_REGISTRY,
             instantiate: () => late,
         });
-        expect(controller.setTokenContext(context(ANSEM_MINT, 'ANSEM')).lifecycleState).toBe(COMMANDER_LIFECYCLE.LOADING);
+        expect(controller.setTokenContext(context(FIXTURE_MINT, 'ANSEM')).lifecycleState).toBe(COMMANDER_LIFECYCLE.LOADING);
         expect(controller.setTokenContext(context(JUP, 'JUP'))).toMatchObject({ present: false, tokenMint: JUP });
         resolve({});
         await late;
@@ -61,7 +62,7 @@ describe('token-scoped Commander lifecycle', () => {
             impactScore: 0.4,
         });
         const controller = createCommanderController({ registry: COMMANDER_PROFILE_REGISTRY });
-        const commander = controller.setTokenContext(context(ANSEM_MINT, 'ANSEM'));
+        const commander = controller.setTokenContext(context(FIXTURE_MINT, 'ANSEM'));
         const normalTroop = { role: 'normal-troop', actorId: 'troop:1' };
         const impactActor = { role: 'market-impact-actor', actorId: 'impact:1' };
         const champion = { role: 'user-champion', actorId: 'champion:1' };

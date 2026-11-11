@@ -1,14 +1,22 @@
-const environment = import.meta.env || {};
+// Keep unrelated Vite/platform metadata out of browser and Worker bundles.
+// Native Node/Cloudflare imports have no Vite environment.
+const environment = typeof import.meta.env === 'undefined' ? {} : {
+    MODE: import.meta.env.MODE,
+    VITE_STREAM_URL: import.meta.env.VITE_STREAM_URL,
+    VITE_RELAY_ORIGIN: import.meta.env.VITE_RELAY_ORIGIN,
+};
 const configuredStreamUrl = environment.MODE === 'e2e' ? 'disabled' : environment.VITE_STREAM_URL;
-const RELAY_ORIGIN = 'https://ansem-frontline-stream.ansem-frontline.workers.dev';
+const candidate = environment.VITE_RELAY_ORIGIN || '';
+const RELAY_ORIGIN = /^https:\/\//.test(candidate) ? candidate.replace(/\/$/, '') : '';
+const endpoint = name => RELAY_ORIGIN ? RELAY_ORIGIN + name : '';
 
 export const CONFIG = {
     SOL_MINT: 'So11111111111111111111111111111111111111112',
     STREAM_URL: configuredStreamUrl === 'disabled'
         ? ''
-        : configuredStreamUrl || `${RELAY_ORIGIN.replace('https://', 'wss://')}/stream`,
-    RELAY_MARKET_URL: `${RELAY_ORIGIN}/market`,
-    RELAY_RECENT_URL: `${RELAY_ORIGIN}/recent`,
+        : configuredStreamUrl || (RELAY_ORIGIN ? `${RELAY_ORIGIN.replace('https://', 'wss://')}/stream` : ''),
+    RELAY_MARKET_URL: endpoint('/market'),
+    RELAY_RECENT_URL: endpoint('/recent'),
     WHALE_TRADE_THRESHOLD_SOL: 20,
 
     FETCH_MIN_DELAY_MS: 5000,
@@ -38,5 +46,5 @@ export const CONFIG = {
 
     DEXSCREENER_TOKEN_URL: 'https://api.dexscreener.com/token-pairs/v1/solana',
     DEXSCREENER_PAIR_URL: 'https://api.dexscreener.com/latest/dex/pairs/solana',
-    GECKO_BASE: `${RELAY_ORIGIN}/gecko/networks/solana/pools`,
+    GECKO_BASE: endpoint('/gecko/networks/solana/pools'),
 };

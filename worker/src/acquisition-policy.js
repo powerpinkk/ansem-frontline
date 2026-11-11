@@ -1,3 +1,4 @@
+import { reserveGlobal } from './global-budget.js';
 export const ACQUISITION_POLICY_VERSION = 1;
 
 const LIMITS = Object.freeze({
@@ -73,6 +74,7 @@ export function createJsonRpcTransport(env, fetchImpl = fetch, options = {}) {
     return async (method, params, signal) => {
         if (!env.HELIUS_API_KEY) throw new AcquisitionError('RPC_NOT_CONFIGURED', { kind: 'CONFIGURATION', retryable: false });
         let response;
+        if (env.GLOBAL_BUDGET && !(await reserveGlobal(env))) throw new AcquisitionError('GLOBAL_RPC_BUDGET', { kind: 'DEFERRED', deferred: true, retryable: true, retryAt: now() + 60_000 });
         try {
             response = await fetchImpl(`https://mainnet.helius-rpc.com/?api-key=${encodeURIComponent(env.HELIUS_API_KEY)}`, {
                 method: 'POST', headers: { 'content-type': 'application/json' },

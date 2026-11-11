@@ -1,6 +1,6 @@
 import { createThemeDefinition, THEME_DEFINITION_LIMITS } from './theme-definition.js';
 
-export const THEME_STUDIO_FORMAT = 'ansem-frontline-theme';
+export const THEME_STUDIO_FORMAT = 'frontline-theme';
 export const THEME_STUDIO_SCHEMA_VERSION = 1;
 export const THEME_STUDIO_MAX_IMPORT_BYTES = 64 * 1024;
 
@@ -8,7 +8,7 @@ const color = (path, label, section) => ({ path, label, section, type: 'color' }
 const text = (path, label, section, maxLength, help = '') => ({ path, label, section, type: 'text', maxLength, help });
 const number = (path, label, section, bounds) => ({ path, label, section, type: 'number', ...bounds });
 
-export const THEME_STUDIO_SECTIONS = deepFreeze([
+const LEGACY_SECTIONS = [
     {
         id: 'identity', label: 'Identity', description: 'Portable theme identity and the controlled product label.',
         controls: [
@@ -106,7 +106,9 @@ export const THEME_STUDIO_SECTIONS = deepFreeze([
             color('companion.background', 'Companion background', 'pixel'),
         ],
     },
-]);
+];
+const RENDERER_PATHS = new Set(['scene.environment.background','scene.environment.terrainTint','scene.hero.visible','scene.materials.buyAccent','scene.materials.sellEyeEmissive']);
+export const THEME_STUDIO_SECTIONS = deepFreeze(LEGACY_SECTIONS.map(s => ({ ...s, description: ['environment','factions','effects'].includes(s.id) ? 'Illustrated 2D controls. Imported 3D light/projectile settings are retained in the definition but have no 2D equivalent.' : s.description, controls: s.controls.filter(c => !['environment','factions','effects'].includes(s.id) || RENDERER_PATHS.has(c.path)) })).filter(s => s.controls.length));
 
 export const THEME_STUDIO_EDITABLE_PATHS = Object.freeze(
     THEME_STUDIO_SECTIONS.flatMap((section) => section.controls.map((control) => control.path)),

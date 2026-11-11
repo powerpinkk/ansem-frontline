@@ -25,6 +25,7 @@ export function createTokenRuntime(initialContext) {
 
 function createRuntimeState() {
     return {
+        mode: 'live',
         price: 0,
         indicativePrice: 0,
         mcap: null,

@@ -1,14 +1,15 @@
 {
-  "name": "$ANSEM Frontline",
+  "name": "Frontline",
   "short_name": "Frontline",
-  "description": "Verified Solana swaps visualized as a live 3D bull-versus-bear battlefield.",
-  "start_url": "/",
+  "description": "Solana token activity in an illustrated 2D battlefield. Includes a synthetic demo.",
+  "start_url": "./",
+  "scope": "./",
   "display": "standalone",
-  "background_color": "#020302",
-  "theme_color": "#07100b",
+  "background_color": "#11141b",
+  "theme_color": "#11141b",
   "icons": [
     {
-      "src": "/favicon.svg",
+      "src": "./favicon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any"

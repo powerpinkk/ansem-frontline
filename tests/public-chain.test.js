@@ -2,7 +2,6 @@ import { readFileSync } from 'node:fs';
 import { expect, it } from 'vitest';
 import { verifyTransaction } from '../worker/src/transaction-evidence.js';
 import { MINT } from './fixtures/integrity.js';
-import { inflateSync } from 'node:zlib';
 import { createHash } from 'node:crypto';
 import idl from '../worker/src/idl/jupiter-v6.js';
 import { decodeRouterInstruction, JUPITER_PROGRAM } from '../worker/src/router-decoder.js';
@@ -23,15 +22,13 @@ for (const [name, slot, rawTokenAmount, rawQuoteAmount, innerIndex] of [
     expect(sum(s.transaction.meta.postTokenBalances) - sum(s.transaction.meta.preTokenBalances)).toBe(-BigInt(rawTokenAmount));
 });
 
-it('pinned route layouts are identical to the retained program-owned mainnet IDL', () => {
+it('retains the reviewed functional Jupiter schema without the full snapshot payload', () => {
     const p = JSON.parse(readFileSync(new URL('../docs/jupiter-idl-provenance.json', import.meta.url)));
-    const b = Buffer.from(p.accountData[0], 'base64');
-    const data = inflateSync(b.subarray(44, 44 + b.readUInt32LE(40)));
-    expect(createHash('sha256').update(data).digest('hex')).toBe(p.sha256);
-    expect(p.owner).toBe(JUPITER_PROGRAM);
-    const original = JSON.parse(data);
-    expect(idl.instructions).toEqual(original.instructions.filter((x) => x.name.includes('route') && !x.name.includes('ledger')));
-    for (const instruction of idl.instructions) expect(instruction.discriminator).toEqual([...createHash('sha256').update(`global:${instruction.name}`).digest().subarray(0, 8)]);
+    const canonical = value => Array.isArray(value) ? value.map(canonical) : value && typeof value === 'object' ? Object.fromEntries(Object.keys(value).sort().map(k => [k, canonical(value[k])])) : value;
+    expect(p.accountData).toBeUndefined();
+    expect(idl.address).toBe(JUPITER_PROGRAM);
+    expect(createHash('sha256').update(JSON.stringify(canonical(idl))).digest('hex')).toBe(p.functionalSchema.sha256);
+    for (const instruction of idl.instructions) expect(instruction.discriminator).toEqual([...createHash('sha256').update('global:' + instruction.name).digest().subarray(0, 8)]);
 });
 
 it('current mainnet shared V2 intent decodes; unsupported execution cannot be promoted', () => {

@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { DEFAULT_TOKEN_CONTEXT, ANSEM_FALLBACK_POOLS } from '../../js/token-presets.js';
+import { DEFAULT_TOKEN_CONTEXT, FALLBACK_POOLS } from './market-token.js';
 
 export const MINT = DEFAULT_TOKEN_CONTEXT.identity.mint;
 export const SOL = 'So11111111111111111111111111111111111111112';
@@ -31,7 +31,7 @@ export function swapFixture({ protocol = 'pumpswap', isBuy = true, mint = MINT, 
     const program = programs[protocol];
     const wallet = address(7); const userBase = address(8); const userQuote = address(9);
     const vaultBase = address(10); const vaultQuote = address(11);
-    const pool = ANSEM_FALLBACK_POOLS[protocol === 'pumpswap' ? 2 : protocol === 'dlmm' ? 0 : 4].address;
+    const pool = FALLBACK_POOLS[protocol === 'pumpswap' ? 2 : protocol === 'dlmm' ? 0 : 4].address;
     const instructionName = protocol === 'pumpswap' ? isBuy ? 'buy' : 'sell' : 'swap';
     const accounts = Array.from({ length: 24 }, (_, i) => address(i + 20));
     if (protocol === 'pumpswap') {
@@ -103,7 +103,7 @@ export function swapFixture({ protocol = 'pumpswap', isBuy = true, mint = MINT, 
 export function canonicalEvent(overrides = {}) {
     const signature = overrides.signature || overrides.txHash || signatureFor();
     const tokenMint = overrides.tokenMint || MINT;
-    const poolAddress = overrides.poolAddress || ANSEM_FALLBACK_POOLS[2].address;
+    const poolAddress = overrides.poolAddress || FALLBACK_POOLS[2].address;
     const executionOrder = overrides.executionOrder || { outerIndex: 0, innerIndex: null, transactionIndex: null };
     const invocationPath = `${executionOrder.outerIndex}.${executionOrder.innerIndex ?? 'outer'}`;
     return { evidenceLevel: 'CHAIN_VERIFIED', verificationVersion: 'pool-execution-v1', settlement: 'CONFIRMED',

@@ -18,7 +18,7 @@ export async function resolveTokenInput(input, {
         fetchPairs: (mint) => fetchTokenPairs(mint, { signal, fetchImpl, timeoutMs }),
         fetchSolPrice: async () => deriveSolPrice(await fetchTokenPairs(CONFIG.SOL_MINT, { signal, fetchImpl, timeoutMs })),
     });
-    if (result.ok || signal?.aborted) return result;
+    if (result.ok || signal?.aborted || !CONFIG.RELAY_RECENT_URL) return result;
     // An active Pump curve can exist before any provider pair. Resolve its
     // canonical server identity without inventing a provider price or listing.
     try {

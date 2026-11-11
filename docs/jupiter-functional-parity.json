@@ -1,0 +1,124 @@
+{
+  "schemaVersion": 1,
+  "scope": "Technical evidence for a new export without original Git ancestors; not a legal opinion or commercial clearance.",
+  "baselineCommit": "1dcf44bee668f72ccccc98f753ecf624c91f4f6d",
+  "originalGitBlobs": {
+    "worker/src/idl/jupiter-v6.js": "51eca7aa74836bc79d72177c102baef333923f37",
+    "docs/jupiter-idl-provenance.json": "bc1a31e56ec2f898e3e11b06ee73bed1153df950"
+  },
+  "originalSnapshotSha256": "3f0edbf2d65ec7be16b655348bcf63af70f3e64d19c68d9535048808167cc460",
+  "originalSnapshotTransferred": false,
+  "functionalProjection": {
+    "canonicalization": "JSON compact; object keys recursively sorted by ASCII codepoint; arrays retain order",
+    "sha256": "bcb72adbff64052b1b3b8e86934c1393ddd5256d97216b3736061cc321fa0198",
+    "bytes": 19889,
+    "instructions": [
+      "exact_out_route",
+      "route",
+      "shared_accounts_exact_out_route",
+      "shared_accounts_route",
+      "exact_out_route_v2",
+      "route_v2",
+      "shared_accounts_exact_out_route_v2",
+      "shared_accounts_route_v2"
+    ],
+    "types": [
+      "RemainingAccountsInfo",
+      "RemainingAccountsSlice",
+      "RoutePlanStep",
+      "RoutePlanStepV2",
+      "Side",
+      "BisonFiPredictSide",
+      "Swap",
+      "PerenaTrancheKind",
+      "CandidateSwapWithBps",
+      "CandidateSwap",
+      "SanctumSolsSwapType",
+      "HyloSwapType"
+    ],
+    "swapVariants": 186,
+    "candidateSwapVariants": 16,
+    "equalsBaselineProjection": true,
+    "equalsSnapshotProjection": true
+  },
+  "licensedOverlap": {
+    "repository": "jup-ag/rfq-v2-sdk",
+    "revision": "f3f30ff2af48f63c11f326a486b8b0eb9611714f",
+    "path": "fill-decoder/idls/aggregator.json",
+    "gitBlob": "041ecf1cce7ca3326c2e925aa58e557b247a0ba9",
+    "url": "https://github.com/jup-ag/rfq-v2-sdk/blob/f3f30ff2af48f63c11f326a486b8b0eb9611714f/fill-decoder/idls/aggregator.json",
+    "declaredLicense": "MIT",
+    "licenseSources": [
+      "https://github.com/jup-ag/rfq-v2-sdk/blob/f3f30ff2af48f63c11f326a486b8b0eb9611714f/README.md",
+      "https://github.com/jup-ag/rfq-v2-sdk/blob/f3f30ff2af48f63c11f326a486b8b0eb9611714f/fill-decoder/Cargo.toml"
+    ],
+    "identicalInstructionNames": [
+      "exact_out_route",
+      "route",
+      "shared_accounts_exact_out_route",
+      "shared_accounts_route",
+      "exact_out_route_v2",
+      "route_v2",
+      "shared_accounts_exact_out_route_v2",
+      "shared_accounts_route_v2"
+    ],
+    "identicalProjectedTypeNames": [
+      "RemainingAccountsInfo",
+      "RemainingAccountsSlice",
+      "RoutePlanStep",
+      "RoutePlanStepV2",
+      "Side"
+    ],
+    "currentFunctionalTypesNotIdenticalToLicensedSource": [
+      "BisonFiPredictSide",
+      "Swap",
+      "PerenaTrancheKind",
+      "CandidateSwapWithBps",
+      "CandidateSwap",
+      "SanctumSolsSwapType",
+      "HyloSwapType"
+    ],
+    "limitation": "MIT attribution applies to matching upstream portions; no blanket license assertion for later interface facts."
+  },
+  "parity": {
+    "comparisons": 9474,
+    "successful": 3458,
+    "rejected": 6016,
+    "capturedInstructions": 2,
+    "mismatches": 0,
+    "baselineRejectedSwapVariants": [
+      {
+        "name": "JupiterRfqV2",
+        "ordinal": 120,
+        "reason": "The protected decoder does not support the bytes scalar.",
+        "error": "MALFORMED_ROUTER_DATA"
+      }
+    ],
+    "baselineRejectedCandidateCases": [
+      {
+        "name": "WhirlpoolV2",
+        "ordinal": 10,
+        "enclosingSwapNames": [
+          "DynamicV1",
+          "DynamicV2"
+        ],
+        "optionsPresent": true,
+        "reason": "The generated present remaining_accounts_info exceeds the protected decoder depth budget.",
+        "error": "ROUTER_DECODE_BUDGET"
+      }
+    ],
+    "method": "Identical protected-baseline decoder evaluated in memory with each schema; every Swap ordinal and CandidateSwap ordinal through both dynamic variants and eight routes, optional values absent/present, truncation/trailing data, missing accounts, unknown discriminators/Swap ordinal, invalid booleans, and two original public transaction captures."
+  },
+  "excluded": [
+    "all docs text",
+    "all metadata",
+    "events",
+    "errors",
+    "instruction returns",
+    "account signer/writable flags",
+    "unused types",
+    "complete compressed RPC accountData",
+    "all original Git ancestors and refs from the new export"
+  ],
+  "caveat": "Account signer/writable flags are not read by router-decoder. Transaction authorization checks remain unchanged."
+}

@@ -1,6 +1,6 @@
 import { parseThemeStudioImport, serializeThemeStudioExport } from './theme-studio-contract.js';
 
-export const THEME_STUDIO_STORAGE_KEY = 'ansem-frontline:theme-studio:drafts:v1';
+export const THEME_STUDIO_STORAGE_KEY = 'frontline:theme-studio:drafts:v1';
 export const THEME_STUDIO_STORAGE_LIMIT = 8;
 export const THEME_STUDIO_STORAGE_MAX_BYTES = 128 * 1024;
 

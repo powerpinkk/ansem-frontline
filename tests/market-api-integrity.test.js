@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { initAPI } from '../js/api.js';
 import { createTokenRuntime } from '../js/state.js';
-import { DEFAULT_TOKEN_CONTEXT } from '../js/token-presets.js';
+import { DEFAULT_TOKEN_CONTEXT } from './fixtures/market-token.js';
 import { providerValuation } from '../js/market-valuation.js';
 import { canonicalEvent, swapFixture, MINT, USDC } from './fixtures/integrity.js';
 let api;

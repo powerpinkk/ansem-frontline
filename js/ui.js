@@ -1,7 +1,7 @@
 import { CONFIG } from './config.js';
 import { deriveBattleTactics } from './market.js';
 import { state } from './state.js';
-import { ANSEM_THEME } from './theme-presets.js';
+import { FRONTLINE_THEME } from './theme-presets.js';
 import { valuationLabel } from './market-valuation.js';
 import { formatQuote, formatUsdEstimate } from './notional.js';
 import { deriveMarketHealth, formatPriceDisplay } from './market-health.js';
@@ -11,11 +11,12 @@ let miniChartCtx = null;
 let lastRenderedBullPct = -1;
 let dashboardFrameId = 0;
 let signalTimer = null;
+let freshnessTimer = null;
 let selectedTrade = null;
 let activeThemePresentation = {
-    themeId: ANSEM_THEME.identity.id,
-    copy: ANSEM_THEME.ui.copy,
-    colors: ANSEM_THEME.ui.colors,
+    themeId: FRONTLINE_THEME.identity.id,
+    copy: FRONTLINE_THEME.ui.copy,
+    colors: FRONTLINE_THEME.ui.colors,
 };
 let sceneCallbacks = {
     setFrontlineState: () => {},
@@ -26,6 +27,7 @@ const CONNECTION_LABELS = {
     online: 'LIVE · ON-CHAIN',
     offline: 'OFFLINE · RETRYING',
     degraded: 'DEGRADED · PARTIAL DATA',
+    demo: 'DEMO · SYNTHETIC',
 };
 
 export function initUI(sceneHooks = {}) {
@@ -73,7 +75,7 @@ export function initUI(sceneHooks = {}) {
     bindControls();
     setConnectionStatus('connecting');
     updateFreshnessUI();
-    window.setInterval(updateFreshnessUI, 1_000);
+    freshnessTimer = window.setInterval(updateFreshnessUI, 1_000);
 }
 
 export function setUIThemePresentation(presentation) {
@@ -98,14 +100,14 @@ function setupMiniChart() {
 }
 
 function bindControls() {
-    DOM.soundBtn?.addEventListener('click', () => window.__ansemToggleAudio?.());
+    DOM.soundBtn?.addEventListener('click', () => window.__frontlineToggleAudio?.());
     DOM.unitInspectorClose?.addEventListener('click', hideUnitInspector);
 }
 
 export function bindCameraControls(setCameraMode) {
     DOM.camAuto?.addEventListener('click', () => setCameraMode('auto'));
     DOM.camFree?.addEventListener('click', () => setCameraMode('free'));
-    window.__ansemSetCameraUI = (mode) => {
+    window.__frontlineSetCameraUI = (mode) => {
         DOM.camAuto?.classList.toggle('active-blue', mode === 'auto');
         DOM.camFree?.classList.toggle('active-blue', mode === 'free');
     };
@@ -143,6 +145,12 @@ export function updateValuationUI(provider = state.valuation) {
 }
 
 export function updateMarketUI({ valuation, chg, pools, coverage, referencePool }) {
+    const chartLabel = document.querySelector('.mini-chart-wrap > span');
+    if (chartLabel) chartLabel.textContent = state.mode === 'demo' ? 'SYNTHETIC TRACE · 60 SAMPLES' : state.chartMeta ? '1H CLOSES · GECKO' : 'PRICE HISTORY UNAVAILABLE';
+    const chart = document.getElementById('mini-chart');
+    if (chart) chart.title = state.mode === 'demo' ? 'Synthetic price samples, not OHLCV' : state.chartMeta ? 'Reference-pool minute closing prices, fetched ' + new Date(state.chartMeta.receivedAt).toISOString() : 'No exchange history available';
+    document.getElementById('theme-legend-buy').textContent = state.mode === 'demo' ? 'buy unit = synthetic event' : activeThemePresentation.copy.legendBuy;
+    document.getElementById('theme-legend-sell').textContent = state.mode === 'demo' ? 'sell unit = synthetic event' : activeThemePresentation.copy.legendSell;
     updateValuationUI(valuation);
 
     if (DOM.change && Number.isFinite(chg)) {
@@ -175,7 +183,7 @@ export function renderMiniChart() {
 
     const minP = Math.min(...state.priceHistory);
     const maxP = Math.max(...state.priceHistory);
-    const range = maxP - minP || 0.000001;
+    const range = maxP - minP || Math.abs(maxP) * .001 || 1e-20;
 
     miniChartCtx.beginPath();
     const chartRising = state.priceHistory[state.priceHistory.length - 1] >= state.priceHistory[0];
@@ -233,7 +241,7 @@ function updateBattleState() {
     const netSol = state.buySol60s - state.sellSol60s;
     if (DOM.battleStateFlow) {
         const health = deriveMarketHealth(state);
-        const zeroFlow = health.flowState === 'QUIET'
+        const zeroFlow = state.mode === 'demo' ? 'SYNTHETIC DEMO · NO CHAIN DATA' : health.flowState === 'QUIET'
             ? 'QUIET · 0 VERIFIED SWAPS / 60S'
             : health.flowState === 'RECOVERING'
                 ? 'FLOW RECOVERING · PARTIAL 60S WINDOW'
@@ -276,12 +284,12 @@ export function addOnChainTrade(trade) {
     const empty = DOM.tradesfeed.querySelector('.trades-empty');
     if (empty) empty.remove();
 
-    const row = document.createElement('a');
+    const row = document.createElement(trade.synthetic ? 'div' : 'a');
     row.className = `trade-item trade-link ${trade.isWhale ? 'is-whale' : ''}`;
-    row.href = `https://solscan.io/tx/${encodeURIComponent(trade.txHash)}`;
+    if (!trade.synthetic) row.href = `https://solscan.io/tx/${encodeURIComponent(trade.txHash)}`;
     row.target = '_blank';
     row.rel = 'noopener noreferrer';
-    row.title = `${trade.settlement || 'UNVERIFIED'} · ${trade.dexId} · ${trade.economicScope === 'ROUTER_ECONOMIC_ENDPOINTS' ? 'executed route endpoint quote' : 'pool quote'}; USD unavailable unless separately estimated`;
+    row.title = `${trade.synthetic ? 'SYNTHETIC FIXTURE · NO TRANSACTION · ' : ''}${trade.settlement || 'UNVERIFIED'} · ${trade.dexId} · ${trade.economicScope === 'ROUTER_ECONOMIC_ENDPOINTS' ? 'executed route endpoint quote' : 'pool quote'}; USD unavailable unless separately estimated`;
     row.dataset.eventId = trade.id;
     row.dataset.timestamp = String(trade.timestamp);
     const time = document.createElement('span');
@@ -325,6 +333,7 @@ export function showBattleLogSyncing() {
 }
 
 export function updateBattleLogSnapshot(market = {}) {
+    if (state.mode === 'demo') { const row = DOM.killfeed?.querySelector('.battle-sync-status'); if (row) row.textContent = 'SYNTHETIC DEMO · DETERMINISTIC SEQUENCE · NO PROVIDERS'; return; }
     if (!DOM.killfeed) return;
     let row = DOM.killfeed.querySelector('.battle-sync-status');
     if (!row) {
@@ -365,13 +374,13 @@ export function updateVisibleCoverage(counts = state.visibleCombatants) {
     const bull = Number(counts?.bull || 0);
     const bear = Number(counts?.bear || 0);
     const copy = activeThemePresentation.copy;
-    setText(DOM.visibleCoverage, `${copy.buyForce} ${bull} · ${copy.sellForce} ${bear} · ${recentVerified} VERIFIED SWAP${recentVerified === 1 ? '' : 'S'} / 60S`);
+    setText(DOM.visibleCoverage, `${copy.buyForce} ${bull} · ${copy.sellForce} ${bear} · ${recentVerified} ${state.mode === 'demo' ? 'SYNTHETIC' : 'VERIFIED'} SWAP${recentVerified === 1 ? '' : 'S'} / 60S`);
     DOM.visibleCoverage.title = `Solid champions represent up to ${CONFIG.MAX_VISIBLE_UNITS_PER_SIDE} individually verifiable swaps per side. Instanced army depth scales from tracked one-hour transactions; the five-minute pulse and verified 60-second SOL drive immediate reinforcements. ${total} total visual forces are currently rendered.`;
 }
 
 export function showUnitInspector(entity) {
     const trade = entity?.trade;
-    if (!DOM.unitInspector || !trade?.txHash) {
+    if (!DOM.unitInspector || !trade || (!trade.txHash && !trade.synthetic)) {
         hideUnitInspector();
         return;
     }
@@ -384,7 +393,9 @@ export function showUnitInspector(entity) {
     DOM.unitInspectorPool.textContent = String(trade.dexId || 'unknown').toUpperCase();
     DOM.unitInspectorPool.title = `${trade.dexId || 'unknown'} · ${trade.quoteSymbol || '—'}`;
     DOM.unitInspectorAge.textContent = formatAge(Date.now() - trade.timestamp);
-    DOM.unitInspectorLink.href = `https://solscan.io/tx/${encodeURIComponent(trade.txHash)}`;
+    DOM.unitInspectorLink.hidden = Boolean(trade.synthetic);
+    if (!trade.synthetic) DOM.unitInspectorLink.href = `https://solscan.io/tx/${encodeURIComponent(trade.txHash)}`;
+    document.getElementById('unit-inspector-kicker').textContent = trade.synthetic ? 'SYNTHETIC DEMO · NO TRANSACTION' : 'VERIFIED POOL EXECUTION';
 }
 
 export function hideUnitInspector() {
@@ -560,3 +571,5 @@ export function addKingReclaimEvent({ count, solValue, reason, bullPercent }) {
 function lowerFirst(value) {
     return value ? value.charAt(0).toLowerCase() + value.slice(1) : '';
 }
+
+export function destroyUI() { clearInterval(freshnessTimer); clearTimeout(signalTimer); cancelAnimationFrame(dashboardFrameId); freshnessTimer = null; signalTimer = null; dashboardFrameId = 0; }

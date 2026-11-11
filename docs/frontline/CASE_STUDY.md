@@ -1,0 +1,21 @@
+# Frontline: from a mixed 3D scene to a 2D market presentation
+
+The original application coupled numerical orchestration to a large Three.js scene. Its shader and recovery work remained useful, but its rendering architecture made an illustrated battlefield difficult to maintain. The migration preserved the financial domains and replaced the presentation boundary.
+
+The central decision was to keep authority upstream of art. Canonical executions, settlement, per-mint epochs, valuation gates and rolling SOL pressure stay in the existing data pipeline. A separate fixed-step presentation runtime in one dedicated Worker consumes those facts. The renderer applies backpressure with at most one unacknowledged frame; no second simulator runs on the main thread. Pixi receives frames and interpolates articulated poses; neither a sprite callback nor an impact effect can create a swap or change price. Numerical advancement is independent of requestAnimationFrame.
+
+Selected field, camera, rig, gait and contact modules were adapted from a private local pilot. Its game runtime, fixed pairs, 24-second choreography, competitive rules and strategy were excluded. Every transferred source byte was hashed before adaptation. Normal and large swap actors retain their own identities; size does not grant a configured Commander or User Champion role. Aggregate ranks remain summaries, with no fabricated transaction links.
+
+Visual navigation changed to fit a 60×24 illustrated deck: local distance-based targeting with attack commitment, bounded turning, resolved body separation and distance-driven foot cadence. These are presentation-rule changes, not financial changes. The former mesh damage/projectile choreography is not a second retained production simulator. Full-load congestion remains an explicit visual limit, with no claim of exact weapon/mesh collision.
+
+Reliability required more than a new picture. Demo is an explicitly synthetic source that exercises the same integration without external services. Live errors do not select another asset. Renderer/asset failure leaves HTML data controls active; retry and context restoration recover graphics. Production build checks reject Three.js and simulation-mutator hooks. The public diagnostics surface returns copied snapshots.
+
+The relay previously limited requests per mint. The bounded portfolio scope adds an atomic persistent account-wide reservation ledger and a two-mint allowlist, with upstream WS disabled. Its limits constrain provider request counts; they do not claim to eliminate ingress cost or prove universal availability.
+
+The migration also removed a project-specific default identity, corrected tiny prices in the main and Pixel views, labeled price history by source, and replaced the full Jupiter snapshot in current source with a reviewed functional schema and consumer regressions. Historical Git objects and their rights questions are not erased by that change.
+
+Measured results and actual omissions are in VALIDATION.md. The baseline was 805 passing unit tests and a passing root build; historical performance campaigns remain dated evidence, not new candidate measurements. The user accepted the local candidate and authorized publication after a requested giant-facing correction. That correction is described in GIANT_ORIENTATION.md: collision displacement remains distinct from opponent-facing intent. Independent review has not been claimed; actual hosting cutover still needs its own evidence.
+
+AI assistance was used for implementation, investigation, tests, writing and selected art generation. Useful interview topics are the authority boundary, cancellation/epoch model, why aggregate ranks are not transactions, graphics fallback ownership, budget tradeoffs and the difference between a local candidate and a verified deployment. No clients, adoption or commercial metrics are claimed.
+
+A hosted build exposed a separate boundary issue: copying the entire Vite environment also copied unrelated provider metadata. The production brand guard stopped the deployment. Config now reads an explicit allowlist of public inputs, and both build variants inject an unrelated non-secret sentinel that must be absent from generated code. This preserves the guard instead of exempting hosted metadata or weakening CSP.

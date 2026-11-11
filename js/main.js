@@ -1,3 +1,4 @@
+import { initDemoAPI } from './demo-source.js';
 import { initAPI } from './api.js';
 import { evaluateBuySwarm } from './market.js';
 import { activateTokenRuntime, createTokenRuntime, state } from './state.js';
@@ -10,7 +11,7 @@ import { initTokenUI } from './token-ui.js';
 import { createCompanionThemeAdapter, createSceneThemeAdapter, createUIThemeAdapter } from './theme-adapters.js';
 import { createThemePresentationController } from './theme-presentation.js';
 import { GENERIC_THEME, THEME_REGISTRY, THEME_RESOLVER } from './theme-presets.js';
-import { ANSEM_THEME } from './theme-presets.js';
+import { FRONTLINE_THEME } from './theme-presets.js';
 import { initThemeStudio } from './theme-studio.js';
 import { createChampionController } from './champion-controller.js';
 import { createChampionPolicy, DEFAULT_CHAMPION_DURATION_MS } from './champion-policy.js';
@@ -21,6 +22,7 @@ import { createCommanderController } from './commander-controller.js';
 import { COMMANDER_PROFILE_REGISTRY } from './commander-profile.js';
 import {
     initUI,
+    destroyUI,
     bindCameraControls,
     setConnectionStatus,
     updateMarketUI,
@@ -114,8 +116,6 @@ function handleTrade(trade, meta) {
 function applyTradeToScene(trade, meta) {
     const type = trade.isBuy ? 'bull' : 'bear';
     sceneModule.spawnUnit(type, meta.bootstrap, trade.isWhale, trade);
-    sceneModule.applyTradeImpulse(trade.isBuy, trade.solValue, trade.isWhale);
-    sceneModule.handleTerritoryShift(trade, meta);
     const now = Date.now();
     const swarm = evaluateBuySwarm(state.liveTrades, now, lastBullSwarmAt);
     if (!meta.bootstrap && swarm.triggered) {
@@ -148,6 +148,7 @@ function mountRuntime(resolution) {
         },
     };
     activateTokenRuntime(runtime);
+    document.body.dataset.marketMode = runtime.context.identity.mint === DEFAULT_TOKEN_CONTEXT.identity.mint ? 'demo' : 'live';
     themePresentation.applyForToken(runtime.context);
     themeStudio?.setTokenContext(runtime.context);
     currentSession = session;
@@ -166,7 +167,7 @@ function mountRuntime(resolution) {
     const active = (callback) => (...args) => {
         if (session.active && currentSession === session) callback(...args);
     };
-    session.api = initAPI({
+    session.api = (runtime.context.identity.mint === DEFAULT_TOKEN_CONTEXT.identity.mint ? initDemoAPI : initAPI)({
         onCanonicalValuation: active((value) => {
             updateValuationUI();
             runtime.state.marketTerrain = session.terrain.observeValuation(value);
@@ -223,7 +224,7 @@ function mountRuntime(resolution) {
             companionController?.setTokenContext(context);
             commanderController.setTokenContext(context);
         }),
-    }, { runtime, initialMarket: resolution.market });
+    }, { runtime, initialMarket: resolution.market, demoProfile: new URLSearchParams(location.search).get('demoLoad') });
     companionController?.setTokenContext(runtime.context);
     return session;
 }
@@ -239,6 +240,8 @@ function updateRoute({ mint, history }) {
 function handleControllerState(nextState) {
     tokenUI?.setState(nextState);
     if (!nextState.context && nextState.status !== TOKEN_UI_STATUS.RESOLVING) {
+        activateTokenRuntime(createTokenRuntime(DEFAULT_TOKEN_CONTEXT));
+        document.body.dataset.marketMode = 'neutral';
         resetFrontlineUI();
         sceneModule?.resetTokenPresentation();
         tokenUI?.setConnection('offline');
@@ -260,7 +263,7 @@ function boot() {
     bindCameraControls((mode) => sceneModule?.setCameraMode(mode));
     showBattleLogSyncing();
     showTradesWaiting();
-    window.__ansemToggleAudioUI = setAudioButton;
+    window.__frontlineToggleAudioUI = setAudioButton;
 
     tokenUI = initTokenUI({
         onSubmit: (mint) => void tokenController.select(mint, { history: 'push' }),
@@ -270,7 +273,7 @@ function boot() {
     themeStudio = initThemeStudio({
         presentation: themePresentation,
         resolver: THEME_RESOLVER,
-        presets: { ansem: ANSEM_THEME, generic: GENERIC_THEME },
+        presets: { frontline: FRONTLINE_THEME, generic: GENERIC_THEME },
     });
     tokenController = createTokenController({
         defaultContext: DEFAULT_TOKEN_CONTEXT,
@@ -284,9 +287,9 @@ function boot() {
     window.addEventListener('beforeunload', destroyApplicationControllers, { once: true });
     void loadRoute();
 
-    void import('./scene.js').then((loadedScene) => {
+    void import('./scene.js').then(async (loadedScene) => {
         sceneModule = loadedScene;
-        sceneModule.initScene({
+        await sceneModule.initScene({
             onKillEvent: addRealKillEvent,
             onReclaimEvent: addKingReclaimEvent,
             onInspectUnit: showUnitInspector,
@@ -300,7 +303,7 @@ function boot() {
         sceneModule.setCommanderSnapshot(commanderSnapshot || commanderController.getSnapshot());
         flushPendingSceneTrades();
         sceneModule.startGameLoop();
-        if (import.meta.env.DEV) window.__ansemHandleVisibility = handleVisibility;
+        if (import.meta.env.DEV) window.__frontlineHandleVisibility = handleVisibility;
         companionController = initPixelCompanion({
             setSceneActive: (active) => sceneModule?.setSceneActive(active),
             tokenContext: currentSession?.context || DEFAULT_TOKEN_CONTEXT,
@@ -314,9 +317,9 @@ function boot() {
         setRendererStatus('lost');
     });
 
-    if (import.meta.env.DEV || new URLSearchParams(window.location.search).has('diagnostics')) {
-        window.__ansemSelectToken = (mint) => tokenController.select(String(mint), { history: 'push' });
-        window.__ansemTokenDiagnostics = () => ({
+    if (import.meta.env.DEV) {
+        window.__frontlineSelectToken = (mint) => tokenController.select(String(mint), { history: 'push' });
+        window.__frontlineTokenDiagnostics = () => ({
             ...tokenController.getDiagnostics(),
             url: window.location.href,
             sessions: runtimeSessions.map((session) => ({
@@ -325,37 +328,37 @@ function boot() {
                 api: session.api?.getDiagnostics() || null,
             })),
         });
-        window.__ansemThemeDiagnostics = () => themePresentation.getDiagnostics();
-        window.__ansemThemeStudioDiagnostics = () => themeStudio?.getDiagnostics() || null;
-        window.__ansemChampionDiagnostics = () => ({
+        window.__frontlineThemeDiagnostics = () => themePresentation.getDiagnostics();
+        window.__frontlineThemeStudioDiagnostics = () => themeStudio?.getDiagnostics() || null;
+        window.__frontlineChampionDiagnostics = () => ({
             controller: championController.getDiagnostics(),
             ui: championUI?.getDiagnostics() || null,
             active: championSnapshot,
         });
-        window.__ansemTerrainDiagnostics = () => currentSession?.terrain.getDiagnostics(
+        window.__frontlineTerrainDiagnostics = () => currentSession?.terrain.getDiagnostics(
             document.getElementById('canvas-container')?.clientWidth || window.innerWidth,
         ) || null;
-        window.__ansemCommanderDiagnostics = () => commanderController.getDiagnostics();
-        window.__ansemOpenThemeStudio = () => themeStudio?.open();
-        window.__ansemApplyTheme = (themeId) => themePresentation.applyThemeId(String(themeId)).identity.id;
-        window.__ansemApplyMissingAssetTheme = () => themePresentation.applyDefinition({
+        window.__frontlineCommanderDiagnostics = () => commanderController.getDiagnostics();
+        window.__frontlineOpenThemeStudio = () => themeStudio?.open();
+        window.__frontlineApplyTheme = (themeId) => themePresentation.applyThemeId(String(themeId)).identity.id;
+        window.__frontlineApplyMissingAssetTheme = () => themePresentation.applyDefinition({
             ...GENERIC_THEME,
             identity: { id: 'missing-asset-fixture', version: '1.0.0', displayName: 'Missing asset fixture' },
             assets: { emblem: 'themes/missing-emblem.png' },
         }).identity.id;
     }
     if (import.meta.env.DEV) {
-        window.__ansemActivateSimulatedChampion = (displayLabel = null) => championController.activateSimulatedChampion({
+        window.__frontlineActivateSimulatedChampion = (displayLabel = null) => championController.activateSimulatedChampion({
             mint: currentSession?.context?.identity?.mint,
             displayLabel,
         });
-        window.__ansemDeactivateChampion = () => championController.deactivate();
+        window.__frontlineDeactivateChampion = () => championController.deactivate();
     }
     if (import.meta.env.MODE === 'e2e') {
-        window.__ansemActivateTestChampion = () => championController.activateTestChampion({
+        window.__frontlineActivateTestChampion = () => championController.activateTestChampion({
             mint: currentSession?.context?.identity?.mint,
         });
-        window.__ansemTerrainFixture = Object.freeze({
+        window.__frontlineTerrainFixture = Object.freeze({
             authoritative(value, { movementCause = 'TOKEN_PRICE_UPDATE', sourceEpoch = 1 } = {}) {
                 const mint = currentSession?.context?.identity?.mint;
                 if (!mint || !(Number(value) > 0)) throw new TypeError('Terrain fixture requires a positive value');
@@ -390,14 +393,19 @@ function boot() {
 
 function destroyApplicationControllers() {
     tokenController?.destroy();
+    destroyUI();
     unsubscribeChampion();
     championUI?.destroy();
     championController.destroy();
     commanderController.destroy();
+    tokenUI?.destroy();
+    themeStudio?.destroy?.();
+    companionController?.destroy?.();
+    sceneModule?.disposeScene();
 }
 
 function handleVisibility() {
-    if (window.__ansemCompanionActive) {
+    if (window.__frontlineCompanionActive) {
         sceneModule?.setSceneActive(false);
         return;
     }

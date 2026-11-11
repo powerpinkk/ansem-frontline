@@ -26,7 +26,7 @@ export async function fetchGeckoProxy(request, origin, allowedOrigin) {
         if (cached) return wrapProxyResponse(cached, origin, allowedOrigin, route.cacheTtl, 'edge-cache');
 
         const upstream = await fetch(route.upstream, {
-            headers: { accept: 'application/json', 'user-agent': 'ANSEM-Frontline/2.0' },
+            headers: { accept: 'application/json', 'user-agent': 'FRONTLINE-Frontline/2.0' },
             signal: AbortSignal.timeout(8_000),
         });
         const headers = proxyHeaders(origin, allowedOrigin, route.cacheTtl);

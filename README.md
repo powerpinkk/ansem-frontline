@@ -1,275 +1,78 @@
-# $ANSEM FRONTLINE
+# Frontline
 
-An open-source 3D market visualization that turns verified Solana token swaps into a live bull-versus-bear battlefield. `$ANSEM` remains the default token and uses the official ANSEM presentation; other compatible tokens use the neutral Generic Frontline theme.
+Frontline visualizes Solana token activity and price as an illustrated 2D battlefield. Buy and sell forces respond to market flow; combat is a visual metaphor and never sets a token price.
 
-![The $ANSEM Frontline live battlefield](public/og-card.png)
+**The 2D candidate has been accepted; publication is in progress.** The requested giant-orientation correction is verified in both families. See [release status](docs/frontline/RELEASE.md) and [art scope](docs/frontline/ART.md).
 
-- Token: `$ANSEM`
-- Contract address: `9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump`
-- Live application: [ansem-frontline.vercel.app](https://ansem-frontline.vercel.app/)
+![Frontline 2D Demo, using synthetic data](docs/frontline/screenshots/frontline-desktop.png)
 
-## Loading another Solana token
+## Run without services
 
-Use the compact `SOLANA TOKEN` panel in the sidebar, paste or type a valid Solana CA/mint, and press Enter or `LOAD`. Frontline validates the address as a real 32-byte base58 public key, resolves compatible pools through the shared discovery layer and switches only after resolution succeeds. Token Data shows only available identity, reference-pool and provenance data; unknown fields are omitted rather than rendered as zero.
+Use Node 22.12 or newer within the Node 22 series (validated with Node 22.18), then:
 
-A successful non-default selection is represented by `?token=<mint>`. Query routing is deliberate: Vercel, GitHub Pages (including its `/ansem-frontline/` base) and a local static/preview server can refresh the same HTML document without an SPA fallback. The base URL, with no `token` query, represents default ANSEM. Normal Back/Forward navigation replays token selection without a full-page reload.
+```sh
+npm ci --ignore-scripts --legacy-peer-deps
+npm run dev -- --host 127.0.0.1
+```
 
-On every switch, the old API session closes its WebSocket, aborts pending fetches, clears polling/retry timers and stops publishing callbacks before a fresh per-mint runtime becomes active. Startup caches and Pixel Frontline channels remain mint-namespaced. A late response from an older token cannot update the current UI or battlefield.
+Open the printed local URL. The default is **DEMO · SYNTHETIC**: a reproducible synthetic sequence with no provider requests, signatures, wallets or keys. It exercises the same UI, force formulas, presentation runtime, rigs and renderer as live mode. It is not a historical replay or an on-chain asset.
 
-Token names, symbols and images are untrusted input: display text is bounded and assigned with text-only DOM APIs, while logos accept HTTPS only and fall back to a text avatar. `COPY CA` and `COPY LINK` expose the validated current identity and reproducible URL. Theme selection never uses those metadata fields: only the canonical mint can select a registered project theme, and every other compatible token receives the controlled generic fallback.
+Paste a Solana mint and select **LOAD** to request real data. Failed resolution leaves the current selection visible; an unresolved deep link stays unresolved. **TRY DEMO** is an explicit recovery action. Successful selections support refresh, copied links and browser history.
 
-## What the visualization means
+## Demo and live data
 
-| Market event | Battlefield representation |
+| Surface | Meaning |
 | --- | --- |
-| Verified buy | One individually inspectable buy-side champion (a black bull in the ANSEM theme) |
-| Verified sell | One individually inspectable sell-side champion (a grizzly in the ANSEM theme) |
-| Buy worth at least 20 SOL | Giant black bull with luminous green eyes and aura |
-| Sell worth at least 20 SOL | Giant bear with luminous red eyes and aura |
-| Reported buy/sell counts across tracked pools over one hour | Strategic depth of each instanced army |
-| Reported buy/sell counts across tracked pools over five minutes | Immediate activity pulse and reinforcements |
-| Verified buy/sell SOL over 60 seconds | Army aggression and pressure-line movement |
-| Compact Pixel Frontline | Verified rolling 30-second swaps, normal/giant pixel troops and a sampled live 30-second price trace |
-| Five or more unique buys totaling at least 5 SOL in 12 seconds, with ≥75% buy dominance | The flying Bull King casts three green support waves |
-| A giant buy, buy-regime reversal or sustained ≥65% buy pressure reclaims territory containing stranded bears | The Bull King clears those isolated units with a green staff ray |
-| 60-second net buy/sell volume | Bull/bear dominance and frontline position |
-| Reference-pool OHLCV | One-hour mini price chart |
-| Selected battlefield combatant | Verified SOL size, USD value, pool, age and direct Solscan transaction link |
+| Demo events | Synthetic fixtures; no transaction links or chain verification claims |
+| Live price / provider valuation | DexScreener indicative data, independently labeled; not an executable quote |
+| Verified live swaps | Canonical pool executions admitted by the v4 relay, with mint, pool, epoch and settlement checks |
+| 60-second pressure | Confirmed/finalized SOL-quoted pool executions only; stablecoin amounts are never converted into invented SOL pressure |
+| Army depth | Existing sub-linear weighting of one-hour counts, five-minute activity and verified 60-second flow |
+| Detailed actors | At most eight recent swaps per side; large size starts at 20 SOL and grants no Commander or User Champion identity |
+| Aggregate ranks | Market activity summaries; never individual transactions |
+| Main chart | Reference-pool minute closes over one hour when available; synthetic sample trace in Demo |
+| Pixel / PiP | Rolling 30-second swaps and sampled price trace, labeled Demo when synthetic; not OHLCV |
 
-The table describes the official ANSEM theme. The generic theme retains the same truthful buy-side/sell-side semantics and battle mechanics while using neutral Frontline branding, terminology and palettes. The visualization deliberately separates inspectable swaps from market-scale ranks. Each detailed foreground champion originates from a Helius or GeckoTerminal swap and links to its Solscan transaction. The lower-detail army ranks are an explicit aggregate visualization: strategic depth starts from DexScreener's reported one-hour buy/sell counts, while the five-minute pulse, verified 60-second SOL and recent verified swaps control the immediate wave. The square-root hourly term and other sub-linear weights prevent one busy pool or whale from masquerading as hundreds of independent signatures. Aggregate ranks are not presented as one character per transaction. This allows a quiet market to remain a skirmish and a genuinely high-activity market to grow toward hundreds per side without manufacturing data. Combat motion, damage and special-entity actions are visual metaphors and never alter price, dominance or the underlying trade feed.
+The frontend can resolve supported Solana pools without secrets. Verified acquisition needs a configured relay. With no relay configured, live discovery remains available but execution coverage is **degraded**, with no invented troops. A socket alone never establishes LIVE status. Unknown, stale and unavailable values stay explicit.
 
-The display deliberately separates time horizons so activity and trend are not conflated: the mini chart shows one-hour price direction, strategic army depth encodes one-hour transaction counts, the sidebar exposes the five-minute activity pulse, and the frontline/pressure bars encode verified SOL flow over the latest 60 seconds. The optional Pixel Frontline is narrower by design and uses only verified swaps from a rolling 30-second window. Its background price line is a rolling trace of live market-price samples, not a claimed 30-second exchange OHLC candle. The segmented pressure marker represents a rolling market balance, not a wall or collision boundary. A visible coverage label discloses both the recent verified-swap count and the volume-weighted visual force per side. Detailed champions are capped at eight recent swaps per side; instanced ranks scale to 260 per side on capable devices and 120 per side on constrained devices.
-
-Units can cross the pressure line to patrol contested ground or pursue a verified opposing swap. Their operating area shifts continuously with 60-second SOL control rather than snapping to either side of the line. Target acquisition is distance-based across the arena and never turns off merely because a unit crossed the market marker. Aggregate ranks advance through 26 curved tactical sectors across a widened arena, opening sparse central skirmishes into woodland flanks as volume grows. Vanguard, skirmisher, flanker, support and reserve are effective behaviours rather than cosmetic labels: front ranks acquire contact, nearby ranks visibly support it, and eligible rear ranks slowly redistribute toward under-covered enemy sectors with per-agent decision cooldowns. A shared penetration objective moves with verified market pressure, but survivors never walk backwards; reversal is represented by the opposing force advancing, contact casualties and reinforcements from the relevant camp. Stable per-agent proportions and lateral/depth offsets prevent a rigid grid without turning the market force into random motion. Bounded turn speeds, anticipatory tree/rock avoidance, local collision cells and explicit champion-versus-rank contact keep the two forces physically distinct. A blocked verified champion attacks the local opposing rank instead of repeatedly moving and being clamped back, eliminating the former vibration failure. Regular verified units remain for 75 seconds and giant trades for 105 seconds, then retire without being counted as combat defeats; this keeps the battlefield representative of recent activity instead of accumulating historical trades forever.
-
-The pressure line never participates in collision detection or target cancellation. Idle verified units alternate between waypoints placed on opposite sides of it, while combatants may pursue verified opponents anywhere inside the arena. If a grizzly reaches the Bull King's immediate airspace while the market is balanced or buy-controlled, the King turns, closes distance and casts a visible ward that repels the intruder toward bear territory. Under clear sell control he does not erase a valid invasion: he moves behind the surviving bull vanguard in `guard`, watches the active contact lane and yields territory with the market. The verified sell remains alive during bear control; only a qualifying buy reversal or sustained buy control can clear it through the separate reclamation rule.
-
-The Bull King is a persistent visual commander inspired by the project's character artwork. A buy swarm can temporarily illuminate and strengthen existing bulls in the illustrative combat layer, but it never creates synthetic trades or directly changes dominance, price, or frontline position. Swarms have a 25-second cooldown and ignore duplicate transaction signatures.
-
-Territorial reclamation is similarly deterministic: after a buy-regime reversal, a giant buy that advances the frontline materially, or sustained buy control of at least 65%, the King targets only verified bears left behind the new bull line. His staff ray retires those isolated units and records the trigger in the battle log; bears still positioned on their valid side remain untouched, and the effect has no influence on market calculations.
-
-The King uses a deterministic command state instead of aimless patrol motion. He stays behind the actual bull formation in `overwatch`, tracks the busiest combat lane with a minimum command hold, advances to `lead` during buy control, repositions deeper and gains altitude in `guard` during sell control, moves into `rally` for buy swarms and enters `defend` only for a justified ward. Between attacks he performs bounded command gestures only while real combat is active; these animate the rider, staff, mount, aura, tail and wings without inventing a swap or casualty. Position, orientation and banking all transition with capped linear and angular speeds between objectives.
-
-The `PIXEL 30S` control captures the pixel-art canvas as a real video stream and requests the browser's native video Picture-in-Picture surface. It therefore opens directly as an always-on-top PiP panel rather than a tab or normal popup. Document Picture-in-Picture is retained as a secondary standards-based path; when neither API is available the control reports that limitation instead of silently opening another window. Normal and giant sprites occupy three collision-safe lanes with bounded attack lunges, so a dense feed remains readable. While PiP is open, the main page becomes black and pauses WebGL, but data ingestion, the rolling price trace and verified swaps continue.
-
-When the page is hidden, the WebGL loop pauses instead of wasting battery on frames the browser cannot display. Returning to the page resets the render clock, refreshes market state, reconfigures the live stream, conservatively catches up recent pool trades and summarizes verified flow received while away. The renderer also adapts pixel density on sustained slow devices, pools short-lived projectiles and particles, respects reduced-motion preferences and recovers from WebGL context loss without altering market data.
-
-## Data methodology
-
-DexScreener's official token-pairs endpoint is used in the browser to resolve the active token context, discover compatible Solana pools, calculate a liquidity-weighted token price and obtain five-minute and one-hour directional transaction counts. If that discovery request is unavailable for the default ANSEM preset, the Cloudflare Worker derives a conservative fallback price from Helius DAS metadata and returns five explicitly identified high-activity SOL/USDC pools; the interface labels this reduced coverage as `FALLBACK` instead of implying full market coverage. Those known pools are data attached only to the ANSEM preset: another mint without safely discovered pools receives an explicit unsupported result and never inherits ANSEM data. The browser sends the validated mint, selected public pool addresses and current market prices to a mint-specific Cloudflare Durable Object before opening the preferred Helius WebSocket path. The Worker parses confirmed balance changes and broadcasts normalized trades without exposing the Helius key. For a cold start, a separate mint-namespaced cached Worker endpoint queries the two highest-priority pools with the free-plan-compatible Helius `getSignaturesForAddress` method, resolves the small result set in one `getTransaction` batch and returns up to five minutes of verified history. GeckoTerminal starts concurrently as an independent enrichment and fallback path; if Helius does not explicitly confirm `live`, the browser restores conservative GeckoTerminal polling. The Worker exposes only validated Solana pool trade and minute-OHLCV paths through a short-lived cache, avoiding browser CORS failures without becoming an open proxy. Optional candle or fallback failures remain isolated from the live trade feed.
-
-Trade value is normalized to SOL:
-
-- SOL pools use the exact wrapped-SOL amount from the swap.
-- Stablecoin pools divide verified USD volume by the derived SOL/USD price.
-- Each trade links to its Solscan transaction for independent verification.
-
-The UI displays the number of monitored pools and their share of DexScreener-reported 24-hour volume. This is a near-real-time visualization, not an exchange feed: public API polling introduces several seconds of latency and extremely short-lived trades may be delayed. It is not financial advice.
+The bounded portfolio relay admits up to two operator-configured mints, uses verified polling and reserves a shared maximum across all Frontline token hubs of 30 RPC requests per minute and 3,000 per UTC day. This bounds upstream request counts, not dollar billing or Cloudflare ingress. Other compatible mints can still show provider discovery/indicative prices. See [maintenance](docs/frontline/RUNBOOK.md) for capabilities and limits.
 
 ## Architecture
 
 ```text
-Validated TokenContext (mint + identity + discovery provenance)
-      ├── ThemeResolver (canonical mint only)
-      │     └── ThemeRegistry → immutable ANSEM or Generic ThemeDefinition
-      │           ├── Theme Studio draft → validate / preview / local save / export
-      │           └── scene / UI / Pixel + companion presentation adapters
-      │
-DexScreener ── token-agnostic pool discovery, price, liquidity, market cap
-      │
-      ├── pool ranking and coverage calculation
-      │
-Helius DAS ── fallback price and known SOL pools
-      │
-Helius WSS ── confirmed pool transactions
-      │
-mint → isolated Cloudflare Durable Object ── secure parsing and WebSocket broadcast
-      │
-      ├── cached Helius recent-swap snapshot (standard free-plan RPCs)
-      ├── automatic fallback/enrichment: GeckoTerminal verified swaps
-      ├── GeckoTerminal OHLCV
-      │
-      ├── parsing, SOL normalization, deduplication
-      ├── rolling 60-second pressure model
-      ├── one-hour army depth and five-minute activity pulse
-      │
-      └── Three.js battlefield
-            ├── inspectable verified-swap champions
-            ├── instanced volume-weighted market-force ranks
-            ├── traversable rolling pressure line
-            ├── trade-sized combat attributes
-            ├── terrain, grass, rocks and trees
-            └── bounded patrols, obstacle steering and stuck recovery
-
-Browser companion ── verified rolling 30-second swaps
-      ├── sampled rolling 30-second live price trace
-      ├── collision-safe pixel normal/giant bull and bear troops
-      └── canvas capture stream → native video Picture-in-Picture
+providers → validation / canonical journal → per-mint state
+        → fixed-step presentation runtime → immutable frame → Pixi 2D
 ```
 
-The code deliberately separates token identity/resolution (`token-context.js`, `token-discovery.js`), transient per-token runtime state (`state.js`), external data (`api.js`), pure market calculations (`market.js`), volume/strategy rules (`battlefield.js`), navigation rules (`navigation.js`), theme selection/presentation (`theme-*.js`), UI (`ui.js`) and rendering/simulation (`scene.js`). Theme state is not stored in `TokenContext`, market data or the Worker.
+Token sessions own cancellation and generations. Market authority stays in the pure financial domains and v4 relay. A single numerical presentation runtime in a dedicated Worker advances movement, target selection and contact; at most one unacknowledged frame is pending. The renderer reads frames, interpolates articulated poses and owns graphical resources. Animation callbacks never create trades or numerical hits. Three.js is absent from the production graph; the previous implementation remains in Git for rollback.
 
-### Multi-token foundation (M4)
+Drag to pan, use **+ / −** to zoom, **CENTER** to frame both bases or **COMBAT** for detail. Keyboard focus supports arrows, +/−, Home and Space. Pause freezes presentation while acquisition continues; resuming reconstructs recent activity without an unbounded queue. Visibility suspension stops drawing and numerical advancement. Theme Studio edits supported 2D controls and retains legacy 3D fields on import without claiming a visual equivalent. Pixel uses native video PiP where supported, with explicit failure feedback.
 
-`TokenContext` is the canonical immutable token identity and resolved-data envelope. It carries only the validated Solana mint, identity metadata actually available to the application, supply when known, resolved pool resources and explicit discovery provenance/status. Timers, live trades, price history, deduplication sets and bootstrap state live in a separate runtime created per context. A runtime cannot be reassigned to another mint.
+## Quality and support
 
-Every token-bearing boundary validates the base58 value as a 32-byte Solana public key. Browser startup storage, pixel-companion channels, recent-snapshot edge caches, stream configuration keys and Durable Object routing are namespaced by mint. Stream and cached trades also carry their mint and are rejected when it differs from the receiving runtime. Discovery distinguishes resolved, invalid, unavailable, temporary, unsupported and upstream-failure outcomes; fallback pools are never borrowed from another token.
-
-ANSEM remains the default configuration, so the base URL, visual theme, battlefield and realtime startup behavior are unchanged. M4 provided the internal token foundation; the selector and navigation described above consume that same foundation rather than introducing a parallel data path.
-
-### Token selection and navigation (M5)
-
-`token-controller.js` owns request generations and the single active runtime. Input and URL requests pass through `token-loader.js`, which calls the M4 validator and discovery service. `token-navigation.js` is the pure query/history boundary, and `token-ui.js` is the safe, low-frequency Token Data renderer. UI and `scene.js` retain a live state binding; the scene only exposes a presentation reset and contains no token discovery, networking, cache or routing logic.
-
-If an input selection cannot be resolved, the current token remains visibly active and the URL is not changed. If an invalid or unresolvable token is present in the initial URL/history, no ANSEM market data is silently substituted; the panel reports the precise failure class and allows correction or `DEFAULT ANSEM` recovery.
-
-The production build places Three.js and the battlefield scene in separate content-hashed chunks. Market discovery, the sidebar and the verified feed start before the heavier 3D scene is evaluated, so token information is not blocked by geometry construction. Vercel serves hashed assets with a one-year immutable cache policy. Dynamic army transforms use eight `InstancedMesh` buffers per side—body, accent, anatomical detail, eyes and four independently animated legs—so hundreds of ranks remain practical without sacrificing readable gait, silhouettes or eye colour.
-
-Startup is progressive and truthful. DexScreener and the Helius relay race only on the first cold request, market values render before optional OHLCV history, and recent Helius history plus GeckoTerminal fallbacks bootstrap concurrently. Five-minute historical swaps can populate the inspectable feed immediately, but only swaps no older than 75 seconds enter the battlefield or its rolling pressure calculation. A five-minute browser snapshot of public market values and verified feed rows makes repeat visits immediate; its timestamp remains visible and the connection stays labelled as connecting until a live source confirms availability. No cached trade is relabelled as a new swap. The shared Helius snapshot is cached at the Worker edge for 45 seconds to keep the free plan sustainable without delaying the WebSocket path.
-
-### Decoupled theme engine (M6)
-
-`ThemeDefinition` is a validated, versioned and deeply immutable product configuration. `ThemeRegistry` accepts only valid built-in definitions, rejects duplicate IDs and owns the generic fallback. `ThemeResolver` maps the canonical ANSEM mint to the ANSEM theme; USDC, JUP and every other supported mint resolve to Generic Frontline. Symbols, names, token images and metadata URIs cannot select themes or executable content.
-
-The presentation controller applies a resolved definition through bounded scene, UI and companion adapters only at startup, token switches or an explicit internal theme-only change. A theme-only change preserves the active `TokenContext`, data runtime, timers, requests, WebSocket and BroadcastChannel namespace. Three.js materials and lights are updated in place; it does not allocate new materials, geometries or textures. Pixel Frontline receives a trusted registered theme ID while its market snapshot remains token-scoped. Missing declared local assets and malformed definitions resolve safely to Generic Frontline.
-
-ANSEM keeps the historical colors, copy, procedural battlefield, special commander and Pixel palette as an explicit compatibility preset. Generic Frontline uses neutral product branding and colors without inventing branding or downloading assets for the selected token. There is no public theme URL parameter or selector. See [Theme Engine architecture](docs/theme-engine.md) for the internal extension contract. Theme Studio, user-generated themes and public personalization are intentionally outside M6.
-
-### User Champion (M8)
-
-M8 adds a simulated, session-memory User Champion as a state and lifecycle dimension separate from token identity, verified trades, market data and themes. The main window owns one bounded token-scoped controller and one expiry timer; reactivation refreshes the 30-minute window without stacking entities. ANSEM receives a Black Bull-inspired presentation while Generic Frontline receives a neutral sentinel. Both the 3D battlefield and Pixel/PiP consume the same sanitized snapshot, and expired state cannot reappear after a token switch.
-
-The existing verified foreground swap “champions” and the persistent Bull King commander are unchanged. The User Champion never joins combat arrays, changes force calculations, creates a trade, opens a socket or modifies `TokenContext`. Its development-only simulation hook is not compiled into a production build, is not persisted, and is always labelled `SIMULATED`. Wallets, signatures, swaps, quotes and authoritative eligibility are intentionally deferred to M9. See [User Champion architecture](docs/user-champion.md).
-
-### Theme Studio (M7)
-
-`THEME STUDIO` opens a professional local authoring overlay over the existing M6 Theme Engine. It clones the ANSEM or Generic preset into a separate draft, validates every revision, previews safe changes through the same scene/UI/Pixel/companion adapters, and provides bounded Undo/Redo, section/full reset, explicit preview reversion, local save/autosave and deterministic JSON import/export. Invalid input can never replace the active token theme.
-
-Draft storage is versioned, capped and scoped by canonical mint plus base preset. Persisted and imported JSON is always treated as untrusted: files are size-limited; unknown/prototype-pollution fields, unsafe values, locked-field changes and every asset declaration are rejected. Theme Studio accepts no code, HTML, CSS URLs, remote assets or uploads, and it never changes TokenContext, sockets, Workers, market data, browser History or the public `?token=` contract. See [Theme Studio architecture](docs/theme-studio.md) for the editable surface and lifecycle.
-
-## Local development
-
-Requirements: Node.js 20.19 or newer.
-
-```bash
-npm ci
-npm run dev
-```
-
-Production checks:
-
-```bash
+```sh
 npm run lint
 npm test
-npm run test:tokens:smoke
 npm run build
 npm run test:e2e
 ```
 
-The token smoke check is the intentionally upstream-dependent layer: it confirms that ANSEM, USDC and JUP still resolve to compatible live DexScreener pools. The deterministic unit suite uses fixtures for the same three mints, including metadata, error classification, concurrency and state/cache isolation, so ordinary CI does not become dependent on third-party availability.
+E2E builds and serves the optimized application under both / and /frontline/, with external HTTP/WS blocked before navigation. Frozen 3D E2E files are retained as historical evidence; the active suite targets the 2D product. Current results, source hashes and measured limits are recorded in [validation](docs/frontline/VALIDATION.md), separately from historical campaigns.
 
-After starting a production preview on port `4174`, `npm run test:m5:smoke` exercises the public selector, deep-link reload, Token Data, connection state, ANSEM → USDC → JUP → ANSEM switching and resource teardown against live upstreams. Set `M5_SMOKE_URL` to target another already-built M5 URL.
+| Environment | Support / limit |
+| --- | --- |
+| Chromium desktop | Local browser validation |
+| Mobile Chromium | Responsive and touch emulation; not physical Android certification |
+| WebGL 2 / WebGL 1 | Continuous articulated rigs; pinned Pixi adapter for GL1 image textures |
+| Canvas | Compatible atlas animation; no claim of continuous-rig equivalence |
+| No graphics / failed assets | HTML data, token controls and feed remain usable |
+| Native PiP | Browser-dependent; no silent popup substitute |
+| Physical iOS, Android, modest iGPU | Pending physical procedure; no universal FPS claim |
 
-For a five-minute production-build movement and stability soak, run `npm run build && npm run preview -- --port 4174` in one terminal and `npm run test:soak` in another. Set `SOAK_SCENARIO=stress` to cycle through quiet, buyer surge, balanced high volume, seller surge and buy reversal. The monitor enables read-only diagnostics through a query flag and checks line crossings, stalled patrols, army/champion overlaps, missing model instances, support behaviour, woodland engagements, King activity/camera containment, arena bounds, viewport coverage, render load and browser/network errors.
+## Project notes
 
-Set `SOAK_STUDIO=1` to keep Theme Studio open with a validated live preview during the same deterministic budgets; the report also verifies that mint and runtime generation remain unchanged.
+[Technical case study](docs/frontline/CASE_STUDY.md) · [Runbook](docs/frontline/RUNBOOK.md) · [Release and rollback](docs/frontline/RELEASE.md) · [Selected transfers](docs/frontline/transfer-manifest.json).
 
-## Project structure
+Implementation used AI assistance for code, investigation, tests, documentation and selected generated art. The repository and evidence expose the decisions and limits; no clients, users, revenue or independent review are invented.
 
-```text
-index.html                 Application shell
-pixel-frontline.html       Compact pixel companion shell
-css/styles.css             Responsive interface
-css/pixel.css              Pixel companion surface
-js/config.js               Public endpoint and polling configuration
-js/token-context.js        Validated canonical token identity/data model
-js/token-presets.js        ANSEM default data preset (separate from theme)
-js/token-discovery.js      Structured token/pool resolution and failure states
-js/token-loader.js         Abortable public discovery entry point
-js/token-controller.js     Single-runtime selection and race control
-js/token-navigation.js     Base-safe query and History API helpers
-js/token-ui.js             Safe Token Data and copy controls
-js/theme-definition.js     Validated, versioned immutable theme schema
-js/theme-registry.js       Explicit built-in theme registry and fallback
-js/theme-resolver.js       Canonical-mint theme assignment
-js/theme-presets.js        ANSEM and Generic Frontline definitions
-js/theme-adapters.js       Bounded scene, UI and companion adapters
-js/champion-state.js       Canonical token-scoped User Champion state
-js/champion-policy.js      Duration, reactivation and bounded-memory policy
-js/champion-controller.js  In-memory lifecycle owner and single expiry timer
-js/champion-sync.js        Sanitized Pixel/PiP snapshot validation
-js/champion-ui.js          Accessible event status and 1-second countdown
-js/theme-presentation.js   Theme application lifecycle coordinator
-js/theme-assets.js         Safe local asset resolution and fallback
-js/theme-studio-contract.js Curated authoring allowlist and secure import/export
-js/theme-studio-model.js   Isolated validated draft and bounded history
-js/theme-studio-storage.js Versioned mint/preset-scoped local persistence
-js/theme-studio.js         Responsive accessible authoring controller
-js/market.js               Pure pool/trade/pressure calculations
-js/battlefield.js          Pure force-scaling and tactical doctrine
-js/navigation.js           Arena bounds, lanes, patrols and lifetime rules
-js/api.js                  Resilient multi-pool data ingestion
-js/state.js                Isolated per-token runtime state factory
-js/ui.js                   Safe DOM rendering and controls
-js/scene.js                Three.js world and combat simulation
-js/companion.js            Native video/Document Picture-in-Picture lifecycle and live sync
-js/pixel-engine.js         Pure 30-second pixel battlefield renderer
-js/stream.js               WebSocket client and reconnection
-worker/src/index.js        Cloudflare/Helius real-time relay
-worker/src/configuration.js Validated public pool configuration
-worker/src/market-fallback.js Helius market fallback normalization
-worker/src/token-routing.js Mint-namespaced Worker cache and stream routing
-worker/src/parser.js       Generic Solana balance-change parser
-worker/src/recent-trades.js Free-plan Helius startup history
-tests/market.test.js       Market semantics and parsing tests
-tests/battlefield.test.js  Force scale, doctrines and King modes
-tests/navigation.test.js   Deterministic movement and lifecycle tests
-tests/token-*.test.js      Token identity, selection, URL and UI safety tests
-tests/theme-engine.test.js Theme validation, resolution, security and lifecycle tests
-tests/theme-studio.test.js Draft, persistence and import/export security tests
-.github/workflows/ci.yml   Automated quality gate
-.github/workflows/codeql.yml Security-extended JavaScript scanning
-.github/dependabot.yml     Weekly npm and Actions updates
-SECURITY.md                Private vulnerability reporting policy
-CONTRIBUTING.md            Development and code standards
-CHANGELOG.md               Versioned release notes
-vercel.json                Deployment and security headers
-```
-
-## Privacy and security
-
-The application has no accounts, cookies, wallet connection or trading capability. Its optional Cloudflare relay only transforms public on-chain transactions into a browser stream and does not persist user data. The repository contains no private API keys. Wallet addresses visible in the public trade feed originate from public Solana transactions and are not persisted by this project.
-
-The optional Helius credential is stored only as a Cloudflare Worker secret. `VITE_STREAM_URL` is a public relay URL and can safely be configured in Vercel.
-
-GitHub Dependabot monitors npm and workflow dependencies weekly, while CodeQL runs the `security-extended` JavaScript query suite on pushes, pull requests and a weekly schedule. Vulnerabilities should be reported privately as described in [SECURITY.md](SECURITY.md).
-
-## Free real-time relay deployment
-
-1. Create free Helius and Cloudflare accounts.
-2. Authenticate Wrangler with `npx wrangler login`.
-3. Store the key securely: `npx wrangler secret put HELIUS_API_KEY --config worker/wrangler.jsonc`.
-4. Deploy: `npm run worker:deploy`.
-5. Configure the resulting `/stream` WebSocket URL as `VITE_STREAM_URL` or update the public fallback in `js/config.js`, then redeploy the frontend.
-
-Never add the Helius key to `.env`, Vercel client variables or source control.
-
-### Token troubleshooting
-
-- `Invalid mint` means the value is not a 32-byte Solana base58 public key; paste the CA again without a label or URL.
-- `Not available` means the mint is valid but current sources returned no usable Solana market data.
-- `Unsupported` means markets exist but none match the pool/runtime constraints used by Frontline.
-- `Temporary error` can be retried; it normally indicates a timeout, rate limit or recoverable provider outage.
-- `Upstream failure` means discovery returned an invalid or unavailable response. The requested token is never replaced with mislabeled ANSEM data.
-
-## Limitations and roadmap
-
-- Without the relay, or while its streaming path is unavailable, public polling is near-real-time and the five-pool cap plus 8-second global cadence protects GeckoTerminal's public rate limit. A `429` pauses all fallback trade polling for 60 seconds instead of creating a retry storm.
-- For the default ANSEM preset, DexScreener outages reduce discovery to five known SOL/USDC pools and Helius metadata; the application marks that state as fallback coverage and does not invent an hourly change value. Other mints fail explicitly when no safe pools have been resolved.
-- With the relay, the five highest-scoring pools discovered by DexScreener are subscribed over Helius standard WebSockets; unsupported or unusual transactions can still fall back to the polling source.
-- Free-service quotas are suitable for a portfolio demo, not an SLA-backed trading product.
-- Combat outcomes are illustrative and do not predict price movement.
-
-## License
-
-[MIT](LICENSE) © 2026 PowerPixelKK.
+Code: [MIT](LICENSE). Third-party code and selected art have their own terms and distribution status: [notices](THIRD_PARTY_NOTICES.md).

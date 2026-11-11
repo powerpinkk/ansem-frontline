@@ -18,8 +18,8 @@ describe('Worker health endpoint', () => {
         expect(response.headers.get('cache-control')).toBe('no-store');
         await expect(response.json()).resolves.toEqual({
             ok: true,
-            service: 'ansem-frontline-stream',
-            buildId: 'ansem-frontline-worker-recovery-v1',
+            service: 'frontline-stream',
+            buildId: 'frontline-worker-recovery-v1',
             envelopeVersion: 4,
             healthSchemaVersion: 1,
         });

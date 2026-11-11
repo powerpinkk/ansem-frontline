@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createTokenContext, TOKEN_DISCOVERY_STATUS } from '../js/token-context.js';
 import { createTokenController, TOKEN_UI_STATUS } from '../js/token-controller.js';
-import { DEFAULT_TOKEN_CONTEXT } from '../js/token-presets.js';
+import { DEFAULT_TOKEN_CONTEXT } from './fixtures/market-token.js';
 
 const ANSEM = DEFAULT_TOKEN_CONTEXT.identity.mint;
 const USDC = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';

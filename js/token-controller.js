@@ -97,7 +97,13 @@ export function createTokenController({
                 error: { code: validation.code, message: validation.message },
             }, { clearOnFailure, requestedMint: requestedMint.slice(0, 80) });
         }
-        if (validation.value === defaultContext.identity.mint) return selectDefault({ history });
+        if (validation.value === defaultContext.identity.mint) {
+            if (defaultContext.discovery.source === 'synthetic-demo') return showFailure({
+                ok: false, status: TOKEN_UI_STATUS.UNSUPPORTED,
+                error: { code: 'RESERVED_DEMO_IDENTITY', message: 'The reserved demo identity is not a tradable token' },
+            }, { clearOnFailure, requestedMint: validation.value });
+            return selectDefault({ history });
+        }
         if (activeSession?.context?.identity?.mint === validation.value) {
             return commit({ context: activeSession.context }, { history, requestedMint: validation.value });
         }

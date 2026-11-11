@@ -40,6 +40,70 @@ test('ANSEM draft previews live, preserves runtime and supports undo, redo and e
     await expect(page.locator('#theme-studio-backdrop')).toBeHidden();
 });
 
+test('Show commander parks its reserved light without changing render topology', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== 'desktop-chromium', 'One synchronous renderer lifecycle check is sufficient');
+    await installPointLightShaderObserver(page);
+    await page.goto('/');
+    await ready(page, 'ANSEM', 'ansem');
+    const baseline = await commanderLightState(page);
+    expect(await pointLightShaderVariants(page)).toContain(baseline.topology.total);
+    await clearPointLightShaderVariants(page);
+
+    await openStudio(page);
+    await page.locator('[data-studio-section="factions"]').click();
+    const toggle = page.locator('#studio-scene-hero-visible');
+    await toggle.uncheck();
+    await expect(page.locator('#theme-studio-preview-state')).toHaveText('LIVE');
+    await page.waitForTimeout(150);
+    const hidden = await commanderLightState(page);
+    expect(await pointLightShaderVariants(page)).not.toContain(baseline.topology.total - 1);
+    expect(hidden.scene.theme.heroVisible).toBe(false);
+    expect(hidden.topology.renderable).toBe(hidden.topology.total);
+    expect(hidden.light).toMatchObject({ owner: null, role: 'parked', intensity: 0, renderable: true });
+    expect(hidden.topology.topologyTransitions.filter((entry) => entry.sequence > baseline.topology.topologySequence))
+        .toEqual([]);
+
+    // Exercise the real scene mounting surface while the selected theme already
+    // hides the actor; this is distinct from applying visibility to an existing rig.
+    const mountedHidden = await page.evaluate(async () => {
+        const scene = await import('/js/scene.js');
+        const { ANSEM_COMMANDER_PROFILE, commanderProfileKey } = await import('/js/commander-profile.js');
+        scene.setCommanderSnapshot({ role: 'commander', present: false, lifecycleState: 'empty' });
+        scene.setCommanderSnapshot({
+            role: 'commander', present: true, lifecycleState: 'active', generation: 99,
+            tokenMint: ANSEM_COMMANDER_PROFILE.tokenMint,
+            actorId: 'commander:e2e-hidden-mount',
+            profile: ANSEM_COMMANDER_PROFILE,
+            profileKey: commanderProfileKey(ANSEM_COMMANDER_PROFILE),
+            assetId: ANSEM_COMMANDER_PROFILE.assetId,
+            rigType: ANSEM_COMMANDER_PROFILE.rigType,
+            animationSetId: ANSEM_COMMANDER_PROFILE.animationSetId,
+            combatArchetype: ANSEM_COMMANDER_PROFILE.combatArchetype,
+            capabilities: ANSEM_COMMANDER_PROFILE.capabilities,
+        });
+        return window.__ansemSceneDiagnostics();
+    });
+    expect(mountedHidden.theme.heroVisible).toBe(false);
+    expect(mountedHidden.commander).toMatchObject({ present: true, actorId: 'commander:e2e-hidden-mount' });
+    expect(mountedHidden.render.dynamicPointLights.renderable)
+        .toBe(mountedHidden.render.dynamicPointLights.total);
+    expect(mountedHidden.render.dynamicPointLights.lights.at(-1))
+        .toMatchObject({ owner: null, role: 'parked', intensity: 0, renderable: true });
+
+    await toggle.check();
+    await expect.poll(() => page.evaluate(() => window.__ansemSceneDiagnostics().theme.heroVisible)).toBe(true);
+    const restored = await commanderLightState(page);
+    expect(restored.scene.theme.heroVisible).toBe(true);
+    expect(restored.topology.renderable).toBe(restored.topology.total);
+    expect(restored.light).toMatchObject({ owner: 'commander', role: 'commander', renderable: true });
+    expect(restored.light.intensity).toBeGreaterThan(0);
+    expect(restored.light.color).toBe(hidden.light.color);
+    expect(restored.light.position).toEqual(baseline.light.position);
+    expect(restored.topology.topologyTransitions.filter((entry) => entry.sequence > baseline.topology.topologySequence))
+        .toEqual([]);
+
+});
+
 test('Generic draft is locally recoverable and exports a deterministic portable definition', async ({ page }) => {
     await page.goto(`/?token=${USDC}`);
     await ready(page, 'USDC', 'generic');
@@ -227,6 +291,41 @@ async function diagnostics(page) {
         scene: window.__ansemSceneDiagnostics(),
         companion: window.__ansemCompanionDiagnostics(),
     }));
+}
+
+async function commanderLightState(page) {
+    return page.evaluate(() => {
+        const scene = window.__ansemSceneDiagnostics();
+        const topology = scene.render.dynamicPointLights;
+        const lights = topology.lights || [];
+        const light = lights.find((candidate) => candidate.role === 'commander')
+            || lights.find((candidate) => candidate.slot === topology.total - 1);
+        return { scene, topology, light };
+    });
+}
+
+async function installPointLightShaderObserver(page) {
+    await page.addInitScript(() => {
+        window.__ansemE2EPointLightVariants = [];
+        for (const api of [window.WebGLRenderingContext, window.WebGL2RenderingContext]) {
+            if (!api?.prototype || api.prototype.__ansemE2EPointLightObserver) continue;
+            const shaderSource = api.prototype.shaderSource;
+            api.prototype.shaderSource = function observedShaderSource(shader, source) {
+                const count = Number(source.match(/uniform\s+PointLight\s+pointLights\s*\[\s*(\d+)\s*\]/)?.[1]);
+                if (Number.isFinite(count)) window.__ansemE2EPointLightVariants.push(count);
+                return shaderSource.call(this, shader, source);
+            };
+            Object.defineProperty(api.prototype, '__ansemE2EPointLightObserver', { value: true });
+        }
+    });
+}
+
+async function pointLightShaderVariants(page) {
+    return page.evaluate(() => [...new Set(window.__ansemE2EPointLightVariants)]);
+}
+
+async function clearPointLightShaderVariants(page) {
+    await page.evaluate(() => window.__ansemE2EPointLightVariants.splice(0));
 }
 
 async function runtimeIdle(page) {

@@ -1,18 +1,16 @@
 import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
-    testDir: './tests/e2e',
+    testDir: './tests/e2e/frontline',
     timeout: 60_000,
     fullyParallel: false,
-    workers: process.env.CI ? 1 : undefined,
+    workers: 1,
     forbidOnly: Boolean(process.env.CI),
-    retries: process.env.CI ? 2 : 0,
-    reporter: process.env.CI
-        ? [['list'], ['github']]
-        : [['list'], ['html', { open: 'never' }]],
+    retries: 0,
+    reporter: [['list'], ['json', { outputFile: '.artifacts/frontline-2d/e2e.json' }]],
     expect: { timeout: 15_000 },
     use: {
-        baseURL: 'http://127.0.0.1:4173',
+        baseURL: 'http://127.0.0.1:4188',
         trace: 'on-first-retry',
         screenshot: 'only-on-failure',
     },
@@ -21,9 +19,8 @@ export default defineConfig({
         { name: 'mobile-chromium', use: { ...devices['Pixel 7'] } },
     ],
     webServer: {
-        command: 'npm run dev -- --host 127.0.0.1 --port 4173 --mode e2e',
-        url: 'http://127.0.0.1:4173',
+        command: 'node scripts/serve-candidate.mjs',
+        url: 'http://127.0.0.1:4188',
         reuseExistingServer: false,
-        env: { ...process.env, VITE_STREAM_URL: 'disabled' },
     },
 });

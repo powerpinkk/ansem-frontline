@@ -21,9 +21,11 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
+      - run: npm ci --ignore-scripts --legacy-peer-deps
       - run: npm run lint
       - run: npm test
       - run: npm run build
-      - run: npx playwright install --with-deps chromium
+      # Hosted Ubuntu already supplies the Chromium runtime libraries.
+      # Install the pinned browser without unrelated APT font downloads.
+      - run: npx playwright install chromium
       - run: npm run test:e2e

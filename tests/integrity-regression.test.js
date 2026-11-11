@@ -2,11 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { resolveDexScreenerPayload } from '../js/token-discovery.js';
 import { parseTransaction } from '../worker/src/parser.js';
 import { normalizeHeliusMarket } from '../worker/src/market-fallback.js';
-import { DEFAULT_TOKEN_CONTEXT, ANSEM_FALLBACK_POOLS } from '../js/token-presets.js';
+import { DEFAULT_TOKEN_CONTEXT, FALLBACK_POOLS } from './fixtures/market-token.js';
 
 const mint = DEFAULT_TOKEN_CONTEXT.identity.mint;
 const pair = (index, marketCap, liquidity = 100_000) => ({
-    chainId: 'solana', pairAddress: ANSEM_FALLBACK_POOLS[index].address, dexId: 'meteora',
+    chainId: 'solana', pairAddress: FALLBACK_POOLS[index].address, dexId: 'meteora',
     baseToken: { address: mint, symbol: 'ANSEM' },
     quoteToken: { address: 'So11111111111111111111111111111111111111112', symbol: 'SOL' },
     priceUsd: '1', priceNative: '.01', marketCap, liquidity: { usd: liquidity }, volume: { h1: 10, h24: 100 },
@@ -43,13 +43,13 @@ describe('M10 audit regressions (recorded before implementation)', () => {
     it('client price cannot change canonical evidence for the same transaction', () => {
         const tx = balanceOnly(10_000, 0);
         const results = [0.001, 0.020, 999].map((tokenPriceUsd) => parseTransaction(tx, 'audit',
-            { ...ANSEM_FALLBACK_POOLS[0], quoteSymbol: 'USDC' }, mint, { tokenPriceUsd, solPriceUsd: 100 }));
+            { ...FALLBACK_POOLS[0], quoteSymbol: 'USDC' }, mint, { tokenPriceUsd, solPriceUsd: 100 }));
         expect(results[1]).toEqual(results[0]);
         expect(results[2]).toEqual(results[0]);
     });
     it.each([['transfer', 10_000, 0], ['airdrop', 0, 10_000], ['mint', 0, 100], ['burn', 100, 0], ['LP action', 100, 200]])(
         '%s balance changes alone never prove a swap', (_kind, before, after) => {
-            expect(parseTransaction(balanceOnly(before, after), 'audit', ANSEM_FALLBACK_POOLS[0], mint,
+            expect(parseTransaction(balanceOnly(before, after), 'audit', FALLBACK_POOLS[0], mint,
                 { tokenPriceUsd: .25, solPriceUsd: 100 })).toBeNull();
         });
 });

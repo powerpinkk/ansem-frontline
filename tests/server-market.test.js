@@ -1,3 +1,4 @@
+import { budgetBinding } from './fixtures/budget-binding.js';
 import { expect, it, vi } from 'vitest';
 import { resolveServerMarket, createRpcTransport } from '../worker/src/server-market.js';
 import worker from '../worker/src/index.js';
@@ -62,7 +63,7 @@ it('reports a sanitized rate-limit reason from the Worker market fallback', asyn
         headers: { 'retry-after': '60', 'cache-control': 'no-store' } }));
     const response = await worker.fetch(new Request(`https://relay.example/market?mint=${MINT}`, {
         headers: { Origin: origin },
-    }), { DEFAULT_TOKEN_MINT: MINT, ALLOWED_ORIGINS: origin,
+    }), { DEFAULT_TOKEN_MINT: MINT, LIVE_TOKEN_MINTS: MINT, GLOBAL_BUDGET: budgetBinding, ALLOWED_ORIGINS: origin,
         STREAM_HUB: { idFromName: (name) => name, get: () => ({ fetch: objectFetch }) } });
     expect(response.status).toBe(503);
     expect(response.headers.get('retry-after')).toBe('60');
@@ -75,7 +76,7 @@ it('recent endpoint forwards only mint identifiers to the same token-scoped Dura
     const forwarded = [];
     const fetchImpl = vi.fn(async (request) => { forwarded.push({ url: request.url, body: await request.json() });
         return Response.json({ version: 4, tokenMint: MINT, trades: [] }, { headers: { 'cache-control': 'no-store' } }); });
-    const env = { DEFAULT_TOKEN_MINT: MINT, ALLOWED_ORIGINS: 'https://frontline.example',
+    const env = { DEFAULT_TOKEN_MINT: MINT, LIVE_TOKEN_MINTS: MINT, GLOBAL_BUDGET: budgetBinding, ALLOWED_ORIGINS: 'https://frontline.example',
         STREAM_HUB: { idFromName: (name) => name, get: () => ({ fetch: fetchImpl }) } };
     const response = await worker.fetch(new Request('https://relay.example/recent', { method: 'POST',
         headers: { Origin: 'https://frontline.example' }, body: JSON.stringify({ type: 'configure', token: { mint: MINT },

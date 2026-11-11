@@ -107,6 +107,15 @@ test('renders verified swaps and the WebGL battlefield', async ({ page }, testIn
     await expect(page.locator('#data-freshness')).toContainText('DATA');
     expect(diagnostics.render.calls).toBeLessThan(220);
     expect(diagnostics.render.geometries).toBeLessThan(80);
+    expect(diagnostics.comicFortress).toMatchObject({
+        style: 'COMIC_FORTRESS_V1',
+        owner: 'comic-fortress-environment',
+        obstacleVisuals: 102,
+        lavaAnimated: true,
+        drawMeshes: 5,
+        ownedGeometries: 4,
+        sharedPointLights: 0,
+    });
     await page.waitForTimeout(350);
     const animated = await page.evaluate(() => window.__ansemSceneDiagnostics());
     const entityTravel = Math.max(...animated.entities.map((entity, index) => Math.hypot(
@@ -393,9 +402,16 @@ test('the Bull King visibly repels a verified bear that reaches his airspace', a
     expect(defending.kingStrikes).toBeGreaterThan(0);
     await expect(page.locator('#killfeed')).toContainText("KING'S WARD");
 
-    await page.waitForFunction((initialRotation) => (
-        Math.abs(window.__ansemSceneDiagnostics().bullKing.rotationY - initialRotation) > 0.03
-    ), defending.bullKing.rotationY, { polling: 100, timeout: 8_000 });
+    await page.waitForFunction(({ initialRotation, bearId, initialBearX }) => {
+        const diagnostics = window.__ansemSceneDiagnostics();
+        const survivingBear = diagnostics.entities.find((entity) => entity.id === bearId);
+        return Math.abs(diagnostics.bullKing.rotationY - initialRotation) > 0.03
+            && survivingBear?.x > initialBearX + 2;
+    }, {
+        initialRotation: defending.bullKing.rotationY,
+        bearId: invadingBear.id,
+        initialBearX: invadingBear.x,
+    }, { polling: 100, timeout: 8_000 });
     const repelled = await page.evaluate(() => window.__ansemSceneDiagnostics());
     const survivingBear = repelled.entities.find((entity) => entity.type === 'bear');
     expect(survivingBear).toBeTruthy();
@@ -541,8 +557,10 @@ test('scales a high-volume market into hundreds of moving forces with a wider au
     }, undefined, { polling: 100, timeout: 30_000 });
     await page.waitForTimeout(1_200);
     await page.waitForFunction(() => {
-        const camera = window.__ansemSceneDiagnostics().camera;
-        return camera.fov > 47 && camera.y > 28;
+        const diagnostics = window.__ansemSceneDiagnostics();
+        return diagnostics.camera.fov > 47
+            && diagnostics.camera.y > 28
+            && diagnostics.bullKing.mode === 'marshal';
     }, undefined, { polling: 100, timeout: 12_000 });
     const before = await page.evaluate(() => window.__ansemSceneDiagnostics());
     await page.waitForTimeout(650);

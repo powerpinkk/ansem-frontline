@@ -2,10 +2,10 @@ import js from '@eslint/js';
 import globals from 'globals';
 
 export default [
-    { ignores: ['dist/**', 'coverage/**', '**/.wrangler/**', '**/.wrangler-dist/**', '.artifacts/**', 'playwright-report/**', 'test-results/**'] },
+    { ignores: ['dist/**', '.codex-context/**', 'coverage/**', '**/.wrangler/**', '**/.wrangler-dist/**', '.artifacts/**', 'playwright-report/**', 'test-results/**'] },
     js.configs.recommended,
     {
-        files: ['js/**/*.js', 'worker/**/*.js', 'tests/**/*.js', '*.config.js'],
+        files: ['scripts/build-candidates.mjs', 'scripts/serve-candidate.mjs', 'scripts/check-candidate.mjs', 'js/**/*.js', 'worker/**/*.js', 'tests/**/*.js', '*.config.js'],
         languageOptions: {
             ecmaVersion: 2023,
             sourceType: 'module',
