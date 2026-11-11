@@ -166,11 +166,19 @@ export function createBattleRuntime({ state, mint, epoch = 1, maxPerSide = CONFI
             bm.positionX += dx / normal * correction; bm.positionZ += dz / normal * correction;
             }
         }
+        // Resolve every body first so facing uses the rival's current position,
+        // independent of iteration order or the pre-separation snapshot.
         for (const a of actors) {
-            const m = a.motion, b = BATTLE_BOUNDS, rival = byId.get(a.targetId);
-            finalizeMotionFrame(m, { x: clamp(m.positionX, b.minX + a.radius, b.maxX - a.radius), z: clamp(m.positionZ, b.minZ + a.radius, b.maxZ - a.radius),
-                allowExplicitFacing: Boolean(rival), explicitFacingX: (rival?.x || 0) - m.positionX,
-                explicitFacingZ: (rival?.z || 0) - m.positionZ, progressExempt: true, turnSpeed: 5.4 }, FIXED_DT);
+            a.motion.positionX = clamp(a.motion.positionX, BATTLE_BOUNDS.minX + a.radius, BATTLE_BOUNDS.maxX - a.radius);
+            a.motion.positionZ = clamp(a.motion.positionZ, BATTLE_BOUNDS.minZ + a.radius, BATTLE_BOUNDS.maxZ - a.radius);
+        }
+        for (const a of actors) {
+            const m = a.motion, rival = byId.get(a.targetId)?.a.motion;
+            finalizeMotionFrame(m, { x: m.positionX, z: m.positionZ,
+                allowExplicitFacing: Boolean(rival), preferExplicitFacing: Boolean(rival),
+                explicitFacingX: (rival?.positionX ?? m.positionX) - m.positionX,
+                explicitFacingZ: (rival?.positionZ ?? m.positionZ) - m.positionZ,
+                progressExempt: true, turnSpeed: 5.4 }, FIXED_DT);
             a.strideTravel = advanceStrideTravel(a.strideTravel, m.frameDistance, m.speed);
         }
         for (const hit of hits) {

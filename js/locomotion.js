@@ -267,7 +267,10 @@ export function finalizeMotionFrame(state, input = {}, delta = 0) {
     const explicitFacingZ = finiteOr(input.explicitFacingZ, 0);
     const explicitFacingLength = Math.hypot(explicitFacingX, explicitFacingZ);
     let desiredFacing = state.facing;
-    if (state.speed > MOTION_LIMITS.facingDeadZone) {
+    if (input.preferExplicitFacing === true && Boolean(input.allowExplicitFacing) && explicitFacingLength > EPSILON) {
+        // Combat can slide/backstep under separation while looking at its rival.
+        desiredFacing = Math.atan2(-explicitFacingZ, explicitFacingX);
+    } else if (state.speed > MOTION_LIMITS.facingDeadZone) {
         desiredFacing = Math.atan2(-state.resolvedVelocityZ, state.resolvedVelocityX);
     } else if (Boolean(input.allowExplicitFacing) && explicitFacingLength > EPSILON) {
         desiredFacing = Math.atan2(-explicitFacingZ, explicitFacingX);

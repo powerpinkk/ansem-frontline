@@ -1,6 +1,6 @@
 # Third-party notices
 
-Frontline source code retains the project MIT license (Copyright (c) 2026 PowerPixelKK), without rewriting author history. Selected generated media have the separate local-review status below.
+Frontline source code retains the project MIT license (Copyright (c) 2026 PowerPixelKK), without rewriting author history. Selected generated media have the separate Frontline distribution status below.
 
 ## Jupiter functional declarations
 
@@ -60,4 +60,4 @@ Dependencies retain their package licenses. Pump declarations reviewed against @
 
 ## Selected visual media
 
-The illustrated environment and four character atlases were generated for a private local pilot using built-in Image Gen. Their source manifests say PRIVATE_PILOT_NOT_AUTHORIZED_FOR_DISTRIBUTION. This local integration neither re-licenses the original visual reference nor approves publication. The reference image and private game context are excluded. Distribution of the selected media requires the review in docs/frontline/ART.md. The neutral favicon/social vector is an original code-native design for this candidate.
+The illustrated environment and four character atlases were generated for a private local pilot using built-in Image Gen. Their source manifests say PRIVATE_PILOT_NOT_AUTHORIZED_FOR_DISTRIBUTION. The user accepted the exact Frontline selection on 11 November 2026 and instructed publication after the giant-orientation correction. Permission is recorded for this Frontline distribution, without re-licensing the original visual reference or granting blanket downstream media rights. The reference image and private game context are excluded. Source pilot labels remain unchanged; see docs/frontline/ART.md for scope and hashes. The neutral favicon/social vector is an original code-native design for this candidate.

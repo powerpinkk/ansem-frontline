@@ -1,6 +1,6 @@
 # Candidate validation — 11 November 2026
 
-This is a locally verified Frontline 3.0.0-rc.1 candidate, not a published release or independent review. Source branch: codex/frontline-2d-portfolio; baseline 1dcf44bee668f72ccccc98f753ecf624c91f4f6d. The ignored .artifacts/frontline-2d/candidate.json binds the final source commit, binary diff, source archive and both optimized variants to SHA-256 hashes. Evidence is private until the publication gates are met.
+The initial Frontline 3.0.0-rc.1 candidate was accepted by the user, with a requested giant-orientation correction before proceeding. See GIANT_ORIENTATION.md for the correction and current 820-unit / 22-E2E verification. Publication is authorized; live hosting cutover is not yet verified. No independent review is claimed. Source branch: codex/frontline-2d-portfolio; baseline 1dcf44bee668f72ccccc98f753ecf624c91f4f6d. The ignored .artifacts/frontline-2d/candidate.json binds the final source commit, binary diff, source archive and both optimized variants to SHA-256 hashes. Evidence is private until the publication gates are met.
 
 ## Automated results on this implementation
 
@@ -8,7 +8,7 @@ This is a locally verified Frontline 3.0.0-rc.1 candidate, not a published relea
 | --- | --- | --- |
 | Initial unit baseline | 805 passing | baseline-host-unit.json; original checkout, outside sandbox |
 | Final lint | Pass | npm run check; historical .codex-context evidence explicitly excluded, preserved |
-| Final unit / contract suite | 817 passing across 49 files | final-verification.json / final npm run check (unit-final.json is the earlier 816-test checkpoint); no financial expectation weakening |
+| Initial accepted unit / contract suite | 817 passing across 49 files | final-verification.json / final npm run check (unit-final.json is the earlier 816-test checkpoint); no financial expectation weakening |
 | Optimized E2E | 22 passing, zero skipped/flaky/failing | e2e.json; Chromium desktop + mobile emulation, actual static / and /frontline/; current candidate |
 | Build / asset checks | Both variants, 34 files each | bundle-manifest.json; Three absent from production module graph; forbidden simulation hooks absent |
 | Pressure replay | 48 comparisons, zero divergences | financial-replay.json; synthetic PumpSwap/DLMM/Orca buy/sell/routed fixtures, four window ages; baseline versus candidate |
@@ -24,7 +24,7 @@ E2E covers explicit Demo, malformed mint and history recovery, representative pr
 
 The additional private interactions.json records keyboard zoom/pan/Home/Space, mouse and CDP touch drag, synthetic event picking without a verification URL, inspector close, and deterministic visibility suspension/resumption. The document.hidden override is an event-path test; it does not certify an OS background policy.
 
-## Measurement method and results
+## Measurements of accepted candidate 1a08536 (before the giant correction)
 
 | Load / viewport | Actors | rAF p50 / p95 / p99 (ms) | Renderer init → first draw (ms) | Long tasks |
 | --- | ---: | --- | ---: | ---: |

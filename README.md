@@ -2,7 +2,9 @@
 
 Frontline visualizes Solana token activity and price as an illustrated 2D battlefield. Buy and sell forces respond to market flow; combat is a visual metaphor and never sets a token price.
 
-**Local portfolio candidate. Publication and visual acceptance are pending.** The selected illustrated assets are available for local review; their source manifests do not authorize distribution. See [release review](docs/frontline/RELEASE.md). No public screenshot is claimed as approved.
+**The 2D candidate has been accepted; publication is in progress.** The requested giant-orientation correction is verified in both families. See [release status](docs/frontline/RELEASE.md) and [art scope](docs/frontline/ART.md).
+
+![Frontline 2D Demo, using synthetic data](docs/frontline/screenshots/frontline-desktop.png)
 
 ## Run without services
 

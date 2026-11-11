@@ -1,6 +1,6 @@
 # Frontline 3.0.0-rc.1 — local release procedure
 
-Status: local candidate preparation. No remote branch, PR, push, merge, rename, release, image publication or deployment is authorized by the implementation task. The exact source commit, source/transfer hashes and root/Pages artifact hashes are recorded in the local candidate manifest. Review that exact package; no independent review has been claimed or created automatically.
+Status: publication authorized by the user after acceptance of candidate 1a08536 and verification of the requested giant-orientation correction. The original implementation-only prohibition has been superseded by that explicit follow-up. Hosting access and the ordered preservation checks below still apply. The exact source commit, source/transfer hashes and root/Pages artifact hashes are recorded in the local candidate manifest. Review that exact package; no independent review has been claimed or created automatically.
 
 ## Revalidated remote facts — 11 November 2026
 
@@ -42,6 +42,6 @@ Restore the previous frontend deployment/artifacts and its known configuration. 
 
 Official references: [Cloudflare storage transactions](https://developers.cloudflare.com/durable-objects/api/sqlite-storage-api/) and [GitHub repository renaming](https://docs.github.com/en/repositories/creating-and-managing-repositories/renaming-a-repository).
 
-## Approval still needed
+## Execution prerequisites
 
-Acceptance of the exact visual/technical candidate; decision/permission for selected generated media and retained historical material; and explicit authorization for the listed remote writes and endpoint cutover. No external publication has occurred in this implementation pass.
+The user accepted the candidate and authorized proceeding after the giant correction; ART.md records the selected distribution scope. No independent review or universal rights clearance is claimed. The existing public Git history is preserved, without rewrite or new blanket licensing claims. Complete the Cloudflare/Vercel account connections, confirm current physical Worker/DO identities and record the actual neutral facade origin before cutover. Do not create a replacement Worker to bypass an inaccessible existing namespace. Current publication status and blockers are recorded in the local publication evidence and continuity files.

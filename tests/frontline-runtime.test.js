@@ -73,6 +73,32 @@ describe('Frontline presentation authority', () => {
         expect(frame.events.some(e => [e.sourceId, e.targetId].includes(contacted.id))).toBe(false);
         expect(assertPresentationFrame(frame)).toBe(true);
     });
+    it('keeps both large-swap families facing their actual nearby rival in a crowded field', () => {
+        const token = createTokenRuntime(DEFAULT_TOKEN_CONTEXT); token.state.mode = 'demo';
+        token.state.activity1h = { buyCount: 40, sellCount: 35 };
+        token.state.activity5m = { buyCount: 8, sellCount: 6 };
+        const battle = createBattleRuntime({ state: token.state, mint: token.context.identity.mint, maxPerSide: 48 });
+        for (const index of [0, 13]) battle.admit(demoTrade(index, 100000 - index * 1700), 100000);
+        const targets = new Map(), observations = { bull: 0, bear: 0 };
+        for (let tick = 0; tick < 2400; tick++) {
+            battle.step(100000 + tick * FIXED_DT * 1000);
+            const frame = battle.frame(), byId = new Map(frame.actors.map(a => [a.id, a]));
+            for (const actor of frame.actors.filter(a => a.role === 'large-swap')) {
+                const previous = targets.get(actor.id);
+                const age = previous?.id === actor.targetId ? previous.age + 1 : 0;
+                targets.set(actor.id, { id: actor.targetId, age });
+                const rival = byId.get(actor.targetId);
+                if (!rival || age < 60 || Math.hypot(rival.x - actor.x, rival.z - actor.z) > 4.5) continue;
+                const expected = Math.atan2(-(rival.z - actor.z), rival.x - actor.x);
+                const error = Math.atan2(Math.sin(actor.facing - expected), Math.cos(actor.facing - expected));
+                expect(Math.abs(error)).toBeLessThan(.25);
+                observations[actor.family]++;
+            }
+        }
+        expect(observations.bull).toBeGreaterThan(30);
+        expect(observations.bear).toBeGreaterThan(30);
+        battle.dispose();
+    }, 15000);
     it('caps detailed swaps independently of aggregate forces and never promotes size to a role', () => {
         const { battle } = setup();
         for (let i = 0; i < 30; i++) battle.admit(demoTrade(i, 0), 60000);
