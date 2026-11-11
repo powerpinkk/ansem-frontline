@@ -1,6 +1,6 @@
 {
   "$schema": "../node_modules/wrangler/config-schema.json",
-  "name": "frontline-stream",
+  "name": "ansem-frontline-stream",
   "main": "src/index.js",
   "compatibility_date": "2026-08-24",
   "workers_dev": true,
@@ -32,7 +32,7 @@
   ],
   "vars": {
     "WORKER_BUILD_ID": "frontline-2d-portfolio",
-    "ALLOWED_ORIGINS": "https://powerpinkk.github.io",
-    "LIVE_TOKEN_MINTS": ""
+    "ALLOWED_ORIGINS": "https://ansem-frontline.vercel.app,https://frontline-solana.vercel.app,https://powerpinkk.github.io",
+    "LIVE_TOKEN_MINTS": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump,JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN"
   }
 }

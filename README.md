@@ -8,7 +8,7 @@ Frontline visualizes Solana token activity and price as an illustrated 2D battle
 
 ## Run without services
 
-Use Node 22.12 or newer (validated with Node 22.18), then:
+Use Node 22.12 or newer within the Node 22 series (validated with Node 22.18), then:
 
 ```sh
 npm ci --ignore-scripts --legacy-peer-deps

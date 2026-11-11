@@ -44,3 +44,13 @@ For a provider outage, retain the explicit unavailable/degraded live state and t
 The previous 3D candidate is preserved at 1dcf44bee668f72ccccc98f753ecf624c91f4f6d. Keep release artifacts by hash. Roll back frontend artifacts independently of Worker state, and roll back Worker code without deleting/recreating DO namespaces or reversing storage migrations. The release procedure describes the compatible endpoint transition.
 
 Physical checks remain: Safari on iPhone/iPad, modest Android and integrated-GPU laptop. On each, record browser/OS, viewport/DPR, cold load, both bases, zoom/pan/picking, 60-second motion capture, pause/visibility recovery, context/asset failure, native PiP availability, memory before/after 20 token changes and thermal behavior. Emulation does not certify those devices.
+
+## Frontline hosting identity
+
+The neutral Vercel domain is frontline-solana.vercel.app on the existing project ID prj_WHHiXHVhYsfEwUmI7LAC5xP7eR96. /relay proxies HTTP to the existing physical ansem-frontline-stream Worker. Its historical resource name stays in operator configuration to preserve STREAM_HUB storage; the frontend never uses its legacy URL directly. Keep migration v1 and append new migrations. Never create a replacement namespace for a cosmetic rename.
+
+Vercel uses Node22 and npm ci --ignore-scripts --legacy-peer-deps. Pages reads the public VITE_RELAY_ORIGIN repository variable; both builds use VITE_STREAM_URL=disabled. The two allowlisted verified-polling mints are the previously served token mint 9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump and JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN. This is an operational admission list, not a default-token preset or investment recommendation. All other compatible mints retain indicative discovery with explicit degraded verified coverage. Demo remains the neutral default.
+
+GitHub Pages applies the HTML meta CSP for supported directives; frame-ancestors requires HTTP headers and is enforced on Vercel, not claimed for Pages. The facade and DexScreener are the allowed connection origins. A host change requires rebuilding, updating CSP/allowed origins and repeating served verification.
+
+CI uses the pinned Playwright Chromium with the runtime libraries already supplied by the GitHub-hosted Ubuntu image. The first follow-up run passed lint/unit/build but failed DNS lookups for optional APT font packages during --with-deps. Browser installation now avoids that unrelated APT step; the full 22-test suite still executes and missing runtime libraries would fail CI. No E2E checks were skipped to obtain a green result.
