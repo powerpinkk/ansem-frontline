@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { parseClientConfiguration } from '../worker/src/configuration.js';
 import { recentCacheUrl, resolveRequestMint, streamObjectName } from '../worker/src/token-routing.js';
-import { DEFAULT_TOKEN_CONTEXT } from '../js/token-presets.js';
+import { DEFAULT_TOKEN_CONTEXT } from './fixtures/market-token.js';
 
 const USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
 const POOL = '6e7V9eegCHw997T72MxgwwJipZ6GJyZF8NvjkzT1rvpN';

@@ -108,8 +108,8 @@ it('coalesces 32 same-token indicative viewers into one token/SOL DAS pair',asyn
     const responses=await Promise.all(Array.from({length:32},()=>hub.fetchIndicativeMarket()));
     const bodies=await Promise.all(responses.map((response)=>response.json()));
     expect(hub.rawRpc).toHaveBeenCalledTimes(2);expect(new Set(responses).size).toBe(32);
-    expect(responses.every(response=>response.status===200)).toBe(true);
-    expect(bodies.every(body=>body.price===0.25&&body.solPriceUsd===100)).toBe(true);
+    expect(responses.every(response=>response.status===422)).toBe(true);
+    expect(bodies.every(body=>body.error.code==='NO_SAFE_FALLBACK_POOLS')).toBe(true);
     expect(new Set(bodies.map(body=>body.token.discovery.resolvedAt)).size).toBe(1);
     const cached=await (await hub.fetchIndicativeMarket()).json();
     expect(cached.token.discovery.resolvedAt).toBe(bodies[0].token.discovery.resolvedAt);
@@ -148,7 +148,7 @@ it('recovers token-success then SOL-rate-limit DAS ordering through an alternate
     expect(calls).toEqual([MINT,SOL]);
     const retryAt=hub.policy.snapshot().das.nextRetryAt;providerRestored=true;now=retryAt;
     const response=await hub.fetchIndicativeMarket();
-    expect(response.status).toBe(200);expect((await response.json()).price).toBe(0.25);
+    expect(response.status).toBe(422);expect((await response.json()).error.code).toBe('NO_SAFE_FALLBACK_POOLS');
     expect(calls).toEqual([MINT,SOL,MINT,SOL]);
     expect(hub.policy.snapshot().das).toMatchObject({status:'HEALTHY',attemptsInRollingMinute:2});
 });
@@ -169,7 +169,7 @@ it('recovers token-rate-limit DAS ordering after a cold object restart without s
     expect((await restarted.fetchIndicativeMarket()).status).toBe(503);expect(restoredCalls).toBe(0);
     now=retryAt;
     const response=await restarted.fetchIndicativeMarket();
-    expect(response.status).toBe(200);expect(await response.json()).toMatchObject({price:0.25,solPriceUsd:100});
+    expect(response.status).toBe(422);expect(await response.json()).toMatchObject({error:{code:'NO_SAFE_FALLBACK_POOLS'}});
     expect(restoredCalls).toBe(2);expect(restarted.policy.snapshot().das.status).toBe('HEALTHY');
 });
 it('uses atomic PumpSwap refresh without repeating full discovery inside 60 seconds',async()=>{

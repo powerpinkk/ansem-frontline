@@ -1,6 +1,8 @@
+export { GlobalBudget } from './global-budget.js';
+import { reserveGlobal, liveMints } from './global-budget.js';
 export { StreamHub } from './stream-hub.js';
 import { parseClientConfiguration } from './configuration.js';
-import { fetchGeckoProxy } from './gecko-proxy.js';
+
 import { corsHeaders, isAllowedOrigin } from './origin-policy.js';
 import { resolveRequestMint, streamObjectName } from './token-routing.js';
 
@@ -14,17 +16,21 @@ export default {
         if (url.pathname === '/health') {
             const headers = corsHeaders(origin, allowedOrigins);
             headers['cache-control'] = 'no-store';
-            return Response.json({ ok: true, service: 'ansem-frontline-stream',
-                buildId: env.WORKER_BUILD_ID || 'ansem-frontline-worker-recovery-v1',
+            return Response.json({ ok: true, service: 'frontline-stream',
+                buildId: env.WORKER_BUILD_ID || 'frontline-worker-recovery-v1',
                 envelopeVersion: 4, healthSchemaVersion: 1 }, { headers });
         }
+        if (!env.GLOBAL_BUDGET || liveMints(env).length === 0) return Response.json({ error: 'LIVE_NOT_CONFIGURED' }, { status: 503, headers: corsHeaders(origin, allowedOrigins) });
+        if (!(await reserveGlobal(env, 'ingress'))) return Response.json({ error: 'GLOBAL_INGRESS_BUDGET' }, { status: 429, headers: { ...corsHeaders(origin, allowedOrigins), 'retry-after': '60' } });
+        if (url.pathname.startsWith('/gecko/')) return new Response('Optional proxy disabled in bounded portfolio scope', { status: 503, headers: corsHeaders(origin, allowedOrigins) });
         if (url.pathname === '/market') {
             const token = resolveRequestMint(url, env.DEFAULT_TOKEN_MINT);
             if (!token.ok) return invalidMintResponse(token, origin, allowedOrigins);
+        if (!liveMints(env).includes(token.mint)) return Response.json({ error: 'MINT_OUTSIDE_LIVE_SCOPE' }, { status: 422, headers: corsHeaders(origin, allowedOrigins) });
             return fetchTokenObject(request, env, origin, allowedOrigins, token.mint);
         }
         if (url.pathname === '/recent') return fetchRecentSnapshot(request, env, origin, allowedOrigins);
-        if (url.pathname.startsWith('/gecko/')) return fetchGeckoProxy(request, origin, allowedOrigins);
+
         if (url.pathname !== '/stream') return new Response('Not found', { status: 404 });
         const token = resolveRequestMint(url, env.DEFAULT_TOKEN_MINT);
         if (!token.ok) return invalidMintResponse(token, origin, allowedOrigins);
@@ -51,6 +57,7 @@ async function fetchRecentSnapshot(request, env, origin, allowedOrigins) {
     const raw = await request.text();
     const configuration = parseClientConfiguration(raw, { defaultMint: env.DEFAULT_TOKEN_MINT });
     if (!configuration) return new Response('Invalid configuration', { status: 400, headers: corsHeaders(origin, allowedOrigins) });
+    if (!liveMints(env).includes(configuration.token.mint)) return Response.json({ error: 'MINT_OUTSIDE_LIVE_SCOPE' }, { status: 422, headers: corsHeaders(origin, allowedOrigins) });
     const url = new URL(request.url);
     url.searchParams.set('mint', configuration.token.mint);
     const id = env.STREAM_HUB.idFromName(streamObjectName(configuration.token.mint));

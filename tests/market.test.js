@@ -2,7 +2,7 @@ import { canonicalEvent } from './fixtures/integrity.js';
 import { describe, expect, it } from 'vitest';
 import { calculatePressure, deriveBattleTactics, deriveSolPrice, evaluateBuySwarm, parseGeckoTrade, selectTrackedPools, summarizePoolActivity } from '../js/market.js';
 import { CONFIG } from '../js/config.js';
-import { DEFAULT_TOKEN_CONTEXT } from '../js/token-presets.js';
+import { DEFAULT_TOKEN_CONTEXT } from './fixtures/market-token.js';
 
 const pool = { address: 'pool-1', dexId: 'pumpswap', quoteSymbol: 'SOL' };
 

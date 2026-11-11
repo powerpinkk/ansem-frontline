@@ -74,8 +74,8 @@ export function parseGeckoTrade(entry, pool, solPriceUsd, tokenContext) {
     };
 }
 
-export function calculatePressure(trades, now = Date.now()) {
-    const unique = [...new Map(trades.filter(activeTrade).map((t) => [t.id, t])).values()];
+export function calculatePressure(trades, now = Date.now(), accepts = activeTrade) {
+    const unique = [...new Map(trades.filter(accepts).map((t) => [t.id, t])).values()];
     const eligible = unique.filter((trade) => trade.timestamp !== null && now - trade.timestamp >= 0 && now - trade.timestamp <= CONFIG.PRESSURE_WINDOW_MS);
     const recent = eligible.filter((trade) => trade.quoteMint === CONFIG.SOL_MINT && Number.isFinite(trade.solValue) && trade.solValue > 0);
     const buySol = recent.filter((trade) => trade.isBuy).reduce((sum, trade) => sum + trade.solValue, 0);

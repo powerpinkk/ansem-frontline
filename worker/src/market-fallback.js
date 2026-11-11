@@ -1,5 +1,5 @@
 import { TOKEN_DISCOVERY_STATUS, createTokenContext } from '../../js/token-context.js';
-import { ANSEM_FALLBACK_POOLS, ANSEM_MINT } from '../../js/token-presets.js';
+import { FALLBACK_POOLS, DEMO_MINT } from '../../js/token-presets.js';
 import { providerValuation } from '../../js/market-valuation.js';
 import { positive } from '../../js/market-selection.js';
 
@@ -13,10 +13,10 @@ export async function fetchHeliusAsset(rpc, mint) {
 }
 
 export function fallbackPoolsForMint(mint) {
-    return mint === ANSEM_MINT ? ANSEM_FALLBACK_POOLS : Object.freeze([]);
+    return mint === DEMO_MINT ? FALLBACK_POOLS : Object.freeze([]);
 }
 
-export function normalizeHeliusMarket(token, sol, { mint = ANSEM_MINT, pools = fallbackPoolsForMint(mint) } = {}) {
+export function normalizeHeliusMarket(token, sol, { mint = DEMO_MINT, pools = fallbackPoolsForMint(mint) } = {}) {
     if ((token?.id && token.id !== mint) || (sol?.id && sol.id !== SOL_MINT)) return null;
     const price = positive(token?.token_info?.price_info?.price_per_token);
     const solPriceUsd = positive(sol?.token_info?.price_info?.price_per_token);

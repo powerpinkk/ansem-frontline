@@ -2,11 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { selectMarket, eligiblePairs } from '../js/market-selection.js';
 import { createValuationBoundary, providerValuation, corroborateValuation } from '../js/market-valuation.js';
 import { resolveDexScreenerPayload } from '../js/token-discovery.js';
-import { DEFAULT_TOKEN_CONTEXT, ANSEM_FALLBACK_POOLS } from '../js/token-presets.js';
+import { DEFAULT_TOKEN_CONTEXT, FALLBACK_POOLS } from './fixtures/market-token.js';
 import { MINT, SOL, USDC } from './fixtures/integrity.js';
 import { estimateNotional } from '../js/notional.js';
 
-const pair = (i, liquidity = 100_000) => ({ chainId: 'solana', pairAddress: ANSEM_FALLBACK_POOLS[i].address,
+const pair = (i, liquidity = 100_000) => ({ chainId: 'solana', pairAddress: FALLBACK_POOLS[i].address,
     dexId: 'meteora', baseToken: { address: MINT, symbol: 'ANSEM' }, quoteToken: { address: SOL, symbol: 'SOL' },
     priceUsd: '1', priceNative: '.01', liquidity: { usd: liquidity }, marketCap: (i + 1) * 1e6, fdv: 5e6, volume: { h1: 100, h24: 1000 } });
 function permutations(items) { return items.length < 2 ? [items] : items.flatMap((x, i) => permutations(items.filter((_, j) => i !== j)).map((p) => [x, ...p])); }

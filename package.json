@@ -1,42 +1,38 @@
 {
-  "name": "ansem-frontline",
-  "version": "2.1.0",
+  "name": "frontline",
+  "version": "3.0.0-rc.1",
   "private": true,
   "type": "module",
-  "description": "Near-real-time 3D visualization of verified Solana token swaps.",
+  "description": "Solana token activity and price in an illustrated 2D battlefield, with an offline synthetic demo.",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "playwright test",
-    "test:tokens:smoke": "node scripts/token-smoke.mjs",
-    "test:m5:smoke": "node scripts/m5-live-smoke.mjs",
-    "test:soak": "node scripts/soak-test.mjs",
-    "test:terrain:soak": "node --expose-gc scripts/market-terrain-soak.mjs",
-    "test:locomotion:soak": "node scripts/locomotion-soak.mjs",
-    "test:combat:soak": "node scripts/combat-soak.mjs",
-    "test:commander:soak": "node scripts/commander-soak.mjs",
+    "test:e2e": "npm run build:checks && playwright test",
     "lint": "eslint .",
-    "check": "npm run lint && npm test && npm run build && npm run test:e2e",
+    "check": "npm run lint && npm test && npm run build && npm run test:e2e && npm run check:bundle",
     "worker:dev": "wrangler dev --config worker/wrangler.jsonc",
-    "worker:deploy": "wrangler deploy --config worker/wrangler.jsonc"
+    "worker:deploy": "wrangler deploy --config worker/wrangler.jsonc",
+    "build:checks": "node scripts/build-candidates.mjs",
+    "check:bundle": "node scripts/check-candidate.mjs"
   },
   "dependencies": {
-    "three": "0.185.1"
+    "pixi.js": "8.22.0"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^5.20260823.1",
     "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.62.1",
-    "eslint": "^10.9.0",
-    "globals": "^17.11.0",
-    "vite": "^8.2.2",
-    "vitest": "^4.1.11",
-    "wrangler": "^4.125.0"
+    "eslint": "10.12.0",
+    "globals": "17.13.0",
+    "three": "0.185.1",
+    "vite": "8.3.4",
+    "vitest": "4.1.12",
+    "wrangler": "4.160.0"
   },
   "engines": {
-    "node": ">=20.19.0"
+    "node": ">=22.12.0"
   }
 }

@@ -1,11 +1,10 @@
-import { ANSEM_MINT } from './token-presets.js';
 import { createThemeDefinition } from './theme-definition.js';
 import { createThemeRegistry } from './theme-registry.js';
 import { createThemeResolver } from './theme-resolver.js';
 
-export const THEME_IDS = Object.freeze({ ANSEM: 'ansem', GENERIC: 'generic' });
+export const THEME_IDS = Object.freeze({ FRONTLINE: 'frontline', GENERIC: 'generic' });
 
-const ANSEM_MATERIALS = {
+const FRONTLINE_MATERIALS = {
     buyBody: '#111613', buyHead: '#0a100c', buyAccent: '#00ff88', buyEye: '#021008', buyEyeEmissive: '#00ff88',
     sellBody: '#9a6845', sellHead: '#b27b52', sellDetail: '#55351f', sellEye: '#2c000d', sellEyeEmissive: '#8f002c', sellLaser: '#5b001d',
     snout: '#050505', buyParticle: '#00ff88', sellParticle: '#ff3366', dust: '#9b7653',
@@ -18,7 +17,7 @@ const ANSEM_MATERIALS = {
     heroOrnamentEmissive: '#7a4300', heroBeam: '#00ff88',
 };
 
-const ANSEM_COPY = {
+const FRONTLINE_COPY = {
     legendBuy: 'bull = verified buy', legendSell: 'grizzly = verified sell',
     buyForce: 'BULL FORCE', sellForce: 'BEAR FORCE', buyUnit: 'BLACK BULL', sellUnit: 'GRIZZLY',
     buySingular: 'Bull', sellSingular: 'Bear', buyPlural: 'Bulls', sellPlural: 'Grizzlies',
@@ -33,7 +32,7 @@ const ANSEM_COPY = {
     reclamationEvent: "KING'S RECLAMATION",
 };
 
-const ANSEM_PIXEL = {
+const FRONTLINE_PIXEL = {
     background: '#020504', ground: '#6c4b2e', groundEdge: '#2f7745', groundOverlay: '#9b7144',
     grid: '#7ba58d', rise: '#00ff88', fall: '#ff164f', treeTrunk: '#3d2315', foliageDark: '#174429',
     foliageLight: '#257143', rock: '#3b2b20', grass: '#347342', watermark: '#d8ffe9', shadow: '#020302',
@@ -44,8 +43,8 @@ const ANSEM_PIXEL = {
     hud: '#030706', footer: '#080a09', text: '#e8fff3', muted: '#b8c8bf', offline: '#ff5a76',
 };
 
-export const ANSEM_THEME = createThemeDefinition({
-    identity: { id: THEME_IDS.ANSEM, version: '1.0.0', displayName: 'ANSEM Frontline' },
+export const FRONTLINE_THEME = createThemeDefinition({
+    identity: { id: THEME_IDS.FRONTLINE, version: '1.0.0', displayName: 'Frontline' },
     scene: {
         environment: {
             background: '#0a120e', fog: '#0a120e', fogNear: 40, fogFar: 160,
@@ -59,18 +58,18 @@ export const ANSEM_THEME = createThemeDefinition({
         },
         hero: { visible: true },
         champion: { style: 'black-bull', primary: '#050807', accent: '#ffd700', glow: '#00ff88' },
-        materials: ANSEM_MATERIALS,
+        materials: FRONTLINE_MATERIALS,
     },
     ui: {
-        brand: { primary: '$ANSEM', accent: 'FRONTLINE', documentTitle: '$ANSEM FRONTLINE • On-Chain Live Data' },
+        brand: { primary: 'FRONTLINE', accent: 'SOLANA', documentTitle: 'Frontline · Solana market battlefield' },
         colors: {
             accent: '#00ff88', buy: '#00ff88', sell: '#ff3366', chartSell: '#9b1739', gold: '#ffd700', background: '#020302',
             surface: 'rgba(10,12,10,0.75)', border: 'rgba(255,255,255,0.08)', bodyGlow: '#0c1813',
         },
-        copy: ANSEM_COPY,
+        copy: FRONTLINE_COPY,
     },
     pixel: {
-        colors: ANSEM_PIXEL,
+        colors: FRONTLINE_PIXEL,
         champion: { style: 'black-bull', primary: '#050807', accent: '#ffd700', badge: '#00ff88' },
     },
     companion: { background: '#020403' },
@@ -93,7 +92,7 @@ export const GENERIC_THEME = createThemeDefinition({
         hero: { visible: true },
         champion: { style: 'neutral-sentinel', primary: '#26363c', accent: '#d8c27a', glow: '#55d6c2' },
         materials: {
-            ...ANSEM_MATERIALS,
+            ...FRONTLINE_MATERIALS,
             buyBody: '#26363c', buyHead: '#1a282e', buyAccent: '#55d6c2', buyEye: '#061719', buyEyeEmissive: '#55f2dd',
             sellBody: '#8f625c', sellHead: '#ad7770', sellDetail: '#513733', sellEye: '#241113', sellEyeEmissive: '#ff806f', sellLaser: '#9c403b',
             buyParticle: '#55d6c2', sellParticle: '#ff806f', dust: '#82909a',
@@ -107,13 +106,13 @@ export const GENERIC_THEME = createThemeDefinition({
         },
     },
     ui: {
-        brand: { primary: 'TOKEN', accent: 'FRONTLINE', documentTitle: 'TOKEN FRONTLINE • On-Chain Live Data' },
+        brand: { primary: 'FRONTLINE', accent: 'SOLANA', documentTitle: 'Frontline · Solana market battlefield' },
         colors: {
             accent: '#55d6c2', buy: '#55d6c2', sell: '#ff806f', chartSell: '#d45f58', gold: '#d8c27a', background: '#071017',
             surface: 'rgba(8,18,25,0.82)', border: 'rgba(146,196,218,0.16)', bodyGlow: '#102936',
         },
         copy: {
-            ...ANSEM_COPY,
+            ...FRONTLINE_COPY,
             legendBuy: 'buy unit = verified buy', legendSell: 'sell unit = verified sell',
             buyForce: 'BUY FORCE', sellForce: 'SELL FORCE', buyUnit: 'BUY UNIT', sellUnit: 'SELL UNIT',
             buySingular: 'Buy unit', sellSingular: 'Sell unit', buyPlural: 'Buy forces', sellPlural: 'Sell forces',
@@ -127,7 +126,7 @@ export const GENERIC_THEME = createThemeDefinition({
     },
     pixel: {
         colors: {
-            ...ANSEM_PIXEL,
+            ...FRONTLINE_PIXEL,
             background: '#071017', ground: '#46535a', groundEdge: '#397f79', groundOverlay: '#6b7980',
             grid: '#799aa3', rise: '#55d6c2', fall: '#ff806f', foliageDark: '#295151', foliageLight: '#3d7770',
             grass: '#4f8079', watermark: '#dff9f5', buyBody: '#26363c', buyBodyAlt: '#344a52',
@@ -143,11 +142,11 @@ export const GENERIC_THEME = createThemeDefinition({
 });
 
 export const THEME_REGISTRY = createThemeRegistry({
-    themes: [GENERIC_THEME, ANSEM_THEME],
+    themes: [GENERIC_THEME, FRONTLINE_THEME],
     fallbackId: THEME_IDS.GENERIC,
 });
 
 export const THEME_RESOLVER = createThemeResolver({
     registry: THEME_REGISTRY,
-    tokenThemes: { [ANSEM_MINT]: THEME_IDS.ANSEM },
+    tokenThemes: {},
 });

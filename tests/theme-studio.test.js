@@ -15,15 +15,15 @@ import {
 } from '../js/theme-studio-storage.js';
 import { createThemePresentationController } from '../js/theme-presentation.js';
 import { createUIThemeAdapter } from '../js/theme-adapters.js';
-import { ANSEM_THEME, GENERIC_THEME, THEME_REGISTRY, THEME_RESOLVER } from '../js/theme-presets.js';
+import { FRONTLINE_THEME, GENERIC_THEME, THEME_REGISTRY, THEME_RESOLVER } from '../js/theme-presets.js';
 import { createTokenContext } from '../js/token-context.js';
 
 const USDC = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
 const JUP = 'JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN';
-const PRESETS = { ansem: ANSEM_THEME, generic: GENERIC_THEME };
+const PRESETS = { ansem: FRONTLINE_THEME, generic: GENERIC_THEME };
 
 describe('ThemeDraft model', () => {
-    it.each([ANSEM_THEME, GENERIC_THEME])('creates an isolated draft from $identity.id', (preset) => {
+    it.each([FRONTLINE_THEME, GENERIC_THEME])('creates an isolated draft from $identity.id', (preset) => {
         const model = createThemeDraftModel({ baseTheme: preset });
         const state = model.getSnapshot();
         expect(state.definition).toEqual(preset);
@@ -33,24 +33,24 @@ describe('ThemeDraft model', () => {
     });
 
     it('validates incrementally and never exposes an invalid ThemeDefinition', () => {
-        const model = createThemeDraftModel({ baseTheme: ANSEM_THEME });
+        const model = createThemeDraftModel({ baseTheme: FRONTLINE_THEME });
         expect(model.edit('ui.colors.accent', '#123456').definition.ui.colors.accent).toBe('#123456');
         const invalid = model.edit('ui.colors.accent', 'url(javascript:alert(1))');
         expect(invalid.valid).toBe(false);
         expect(invalid.definition).toBeNull();
-        expect(ANSEM_THEME.ui.colors.accent).toBe('#00ff88');
+        expect(FRONTLINE_THEME.ui.colors.accent).toBe('#00ff88');
     });
 
     it('supports undo, redo, reset, section reset and dirty state', () => {
-        const model = createThemeDraftModel({ baseTheme: ANSEM_THEME, coalesceMs: 0 });
+        const model = createThemeDraftModel({ baseTheme: FRONTLINE_THEME, coalesceMs: 0 });
         model.edit('ui.colors.accent', '#123456');
         expect(model.getSnapshot().dirty).toBe(true);
         expect(model.undo().draft.ui.colors.accent).toBe('#00ff88');
         expect(model.redo().draft.ui.colors.accent).toBe('#123456');
         model.edit('scene.environment.background', '#111111');
         model.resetSection('environment');
-        expect(model.getSnapshot().draft.scene.environment.background).toBe(ANSEM_THEME.scene.environment.background);
-        expect(model.reset().definition).toEqual(ANSEM_THEME);
+        expect(model.getSnapshot().draft.scene.environment.background).toBe(FRONTLINE_THEME.scene.environment.background);
+        expect(model.reset().definition).toEqual(FRONTLINE_THEME);
         model.markSaved();
         expect(model.getSnapshot().dirty).toBe(false);
     });
@@ -71,7 +71,7 @@ describe('ThemeDraft model', () => {
     });
 
     it('keeps reset parity with both original presets', () => {
-        for (const preset of [ANSEM_THEME, GENERIC_THEME]) {
+        for (const preset of [FRONTLINE_THEME, GENERIC_THEME]) {
             const model = createThemeDraftModel({ baseTheme: preset });
             model.edit('ui.brand.primary', 'CUSTOM');
             expect(model.reset().definition).toEqual(preset);

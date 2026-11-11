@@ -1,0 +1,262 @@
+{
+  "sourceHead": "0450726219ce78da0120016ac09af4c2a6bc06f7",
+  "sourceBranch": "codex/m13p1-solusser-2d-slice",
+  "sourceReadOnly": true,
+  "files": [
+    {
+      "source": "D:/1013/solusser-frontline/js/m13p1/authored-fortress.js",
+      "target": "js/illustrated/authored-fortress.js",
+      "sha256": "e1fa11e16b613e3f488fd17a30584260271a9812434ac3c7357c66f8ed7b5719",
+      "bytes": 9665,
+      "sourceWorktree": "R16 (includes uncommitted R10–R16)",
+      "targetSha256": "e1fa11e16b613e3f488fd17a30584260271a9812434ac3c7357c66f8ed7b5719",
+      "targetGitBlobSha256": "e1fa11e16b613e3f488fd17a30584260271a9812434ac3c7357c66f8ed7b5719"
+    },
+    {
+      "source": "D:/1013/solusser-frontline/js/m13p1/battlefield-layout.js",
+      "target": "js/illustrated/battlefield-layout.js",
+      "sha256": "8187f39d50842ed22b0efd31d13de1a9ea7962f6932e772a362728b4635c3546",
+      "bytes": 2084,
+      "sourceWorktree": "R16 (includes uncommitted R10–R16)",
+      "targetSha256": "8187f39d50842ed22b0efd31d13de1a9ea7962f6932e772a362728b4635c3546",
+      "targetGitBlobSha256": "8187f39d50842ed22b0efd31d13de1a9ea7962f6932e772a362728b4635c3546"
+    },
+    {
+      "source": "D:/1013/solusser-frontline/js/m13p1/battlefield.js",
+      "target": "js/illustrated/battlefield.js",
+      "sha256": "d00eb76ebcff8332fbe9f58c62da68ad6628d2184bc253b9b487137091550aaf",
+      "bytes": 8242,
+      "sourceWorktree": "R16 (includes uncommitted R10–R16)",
+      "targetSha256": "d00eb76ebcff8332fbe9f58c62da68ad6628d2184bc253b9b487137091550aaf",
+      "targetGitBlobSha256": "d00eb76ebcff8332fbe9f58c62da68ad6628d2184bc253b9b487137091550aaf"
+    },
+    {
+      "source": "D:/1013/solusser-frontline/js/m13p1/contact-effect.js",
+      "target": "js/illustrated/contact-effect.js",
+      "sha256": "bbb10a1d00091fd5965d15792e0a369b54e6a39d61b87ea96b1c61fe49fdbf92",
+      "bytes": 3019,
+      "sourceWorktree": "R16 (includes uncommitted R10–R16)",
+      "targetSha256": "bbb10a1d00091fd5965d15792e0a369b54e6a39d61b87ea96b1c61fe49fdbf92",
+      "targetGitBlobSha256": "bbb10a1d00091fd5965d15792e0a369b54e6a39d61b87ea96b1c61fe49fdbf92"
+    },
+    {
+      "source": "D:/1013/solusser-frontline/js/m13p1/contact-motion.js",
+      "target": "js/illustrated/contact-motion.js",
+      "sha256": "36851790f3606f11c1b0f9903f63086974e3911b49e4e12196b900808503de55",
+      "bytes": 1101,
+      "sourceWorktree": "R16 (includes uncommitted R10–R16)",
+      "targetSha256": "36851790f3606f11c1b0f9903f63086974e3911b49e4e12196b900808503de55",
+      "targetGitBlobSha256": "36851790f3606f11c1b0f9903f63086974e3911b49e4e12196b900808503de55"
+    },
+    {
+      "source": "D:/1013/solusser-frontline/js/m13p1/gait-cadence.js",
+      "target": "js/illustrated/gait-cadence.js",
+      "sha256": "5619ba15244a09fddce271b78fd0752f354f8efd2039e2a53560179190c608ed",
+      "bytes": 649,
+      "sourceWorktree": "R16 (includes uncommitted R10–R16)",
+      "targetSha256": "5619ba15244a09fddce271b78fd0752f354f8efd2039e2a53560179190c608ed",
+      "targetGitBlobSha256": "5619ba15244a09fddce271b78fd0752f354f8efd2039e2a53560179190c608ed"
+    },
+    {
+      "source": "D:/1013/solusser-frontline/js/m13p1/gl1-compat.js",
+      "target": "js/illustrated/gl1-compat.js",
+      "sha256": "2a1d2aea7570a92e9e96317072bfb56ea381b309a13cf1eedc96a62c60cf04e3",
+      "bytes": 1609,
+      "sourceWorktree": "R16 (includes uncommitted R10–R16)",
+      "targetSha256": "317f2824faebe19cb9d6b96695e8ae53ab7e322743ae2e11a2792ab5a7a2c547",
+      "targetGitBlobSha256": "317f2824faebe19cb9d6b96695e8ae53ab7e322743ae2e11a2792ab5a7a2c547"
+    },
+    {
+      "source": "D:/1013/solusser-frontline/js/m13p1/lava-plate.js",
+      "target": "js/illustrated/lava-plate.js",
+      "sha256": "b8e828aa990352ee778f85f66c225acd731bb61e71e7b1dda9a6299364e37d08",
+      "bytes": 2651,
+      "sourceWorktree": "R16 (includes uncommitted R10–R16)",
+      "targetSha256": "b8e828aa990352ee778f85f66c225acd731bb61e71e7b1dda9a6299364e37d08",
+      "targetGitBlobSha256": "b8e828aa990352ee778f85f66c225acd731bb61e71e7b1dda9a6299364e37d08"
+    },
+    {
+      "source": "D:/1013/solusser-frontline/js/m13p1/puppet.js",
+      "target": "js/illustrated/puppet.js",
+      "sha256": "bc3ad2b11ffbd118a7f4f8ae4b60121ca9ff12f12c1f772c9c1258bf85ab4925",
+      "bytes": 1237,
+      "sourceWorktree": "R16 (includes uncommitted R10–R16)",
+      "targetSha256": "209c1b956713ec9b127f0dfc0a93abd0f3b3b6b6e142fbea504e367ab9dde92f",
+      "targetGitBlobSha256": "209c1b956713ec9b127f0dfc0a93abd0f3b3b6b6e142fbea504e367ab9dde92f"
+    },
+    {
+      "source": "D:/1013/solusser-frontline/js/m13p1/renderer.js",
+      "target": "js/illustrated/renderer.js",
+      "sha256": "d92502bf4656bcd9b28f7d7ee0923074ffd74f8d95d6f949b0935501ba98f32d",
+      "bytes": 15846,
+      "sourceWorktree": "R16 (includes uncommitted R10–R16)",
+      "targetSha256": "d82557752baa0624208fd647a043d30308fae95f6f86d5a7f8a8a057bd4e2be1",
+      "targetGitBlobSha256": "d82557752baa0624208fd647a043d30308fae95f6f86d5a7f8a8a057bd4e2be1"
+    },
+    {
+      "source": "D:/1013/solusser-frontline/js/m13p1/rig-design.js",
+      "target": "js/illustrated/rig-design.js",
+      "sha256": "e34e26c332d2f51bc1f94c96bc546888f1dc729d961199577f71f9484ddc6499",
+      "bytes": 11138,
+      "sourceWorktree": "R16 (includes uncommitted R10–R16)",
+      "targetSha256": "e34e26c332d2f51bc1f94c96bc546888f1dc729d961199577f71f9484ddc6499",
+      "targetGitBlobSha256": "e34e26c332d2f51bc1f94c96bc546888f1dc729d961199577f71f9484ddc6499"
+    },
+    {
+      "source": "D:/1013/solusser-frontline/js/m13p1/rig-interpolation.js",
+      "target": "js/illustrated/rig-interpolation.js",
+      "sha256": "b3ebd43b9e4081c0ff41257b87ede82ac7408cbff50c3c312c3175d1d5dcf843",
+      "bytes": 1439,
+      "sourceWorktree": "R16 (includes uncommitted R10–R16)",
+      "targetSha256": "b3ebd43b9e4081c0ff41257b87ede82ac7408cbff50c3c312c3175d1d5dcf843",
+      "targetGitBlobSha256": "b3ebd43b9e4081c0ff41257b87ede82ac7408cbff50c3c312c3175d1d5dcf843"
+    },
+    {
+      "source": "D:/1013/solusser-frontline/js/m13p1/rig-math.js",
+      "target": "js/illustrated/rig-math.js",
+      "sha256": "d07aa9c4943434f21300e13ea2126ef07d11041f4fc5b2e1e0775cd46d50f39b",
+      "bytes": 1511,
+      "sourceWorktree": "R16 (includes uncommitted R10–R16)",
+      "targetSha256": "d07aa9c4943434f21300e13ea2126ef07d11041f4fc5b2e1e0775cd46d50f39b",
+      "targetGitBlobSha256": "d07aa9c4943434f21300e13ea2126ef07d11041f4fc5b2e1e0775cd46d50f39b"
+    },
+    {
+      "source": "D:/1013/solusser-frontline/js/m13p1/rig-motion.js",
+      "target": "js/illustrated/rig-motion.js",
+      "sha256": "f910febc7f9e9c66d26b9e022ee6baf2602feb3e5a9c204272f4481b9941990e",
+      "bytes": 9721,
+      "sourceWorktree": "R16 (includes uncommitted R10–R16)",
+      "targetSha256": "d05f203f095de2835c9c74fade7698a7a3eae9d1da727e26f958bb6002a53986",
+      "targetGitBlobSha256": "d05f203f095de2835c9c74fade7698a7a3eae9d1da727e26f958bb6002a53986"
+    },
+    {
+      "source": "D:/1013/solusser-frontline/js/m13p1/rig-puppet.js",
+      "target": "js/illustrated/rig-puppet.js",
+      "sha256": "6a2ffc0c15416c722dd76e5ea6c0525425480db3c79b601386a73e41510f1a40",
+      "bytes": 10096,
+      "sourceWorktree": "R16 (includes uncommitted R10–R16)",
+      "targetSha256": "ae34252366537675bbeb6d149aab376768a0187ac78045f7b8389b62cdba3d87",
+      "targetGitBlobSha256": "ae34252366537675bbeb6d149aab376768a0187ac78045f7b8389b62cdba3d87"
+    },
+    {
+      "source": "D:/1013/solusser-frontline/js/m13p1/sprite-pose.js",
+      "target": "js/illustrated/sprite-pose.js",
+      "sha256": "e99252ad6b615e411da7554aac357fbb7cea54ed455cfe5e5990c08938337779",
+      "bytes": 1251,
+      "sourceWorktree": "R16 (includes uncommitted R10–R16)",
+      "targetSha256": "e99252ad6b615e411da7554aac357fbb7cea54ed455cfe5e5990c08938337779",
+      "targetGitBlobSha256": "e99252ad6b615e411da7554aac357fbb7cea54ed455cfe5e5990c08938337779"
+    },
+    {
+      "source": "D:/1013/solusser-frontline/public/m13p1/atlas.json",
+      "target": "public/battlefield/atlas.json",
+      "sha256": "c8f19dda35e1ec139a70c79b42dc561d2fdfde4eb7e7cd7c7e66d31b87849943",
+      "bytes": 3610,
+      "distribution": "PRIVATE_PILOT_NOT_AUTHORIZED_FOR_DISTRIBUTION",
+      "targetSha256": "c8f19dda35e1ec139a70c79b42dc561d2fdfde4eb7e7cd7c7e66d31b87849943",
+      "targetGitBlobSha256": "c8f19dda35e1ec139a70c79b42dc561d2fdfde4eb7e7cd7c7e66d31b87849943"
+    },
+    {
+      "source": "D:/1013/solusser-frontline/public/m13p1/environment.png",
+      "target": "public/battlefield/environment.png",
+      "sha256": "2c171c5e104b228a34a8edcfec8b659777c996d10c95f863f048334c6af3a58e",
+      "bytes": 2678403,
+      "distribution": "PRIVATE_PILOT_NOT_AUTHORIZED_FOR_DISTRIBUTION",
+      "targetSha256": "2c171c5e104b228a34a8edcfec8b659777c996d10c95f863f048334c6af3a58e",
+      "targetGitBlobSha256": "2c171c5e104b228a34a8edcfec8b659777c996d10c95f863f048334c6af3a58e"
+    },
+    {
+      "source": "D:/1013/solusser-frontline/public/m13p1/abyss.png",
+      "target": "public/battlefield/abyss.png",
+      "sha256": "f8d1e0c414f3bb453089fe6fb4fe7c1041676c5d4a5d1caef6d620b8b5a88cee",
+      "bytes": 2822236,
+      "distribution": "PRIVATE_PILOT_NOT_AUTHORIZED_FOR_DISTRIBUTION",
+      "targetSha256": "f8d1e0c414f3bb453089fe6fb4fe7c1041676c5d4a5d1caef6d620b8b5a88cee",
+      "targetGitBlobSha256": "f8d1e0c414f3bb453089fe6fb4fe7c1041676c5d4a5d1caef6d620b8b5a88cee"
+    },
+    {
+      "source": "D:/1013/solusser-frontline/public/m13p1/r1/atlas.json",
+      "target": "public/battlefield/r1/atlas.json",
+      "sha256": "6b358f1717a2bb0bdeda90d53b2a6af39039ceaa3f804e4bcde82b822e7968d7",
+      "bytes": 62517,
+      "distribution": "PRIVATE_PILOT_NOT_AUTHORIZED_FOR_DISTRIBUTION",
+      "targetSha256": "6b358f1717a2bb0bdeda90d53b2a6af39039ceaa3f804e4bcde82b822e7968d7",
+      "targetGitBlobSha256": "6b358f1717a2bb0bdeda90d53b2a6af39039ceaa3f804e4bcde82b822e7968d7"
+    },
+    {
+      "source": "D:/1013/solusser-frontline/public/m13p1/r1/bull-scout.png",
+      "target": "public/battlefield/r1/bull-scout.png",
+      "sha256": "4ba24245929f2efcef67f7fd878595dd46afd4f1380cf81b7cdc7d76ef41d777",
+      "bytes": 2609344,
+      "distribution": "PRIVATE_PILOT_NOT_AUTHORIZED_FOR_DISTRIBUTION",
+      "targetSha256": "4ba24245929f2efcef67f7fd878595dd46afd4f1380cf81b7cdc7d76ef41d777",
+      "targetGitBlobSha256": "4ba24245929f2efcef67f7fd878595dd46afd4f1380cf81b7cdc7d76ef41d777"
+    },
+    {
+      "source": "D:/1013/solusser-frontline/public/m13p1/r1/bull-guard.png",
+      "target": "public/battlefield/r1/bull-guard.png",
+      "sha256": "0066d2cdb4c88093f869494047ceab6da95f55adc763d6cd41daf4a229512f12",
+      "bytes": 2441088,
+      "distribution": "PRIVATE_PILOT_NOT_AUTHORIZED_FOR_DISTRIBUTION",
+      "targetSha256": "0066d2cdb4c88093f869494047ceab6da95f55adc763d6cd41daf4a229512f12",
+      "targetGitBlobSha256": "0066d2cdb4c88093f869494047ceab6da95f55adc763d6cd41daf4a229512f12"
+    },
+    {
+      "source": "D:/1013/solusser-frontline/public/m13p1/r1/bear-scout.png",
+      "target": "public/battlefield/r1/bear-scout.png",
+      "sha256": "b15a162ee82e1b671e5fea97982d2740d31453fe18a6d223a7e78c4b00f8892e",
+      "bytes": 2695675,
+      "distribution": "PRIVATE_PILOT_NOT_AUTHORIZED_FOR_DISTRIBUTION",
+      "targetSha256": "b15a162ee82e1b671e5fea97982d2740d31453fe18a6d223a7e78c4b00f8892e",
+      "targetGitBlobSha256": "b15a162ee82e1b671e5fea97982d2740d31453fe18a6d223a7e78c4b00f8892e"
+    },
+    {
+      "source": "D:/1013/solusser-frontline/public/m13p1/r1/bear-guard.png",
+      "target": "public/battlefield/r1/bear-guard.png",
+      "sha256": "f08fcbb4a31c6135d6f5682367af97781d6504a29c845ad5877baaa97e5ad3b1",
+      "bytes": 2452959,
+      "distribution": "PRIVATE_PILOT_NOT_AUTHORIZED_FOR_DISTRIBUTION",
+      "targetSha256": "f08fcbb4a31c6135d6f5682367af97781d6504a29c845ad5877baaa97e5ad3b1",
+      "targetGitBlobSha256": "f08fcbb4a31c6135d6f5682367af97781d6504a29c845ad5877baaa97e5ad3b1"
+    },
+    {
+      "source": "D:/1013/solusser-frontline/worker/src/idl/jupiter-v6.js",
+      "target": "worker/src/idl/jupiter-v6.js",
+      "sha256": "7177c0afef908b66ca39c5bc0e8e0f365cf4eebeca024b98d527a7ae23f52013",
+      "bytes": 50931,
+      "targetSha256": "7177c0afef908b66ca39c5bc0e8e0f365cf4eebeca024b98d527a7ae23f52013",
+      "targetGitBlobSha256": "7177c0afef908b66ca39c5bc0e8e0f365cf4eebeca024b98d527a7ae23f52013"
+    },
+    {
+      "source": "D:/1013/solusser-frontline/docs/jupiter-functional-parity.json",
+      "target": "docs/jupiter-functional-parity.json",
+      "sha256": "c24b1db21af46dcf8732dae07a924737828278922c04a98434c6ce0d5706d486",
+      "bytes": 4500,
+      "targetSha256": "c24b1db21af46dcf8732dae07a924737828278922c04a98434c6ce0d5706d486",
+      "targetGitBlobSha256": "c24b1db21af46dcf8732dae07a924737828278922c04a98434c6ce0d5706d486"
+    },
+    {
+      "source": "D:/1013/solusser-frontline/THIRD_PARTY_NOTICES.md",
+      "target": "THIRD_PARTY_NOTICES.md",
+      "sha256": "f74fd0dbaccdb98661029f83a6841ac8585c448af7f31fd08cc1f32d93b9aa71",
+      "bytes": 5098,
+      "adaptation": "Applicable license text and provenance adapted; private context excluded",
+      "targetSha256": "8b83dff65d0df6010883af5df3b7a4cfbe520c177c8a9a410de41aa49e5f2cb6",
+      "targetGitBlobSha256": "8b83dff65d0df6010883af5df3b7a4cfbe520c177c8a9a410de41aa49e5f2cb6"
+    },
+    {
+      "source": "D:/1013/solusser-frontline/js/m13p1/presentation.js",
+      "target": "js/illustrated/presentation.js",
+      "sha256": "773ea9f150c01bc3ba5dc38245bfe7f911936849221f6ccc887f5c2365ef0747",
+      "bytes": 14259,
+      "adaptation": "Only projection, depth ordering and foot-pose math; demo/game runtime excluded",
+      "targetSha256": "b78d31e5968298d8f8455a1803ffdb05b62607058d4f0699da5eb60012cb00a6",
+      "targetGitBlobSha256": "b78d31e5968298d8f8455a1803ffdb05b62607058d4f0699da5eb60012cb00a6"
+    }
+  ],
+  "hashSemantics": {
+    "sha256": "Original selected Solusser working-tree bytes, including uncommitted changes",
+    "targetSha256": "Adapted Frontline working-tree bytes at validation",
+    "targetGitBlobSha256": "Adapted staged Git blob bytes; Git may normalize CRLF to LF"
+  }
+}

@@ -153,7 +153,7 @@ export class StreamHub {
 
     snapshotEnvelope() {
         return { version: 4, healthSchemaVersion: HEALTH_SCHEMA_VERSION,
-            buildId: this.env.WORKER_BUILD_ID || 'ansem-frontline-worker-recovery-v1',
+            buildId: this.env.WORKER_BUILD_ID || 'frontline-worker-recovery-v1',
             source: 'verified-pool-executions', tokenMint: this.tokenMint,
             canonicalMarket: this.market?.canonicalMarket || null, sourceEpoch: this.sourceEpoch,
             canonicalValuation: this.valuationBoundary?.snapshot() || null,
@@ -164,7 +164,7 @@ export class StreamHub {
     async fetchIndicativeMarket() {
         const now = Date.now();
         if (this.indicativeCache && now - this.indicativeCache.cachedAt < 30_000) {
-            return Response.json(this.indicativeCache.value, { headers: { 'cache-control': 'public, max-age=15' } });
+            return Response.json(this.indicativeCache.value, { status: this.indicativeCache.status || 200, headers: { 'cache-control': this.indicativeCache.status === 422 ? 'no-store' : 'public, max-age=15' } });
         }
         if (!this.indicativePromise) this.indicativePromise = (async () => {
             try {
@@ -172,9 +172,10 @@ export class StreamHub {
                 const sol = await fetchHeliusAsset(this.dasRpc, SOL_MINT);
                 const market = normalizeHeliusMarket(token, sol, { mint: this.tokenMint });
                 if (!market) throw new Error('DAS_PRICE_DATA_UNAVAILABLE');
-                if (!market.pools.length) return { body: { status: market.status,
+                if (!market.pools.length) { const body = { status: market.status,
                     error: { code: 'NO_SAFE_FALLBACK_POOLS', message: 'No verified fallback pools are configured for this mint' },
-                    token: market.token }, status: 422, headers: { 'cache-control': 'no-store' } };
+                    token: market.token }; this.indicativeCache = { cachedAt: now, value: body, status: 422 };
+                    return { body, status: 422, headers: { 'cache-control': 'no-store' } }; }
                 this.indicativeCache = { cachedAt: now, value: market };
                 return { body: market, status: 200, headers: { 'cache-control': 'public, max-age=15' } };
             } catch (error) {
@@ -365,7 +366,7 @@ export class StreamHub {
     async ensureUpstream() {
         if (!this.ctx.getWebSockets().length || !this.market?.pools.length || Date.now() < this.nextConnectAt) return;
         if (this.upstream?.readyState === WebSocket.OPEN || this.upstream?.readyState === WebSocket.CONNECTING) return;
-        if (!this.env.HELIUS_API_KEY) { this.streamStatus = 'disconnected'; return; }
+        if (!this.env.HELIUS_API_KEY || this.env.GLOBAL_BUDGET) { this.streamStatus = 'disconnected'; return; }
         const socket = new WebSocket(`wss://mainnet.helius-rpc.com/?api-key=${encodeURIComponent(this.env.HELIUS_API_KEY)}`);
         this.upstream = socket; this.openedAt = Date.now(); this.streamStatus = 'connecting';
         socket.addEventListener('open', () => {

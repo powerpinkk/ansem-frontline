@@ -1,4 +1,4 @@
-// Snapshot of program-owned mainnet IDL; provenance in docs/jupiter-idl-provenance.json.
+// Minimal functional router schema. Source hashes and licensed overlap: docs/jupiter-functional-parity.json.
 export default {
   "address": "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4",
   "instructions": [
@@ -19,20 +19,16 @@ export default {
           "name": "token_program"
         },
         {
-          "name": "user_transfer_authority",
-          "signer": true
+          "name": "user_transfer_authority"
         },
         {
-          "name": "user_source_token_account",
-          "writable": true
+          "name": "user_source_token_account"
         },
         {
-          "name": "user_destination_token_account",
-          "writable": true
+          "name": "user_destination_token_account"
         },
         {
           "name": "destination_token_account",
-          "writable": true,
           "optional": true
         },
         {
@@ -43,7 +39,6 @@ export default {
         },
         {
           "name": "platform_fee_account",
-          "writable": true,
           "optional": true
         },
         {
@@ -85,8 +80,7 @@ export default {
           "name": "platform_fee_bps",
           "type": "u8"
         }
-      ],
-      "returns": "u64"
+      ]
     },
     {
       "name": "route",
@@ -105,20 +99,16 @@ export default {
           "name": "token_program"
         },
         {
-          "name": "user_transfer_authority",
-          "signer": true
+          "name": "user_transfer_authority"
         },
         {
-          "name": "user_source_token_account",
-          "writable": true
+          "name": "user_source_token_account"
         },
         {
-          "name": "user_destination_token_account",
-          "writable": true
+          "name": "user_destination_token_account"
         },
         {
           "name": "destination_token_account",
-          "writable": true,
           "optional": true
         },
         {
@@ -126,7 +116,6 @@ export default {
         },
         {
           "name": "platform_fee_account",
-          "writable": true,
           "optional": true
         },
         {
@@ -164,8 +153,7 @@ export default {
           "name": "platform_fee_bps",
           "type": "u8"
         }
-      ],
-      "returns": "u64"
+      ]
     },
     {
       "name": "shared_accounts_exact_out_route",
@@ -187,24 +175,19 @@ export default {
           "name": "program_authority"
         },
         {
-          "name": "user_transfer_authority",
-          "signer": true
+          "name": "user_transfer_authority"
         },
         {
-          "name": "source_token_account",
-          "writable": true
+          "name": "source_token_account"
         },
         {
-          "name": "program_source_token_account",
-          "writable": true
+          "name": "program_source_token_account"
         },
         {
-          "name": "program_destination_token_account",
-          "writable": true
+          "name": "program_destination_token_account"
         },
         {
-          "name": "destination_token_account",
-          "writable": true
+          "name": "destination_token_account"
         },
         {
           "name": "source_mint"
@@ -214,7 +197,6 @@ export default {
         },
         {
           "name": "platform_fee_account",
-          "writable": true,
           "optional": true
         },
         {
@@ -260,8 +242,7 @@ export default {
           "name": "platform_fee_bps",
           "type": "u8"
         }
-      ],
-      "returns": "u64"
+      ]
     },
     {
       "name": "shared_accounts_route",
@@ -283,24 +264,19 @@ export default {
           "name": "program_authority"
         },
         {
-          "name": "user_transfer_authority",
-          "signer": true
+          "name": "user_transfer_authority"
         },
         {
-          "name": "source_token_account",
-          "writable": true
+          "name": "source_token_account"
         },
         {
-          "name": "program_source_token_account",
-          "writable": true
+          "name": "program_source_token_account"
         },
         {
-          "name": "program_destination_token_account",
-          "writable": true
+          "name": "program_destination_token_account"
         },
         {
-          "name": "destination_token_account",
-          "writable": true
+          "name": "destination_token_account"
         },
         {
           "name": "source_mint"
@@ -310,7 +286,6 @@ export default {
         },
         {
           "name": "platform_fee_account",
-          "writable": true,
           "optional": true
         },
         {
@@ -356,8 +331,7 @@ export default {
           "name": "platform_fee_bps",
           "type": "u8"
         }
-      ],
-      "returns": "u64"
+      ]
     },
     {
       "name": "exact_out_route_v2",
@@ -373,16 +347,13 @@ export default {
       ],
       "accounts": [
         {
-          "name": "user_transfer_authority",
-          "signer": true
+          "name": "user_transfer_authority"
         },
         {
-          "name": "user_source_token_account",
-          "writable": true
+          "name": "user_source_token_account"
         },
         {
-          "name": "user_destination_token_account",
-          "writable": true
+          "name": "user_destination_token_account"
         },
         {
           "name": "source_mint"
@@ -398,7 +369,6 @@ export default {
         },
         {
           "name": "destination_token_account",
-          "writable": true,
           "optional": true
         },
         {
@@ -440,8 +410,7 @@ export default {
             }
           }
         }
-      ],
-      "returns": "u64"
+      ]
     },
     {
       "name": "route_v2",
@@ -457,16 +426,13 @@ export default {
       ],
       "accounts": [
         {
-          "name": "user_transfer_authority",
-          "signer": true
+          "name": "user_transfer_authority"
         },
         {
-          "name": "user_source_token_account",
-          "writable": true
+          "name": "user_source_token_account"
         },
         {
-          "name": "user_destination_token_account",
-          "writable": true
+          "name": "user_destination_token_account"
         },
         {
           "name": "source_mint"
@@ -482,7 +448,6 @@ export default {
         },
         {
           "name": "destination_token_account",
-          "writable": true,
           "optional": true
         },
         {
@@ -524,8 +489,7 @@ export default {
             }
           }
         }
-      ],
-      "returns": "u64"
+      ]
     },
     {
       "name": "shared_accounts_exact_out_route_v2",
@@ -544,24 +508,19 @@ export default {
           "name": "program_authority"
         },
         {
-          "name": "user_transfer_authority",
-          "signer": true
+          "name": "user_transfer_authority"
         },
         {
-          "name": "source_token_account",
-          "writable": true
+          "name": "source_token_account"
         },
         {
-          "name": "program_source_token_account",
-          "writable": true
+          "name": "program_source_token_account"
         },
         {
-          "name": "program_destination_token_account",
-          "writable": true
+          "name": "program_destination_token_account"
         },
         {
-          "name": "destination_token_account",
-          "writable": true
+          "name": "destination_token_account"
         },
         {
           "name": "source_mint"
@@ -618,8 +577,7 @@ export default {
             }
           }
         }
-      ],
-      "returns": "u64"
+      ]
     },
     {
       "name": "shared_accounts_route_v2",
@@ -638,24 +596,19 @@ export default {
           "name": "program_authority"
         },
         {
-          "name": "user_transfer_authority",
-          "signer": true
+          "name": "user_transfer_authority"
         },
         {
-          "name": "source_token_account",
-          "writable": true
+          "name": "source_token_account"
         },
         {
-          "name": "program_source_token_account",
-          "writable": true
+          "name": "program_source_token_account"
         },
         {
-          "name": "program_destination_token_account",
-          "writable": true
+          "name": "program_destination_token_account"
         },
         {
-          "name": "destination_token_account",
-          "writable": true
+          "name": "destination_token_account"
         },
         {
           "name": "source_mint"
@@ -712,8 +665,7 @@ export default {
             }
           }
         }
-      ],
-      "returns": "u64"
+      ]
     }
   ],
   "types": [
@@ -747,73 +699,6 @@ export default {
           {
             "name": "length",
             "type": "u8"
-          }
-        ]
-      }
-    },
-    {
-      "name": "AccountsType",
-      "type": {
-        "kind": "enum",
-        "variants": [
-          {
-            "name": "TransferHookA"
-          },
-          {
-            "name": "TransferHookB"
-          },
-          {
-            "name": "TransferHookReward"
-          },
-          {
-            "name": "TransferHookInput"
-          },
-          {
-            "name": "TransferHookIntermediate"
-          },
-          {
-            "name": "TransferHookOutput"
-          },
-          {
-            "name": "SupplementalTickArrays"
-          },
-          {
-            "name": "SupplementalTickArraysOne"
-          },
-          {
-            "name": "SupplementalTickArraysTwo"
-          }
-        ]
-      }
-    },
-    {
-      "name": "DefiTunaAccountsType",
-      "type": {
-        "kind": "enum",
-        "variants": [
-          {
-            "name": "TransferHookA"
-          },
-          {
-            "name": "TransferHookB"
-          },
-          {
-            "name": "TransferHookInput"
-          },
-          {
-            "name": "TransferHookIntermediate"
-          },
-          {
-            "name": "TransferHookOutput"
-          },
-          {
-            "name": "SupplementalTickArrays"
-          },
-          {
-            "name": "SupplementalTickArraysOne"
-          },
-          {
-            "name": "SupplementalTickArraysTwo"
           }
         ]
       }
@@ -2490,147 +2375,6 @@ export default {
           },
           {
             "name": "StabilityPoolWithdraw"
-          }
-        ]
-      }
-    },
-    {
-      "name": "SwapEventV2",
-      "docs": [
-        "Changing these fields breaks downstream IDL users and Ultra, which parses",
-        "this event by hardcoded byte offset. Ship the matching `parseSwapEvents`",
-        "change in jup-ag/swap-api first."
-      ],
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "input_mint",
-            "type": "pubkey"
-          },
-          {
-            "name": "input_amount",
-            "type": "u64"
-          },
-          {
-            "name": "output_mint",
-            "type": "pubkey"
-          },
-          {
-            "name": "output_amount",
-            "type": "u64"
-          },
-          {
-            "name": "amm",
-            "type": "pubkey"
-          }
-        ]
-      }
-    },
-    {
-      "name": "SwapsEvent",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "swap_events",
-            "type": {
-              "vec": {
-                "defined": {
-                  "name": "SwapEventV2"
-                }
-              }
-            }
-          }
-        ]
-      }
-    },
-    {
-      "name": "TokenLedger",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "token_account",
-            "type": "pubkey"
-          },
-          {
-            "name": "amount",
-            "type": "u64"
-          }
-        ]
-      }
-    },
-    {
-      "name": "BestSwapOutAmountViolation",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "expected_out_amount",
-            "type": "u64"
-          },
-          {
-            "name": "out_amount",
-            "type": "u64"
-          }
-        ]
-      }
-    },
-    {
-      "name": "CandidateSwapResult",
-      "type": {
-        "kind": "enum",
-        "variants": [
-          {
-            "name": "OutAmount",
-            "fields": [
-              "u64"
-            ]
-          },
-          {
-            "name": "ProgramError",
-            "fields": [
-              "u64"
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "name": "CandidateSwapResults",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "results",
-            "type": {
-              "vec": {
-                "defined": {
-                  "name": "CandidateSwapResult"
-                }
-              }
-            }
-          }
-        ]
-      }
-    },
-    {
-      "name": "CandidateSwapQuoteError",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "candidate_index",
-            "type": "u64"
-          },
-          {
-            "name": "in_amount",
-            "type": "u64"
-          },
-          {
-            "name": "error_code",
-            "type": "u64"
           }
         ]
       }

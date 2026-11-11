@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { fallbackPoolsForMint, normalizeHeliusMarket } from '../worker/src/market-fallback.js';
 import { TOKEN_DISCOVERY_STATUS } from '../js/token-context.js';
-import { DEFAULT_TOKEN_CONTEXT } from '../js/token-presets.js';
+
 
 const USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
 
@@ -25,8 +25,8 @@ describe('Helius market fallback normalization', () => {
             { token_info: { price_info: { price_per_token: 95 } } },
         );
         expect(market).toMatchObject({ price: 0.25, solPriceUsd: 95, mcap: null, valuation: { kind: 'FDV', valueUsd: 2_500_000 }, source: 'helius-fallback' });
-        expect(market.pools).toHaveLength(5);
-        expect(market.token.identity.mint).toBe(DEFAULT_TOKEN_CONTEXT.identity.mint);
+        expect(market.pools).toHaveLength(0);
+        expect(market.status).toBe(TOKEN_DISCOVERY_STATUS.UNSUPPORTED);
     });
 
     it('rejects incomplete price data', () => {

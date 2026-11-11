@@ -1,4 +1,6 @@
-import { ANSEM_THEME } from './theme-presets.js';
+import { formatPriceDisplay } from './market-health.js';
+import { isDemoTrade } from './demo-source.js';
+import { FRONTLINE_THEME } from './theme-presets.js';
 import { valuationLabel } from './market-valuation.js';
 import { activeTrade } from './market-evidence.js';
 
@@ -36,10 +38,10 @@ function formatMarketCap(value, compact = false, label = 'MC') {
     return `${label} $${numeric.toFixed(0)}`;
 }
 
-function formatPrice(value, compact = false) {
+function formatPrice(value) {
     const numeric = Number(value) || 0;
     if (!(numeric > 0)) return '$--';
-    return `$${numeric.toFixed(compact ? 4 : 6)}`;
+    return formatPriceDisplay(numeric);
 }
 
 function formatSol(value) {
@@ -68,7 +70,7 @@ function normalizeTick(tick, now) {
 
 export function createPixelSnapshot(source, now = Date.now()) {
     const trades = (source.liveTrades || [])
-        .filter(activeTrade)
+        .filter(t => source.mode === 'demo' ? isDemoTrade(t) : activeTrade(t))
         .filter((trade) => now - Number(trade.timestamp) >= 0 && now - Number(trade.timestamp) <= WINDOW_MS)
         .map((trade) => ({
             id: String(trade.id || trade.txHash || `${trade.timestamp}-${trade.isBuy}`),
@@ -99,6 +101,7 @@ export function createPixelSnapshot(source, now = Date.now()) {
         valuation: source.valuation ? { kind: source.valuation.kind, valueUsd: source.valuation.valueUsd,
             freshness: source.valuation.freshness } : null,
         priceTicks: priceTicks.slice(-90),
+        demo: source.mode === 'demo',
         online: source.connection === 'online' || source.connection === 'degraded',
     };
 }
@@ -232,7 +235,7 @@ export function findPixelOverlaps(layout) {
 }
 
 export class PixelFrontline {
-    constructor(canvas, presentation = pixelPresentation(ANSEM_THEME)) {
+    constructor(canvas, presentation = pixelPresentation(FRONTLINE_THEME)) {
         this.canvas = canvas;
         this.ctx = canvas.getContext('2d', { alpha: false });
         this.presentation = normalizePixelPresentation(presentation);
@@ -544,7 +547,7 @@ export class PixelFrontline {
         ctx.font = `900 ${compact ? 10 : 12}px monospace`;
         ctx.fillStyle = this.snapshot.online ? colors.rise : colors.offline;
         ctx.textAlign = 'left';
-        ctx.fillText(this.snapshot.online ? (compact ? '● 30S' : '● LIVE · 30S') : '● RETRY', 8, hudHeight * 0.5);
+        ctx.fillText(this.snapshot.demo ? 'DEMO · SYNTHETIC' : this.snapshot.online ? (compact ? '● 30S' : '● LIVE · 30S') : '● RETRY', 8, hudHeight * 0.5);
         ctx.fillStyle = colors.text;
         ctx.textAlign = 'center';
         ctx.font = `900 ${compact ? 13 : 18}px monospace`;
@@ -603,7 +606,7 @@ export function pixelPresentation(theme) {
 }
 
 function normalizePixelPresentation(presentation) {
-    if (!presentation?.themeId || !presentation?.colors || !presentation?.champion) return pixelPresentation(ANSEM_THEME);
+    if (!presentation?.themeId || !presentation?.colors || !presentation?.champion) return pixelPresentation(FRONTLINE_THEME);
     return presentation;
 }
 

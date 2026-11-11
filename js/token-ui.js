@@ -5,6 +5,7 @@ const CONNECTION_LABELS = {
     online: 'LIVE',
     offline: 'OFFLINE',
     degraded: 'DEGRADED',
+    demo: 'DEMO',
 };
 
 export function createTokenViewModel(context) {
@@ -134,10 +135,11 @@ export function initTokenUI({ onSubmit, onDefault, getCurrentUrl = () => window.
         }
         const view = createTokenViewModel(context);
         if (dom.data) dom.data.hidden = false;
-        if (dom.input && document.activeElement !== dom.input) dom.input.value = view.mint;
+        if (dom.input && document.activeElement !== dom.input) dom.input.value = view.symbol === 'DEMO' ? '' : view.mint;
         setText(dom.symbol, view.symbol);
         setText(dom.name, view.name);
-        setText(dom.mint, view.shortMint);
+        setText(dom.mint, view.symbol === 'DEMO' ? 'NO ON-CHAIN ASSET' : view.shortMint);
+        if (dom.copyMint) dom.copyMint.disabled = view.symbol === 'DEMO';
         if (dom.mint) dom.mint.title = view.mint;
         setText(dom.source, view.source.toUpperCase());
         if (dom.supplyRow) dom.supplyRow.hidden = view.supply === null;
@@ -191,7 +193,7 @@ function statusMessage(status, { context, requestedMint } = {}) {
     const label = context?.identity?.symbol || shortenAddress(requestedMint) || 'Token';
     switch (status) {
         case TOKEN_UI_STATUS.DEFAULT:
-            return 'ANSEM is the default Frontline token.';
+            return 'Synthetic demo. Load a Solana mint to request live data.';
         case TOKEN_UI_STATUS.RESOLVING:
             return `Resolving ${shortenAddress(requestedMint)} and compatible pools…`;
         case TOKEN_UI_STATUS.RESOLVED:

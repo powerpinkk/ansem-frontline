@@ -15,7 +15,7 @@ const tokenContext = validation.ok && validation.value === DEFAULT_TOKEN_CONTEXT
         : DEFAULT_TOKEN_CONTEXT;
 let currentTheme = THEME_RESOLVER.resolve(tokenContext);
 const engine = new PixelFrontline(canvas, pixelPresentation(currentTheme));
-const channel = new BroadcastChannel(tokenCacheKey('ansem-frontline:pixel', channelContext, 'v1'));
+const channel = new BroadcastChannel(tokenCacheKey('frontline:pixel', channelContext, 'v1'));
 let lastChampionSnapshot = null;
 channel.addEventListener('message', (event) => {
     if (event.data?.mint && event.data.mint !== tokenContext.identity.mint) return;
@@ -37,7 +37,7 @@ channel.addEventListener('message', (event) => {
 });
 engine.start();
 if (import.meta.env.DEV || new URLSearchParams(window.location.search).has('diagnostics')) {
-    window.__ansemPixelEngine = engine;
+    window.__frontlinePixelEngine = engine;
 }
 window.addEventListener('pagehide', () => {
     engine.destroy();

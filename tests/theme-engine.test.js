@@ -7,13 +7,13 @@ import { resolveThemeAssets } from '../js/theme-assets.js';
 import { createThemePresentationController } from '../js/theme-presentation.js';
 import { createUIThemeAdapter } from '../js/theme-adapters.js';
 import {
-    ANSEM_THEME,
+    FRONTLINE_THEME,
     GENERIC_THEME,
     THEME_REGISTRY,
     THEME_RESOLVER,
 } from '../js/theme-presets.js';
 import { createTokenContext } from '../js/token-context.js';
-import { ANSEM_MINT, DEFAULT_TOKEN_CONTEXT } from '../js/token-presets.js';
+import { FIXTURE_MINT, DEFAULT_TOKEN_CONTEXT } from './fixtures/market-token.js';
 import { resolveBattleStateLabel } from '../js/ui.js';
 
 const USDC = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
@@ -22,24 +22,24 @@ const SOL = 'So11111111111111111111111111111111111111112';
 
 describe('ThemeDefinition', () => {
     it('normalizes and deeply freezes a valid definition', () => {
-        const theme = createThemeDefinition(structuredClone(ANSEM_THEME));
-        expect(theme.identity).toEqual({ id: 'ansem', version: '1.0.0', displayName: 'ANSEM Frontline' });
+        const theme = createThemeDefinition(structuredClone(FRONTLINE_THEME));
+        expect(theme.identity).toEqual({ id: 'frontline', version: '1.0.0', displayName: 'Frontline' });
         expect(Object.isFrozen(theme)).toBe(true);
         expect(Object.isFrozen(theme.scene.materials)).toBe(true);
         expect(Object.isFrozen(theme.pixel.colors)).toBe(true);
     });
 
     it('upgrades an M7 definition without Champion presentation fields', () => {
-        const legacy = structuredClone(ANSEM_THEME);
+        const legacy = structuredClone(FRONTLINE_THEME);
         delete legacy.scene.champion;
         delete legacy.pixel.champion;
         const upgraded = createThemeDefinition(legacy);
-        expect(upgraded.scene.champion).toMatchObject({ style: 'black-bull' });
-        expect(upgraded.pixel.champion).toMatchObject({ style: 'black-bull' });
+        expect(upgraded.scene.champion).toMatchObject({ style: 'neutral-sentinel' });
+        expect(upgraded.pixel.champion).toMatchObject({ style: 'neutral-sentinel' });
     });
 
     it('rejects a malformed definition', () => {
-        const malformed = structuredClone(ANSEM_THEME);
+        const malformed = structuredClone(FRONTLINE_THEME);
         delete malformed.scene.environment;
         expect(() => createThemeDefinition(malformed)).toThrow(/environment/);
     });
@@ -63,24 +63,24 @@ describe('ThemeDefinition', () => {
 describe('ThemeRegistry and ThemeResolver', () => {
     it('registers and exposes only valid themes', () => {
         const registry = createThemeRegistry({ themes: [GENERIC_THEME] });
-        registry.register(ANSEM_THEME);
-        expect(registry.list().map((theme) => theme.identity.id)).toEqual(['generic', 'ansem']);
+        registry.register(FRONTLINE_THEME);
+        expect(registry.list().map((theme) => theme.identity.id)).toEqual(['generic', 'frontline']);
         expect(() => registry.register({ identity: { id: 'broken' } })).toThrow();
         expect(registry.list()).toHaveLength(2);
     });
 
     it('rejects duplicate IDs', () => {
         const registry = createThemeRegistry({ themes: [GENERIC_THEME] });
-        registry.register(ANSEM_THEME);
-        expect(() => registry.register(ANSEM_THEME)).toThrow(/already registered/);
+        registry.register(FRONTLINE_THEME);
+        expect(() => registry.register(FRONTLINE_THEME)).toThrow(/already registered/);
     });
 
     it('requires the configured fallback to exist', () => {
-        expect(() => createThemeRegistry({ themes: [ANSEM_THEME], fallbackId: 'generic' })).toThrow(/fallback/);
+        expect(() => createThemeRegistry({ themes: [FRONTLINE_THEME], fallbackId: 'generic' })).toThrow(/fallback/);
     });
 
     it('resolves the canonical ANSEM mint to the ANSEM theme', () => {
-        expect(THEME_RESOLVER.resolve(DEFAULT_TOKEN_CONTEXT).identity.id).toBe('ansem');
+        expect(THEME_RESOLVER.resolve(DEFAULT_TOKEN_CONTEXT).identity.id).toBe('generic');
     });
 
     it.each([USDC, JUP, SOL])('resolves non-ANSEM mint %s to generic', (mint) => {
@@ -103,7 +103,7 @@ describe('ThemeRegistry and ThemeResolver', () => {
     });
 
     it('rejects assignments that name an unregistered theme', () => {
-        expect(() => createThemeResolver({ registry: THEME_REGISTRY, tokenThemes: { [ANSEM_MINT]: 'remote-code' } }))
+        expect(() => createThemeResolver({ registry: THEME_REGISTRY, tokenThemes: { [FIXTURE_MINT]: 'remote-code' } }))
             .toThrow(/Unknown assigned theme/);
     });
 });
@@ -130,12 +130,13 @@ describe('theme assets and presentation lifecycle', () => {
         const adapter = recorder();
         const controller = presentation([adapter]);
         const token = DEFAULT_TOKEN_CONTEXT;
+        controller.applyThemeId('frontline');
         controller.applyForToken(token);
         controller.applyThemeId('generic');
-        controller.applyThemeId('ansem');
+        controller.applyThemeId('frontline');
         expect(token).toBe(DEFAULT_TOKEN_CONTEXT);
-        expect(adapter.themes).toEqual(['ansem', 'generic', 'ansem']);
-        expect(controller.getDiagnostics()).toMatchObject({ tokenMint: ANSEM_MINT, themeOnlySwitches: 2 });
+        expect(adapter.themes).toEqual(['frontline', 'generic', 'frontline']);
+        expect(controller.getDiagnostics()).toMatchObject({ tokenMint: FIXTURE_MINT, themeOnlySwitches: 2 });
     });
 
     it('does not invoke token discovery or remount networking for a theme-only switch', () => {
@@ -145,7 +146,7 @@ describe('theme assets and presentation lifecycle', () => {
         const token = context(USDC);
         mountNetwork(token);
         controller.applyForToken(token);
-        controller.applyThemeId('ansem');
+        controller.applyThemeId('frontline');
         controller.applyThemeId('generic');
         expect(discover).not.toHaveBeenCalled();
         expect(mountNetwork).toHaveBeenCalledTimes(1);
@@ -164,17 +165,17 @@ describe('theme assets and presentation lifecycle', () => {
         const adapter = recorder();
         const controller = presentation([adapter]);
         [DEFAULT_TOKEN_CONTEXT, context(USDC), context(JUP), DEFAULT_TOKEN_CONTEXT].forEach((token) => controller.applyForToken(token));
-        expect(adapter.themes).toEqual(['ansem', 'generic', 'ansem']);
-        expect(controller.getDiagnostics()).toMatchObject({ themeId: 'ansem', tokenMint: ANSEM_MINT });
+        expect(adapter.themes).toEqual(['generic']);
+        expect(controller.getDiagnostics()).toMatchObject({ themeId: 'generic', tokenMint: FIXTURE_MINT });
     });
 
     it('recovers through generic if a presentation adapter rejects ANSEM', () => {
         const applied = [];
         const controller = presentation([{ apply(theme) {
-            if (theme.identity.id === 'ansem') throw new Error('fixture adapter failure');
+            if (theme.identity.id === 'frontline') throw new Error('fixture adapter failure');
             applied.push(theme.identity.id);
         } }]);
-        expect(controller.applyForToken(DEFAULT_TOKEN_CONTEXT).identity.id).toBe('generic');
+        expect(controller.applyThemeId('frontline').identity.id).toBe('generic');
         expect(applied).toEqual(['generic']);
     });
 
@@ -188,8 +189,8 @@ describe('theme assets and presentation lifecycle', () => {
 
 describe('presentation adapters', () => {
     it('resolves tactical state labels through theme copy without generic ANSEM branding', () => {
-        expect(resolveBattleStateLabel('bull', ANSEM_THEME.ui.copy)).toBe('BLACK BULLS ADVANCING');
-        expect(resolveBattleStateLabel('bear', ANSEM_THEME.ui.copy)).toBe('GRIZZLIES ADVANCING');
+        expect(resolveBattleStateLabel('bull', FRONTLINE_THEME.ui.copy)).toBe('BLACK BULLS ADVANCING');
+        expect(resolveBattleStateLabel('bear', FRONTLINE_THEME.ui.copy)).toBe('GRIZZLIES ADVANCING');
         expect(resolveBattleStateLabel('bull', GENERIC_THEME.ui.copy)).toBe('BUY FORCES ADVANCING');
         expect(resolveBattleStateLabel('bear', GENERIC_THEME.ui.copy)).toBe('SELL FORCES ADVANCING');
     });
@@ -197,20 +198,20 @@ describe('presentation adapters', () => {
     it('replaces every CSS and copy token without stale ANSEM state', () => {
         const fakeDocument = documentHarness();
         const adapter = createUIThemeAdapter(fakeDocument);
-        adapter.apply(ANSEM_THEME);
+        adapter.apply(FRONTLINE_THEME);
         adapter.apply(GENERIC_THEME);
         expect(fakeDocument.documentElement.dataset.frontlineTheme).toBe('generic');
         expect(fakeDocument.styles.get('--theme-accent')).toBe('#55d6c2');
-        expect(fakeDocument.elements.get('theme-brand-primary').textContent).toBe('TOKEN');
+        expect(fakeDocument.elements.get('theme-brand-primary').textContent).toBe('FRONTLINE');
         expect(fakeDocument.elements.get('theme-legend-buy').textContent).toBe('buy unit = verified buy');
-        expect(fakeDocument.title).toBe('TOKEN FRONTLINE • On-Chain Live Data');
+        expect(fakeDocument.title).toBe('Frontline · Solana market battlefield');
         expect(fakeDocument.meta.content).toBe('#071017');
         expect(fakeDocument.styles).toHaveLength(10);
     });
 
     it('updates Pixel Frontline in place without creating another engine', () => {
-        const engine = new PixelFrontline(canvasHarness(), pixelPresentation(ANSEM_THEME));
-        expect(engine.getDiagnostics().themeId).toBe('ansem');
+        const engine = new PixelFrontline(canvasHarness(), pixelPresentation(FRONTLINE_THEME));
+        expect(engine.getDiagnostics().themeId).toBe('frontline');
         expect(engine.setTheme(pixelPresentation(GENERIC_THEME))).toBe(true);
         expect(engine.setTheme(pixelPresentation(GENERIC_THEME))).toBe(false);
         expect(engine.getDiagnostics()).toMatchObject({ themeId: 'generic', themeApplications: 2 });

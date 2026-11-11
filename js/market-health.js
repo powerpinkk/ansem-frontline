@@ -10,7 +10,11 @@ function reasonForIdentityFailure(failure) {
     return 'DISCOVERY_FAILED';
 }
 export function formatPriceDisplay(value) {
-    return positive(value) ? `$${Number(value).toFixed(6)}` : '—';
+    if (!positive(value)) return '—';
+    const price = Number(value);
+    return `$${price < 0.000001 ? price.toPrecision(4) : price.toLocaleString('en-US', {
+        minimumFractionDigits: price >= 1 ? 2 : 6, maximumFractionDigits: price >= 1 ? 4 : 8,
+    })}`;
 }
 
 export function deriveMarketHealth(state) {

@@ -31,8 +31,8 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
-      - run: npm run build -- --base=/ansem-frontline/
+      - run: npm ci --ignore-scripts --legacy-peer-deps
+      - run: npm run build -- --base=/frontline/
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

@@ -31,7 +31,7 @@ export function initAPI(callbacks = {}, { runtime = defaultTokenRuntime, initial
     let marketEpoch = 0;
     const started = performance.now();
     const startup = { marketMs: null, firstTradeMs: null, marketSource: null, cacheMs: null };
-    const cacheKey = tokenCacheKey('ansem-frontline:market', runtime.context, 'v3');
+    const cacheKey = tokenCacheKey('frontline:market', runtime.context, 'v3');
     const emit = (name, ...args) => { if (!destroyed) callbacks[name]?.(...args); };
     function schedule(fn, delay) {
         if (destroyed) return;
@@ -52,13 +52,10 @@ export function initAPI(callbacks = {}, { runtime = defaultTokenRuntime, initial
         } finally { window.clearTimeout(timer); timers.delete(timer); requests.delete(controller); }
     }
     function connection() {
-        const fresh = valuation.snapshot();
         const health = deriveMarketHealth(state);
-        const independentCanonical = health.terrainAuthorityAvailable || health.canonicalPriceAvailable;
-        const next = !independentCanonical && state.priceFailures >= 3 && !state.workerConnected ? 'offline'
-            : state.priceFailures || state.tradesFailures || state.integrity?.degraded
-                || state.executionStreamStatus === 'offline' || fresh?.freshness === 'STALE' ? 'degraded'
-                : latestMarket || independentCanonical ? 'online' : 'connecting';
+        const next = health.executionStreamHealthy && health.priceAvailable ? 'online'
+            : state.priceFailures >= 3 && !state.workerConnected ? 'offline'
+                : latestMarket || state.workerConnected || state.integrity ? 'degraded' : 'connecting';
         if (state.connection !== next) { state.connection = next; emit('onConnectionChange', next); }
     }
     function pressure() {
@@ -207,6 +204,7 @@ export function initAPI(callbacks = {}, { runtime = defaultTokenRuntime, initial
         return { ...result.market, tokenContext: result.context };
     }
     async function relayMarket() {
+        if (!CONFIG.RELAY_MARKET_URL) throw new Error('RELAY_NOT_CONFIGURED');
         const data = await json(urlWithMint(CONFIG.RELAY_MARKET_URL, runtime.context));
         if (!data.pools?.length || data.token?.identity?.mint !== mint) throw new Error('FALLBACK_IDENTITY_MISSING');
         const tokenContext = withTokenResolution(runtime.context, { resources: { pools: data.pools, referencePool: data.pools[0] },
@@ -237,7 +235,7 @@ export function initAPI(callbacks = {}, { runtime = defaultTokenRuntime, initial
         return marketPromise;
     }
     async function refreshRecent(force = false) {
-        if (destroyed || recentPromise) return recentPromise;
+        if (destroyed || recentPromise || !CONFIG.RELAY_RECENT_URL) return recentPromise;
         const retryAt = state.integrity?.health?.executionStreamAvailable?.nextRetryAt;
         if (Number.isFinite(retryAt) && Date.now() < retryAt) return;
         if (!force && lastRecentRequestAt && Date.now() - lastRecentRequestAt < 15_000) return;
@@ -259,13 +257,14 @@ export function initAPI(callbacks = {}, { runtime = defaultTokenRuntime, initial
         return recentPromise;
     }
     async function refreshChart() {
-        if (!state.referencePool || Date.now() - lastChartAt < 60_000) return;
+        if (!CONFIG.GECKO_BASE || !state.referencePool || Date.now() - lastChartAt < 60_000) return;
         lastChartAt = Date.now();
         const poolAddress = state.referencePool.address;
         const snapshot = await json(`${CONFIG.GECKO_BASE}/${poolAddress}/ohlcv/minute?limit=60`);
         if (state.referencePool?.address !== poolAddress) return;
         const candles = snapshot.data?.attributes?.ohlcv_list;
         if (!Array.isArray(candles) || !candles.length) return;
+        state.chartMeta = { source: 'geckoterminal-reference-pool', period: '1h', aggregation: 'minute-closes', receivedAt: Date.now(), poolAddress };
         state.priceHistory = candles.slice(0, 60).reverse().map((c) => Number(c[4])).filter((p) => Number.isFinite(p) && p > 0);
         emit('onMarketUpdate', latestMarket);
     }
@@ -296,7 +295,7 @@ export function initAPI(callbacks = {}, { runtime = defaultTokenRuntime, initial
         schedule(freshnessLoop, 1000);
     }
     if (import.meta.env.DEV || new URLSearchParams(window.location.search).has('diagnostics')) {
-        window.__ansemStartupDiagnostics = () => ({ ...startup });
+        window.__frontlineStartupDiagnostics = () => ({ ...startup });
     }
     if (initialMarket) applyMarket(initialMarket, 0);
     else {

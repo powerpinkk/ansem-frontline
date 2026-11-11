@@ -9,12 +9,12 @@ import { state } from './state.js';
 import { sanitizeChampionSnapshot } from './champion-sync.js';
 import { tokenCacheKey } from './token-context.js';
 import { DEFAULT_TOKEN_CONTEXT } from './token-presets.js';
-import { ANSEM_THEME } from './theme-presets.js';
+import { FRONTLINE_THEME } from './theme-presets.js';
 
 const PIP_WIDTH = PIXEL_SOURCE_WIDTH;
 const PIP_HEIGHT = PIXEL_SOURCE_HEIGHT;
 
-export function initPixelCompanion({ setSceneActive, tokenContext = DEFAULT_TOKEN_CONTEXT, theme = ANSEM_THEME }) {
+export function initPixelCompanion({ setSceneActive, tokenContext = DEFAULT_TOKEN_CONTEXT, theme = FRONTLINE_THEME }) {
     const button = document.getElementById('pixel-mode-btn');
     const returnButton = document.getElementById('companion-return');
     const dockScreen = document.getElementById('companion-dock-screen');
@@ -23,7 +23,7 @@ export function initPixelCompanion({ setSceneActive, tokenContext = DEFAULT_TOKE
     let currentTokenContext = tokenContext;
     let currentTheme = theme;
     let currentChampionSnapshot = null;
-    let channel = new BroadcastChannel(tokenCacheKey('ansem-frontline:pixel', currentTokenContext, 'v1'));
+    let channel = new BroadcastChannel(tokenCacheKey('frontline:pixel', currentTokenContext, 'v1'));
     const canvas = document.createElement('canvas');
     const video = document.createElement('video');
     let videoEngine = null;
@@ -33,6 +33,7 @@ export function initPixelCompanion({ setSceneActive, tokenContext = DEFAULT_TOKE
     let stream = null;
     let mode = null;
     let publishTimer = 0;
+    let unavailableTimer = 0;
     let pipRequested = false;
     let restoring = false;
     let destroyed = false;
@@ -78,7 +79,8 @@ export function initPixelCompanion({ setSceneActive, tokenContext = DEFAULT_TOKE
     const setUnavailableState = () => {
         button.classList.add('pip-unavailable');
         button.setAttribute('aria-label', 'Picture-in-Picture is unavailable in this browser');
-        window.setTimeout(() => {
+        window.clearTimeout(unavailableTimer);
+        unavailableTimer = window.setTimeout(() => {
             button.classList.remove('pip-unavailable');
             button.setAttribute('aria-label', 'Open the 30-second pixel companion in Picture-in-Picture');
         }, 2_800);
@@ -88,7 +90,7 @@ export function initPixelCompanion({ setSceneActive, tokenContext = DEFAULT_TOKE
         mode = nextMode;
         document.body.classList.add('companion-active');
         dockScreen.hidden = false;
-        window.__ansemCompanionActive = true;
+        window.__frontlineCompanionActive = true;
         setSceneActive(false);
         button.setAttribute('aria-pressed', 'true');
         publish();
@@ -119,7 +121,7 @@ export function initPixelCompanion({ setSceneActive, tokenContext = DEFAULT_TOKE
         mode = null;
         document.body.classList.remove('companion-active');
         dockScreen.hidden = true;
-        window.__ansemCompanionActive = false;
+        window.__frontlineCompanionActive = false;
         setSceneActive(!document.hidden);
         button.setAttribute('aria-pressed', 'false');
         restoring = false;
@@ -165,7 +167,7 @@ export function initPixelCompanion({ setSceneActive, tokenContext = DEFAULT_TOKE
     };
 
     button.addEventListener('click', async () => {
-        if (window.__ansemCompanionActive) {
+        if (window.__frontlineCompanionActive) {
             await restoreMain();
             return;
         }
@@ -178,7 +180,7 @@ export function initPixelCompanion({ setSceneActive, tokenContext = DEFAULT_TOKE
             if (await openDocumentPictureInPicture()) return;
         } catch (error) {
             console.warn('[pixel-pip]', error);
-            if (!window.__ansemCompanionActive) {
+            if (!window.__frontlineCompanionActive) {
                 try {
                     if (await openDocumentPictureInPicture()) return;
                 } catch (fallbackError) {
@@ -190,8 +192,8 @@ export function initPixelCompanion({ setSceneActive, tokenContext = DEFAULT_TOKE
     });
 
     returnButton?.addEventListener('click', () => void restoreMain());
-    window.__ansemCompanionDiagnostics = () => ({
-        active: Boolean(window.__ansemCompanionActive),
+    window.__frontlineCompanionDiagnostics = () => ({
+        active: Boolean(window.__frontlineCompanionActive),
         mode,
         pipRequested,
         hasVideoPip: typeof video.requestPictureInPicture === 'function',
@@ -199,7 +201,7 @@ export function initPixelCompanion({ setSceneActive, tokenContext = DEFAULT_TOKE
         pixel: videoEngine?.getDiagnostics() || null,
         mint: currentTokenContext.identity.mint,
         themeId: currentTheme.identity.id,
-        channel: tokenCacheKey('ansem-frontline:pixel', currentTokenContext, 'v1'),
+        channel: tokenCacheKey('frontline:pixel', currentTokenContext, 'v1'),
         champion: currentChampionSnapshot ? {
             status: currentChampionSnapshot.status,
             activationId: currentChampionSnapshot.activationId,
@@ -211,6 +213,7 @@ export function initPixelCompanion({ setSceneActive, tokenContext = DEFAULT_TOKE
         if (destroyed) return;
         destroyed = true;
         window.clearInterval(publishTimer);
+        window.clearTimeout(unavailableTimer);
         documentEngine?.destroy();
         videoEngine?.destroy();
         stream?.getTracks().forEach((track) => track.stop());
@@ -224,7 +227,7 @@ export function initPixelCompanion({ setSceneActive, tokenContext = DEFAULT_TOKE
             channel.close();
             currentTokenContext = nextContext;
             currentChampionSnapshot = null;
-            channel = new BroadcastChannel(tokenCacheKey('ansem-frontline:pixel', currentTokenContext, 'v1'));
+            channel = new BroadcastChannel(tokenCacheKey('frontline:pixel', currentTokenContext, 'v1'));
             if (dockLabel) dockLabel.textContent = `▦ $${currentTokenContext.identity.symbol || 'TOKEN'} PIXEL FRONTLINE`;
             publish();
         },

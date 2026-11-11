@@ -2,7 +2,7 @@ import { providerValuation } from '../js/market-valuation.js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { initAPI } from '../js/api.js';
 import { createTokenRuntime } from '../js/state.js';
-import { DEFAULT_TOKEN_CONTEXT } from '../js/token-presets.js';
+import { DEFAULT_TOKEN_CONTEXT } from './fixtures/market-token.js';
 
 describe('token API teardown', () => {
     beforeEach(() => {

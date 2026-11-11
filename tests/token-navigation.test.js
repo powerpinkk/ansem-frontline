@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildTokenUrl, historyPath, readTokenRoute } from '../js/token-navigation.js';
-import { DEFAULT_TOKEN_CONTEXT } from '../js/token-presets.js';
+import { DEFAULT_TOKEN_CONTEXT } from './fixtures/market-token.js';
 
 const ANSEM = DEFAULT_TOKEN_CONTEXT.identity.mint;
 const USDC = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';

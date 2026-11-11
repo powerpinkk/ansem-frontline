@@ -8,10 +8,9 @@ const productionOrigins = wrangler.vars.ALLOWED_ORIGINS;
 describe('worker origin policy', () => {
     it('allows both production deployments configured for the worker', () => {
         expect(configuredOrigins(productionOrigins)).toEqual([
-            'https://ansem-frontline.vercel.app',
             'https://powerpinkk.github.io',
         ]);
-        expect(isAllowedOrigin('https://ansem-frontline.vercel.app', productionOrigins)).toBe(true);
+        expect(isAllowedOrigin('https://unconfigured.example', productionOrigins)).toBe(false);
         expect(isAllowedOrigin('https://powerpinkk.github.io', productionOrigins)).toBe(true);
     });
 

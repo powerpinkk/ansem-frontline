@@ -1,20 +1,38 @@
 {
   "$schema": "../node_modules/wrangler/config-schema.json",
-  "name": "ansem-frontline-stream",
+  "name": "frontline-stream",
   "main": "src/index.js",
   "compatibility_date": "2026-08-24",
   "workers_dev": true,
   "durable_objects": {
     "bindings": [
-      { "name": "STREAM_HUB", "class_name": "StreamHub" }
+      {
+        "name": "STREAM_HUB",
+        "class_name": "StreamHub"
+      },
+      {
+        "name": "GLOBAL_BUDGET",
+        "class_name": "GlobalBudget"
+      }
     ]
   },
   "migrations": [
-    { "tag": "v1", "new_sqlite_classes": ["StreamHub"] }
+    {
+      "tag": "v1",
+      "new_sqlite_classes": [
+        "StreamHub"
+      ]
+    },
+    {
+      "tag": "v2-global-budget",
+      "new_sqlite_classes": [
+        "GlobalBudget"
+      ]
+    }
   ],
   "vars": {
-    "DEFAULT_TOKEN_MINT": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
-    "WORKER_BUILD_ID": "ansem-frontline-worker-recovery-v1",
-    "ALLOWED_ORIGINS": "https://ansem-frontline.vercel.app,https://powerpinkk.github.io"
+    "WORKER_BUILD_ID": "frontline-2d-portfolio",
+    "ALLOWED_ORIGINS": "https://powerpinkk.github.io",
+    "LIVE_TOKEN_MINTS": ""
   }
 }

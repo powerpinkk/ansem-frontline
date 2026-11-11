@@ -28,7 +28,7 @@ function capability(available = true, extra = {}) {
 }
 
 function healthBody(overrides = {}) {
-    return { ok: true, service: 'ansem-frontline-stream', buildId: BUILD,
+    return { ok: true, service: 'frontline-stream', buildId: BUILD,
         envelopeVersion: 4, healthSchemaVersion: 1, ...overrides };
 }
 
@@ -326,6 +326,7 @@ describe('worker production smoke', () => {
     });
 
     it('cancels a timed-out request and does not retry it', async () => {
+        vi.useFakeTimers();
         let healthAborted = false;
         const base = transport();
         const fetchImpl = vi.fn((input, init) => {
@@ -337,8 +338,11 @@ describe('worker production smoke', () => {
                 }, { once: true });
             });
         });
-        const report = await runWorkerSmoke({ live: true, expectedBuildId: BUILD, fetchImpl,
+        const pending = runWorkerSmoke({ live: true, expectedBuildId: BUILD, fetchImpl,
             perRequestTimeoutMs: 5, globalBudgetMs: 100 });
+        await vi.advanceTimersByTimeAsync(10);
+        const report = await pending;
+        vi.useRealTimers();
         expect(healthAborted).toBe(true);
         expect(fetchImpl).toHaveBeenCalledTimes(3);
         expect(report.calls.byEndpoint).toEqual({ health: 1, market: 1, recent: 1 });
@@ -347,6 +351,7 @@ describe('worker production smoke', () => {
     });
 
     it('applies the same timeout to a stalled response body', async () => {
+        vi.useFakeTimers();
         let bodySignalAborted = false;
         const base = transport();
         const fetchImpl = vi.fn((input, init) => {
@@ -355,8 +360,11 @@ describe('worker production smoke', () => {
             return { status: 200, headers: new Headers(headers(WORKER_SMOKE_DEFAULTS.healthOrigin)),
                 text: () => new Promise(() => {}) };
         });
-        const report = await runWorkerSmoke({ live: true, expectedBuildId: BUILD, fetchImpl,
+        const pending = runWorkerSmoke({ live: true, expectedBuildId: BUILD, fetchImpl,
             perRequestTimeoutMs: 5, globalBudgetMs: 100 });
+        await vi.advanceTimersByTimeAsync(10);
+        const report = await pending;
+        vi.useRealTimers();
         expect(bodySignalAborted).toBe(true);
         expect(fetchImpl).toHaveBeenCalledTimes(3);
         expect(report.promotionReason).toContain('REQUEST_TIMEOUT');

@@ -1,5 +1,5 @@
 import { validateSolanaMint } from './token-context.js';
-import { ANSEM_MINT } from './token-presets.js';
+import { DEMO_MINT } from './token-presets.js';
 
 export const COMMANDER_ROLE = 'commander';
 export const COMMANDER_SCALE_LIMITS = Object.freeze({ min: 0.25, max: 4 });
@@ -27,11 +27,11 @@ export const COMMANDER_ASSET_CATALOG = Object.freeze({
 const PROFILE_ID = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
 const MATERIAL_POLICIES = new Set(['theme-hero']);
 
-export const ANSEM_COMMANDER_PROFILE = Object.freeze({
-    id: 'ansem-black-bull',
+export const DEMO_COMMANDER_PROFILE = Object.freeze({
+    id: 'frontline-black-bull',
     version: 1,
-    tokenMint: ANSEM_MINT,
-    display: Object.freeze({ name: 'Black Bull Commander', title: 'ANSEM Commander' }),
+    tokenMint: DEMO_MINT,
+    display: Object.freeze({ name: 'Black Bull Commander', title: 'Demo Commander (configured role)' }),
     assetId: 'black-bull-v1',
     rigType: 'QUADRUPED_BULL_RIDER',
     materialPolicy: 'theme-hero',
@@ -40,7 +40,7 @@ export const ANSEM_COMMANDER_PROFILE = Object.freeze({
     presentationBehavior: 'battlefield-leader-v1',
     combatArchetype: 'heavy-bull',
     capabilities: Object.freeze(['MOVEMENT', 'LEADERSHIP', 'MELEE', 'CHARGE', 'IMPACT_REACTION']),
-    metadata: Object.freeze({ provenance: 'source-controlled', configuredFor: 'ANSEM' }),
+    metadata: Object.freeze({ provenance: 'source-controlled', configuredFor: 'FRONTLINE' }),
 });
 
 export function commanderProfileKey(profile) {
@@ -129,7 +129,7 @@ export function createCommanderProfileRegistry(profiles, options = {}) {
     });
 }
 
-export const COMMANDER_PROFILE_REGISTRY = createCommanderProfileRegistry([ANSEM_COMMANDER_PROFILE]);
+export const COMMANDER_PROFILE_REGISTRY = createCommanderProfileRegistry([]);
 
 export function getCommanderProfile(tokenMint) {
     return COMMANDER_PROFILE_REGISTRY.getCommanderProfile(tokenMint);

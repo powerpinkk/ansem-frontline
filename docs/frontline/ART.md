@@ -1,0 +1,9 @@
+# Selected art — local review only
+
+Selected media: environment.png and abyss.png; four R1 full-body character atlases (bull/bear × scout/guard); atlas rectangle metadata. Source paths, byte sizes and SHA-256 are in transfer-manifest.json. Continuous GL rigs use the R3 authored geometry and R6–R14 contact/gait/action improvements; the R1 images are the Canvas and aggregate-rank presentation. No original reference image or private game strategy is copied.
+
+Source manifests identify generated art produced with the built-in Image Gen tool at the user's request and mark it PRIVATE_PILOT_NOT_AUTHORIZED_FOR_DISTRIBUTION. That is a real unresolved publication condition, not a finding of infringement. This task authorizes local integration and inspection; it does not grant blanket rights to referenced material or approve publication. Source prompts and generation records remain in the private pilot and were inspected by path/hash where applicable; no strategy or complete private context is exported.
+
+A publication review must identify the exact selected asset hashes and confirm applicable rights/permission to distribute them. If that cannot be established, the bounded replacement is two independently authored environment plates plus four independently designed character atlases, retaining the current projection/rig/frame contract. That replacement requires a separate art decision, not another game/runtime/catalog migration. The neutral favicon and social card are code-native SVG designs made for Frontline and do not use the restricted image reference.
+
+R16 visual acceptance is still pending in the source pilot. Neither reuse nor Frontline's own tests approve that pilot, its high-load congestion, all pivots/weapon intersections or physical mobile performance. Frontline's local captures are private review artifacts until publication is authorized.

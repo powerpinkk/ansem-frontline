@@ -5,7 +5,7 @@ import { activeTrade, createTradeJournal } from '../js/market-evidence.js';
 import { CONFIG } from '../js/config.js';
 
 export const WORKER_SMOKE_CONTRACT = Object.freeze({
-    service: 'ansem-frontline-stream',
+    service: 'frontline-stream',
     envelopeVersion: 4,
     healthSchemaVersion: 1,
     perRequestTimeoutMs: 60_000,
@@ -13,9 +13,9 @@ export const WORKER_SMOKE_CONTRACT = Object.freeze({
 });
 
 export const WORKER_SMOKE_DEFAULTS = Object.freeze({
-    origin: 'https://ansem-frontline-stream.ansem-frontline.workers.dev',
+    origin: 'https://relay.frontline.invalid',
     mint: '9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump',
-    healthOrigin: 'https://ansem-frontline.vercel.app',
+    healthOrigin: 'https://powerpinkk.github.io',
     recentOrigin: 'https://powerpinkk.github.io',
 });
 
@@ -565,10 +565,12 @@ export function parseCliArguments(argv) {
         if (value === '--live') options.live = true;
         else if (value === '--expected-build-id') options.expectedBuildId = argv[++index];
         else if (value.startsWith('--expected-build-id=')) options.expectedBuildId = value.slice(value.indexOf('=') + 1);
+        else if (value === '--mint') options.mint = argv[++index];
         else if (value === '--origin') options.origin = argv[++index];
         else if (value.startsWith('--origin=')) options.origin = value.slice(value.indexOf('=') + 1);
         else throw new SmokeContractError('CLI_ARGUMENT_INVALID');
     }
+    if (options.live && (!options.origin || !options.mint)) throw new SmokeContractError('EXPLICIT_RELAY_AND_MINT_REQUIRED');
     return options;
 }
 
