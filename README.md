@@ -2,7 +2,7 @@
 
 Frontline visualizes Solana token activity and price as an illustrated 2D battlefield. Buy and sell forces respond to market flow; combat is a visual metaphor and never sets a token price.
 
-**The 2D candidate has been accepted; publication is in progress.** The requested giant-orientation correction is verified in both families. See [release status](docs/frontline/RELEASE.md) and [art scope](docs/frontline/ART.md).
+**Published release candidate:** [open Frontline](https://frontline-solana.vercel.app/) · [GitHub Pages](https://powerpinkk.github.io/frontline/). Giant orientation is corrected in both families. Demo works without providers; current verified live execution coverage remains pending/degraded. See [publication checks and limits](docs/frontline/PUBLICATION.md) and [art scope](docs/frontline/ART.md).
 
 ![Frontline 2D Demo, using synthetic data](docs/frontline/screenshots/frontline-desktop.png)
 

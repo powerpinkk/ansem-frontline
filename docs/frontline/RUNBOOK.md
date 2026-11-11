@@ -1,6 +1,6 @@
 # Maintenance
 
-Use Node 22.12+; validation used Node 22.18 and npm 10.9.3 on Windows. Install the committed lockfile with npm ci --ignore-scripts --legacy-peer-deps. Local commands: npm run dev, npm run lint, npm test, npm run build, npm run test:e2e. The latter builds optimized root and /frontline/ variants and serves them as static files, without path rewriting.
+Use Node 22.12+ within the Node22 series; validation used Node 22.18 and npm 10.9.3 on Windows. Install the committed lockfile with npm ci --ignore-scripts --legacy-peer-deps. Local commands: npm run dev, npm run lint, npm test, npm run build, npm run test:e2e. The latter builds optimized root and /frontline/ variants and serves them as static files, without path rewriting.
 
 ## Configuration
 
@@ -55,4 +55,4 @@ GitHub Pages applies the HTML meta CSP for supported directives; frame-ancestors
 
 CI uses the pinned Playwright Chromium with the runtime libraries already supplied by the GitHub-hosted Ubuntu image. The first follow-up run passed lint/unit/build but failed DNS lookups for optional APT font packages during --with-deps. Browser installation now avoids that unrelated APT step; the full 22-test suite still executes and missing runtime libraries would fail CI. No E2E checks were skipped to obtain a green result.
 
-The global governor covers all token hubs in this Frontline Worker. It does not govern another application or a copied provider key used outside this deployment. Legacy Vercel frontend aliases redirect to the verified neutral domain; the physical Worker URL remains an operator compatibility endpoint. GitHub repository redirects do not guarantee old project-Pages paths continue working.
+The global governor covers all token hubs in this Frontline Worker. It does not govern another application or a copied provider key used outside this deployment. The old public Vercel frontend alias redirects308 to the verified neutral domain; team-scoped historical aliases remain behind Vercel SSO before app redirects; the physical Worker URL remains an operator compatibility endpoint. GitHub repository redirects do not guarantee old project-Pages paths continue working.
