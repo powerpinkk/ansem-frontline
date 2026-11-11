@@ -29,6 +29,6 @@ for (const name of ['root', 'pages']) {
     variants.push({ name, entries, bytes: entries.reduce((n, e) => n + e.bytes, 0) });
 }
 const graph = JSON.parse(await fs.readFile('.artifacts/frontline-2d/production-modules.json', 'utf8'));
-if (graph.three !== false || graph.publicSimulationMutators !== false) throw new Error('INVALID_GRAPH');
+if (graph.three !== false || graph.publicSimulationMutators !== false || graph.unrelatedBuildMetadata !== false) throw new Error('INVALID_GRAPH');
 await fs.writeFile('.artifacts/frontline-2d/bundle-manifest.json', JSON.stringify({ variants, productionGraph: graph }, null, 2));
 process.stdout.write(`Verified ${variants.map(v => `${v.name}:${v.entries.length} files`).join(', ')}; no retired brand or simulation mutators; production graph excludes Three.\n`);

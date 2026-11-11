@@ -35,7 +35,7 @@ Paste a Solana mint and select **LOAD** to request real data. Failed resolution 
 
 The frontend can resolve supported Solana pools without secrets. Verified acquisition needs a configured relay. With no relay configured, live discovery remains available but execution coverage is **degraded**, with no invented troops. A socket alone never establishes LIVE status. Unknown, stale and unavailable values stay explicit.
 
-The bounded portfolio relay admits up to two operator-configured mints, uses verified polling and reserves a shared account-wide maximum of 30 RPC requests per minute and 3,000 per UTC day. This bounds upstream request counts, not dollar billing or Cloudflare ingress. Other compatible mints can still show provider discovery/indicative prices. See [maintenance](docs/frontline/RUNBOOK.md) for capabilities and limits.
+The bounded portfolio relay admits up to two operator-configured mints, uses verified polling and reserves a shared maximum across all Frontline token hubs of 30 RPC requests per minute and 3,000 per UTC day. This bounds upstream request counts, not dollar billing or Cloudflare ingress. Other compatible mints can still show provider discovery/indicative prices. See [maintenance](docs/frontline/RUNBOOK.md) for capabilities and limits.
 
 ## Architecture
 

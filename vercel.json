@@ -40,5 +40,40 @@
       "source": "/relay/:path*",
       "destination": "https://ansem-frontline-stream.ansem-frontline.workers.dev/:path*"
     }
+  ],
+  "redirects": [
+    {
+      "source": "/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "ansem-frontline.vercel.app"
+        }
+      ],
+      "destination": "https://frontline-solana.vercel.app/:path*",
+      "permanent": true
+    },
+    {
+      "source": "/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "ansem-frontline-powerpinkks-projects.vercel.app"
+        }
+      ],
+      "destination": "https://frontline-solana.vercel.app/:path*",
+      "permanent": true
+    },
+    {
+      "source": "/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "ansem-frontline-git-main-powerpinkks-projects.vercel.app"
+        }
+      ],
+      "destination": "https://frontline-solana.vercel.app/:path*",
+      "permanent": true
+    }
   ]
 }

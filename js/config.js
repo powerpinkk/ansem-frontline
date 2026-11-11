@@ -1,4 +1,10 @@
-const environment = import.meta.env || {};
+// Keep unrelated Vite/platform metadata out of browser and Worker bundles.
+// Native Node/Cloudflare imports have no Vite environment.
+const environment = typeof import.meta.env === 'undefined' ? {} : {
+    MODE: import.meta.env.MODE,
+    VITE_STREAM_URL: import.meta.env.VITE_STREAM_URL,
+    VITE_RELAY_ORIGIN: import.meta.env.VITE_RELAY_ORIGIN,
+};
 const configuredStreamUrl = environment.MODE === 'e2e' ? 'disabled' : environment.VITE_STREAM_URL;
 const candidate = environment.VITE_RELAY_ORIGIN || '';
 const RELAY_ORIGIN = /^https:\/\//.test(candidate) ? candidate.replace(/\/$/, '') : '';
