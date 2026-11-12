@@ -1,6 +1,6 @@
 # Candidate validation — 11 November 2026
 
-The initial Frontline 3.0.0-rc.1 candidate was accepted by the user, with a requested giant-orientation correction before proceeding. See GIANT_ORIENTATION.md for the correction and current 820-unit / 22-E2E verification. Publication is authorized; live hosting cutover is not yet verified. No independent review is claimed. Source branch: codex/frontline-2d-portfolio; baseline 1dcf44bee668f72ccccc98f753ecf624c91f4f6d. The ignored .artifacts/frontline-2d/candidate.json binds the final source commit, binary diff, source archive and both optimized variants to SHA-256 hashes. Evidence is private until the publication gates are met.
+The initial Frontline 3.0.0-rc.1 candidate was accepted by the user, with a requested giant-orientation correction before proceeding. See GIANT_ORIENTATION.md for the correction and current 820-unit / 22-E2E verification. Publication and served root/Pages checks are recorded in PUBLICATION.md; complete current live-activity qualification remains pending. No independent review is claimed. Source branch: codex/frontline-2d-portfolio; baseline 1dcf44bee668f72ccccc98f753ecf624c91f4f6d. The ignored .artifacts/frontline-2d/candidate.json binds the final source commit, binary diff, source archive and both optimized variants to SHA-256 hashes. Evidence is private until the publication gates are met.
 
 ## Automated results on this implementation
 
@@ -8,7 +8,7 @@ The initial Frontline 3.0.0-rc.1 candidate was accepted by the user, with a requ
 | --- | --- | --- |
 | Initial unit baseline | 805 passing | baseline-host-unit.json; original checkout, outside sandbox |
 | Final lint | Pass | npm run check; historical .codex-context evidence explicitly excluded, preserved |
-| Initial accepted unit / contract suite | 817 passing across 49 files | final-verification.json / final npm run check (unit-final.json is the earlier 816-test checkpoint); no financial expectation weakening |
+| Initial accepted unit / contract suite | 817 passing (current correction:820) across 49 files | final-verification.json / final npm run check (unit-final.json is the earlier 816-test checkpoint); no financial expectation weakening |
 | Optimized E2E | 22 passing, zero skipped/flaky/failing | e2e.json; Chromium desktop + mobile emulation, actual static / and /frontline/; current candidate |
 | Build / asset checks | Both variants, 34 files each | bundle-manifest.json; Three absent from production module graph; forbidden simulation hooks absent |
 | Pressure replay | 48 comparisons, zero divergences | financial-replay.json; synthetic PumpSwap/DLMM/Orca buy/sell/routed fixtures, four window ages; baseline versus candidate |
@@ -16,9 +16,9 @@ The initial Frontline 3.0.0-rc.1 candidate was accepted by the user, with a requ
 | Authority boundary / journal | 36 boundary checks + 6 admissions, zero divergences | financial-expanded.json; epochs, slot/time regression, foreign mint, expiry, deduplication and settlement; core code identical after LF normalization |
 | Persistent global budget | 30/80 RPC reservations allowed; 120/125 ingress allowed | budget-edge.json; actual local workerd/SQLite Durable Object, two mints concurrently, zero external requests; separate atomic reconstruction unit tests |
 | Dependency audit | Production: 0; full tooling: 4 moderate, 0 high/critical | audit-production.json / audit-final.json, dated 11 November; advisory state can change |
-| Transfer integrity | 28 selected source entries unchanged | transfer-manifest.json includes original and adapted hashes; selected private media not cleared for distribution |
+| Transfer integrity | 28 selected source entries unchanged | transfer-manifest.json includes original and adapted hashes; selected Frontline distribution scope recorded in ART.md after user acceptance |
 
-The Browser plugin was unavailable, so QA used local Playwright. Only Chromium installations are available; Firefox, WebKit, Safari, physical Android/iOS and integrated GPUs are untested. HTTP and WS interception was installed before navigation; service workers were blocked during measurements. Provider fixtures are synthetic HTTP responses, not evidence that the deployed live service works. No service was deployed or activated for QA.
+The Browser plugin was unavailable, so QA used local Playwright. Only Chromium installations are available; Firefox, WebKit, Safari, physical Android/iOS and integrated GPUs are untested. HTTP and WS interception was installed before navigation; service workers were blocked during measurements. Provider fixtures are synthetic HTTP responses, not evidence that the deployed live service works. These deterministic checks did not require activating a service; the later authorized publication and separate real-service samples are recorded in PUBLICATION.md.
 
 E2E covers explicit Demo, malformed mint and history recovery, representative provider discovery with degraded coverage, reload, absent production mutators even with ?diagnostics, HTML survival and asset retry, Pixel routes, Canvas fallback, resize, repeated disposal and GL1 loss/restoration. Existing affected contracts additionally cover timeout/429, reconnect, stale replies, abort, mint/epoch isolation, journal bounds and valuation expiry. Frozen 3D E2E/soak files remain historical and are not counted as current 2D QA.
 
@@ -55,16 +55,16 @@ The numerical runtime moved to a dedicated Worker to remove presentation stalls.
 | O13 tiny prices | Shared magnitude-aware formatting retains positive small prices; unknown values remain distinct. |
 | Old brand / old preset | Neutral Demo and theme; current product text, image inspection and optimized assets clean. Historical captures, Git history and actual operator resource names remain truthful. |
 | Three / duplicate simulation | Production graph excludes Three. Old scene stays in Git; dev-only Three supports frozen geometry contracts. One numerical owner, renderer consumes frames. |
-| Jupiter current snapshot / payload | Minimal functional schema passes Frontline consumer tests and parity hash; notices retained. Git history remains and requires appropriate rights review before distribution. |
-| Private art / R16 | Local-only transfer inventory prepared. No distribution clearance or acceptance inferred. ART.md offers a bounded replacement scope if clearance cannot be granted. |
+| Jupiter current snapshot / payload | Minimal functional schema passes Frontline consumer tests and parity hash; notices retained. Git history remains; no infringement or blanket rights clearance is asserted. |
+| Private art / R16 | Selected distribution was authorized by the user for Frontline; no blanket downstream license or R16 pilot acceptance. See ART.md. |
 | Pause button occluded by social links | Reproduced at 1440×1000; links moved into the header. Optimized E2E checks actual clicks at that viewport. Inspector is closed before resuming in the touch walkthrough. |
 | Stale contact after swap eviction | Reproduced in the final Canvas measurement. removeTrade now purges actor references immediately between fixed steps, including admission-cap eviction. A targeted contract regression checks the next frame before another step. Failure evidence is retained privately; final measurements were repeated after the fix. |
 | Renderer compatibility | GL2/GL1 use continuous articulated rigs; Canvas uses atlas animation and has poorer measured cadence. No equivalent performance or animation claim. |
-| Physical devices / actual endpoint | Pending with RUNBOOK.md procedure; no live smoke against a newly deployed endpoint claimed. |
-| Review / publication | Implementer self-review only. Exact visual/technical candidate acceptance, media/history decision and explicit remote-write authorization remain mandatory. |
+| Physical devices / actual endpoint | Physical devices pending; real served root/Pages/Pixel and bounded relay samples recorded in PUBLICATION.md. Full current execution-window qualification remains pending. |
+| Review / publication | Implementer self-review only. User accepted the exact candidate and authorized selected-art publication after the giant correction; PR25 merged, CI/Pages/Vercel verified. |
 | Reporter security incident | A previous failing reporter exposed inherited environment values in tool output. The inherited-env reporter configuration was removed; final reports contain no environment dump. Credentials exposed in that earlier output require operator rotation. Values are not reproduced here. |
 
-No known blocker remains in the deterministic primary desktop/Demo or configured-live fixture paths tested above. Canvas cadence, dense central contact, physical support and real served-live coverage have the stated limits. This is not a declaration that the complete public project is finished.
+No known blocker remains in the deterministic primary desktop/Demo or configured-live fixture paths tested above. Canvas cadence, dense central contact, physical support and real served-live coverage have the stated limits. This is a published release candidate with the explicit data/hardware qualification limits in PUBLICATION.md.
 
 ## Dependency decisions
 
